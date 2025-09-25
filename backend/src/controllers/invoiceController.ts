@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SourceDocumentType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { body, validationResult } from 'express-validator';
 
@@ -464,7 +464,7 @@ async function createAccountingEntries(
       debit: totalTtc,
       credit: 0,
       description: `Facture client`,
-      sourceDocumentType: 'INVOICE',
+      sourceDocumentType: 'INVOICE' as SourceDocumentType,
       sourceDocumentId: invoiceId,
       createdBy: userId
     });
@@ -476,7 +476,7 @@ async function createAccountingEntries(
       debit: 0,
       credit: subtotalHt,
       description: `Vente HT`,
-      sourceDocumentType: 'INVOICE',
+      sourceDocumentType: 'INVOICE' as SourceDocumentType,
       sourceDocumentId: invoiceId,
       createdBy: userId
     });
@@ -489,7 +489,7 @@ async function createAccountingEntries(
         debit: 0,
         credit: totalVat,
         description: `TVA collectée`,
-        sourceDocumentType: 'INVOICE',
+        sourceDocumentType: 'INVOICE' as SourceDocumentType,
         sourceDocumentId: invoiceId,
         createdBy: userId
       });
@@ -508,7 +508,7 @@ async function createAccountingEntries(
       amount: totalTtc,
       description: `Facture client`,
       category: 'Ventes',
-      sourceDocumentType: 'INVOICE',
+      sourceDocumentType: 'INVOICE' as SourceDocumentType,
       sourceDocumentId: invoiceId,
       createdBy: userId
     }

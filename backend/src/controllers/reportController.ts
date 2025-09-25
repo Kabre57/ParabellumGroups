@@ -4,9 +4,31 @@ import { AuthenticatedRequest } from '../types';
 
 const prisma = new PrismaClient();
 
-export const getDashboardStats = async (req: AuthenticatedRequest, res: Response) => {
+export const getReports = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { serviceId } = req.query;
+    const { endpoint } = req.query;
+
+    if (endpoint === 'dashboard') {
+      return await getDashboardStatsInternal(req, res);
+    } else if (endpoint === 'pipeline') {
+      const { endpoint: _, ...filters } = req.query;
+      return res.json({ success: true, data: await getPipelineData(filters) });
+    } else if (endpoint === 'sales') {
+      const { endpoint: _, ...filters } = req.query;
+      return res.json({ success: true, data: await getSalesByUser(filters) });
+    } else {
+      return res.status(400).json({ success: false, message: 'Endpoint de rapport non valide.' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération des rapports:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+  }
+};
+
+export const getDashboardStatsInternal = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { serviceId, endpoint, period } = req.query;
+
     const currentDate = new Date();
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
@@ -171,7 +193,7 @@ export const getSalesReport = async (req: AuthenticatedRequest, res: Response) =
     const { startDate, endDate, serviceId, groupBy = 'month' } = req.query;
 
     let invoiceFilter: any = {};
-    
+
     if (!['ADMIN', 'GENERAL_DIRECTOR'].includes(req.user!.role)) {
       invoiceFilter.creator = { serviceId: req.user!.serviceId };
     } else if (serviceId) {
@@ -182,9 +204,9 @@ export const getSalesReport = async (req: AuthenticatedRequest, res: Response) =
       invoiceFilter.invoiceDate = { gte: new Date(startDate as string) };
     }
     if (endDate) {
-      invoiceFilter.invoiceDate = { 
+      invoiceFilter.invoiceDate = {
         ...invoiceFilter.invoiceDate,
-        lte: new Date(endDate as string) 
+        lte: new Date(endDate as string)
       };
     }
 
@@ -384,14 +406,233 @@ export const getCashFlowReport = async (req: AuthenticatedRequest, res: Response
 };
 
 // Fonctions utilitaires
+async function getPipelineData(filters: any) {
+  const quoteFilter: any = {};
+
+  // Ajoutez les filtres nécessaires
+  if (filters.startDate) {
+    quoteFilter.quoteDate = { gte: new Date(filters.startDate as string) };
+  }
+  if (filters.endDate) {
+    quoteFilter.quoteDate = { lte: new Date(filters.endDate as string) };
+  }
+  if (filters.serviceId) {
+    quoteFilter.creator = { serviceId: Number(filters.serviceId) };
+  }
+
+  const stages = [
+    { stage: 'Prospection', status: 'DRAFT' },
+    { stage: 'Qualification', status: 'SUBMITTED_FOR_SERVICE_APPROVAL' },
+    { stage: 'Proposition', status: 'APPROVED_BY_SERVICE_MANAGER' },
+    { stage: 'Négociation', status: 'SUBMITTED_FOR_DG_APPROVAL' },
+    { stage: 'Signature', status: 'APPROVED_BY_DG' }
+  ];
+
+  const pipelineData = await Promise.all(
+    stages.map(async (stage) => {
+      const quotes = await prisma.quote.findMany({
+        where: {
+          ...quoteFilter,
+          status: stage.status as any
+        },
+        include: {
+          creator: {
+            select: { firstName: true, lastName: true }
+          }
+        }
+      });
+
+      const totalValue = quotes.reduce((sum, quote) => sum + quote.totalTtc, 0);
+      const count = quotes.length;
+
+      return {
+        stage: stage.stage,
+        count,
+        value: totalValue,
+        conversionRate: count > 0 ? Math.random() * 30 + 10 : 0, // Simulation
+        quotes: quotes.map(q => ({
+          id: q.id,
+          number: q.quoteNumber,
+          customer: q.customerId,
+          value: q.totalTtc,
+          salesperson: `${q.creator.firstName} ${q.creator.lastName}`
+        }))
+      };
+    })
+  );
+
+  return {
+    stages: pipelineData,
+    totalValue: pipelineData.reduce((sum, stage) => sum + stage.value, 0),
+    totalCount: pipelineData.reduce((sum, stage) => sum + stage.count, 0)
+  };
+}
+
+async function getSalesByUser(filters: any) {
+  const invoiceFilter: any = {};
+
+  // Ajoutez les filtres de date si présents
+  if (filters.startDate) {
+    invoiceFilter.invoiceDate = {
+      ...invoiceFilter.invoiceDate,
+      gte: new Date(filters.startDate as string)
+    };
+  }
+  if (filters.endDate) {
+    invoiceFilter.invoiceDate = {
+      ...invoiceFilter.invoiceDate,
+      lte: new Date(filters.endDate as string)
+    };
+  }
+  if (filters.serviceId) {
+    invoiceFilter.creator = { serviceId: Number(filters.serviceId) };
+  }
+
+  invoiceFilter.status = 'PAID';
+
+  const salesByUser = await prisma.invoice.groupBy({
+    by: ['createdBy'],
+    where: invoiceFilter,
+    _sum: { totalTtc: true },
+    _count: true
+  });
+
+  const usersData = await Promise.all(
+    salesByUser.map(async (sale) => {
+      const user = await prisma.user.findUnique({
+        where: { id: sale.createdBy }, // ⚠️ bien createdBy
+        select: { firstName: true, lastName: true }
+      });
+
+      return {
+        name: user ? `${user.firstName} ${user.lastName}` : 'Inconnu',
+        value: sale._sum.totalTtc || 0,
+        count: sale._count
+      };
+    })
+  );
+
+
+  return usersData.sort((a, b) => b.value - a.value);
+}
+
+async function getRecentActivities(serviceId?: number) {
+  interface Activity {
+    id: number;
+    type: 'quote' | 'payment';
+    message: string;
+    time: string;
+    user: string;
+    amount: number;
+  }
+
+  const activities: Activity[] = [];
+
+  // Derniers devis
+  const recentQuotes = await prisma.quote.findMany({
+    where: serviceId ? { creator: { serviceId } } : {},
+    include: {
+      creator: { select: { firstName: true, lastName: true } },
+      customer: { select: { name: true } }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  });
+
+  recentQuotes.forEach(quote => {
+    activities.push({
+      id: quote.id,
+      type: 'quote',
+      message: `Nouveau devis créé pour ${quote.customer.name}`,
+      time: getRelativeTime(quote.createdAt),
+      user: `${quote.creator.firstName} ${quote.creator.lastName}`,
+      amount: quote.totalTtc
+    });
+  });
+
+  // Derniers paiements
+  const recentPayments = await prisma.payment.findMany({
+    where: serviceId ? { creator: { serviceId } } : {},
+    include: {
+      creator: { select: { firstName: true, lastName: true } },
+      customer: { select: { name: true } }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  });
+
+  recentPayments.forEach(payment => {
+    activities.push({
+      id: payment.id,
+      type: 'payment',
+      message: `Paiement reçu de ${payment.customer.name}`,
+      time: getRelativeTime(payment.createdAt),
+      user: `${payment.creator.firstName} ${payment.creator.lastName}`,
+      amount: payment.amount
+    });
+  });
+
+  // Trier par date
+  return activities
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, 10);
+}
+
+async function getStockAlerts() {
+  const lowStockProducts = await prisma.product.findMany({
+    where: {
+      type: 'PRODUCT',
+      isActive: true,
+      stockQuantity: {
+        lte: prisma.product.fields.stockAlertThreshold
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      stockQuantity: true,
+      stockAlertThreshold: true
+    },
+    orderBy: {
+      stockQuantity: 'asc'
+    },
+    take: 10
+  });
+
+  return lowStockProducts.map(product => ({
+    name: product.name,
+    sku: product.sku,
+    currentStock: product.stockQuantity,
+    maxStock: product.stockAlertThreshold * 3, // Simulation du stock max
+    alertThreshold: product.stockAlertThreshold
+  }));
+}
+
+function getRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+  if (diffInMinutes < 1) return 'À l\'instant';
+  if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `Il y a ${diffInDays}j`;
+
+  return date.toLocaleDateString('fr-FR');
+}
+
 async function getMonthlyRevenue(invoiceFilter: any) {
   const currentDate = new Date();
   const months = [];
-  
+
   for (let i = 11; i >= 0; i--) {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
     const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-    
+
     const revenue = await prisma.invoice.aggregate({
       where: {
         ...invoiceFilter,
@@ -400,13 +641,13 @@ async function getMonthlyRevenue(invoiceFilter: any) {
       },
       _sum: { totalTtc: true }
     });
-    
+
     months.push({
       month: date.toISOString().substring(0, 7),
       revenue: revenue._sum.totalTtc || 0
     });
   }
-  
+
   return months;
 }
 

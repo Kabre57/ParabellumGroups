@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import {
   getContracts,
   getContractById,
@@ -10,7 +11,7 @@ import {
 import { authenticateToken, requirePermission } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Toutes les routes nécessitent une authentification
 router.use(authenticateToken);

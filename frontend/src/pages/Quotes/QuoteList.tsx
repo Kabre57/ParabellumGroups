@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, Filter, Edit, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Search, Edit, Eye, CheckCircle, XCircle, Clock, Download, Send, Printer } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
+import { CreateQuoteModal } from '../../components/Modals/Create/CreateQuoteModal';
+import { ViewQuoteModal } from '../../components/Modals/View/ViewQuoteModal';
+import { EditQuoteModal } from '../../components/Modals/Edit/EditQuoteModal';
 
 const quoteService = createCrudService('quotes');
 
@@ -20,15 +23,180 @@ const statusConfig = {
 };
 
 export const QuoteList: React.FC = () => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['quotes', page, search, statusFilter],
     queryFn: () => quoteService.getAll({ page, limit: 10, search, status: statusFilter })
   });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, comments }: { id: number; comments?: string }) => 
+      fetch(`/api/v1/quotes/${id}/approve`, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ comments })
+      }).then(res => {
+        if (!res.ok) throw new Error('Erreur lors de l\'approbation');
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    },
+    onError: (error) => {
+      alert(`Erreur: ${error.message}`);
+    }
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, comments }: { id: number; comments: string }) => 
+      fetch(`/api/v1/quotes/${id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ comments })
+      }).then(res => {
+        if (!res.ok) throw new Error('Erreur lors du rejet');
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    },
+    onError: (error) => {
+      alert(`Erreur: ${error.message}`);
+    }
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: (id: number) => 
+      fetch(`/api/v1/quotes/${id}/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }).then(res => {
+        if (!res.ok) throw new Error('Erreur lors de la soumission');
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  const handleViewQuote = (quote: any) => {
+    setSelectedQuote(quote);
+    setShowViewModal(true);
+  };
+
+  const handleEditQuote = (quote: any) => {
+    setSelectedQuote(quote);
+    setShowEditModal(true);
+  };
+
+  const handleApprove = async (quote: any) => {
+    const comments = prompt('Commentaires (optionnel):');
+    if (comments === null) return; // User cancelled
+    
+    try {
+      await approveMutation.mutateAsync({ id: quote.id, comments: comments || undefined });
+    } catch (error) {
+      console.error('Erreur lors de l\'approbation:', error);
+    }
+  };
+
+  const handleReject = async (quote: any) => {
+    const comments = prompt('Motif du rejet (requis):');
+    if (!comments) return;
+    
+    try {
+      await rejectMutation.mutateAsync({ id: quote.id, comments });
+    } catch (error) {
+      console.error('Erreur lors du rejet:', error);
+    }
+  };
+
+  const handleSubmit = async (quote: any) => {
+    if (!confirm('Soumettre ce devis pour approbation?')) return;
+    
+    try {
+      await submitMutation.mutateAsync(quote.id);
+    } catch (error) {
+      console.error('Erreur lors de la soumission:', error);
+    }
+  };
+
+  const handlePrint = (quote: any) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Devis ${quote.quoteNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .quote-details { margin-bottom: 20px; }
+              .table { width: 100%; border-collapse: collapse; }
+              .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              .table th { background-color: #f5f5f5; }
+              .total { text-align: right; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>DEVIS</h1>
+              <h2>${quote.quoteNumber}</h2>
+            </div>
+            <div class="quote-details">
+              <p><strong>Client:</strong> ${quote.customer.name}</p>
+              <p><strong>Date:</strong> ${new Date(quote.createdAt).toLocaleDateString()}</p>
+              <p><strong>Validité:</strong> Jusqu'au ${new Date(quote.validUntil).toLocaleDateString()}</p>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Quantité</th>
+                  <th>Prix unitaire HT</th>
+                  <th>Total HT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${quote.items?.map((item: any) => `
+                  <tr>
+                    <td>${item.description}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.unitPriceHt.toLocaleString()} FCFA</td>
+                    <td>${item.totalHt.toLocaleString()} FCFA</td>
+                  </tr>
+                `).join('') || ''}
+              </tbody>
+            </table>
+            <div class="total">
+              <p>Sous-total HT: ${quote.subtotalHt.toLocaleString()} FCFA</p>
+              <p>TVA: ${quote.totalVat.toLocaleString()} FCFA</p>
+              <p><strong>Total TTC: ${quote.totalTtc.toLocaleString()} FCFA</strong></p>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -55,10 +223,13 @@ export const QuoteList: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Devis</h1>
-          <p className="text-gray-600">Créez et gérez vos devis avec workflow d'approbation</p>
+          <p className="text-gray-600">Créez et gérez vos devis avec approbation</p>
         </div>
         {hasPermission('quotes.create') && (
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2">
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2"
+          >
             <Plus className="h-4 w-4" />
             <span>Nouveau Devis</span>
           </button>
@@ -90,6 +261,24 @@ export const QuoteList: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* Modales */}
+      <CreateQuoteModal 
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+      />
+      
+      <ViewQuoteModal 
+        isOpen={showViewModal} 
+        onClose={() => setShowViewModal(false)}
+        quote={selectedQuote}
+      />
+      
+      <EditQuoteModal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)}
+        quote={selectedQuote}
+      />
 
       {/* Liste des devis */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -165,24 +354,86 @@ export const QuoteList: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
                       {hasPermission('quotes.read') && (
-                        <button className="text-blue-600 hover:text-blue-900">
+                        <button 
+                          onClick={() => handleViewQuote(quote)}
+                          className="text-blue-600 hover:text-blue-900" 
+                          title="Voir détails"
+                        >
                           <Eye className="h-4 w-4" />
                         </button>
                       )}
+                      
+                      <button 
+                        onClick={() => handlePrint(quote)}
+                        className="text-purple-600 hover:text-purple-900" 
+                        title="Imprimer"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      
+                      <button 
+                        className="text-green-600 hover:text-green-900" 
+                        title="Télécharger PDF"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+
                       {hasPermission('quotes.update') && quote.status === 'DRAFT' && (
-                        <button className="text-indigo-600 hover:text-indigo-900">
+                        <button 
+                          onClick={() => handleEditQuote(quote)}
+                          className="text-indigo-600 hover:text-indigo-900" 
+                          title="Modifier"
+                        >
                           <Edit className="h-4 w-4" />
                         </button>
                       )}
-                      {hasPermission('quotes.approve_service') && quote.status === 'SUBMITTED_FOR_SERVICE_APPROVAL' && (
-                        <button className="text-green-600 hover:text-green-900">
-                          <CheckCircle className="h-4 w-4" />
+                      
+                      {hasPermission('quotes.submit') && quote.status === 'DRAFT' && (
+                        <button 
+                          onClick={() => handleSubmit(quote)}
+                          className="text-blue-600 hover:text-blue-900" 
+                          title="Soumettre pour approbation"
+                        >
+                          <Send className="h-4 w-4" />
                         </button>
                       )}
+                      
+                      {hasPermission('quotes.approve_service') && quote.status === 'SUBMITTED_FOR_SERVICE_APPROVAL' && (
+                        <>
+                          <button 
+                            onClick={() => handleApprove(quote)}
+                            className="text-green-600 hover:text-green-900" 
+                            title="Approuver"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleReject(quote)}
+                            className="text-red-600 hover:text-red-900" 
+                            title="Rejeter"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                      
                       {hasPermission('quotes.approve_dg') && quote.status === 'SUBMITTED_FOR_DG_APPROVAL' && (
-                        <button className="text-green-600 hover:text-green-900">
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
+                        <>
+                          <button 
+                            onClick={() => handleApprove(quote)}
+                            className="text-green-600 hover:text-green-900" 
+                            title="Approuver"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleReject(quote)}
+                            className="text-red-600 hover:text-red-900" 
+                            title="Rejeter"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

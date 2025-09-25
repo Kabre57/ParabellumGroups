@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { getPrismaClient } from '../config/database';
 import { ROLE_PERMISSIONS } from '../database/permissions';
 import { AuthResponse, LoginRequest } from '../types';
+import { logger, auditLogger } from '../config/logger';
+import { config } from '../config';
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -42,7 +44,8 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Obtenir les permissions basées sur le rôle
-    const permissions = ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
+    const customPermissions = user.preferences ? JSON.parse(user.preferences) : null;
+    const permissions = customPermissions?.permissions || ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
 
     // Générer les tokens
     const tokenPayload = {
@@ -74,15 +77,18 @@ export const login = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role as any,
-        serviceId: user.serviceId,
+        serviceId: user.serviceId || undefined,
         isActive: user.isActive,
-        lastLogin: user.lastLogin,
-        avatarUrl: user.avatarUrl,
-        service: user.service
+        lastLogin: user.lastLogin || undefined,
+        avatarUrl: user.avatarUrl || undefined,
+        service: user.service ? {
+          ...user.service,
+          description: user.service.description || undefined
+        } : undefined,
       },
       token,
       refreshToken,
-      permissions: permissions.map(perm => ({
+      permissions: permissions.map((perm: string) => ({
         id: 0,
         name: perm,
         resource: perm.split('.')[0],
@@ -116,7 +122,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as { userId: number };
-    
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: { service: true }
@@ -129,7 +135,8 @@ export const refreshToken = async (req: Request, res: Response) => {
       });
     }
 
-    const permissions = ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
+    const customPermissions = user.preferences ? JSON.parse(user.preferences) : null;
+    const permissions = customPermissions?.permissions || ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
 
     const newToken = jwt.sign(
       {
@@ -178,7 +185,8 @@ export const getProfile = async (req: any, res: Response) => {
       });
     }
 
-    const permissions = ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
+    const customPermissions = user.preferences ? JSON.parse(user.preferences) : null;
+    const permissions = customPermissions?.permissions || ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
 
     res.json({
       success: true,
@@ -189,13 +197,13 @@ export const getProfile = async (req: any, res: Response) => {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
-          serviceId: user.serviceId,
+          serviceId: user.serviceId || undefined,
           isActive: user.isActive,
-          lastLogin: user.lastLogin,
-          avatarUrl: user.avatarUrl,
-          service: user.service
+          lastLogin: user.lastLogin || undefined,
+          avatarUrl: user.avatarUrl || undefined,
+          service: user.service || undefined
         },
-        permissions: permissions.map(perm => ({
+        permissions: permissions.map((perm: string) => ({
           id: 0,
           name: perm,
           resource: perm.split('.')[0],

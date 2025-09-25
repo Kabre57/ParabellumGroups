@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Filter, Edit, Trash2, Eye } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
+import { CreateCustomerModal } from '../../components/Modals/Create/CreateCustomerModal';
+import { EditCustomerModal } from '../../components/Modals/Edit/EditCustomerModal';
+import { ViewCustomerModal } from '../../components/Modals/View/ViewCustomerModal';
 
 const customerService = createCrudService('customers');
 
@@ -11,6 +14,9 @@ export const CustomerList: React.FC = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['customers', page, search],
@@ -35,6 +41,22 @@ export const CustomerList: React.FC = () => {
 
   const customers = data?.data?.customers || [];
   const pagination = data?.data?.pagination;
+
+  const handleViewCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setShowViewModal(true);
+  };
+
+  const handleEditCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setShowEditModal(true);
+  };
+
+  const handleCloseModals = () => {
+    setShowEditModal(false);
+    setShowViewModal(false);
+    setSelectedCustomer(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -74,6 +96,24 @@ export const CustomerList: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Modales */}
+      <CreateCustomerModal 
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+      />
+      
+      <EditCustomerModal
+        isOpen={showEditModal}
+        onClose={handleCloseModals}
+        customer={selectedCustomer}
+      />
+      
+      <ViewCustomerModal
+        isOpen={showViewModal}
+        onClose={handleCloseModals}
+        customer={selectedCustomer}
+      />
 
       {/* Liste des clients */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -143,17 +183,25 @@ export const CustomerList: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">
                     {hasPermission('customers.read') && (
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button 
+                        onClick={() => handleViewCustomer(customer)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Voir les détails"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                     )}
                     {hasPermission('customers.update') && (
-                      <button className="text-indigo-600 hover:text-indigo-900">
+                      <button 
+                        onClick={() => handleEditCustomer(customer)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Modifier"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                     )}
                     {hasPermission('customers.delete') && (
-                      <button className="text-red-600 hover:text-red-900">
+                      <button className="text-red-600 hover:text-red-900" title="Supprimer">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}

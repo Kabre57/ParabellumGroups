@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { login, refreshToken, logout, getProfile } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 router.post('/login', auditLog('LOGIN', 'AUTH'), login);
 router.post('/refresh', refreshToken);

@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Calendar, CheckCircle, XCircle, Clock, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
+import { CreateLeaveModal } from '../../components/Modals/Create/CreateLeaveModal';
+import { EditLeaveModal } from '../../components/Modals/Edit/EditLeaveModal';
+import { ViewLeaveModal } from '../../components/Modals/View/ViewLeaveModal';
 
 const leaveService = createCrudService('leaves');
 
@@ -28,6 +31,9 @@ export const LeaveManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['leaves', page, search, statusFilter],
@@ -36,7 +42,7 @@ export const LeaveManagement: React.FC = () => {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, comments }: { id: number; comments?: string }) => 
-      fetch(`/api/v1/leaves/${id}/approve`, {
+      fetch(`/api/v1/leaves/${id}/approve`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,6 +87,22 @@ export const LeaveManagement: React.FC = () => {
   }
 
   const leaveRequests = data?.data?.leaveRequests || [];
+
+  const handleViewLeave = (leave: any) => {
+    setSelectedLeave(leave);
+    setShowViewModal(true);
+  };
+
+  const handleEditLeave = (leave: any) => {
+    setSelectedLeave(leave);
+    setShowEditModal(true);
+  };
+
+  const handleCloseModals = () => {
+    setShowEditModal(false);
+    setShowViewModal(false);
+    setSelectedLeave(null);
+  };
   const pagination = data?.data?.pagination;
 
   const handleApprove = async (request: any) => {
@@ -147,6 +169,12 @@ export const LeaveManagement: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* Modales */}
+      <CreateLeaveModal 
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+      />
 
       {/* Liste des demandes */}
       <div className="bg-white shadow rounded-lg overflow-hidden">

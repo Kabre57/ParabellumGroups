@@ -20,7 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -33,10 +33,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Vérifier les permissions si spécifiées
   if (permission && !hasPermission(permission)) {
     return fallback || (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Accès refusé</h2>
-          <p className="text-gray-600">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Accès refusé</h2>
+          <p className="text-gray-600 dark:text-gray-300">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
         </div>
       </div>
     );
@@ -45,10 +45,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Vérifier les rôles si spécifiés
   if (roles && !hasRole(roles)) {
     return fallback || (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Accès refusé</h2>
-          <p className="text-gray-600">Votre rôle ne vous permet pas d'accéder à cette page.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Accès refusé</h2>
+          <p className="text-gray-600 dark:text-gray-300">Votre rôle ne vous permet pas d'accéder à cette page.</p>
         </div>
       </div>
     );

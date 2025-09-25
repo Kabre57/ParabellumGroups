@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import {
   getUsers,
   getUserById,
@@ -8,6 +9,8 @@ import {
   updatePassword,
   getRoles,
   getServices,
+  getUserPermissions,
+  updateUserPermissions,
   validateUser,
   validateUserCreation,
   validatePasswordUpdate
@@ -15,7 +18,7 @@ import {
 import { authenticateToken, requirePermission } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Toutes les routes nécessitent une authentification
 router.use(authenticateToken);
@@ -61,6 +64,19 @@ router.patch('/:id/password',
   validatePasswordUpdate,
   auditLog('UPDATE_PASSWORD', 'USER'),
   updatePassword
+);
+
+// Routes pour la gestion des permissions - CORRECTION
+router.get('/:id/permissions', 
+  requirePermission('users.manage_permissions'),
+  auditLog('READ', 'USER_PERMISSIONS'),
+  getUserPermissions
+);
+
+router.put('/:id/permissions', 
+  requirePermission('users.manage_permissions'),
+  auditLog('UPDATE', 'USER_PERMISSIONS'),
+  updateUserPermissions
 );
 
 export default router;

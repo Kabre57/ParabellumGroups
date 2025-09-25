@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, Eye, User, Calendar, DollarSign } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
+import { CreateEmployeeModal } from '../../components/Modals/Create/CreateEmployeeModal';
+import { EditEmployeeModal } from '../../components/Modals/Edit/EditEmployeeModal';
+import { ViewEmployeeModal } from '../../components/Modals/View/ViewEmployeeModal';
 
 const employeeService = createCrudService('employees');
 
@@ -13,6 +16,9 @@ export const EmployeeList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [serviceFilter, setServiceFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['employees', page, search, serviceFilter],
@@ -44,6 +50,22 @@ export const EmployeeList: React.FC = () => {
 
   const employees = data?.data?.employees || [];
   const pagination = data?.data?.pagination;
+
+  const handleViewEmployee = (employee: any) => {
+    setSelectedEmployee(employee);
+    setShowViewModal(true);
+  };
+
+  const handleEditEmployee = (employee: any) => {
+    setSelectedEmployee(employee);
+    setShowEditModal(true);
+  };
+
+  const handleCloseModals = () => {
+    setShowEditModal(false);
+    setShowViewModal(false);
+    setSelectedEmployee(null);
+  };
 
   const handleDeleteEmployee = async (employee: any) => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'employé ${employee.firstName} ${employee.lastName} ?`)) {
@@ -99,6 +121,24 @@ export const EmployeeList: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* Modales */}
+      <CreateEmployeeModal 
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+      />
+      
+      <EditEmployeeModal
+        isOpen={showEditModal}
+        onClose={handleCloseModals}
+        employee={selectedEmployee}
+      />
+      
+      <ViewEmployeeModal
+        isOpen={showViewModal}
+        onClose={handleCloseModals}
+        employee={selectedEmployee}
+      />
 
       {/* Liste des employés */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -174,22 +214,30 @@ export const EmployeeList: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">
                     {hasPermission('employees.read') && (
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button 
+                        onClick={() => handleViewEmployee(employee)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Voir les détails"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                     )}
                     {hasPermission('contracts.read') && (
-                      <button className="text-purple-600 hover:text-purple-900">
+                      <button className="text-purple-600 hover:text-purple-900" title="Contrats">
                         <Calendar className="h-4 w-4" />
                       </button>
                     )}
                     {hasPermission('salaries.read') && (
-                      <button className="text-green-600 hover:text-green-900">
+                      <button className="text-green-600 hover:text-green-900" title="Salaires">
                         <DollarSign className="h-4 w-4" />
                       </button>
                     )}
                     {hasPermission('employees.update') && (
-                      <button className="text-indigo-600 hover:text-indigo-900">
+                      <button 
+                        onClick={() => handleEditEmployee(employee)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Modifier"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                     )}
@@ -197,6 +245,7 @@ export const EmployeeList: React.FC = () => {
                       <button 
                         onClick={() => handleDeleteEmployee(employee)}
                         className="text-red-600 hover:text-red-900"
+                        title="Supprimer"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

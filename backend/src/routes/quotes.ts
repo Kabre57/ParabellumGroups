@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import {
   getQuotes,
   getQuoteById,
@@ -12,7 +13,7 @@ import {
 import { authenticateToken, requirePermission } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Toutes les routes nécessitent une authentification
 router.use(authenticateToken);
@@ -44,19 +45,20 @@ router.post('/:id/submit-for-service-approval',
   submitForServiceApproval
 );
 
-router.post('/:id/approve-by-service-manager', 
+router.post('/:id/approve-service', 
   requirePermission('quotes.approve_service'),
   auditLog('APPROVE_SERVICE', 'QUOTE'),
   approveByServiceManager
 );
 
-router.post('/:id/approve-by-dg', 
+router.post('/:id/approve-dg', 
   requirePermission('quotes.approve_dg'),
   auditLog('APPROVE_DG', 'QUOTE'),
   approveByDG
 );
 
 router.post('/:id/reject', 
+  requirePermission('quotes.reject'),
   auditLog('REJECT', 'QUOTE'),
   rejectQuote
 );

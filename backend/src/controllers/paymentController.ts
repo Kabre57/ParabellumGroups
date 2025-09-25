@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SourceDocumentType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { body, validationResult } from 'express-validator';
 
@@ -332,7 +332,7 @@ async function createPaymentAccountingEntries(
     debit: amount,
     credit: 0,
     description: `Encaissement client`,
-    sourceDocumentType: 'PAYMENT',
+    sourceDocumentType: SourceDocumentType.PAYMENT,
     sourceDocumentId: paymentId,
     createdBy: userId
   });
@@ -344,7 +344,7 @@ async function createPaymentAccountingEntries(
     debit: 0,
     credit: amount,
     description: `Paiement client`,
-    sourceDocumentType: 'PAYMENT',
+    sourceDocumentType: SourceDocumentType.PAYMENT,
     sourceDocumentId: paymentId,
     createdBy: userId
   });

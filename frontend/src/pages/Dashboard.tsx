@@ -1,209 +1,387 @@
-import React from 'react';
-import { Users, FileText, Receipt, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { 
+  Users, 
+  FileText, 
+  Receipt, 
+  TrendingUp, 
+  DollarSign, 
+  AlertCircle,
+  BarChart3,
+  PieChart,
+  Activity,
+  Target,
+  Calendar,
+  Filter,
+  RefreshCw,
+  Package,
+  Eye
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { createCrudService } from '../services/api';
+import { SalesChart } from '../components/Charts/SalesChart';
+import { PipelineChart } from '../components/Charts/PipelineChart';
+import { RevenueChart } from '../components/Charts/RevenueChart';
+import { StockChart } from '../components/Charts/StockChart';
+import { KPICard } from '../components/Dashboard/KPICard';
+import { ActivityFeed } from '../components/Dashboard/ActivityFeed';
+import { QuickActions } from '../components/Dashboard/QuickActions';
 
-interface StatCardProps {
-  title: string;
-  value: string;
-  icon: React.ComponentType<any>;
-  color: string;
-  change?: string;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, change }) => (
-  <div className="bg-white overflow-hidden shadow rounded-lg">
-    <div className="p-5">
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <Icon className={`h-6 w-6 ${color}`} />
-        </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="flex items-baseline">
-              <div className="text-2xl font-semibold text-gray-900">{value}</div>
-              {change && (
-                <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
-                  {change}
-                </div>
-              )}
-            </dd>
-          </dl>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+const reportService = createCrudService('reports');
 
 export const Dashboard: React.FC = () => {
   const { user, hasPermission } = useAuth();
+  const [dateRange, setDateRange] = useState('30d');
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 secondes
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const stats = [
+  // Données du dashboard avec rafraîchissement automatique
+  const { data: dashboardData, isLoading, refetch } = useQuery({
+    queryKey: ['dashboard', dateRange],
+    queryFn: () => reportService.getAll({ endpoint: 'dashboard', period: dateRange }),
+    refetchInterval: refreshInterval,
+    refetchOnWindowFocus: true
+  });
+
+  // Pipeline CRM
+  const { data: pipelineData } = useQuery({
+    queryKey: ['pipeline', dateRange],
+    queryFn: () => reportService.getAll({ endpoint: 'pipeline', period: dateRange }),
+    enabled: hasPermission('quotes.read'),
+    refetchInterval: refreshInterval
+  });
+
+  // Données de ventes
+  const { data: salesData } = useQuery({
+    queryKey: ['sales-analytics', dateRange],
+    queryFn: () => reportService.getAll({ endpoint: 'sales', period: dateRange }),
+    enabled: hasPermission('reports.sales'),
+    refetchInterval: refreshInterval
+  });
+
+  // Rafraîchissement manuel
+  const handleRefresh = () => {
+    refetch();
+    setLastRefresh(new Date());
+  };
+
+  // Auto-refresh timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastRefresh(new Date());
+    }, refreshInterval);
+    return () => clearInterval(interval);
+  }, [refreshInterval]);
+
+  const stats = dashboardData?.data || {};
+  const pipeline = pipelineData?.data || {};
+  const sales = salesData?.data || {};
+
+  const kpiData = [
     {
-      title: 'Clients actifs',
-      value: '156',
+      title: 'Chiffre d\'Affaires',
+      value: stats.revenue?.total || 0,
+      format: 'currency',
+      icon: DollarSign,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+      change: stats.revenue?.change || 0,
+      permission: 'reports.financial'
+    },
+    {
+      title: 'Clients Actifs',
+      value: stats.customers?.active || 0,
+      format: 'number',
       icon: Users,
       color: 'text-blue-600',
-      change: '+12%',
+      bgColor: 'bg-blue-100',
+      change: stats.customers?.change || 0,
       permission: 'customers.read'
     },
     {
-      title: 'Devis en cours',
-      value: '23',
+      title: 'Devis en Cours',
+      value: stats.quotes?.pending || 0,
+      format: 'number',
       icon: FileText,
       color: 'text-yellow-600',
-      change: '+5%',
+      bgColor: 'bg-yellow-100',
+      change: stats.quotes?.change || 0,
       permission: 'quotes.read'
     },
     {
-      title: 'Factures impayées',
-      value: '8',
+      title: 'Factures Impayées',
+      value: stats.invoices?.unpaid || 0,
+      format: 'number',
       icon: Receipt,
       color: 'text-red-600',
-      change: '-2%',
+      bgColor: 'bg-red-100',
+      change: stats.invoices?.change || 0,
       permission: 'invoices.read'
     },
     {
-      title: 'CA du mois',
-      value: '125M FCFA',
-      icon: DollarSign,
-      color: 'text-green-600',
-      change: '+18%',
-      permission: 'reports.financial'
+      title: 'Taux de Conversion',
+      value: stats.conversion?.rate || 0,
+      format: 'percentage',
+      icon: Target,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100',
+      change: stats.conversion?.change || 0,
+      permission: 'reports.sales'
     },
+    {
+      title: 'Projets Actifs',
+      value: stats.projects?.active || 0,
+      format: 'number',
+      icon: Activity,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100',
+      change: stats.projects?.change || 0,
+      permission: 'quotes.read'
+    }
   ];
 
-  const visibleStats = stats.filter(stat => !stat.permission || hasPermission(stat.permission));
+  const visibleKPIs = kpiData.filter(kpi => !kpi.permission || hasPermission(kpi.permission));
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: 'quote',
-      message: 'Nouveau devis créé pour SIFCA Group',
-      time: 'Il y a 2 heures',
-      user: 'Yao Konan'
-    },
-    {
-      id: 2,
-      type: 'payment',
-      message: 'Paiement reçu de Progitek Solutions',
-      time: 'Il y a 4 heures',
-      user: 'Mariam Cissé'
-    },
-    {
-      id: 3,
-      type: 'approval',
-      message: 'Devis approuvé par le service commercial',
-      time: 'Il y a 6 heures',
-      user: 'Fatou Diabaté'
-    },
-  ];
-
-  const pendingApprovals = [
-    {
-      id: 1,
-      type: 'Devis',
-      reference: 'DEV-2024-001',
-      client: 'SIFCA Group',
-      amount: '2.5M FCFA',
-      status: 'En attente validation DG'
-    },
-    {
-      id: 2,
-      type: 'Devis',
-      reference: 'DEV-2024-002',
-      client: 'Progitek Solutions',
-      amount: '1.8M FCFA',
-      status: 'En attente validation service'
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* En-tête de bienvenue */}
-      <div className="bg-white shadow rounded-lg p-6">
+      {/* En-tête avec contrôles */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Bonjour, {user?.firstName} {user?.lastName}
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Tableau de Bord
             </h1>
-            <p className="text-gray-600">
-              Voici un aperçu de votre activité aujourd'hui
+            <p className="text-gray-600 dark:text-gray-300 mt-1">
+              Bonjour {user?.firstName}, voici un aperçu de votre activité
             </p>
+            <div className="flex items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <Calendar className="h-4 w-4 mr-1" />
+              Dernière mise à jour : {lastRefresh.toLocaleTimeString()}
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Service</p>
-            <p className="font-medium text-gray-900">{user?.service?.name}</p>
+          <div className="flex items-center space-x-4">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="7d">7 derniers jours</option>
+              <option value="30d">30 derniers jours</option>
+              <option value="90d">3 derniers mois</option>
+              <option value="1y">Cette année</option>
+            </select>
+            <button
+              onClick={handleRefresh}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Actualiser</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {visibleStats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {visibleKPIs.map((kpi, index) => (
+          <KPICard key={index} {...kpi} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activités récentes */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Activités récentes</h3>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.message}</p>
-                    <p className="text-xs text-gray-500">
-                      {activity.time} • {activity.user}
-                    </p>
+      {/* Alertes et actions rapides */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Alertes importantes */}
+        <div className="lg:col-span-2">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+              <AlertCircle className="h-5 w-5 text-orange-500 mr-2" />
+              Alertes et Notifications
+            </h3>
+            <div className="space-y-3">
+              {/* Alertes stock */}
+              <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                <div className="flex items-center">
+                  <Package className="h-5 w-5 text-orange-600 mr-3" />
+                  <div>
+                    <div className="text-sm font-medium text-orange-800 dark:text-orange-200">Stock faible</div>
+                    <div className="text-xs text-orange-600 dark:text-orange-300">3 articles sous le seuil d'alerte</div>
                   </div>
                 </div>
-              ))}
+                <button className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300">
+                  <Eye className="h-4 w-4" />
+                </button>
+              </div>
+              
+              {/* Interventions en cours */}
+              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center">
+                  <Calendar className="h-5 w-5 text-blue-600 mr-3" />
+                  <div>
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-200">Interventions en cours</div>
+                    <div className="text-xs text-blue-600 dark:text-blue-300">5 interventions actives</div>
+                  </div>
+                </div>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                  <Eye className="h-4 w-4" />
+                </button>
+              </div>
+              
+              {/* Rapports en attente */}
+              <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 text-yellow-600 mr-3" />
+                  <div>
+                    <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Rapports en attente</div>
+                    <div className="text-xs text-yellow-600 dark:text-yellow-300">2 rapports à valider</div>
+                  </div>
+                </div>
+                <button className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300">
+                  <Eye className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Approbations en attente */}
-        {(hasPermission('quotes.approve_service') || hasPermission('quotes.approve_dg')) && (
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                Approbations en attente
+      </div>
+      {/* Graphiques principaux */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pipeline CRM */}
+        {hasPermission('quotes.read') && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <Target className="h-5 w-5 text-blue-500 mr-2" />
+                Pipeline des Opportunités
               </h3>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {pendingApprovals.map((item) => (
-                  <div key={item.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {item.type} {item.reference}
-                        </p>
-                        <p className="text-sm text-gray-600">{item.client}</p>
-                        <p className="text-sm font-medium text-green-600">{item.amount}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          {item.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {pipeline.totalValue ? `${(pipeline.totalValue / 1000000).toFixed(1)}M FCFA` : '0 FCFA'}
               </div>
             </div>
+            <PipelineChart data={pipeline.stages || []} />
+          </div>
+        )}
+
+        {/* Évolution du CA */}
+        {hasPermission('reports.financial') && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <TrendingUp className="h-5 w-5 text-green-500 mr-2" />
+                Évolution du Chiffre d'Affaires
+              </h3>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Tendance : {stats.revenue?.trend > 0 ? '+' : ''}{stats.revenue?.trend || 0}%
+              </div>
+            </div>
+            <RevenueChart data={sales.monthlyRevenue || []} />
           </div>
         )}
       </div>
+
+      {/* Graphiques secondaires */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Ventes par Commercial */}
+        {hasPermission('reports.sales') && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <BarChart3 className="h-5 w-5 text-purple-500 mr-2" />
+              Ventes par Commercial
+            </h3>
+            <SalesChart data={sales.bySalesperson || []} type="bar" />
+          </div>
+        )}
+
+        {/* Répartition par Service */}
+        {hasPermission('reports.sales') && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <PieChart className="h-5 w-5 text-indigo-500 mr-2" />
+              Répartition par Service
+            </h3>
+            <SalesChart data={sales.byService || []} type="pie" />
+          </div>
+        )}
+
+        {/* Alertes Stock */}
+        {hasPermission('products.read') && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <AlertCircle className="h-5 w-5 text-orange-500 mr-2" />
+              Alertes Stock
+            </h3>
+            <StockChart data={stats.stock?.alerts || []} />
+          </div>
+        )}
+      </div>
+
+      {/* Section inférieure */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Activités récentes */}
+        <div className="lg:col-span-2">
+          <ActivityFeed activities={stats.recentActivities || []} />
+        </div>
+
+        {/* Actions rapides */}
+        <div>
+          <QuickActions />
+        </div>
+      </div>
+
+      {/* Métriques détaillées */}
+      {hasPermission('reports.financial') && (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+            Métriques Financières Détaillées
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'XOF',
+                  notation: 'compact'
+                }).format(stats.financial?.revenue || 0)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Revenus</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'XOF',
+                  notation: 'compact'
+                }).format(stats.financial?.expenses || 0)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Dépenses</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'XOF',
+                  notation: 'compact'
+                }).format(stats.financial?.profit || 0)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Bénéfice</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {((stats.financial?.profit || 0) / (stats.financial?.revenue || 1) * 100).toFixed(1)}%
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Marge</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
