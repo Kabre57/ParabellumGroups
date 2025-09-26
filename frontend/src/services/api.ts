@@ -26,9 +26,7 @@ import {
   Materiel,
   RapportMission,
   ClientProject,
-  ProjectTask,
   PurchaseOrder,
-  PurchaseReceipt,
   PerformanceReview,
   CalendarEvent,
   TimeOffRequest,
@@ -40,16 +38,14 @@ import {
   Notification,
   Message,
   Specialite,
-  UserCalendar,
-  RolePermission,
   Permission
 } from "../types";
 
 // Configuration de l'URL basée sur ton environnement
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 
-// Instance principale avec intercepteurs
-const api = axios.create({
+// Instance sans intercepteurs pour éviter les boucles infinies
+const refreshApi = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -58,8 +54,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Instance sans intercepteurs pour éviter les boucles infinies
-const refreshApi = axios.create({
+// Instance principale avec intercepteurs
+const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -96,9 +92,8 @@ api.interceptors.response.use(
           throw new Error("No refresh token available");
         }
 
-        // Utiliser l'instance sans intercepteurs pour éviter les boucles
         const response = await refreshApi.post<ApiResponse<{ token: string }>>(
-          "/api/v1/auth/refresh",
+          "/auth/refresh",
           { refreshToken }
         );
 
@@ -115,7 +110,6 @@ api.interceptors.response.use(
       } catch (refreshError: any) {
         console.error("Refresh token error:", refreshError);
 
-        // Déconnecter seulement pour les erreurs d'authentification
         if (
           refreshError?.response?.status === 401 ||
           refreshError?.response?.status === 403 ||
@@ -126,7 +120,6 @@ api.interceptors.response.use(
           localStorage.removeItem("refreshToken");
           localStorage.removeItem("user");
 
-          // Éviter la redirection si on est déjà sur la page login
           if (!window.location.pathname.includes("/login")) {
             window.location.href = "/login";
           }
@@ -140,27 +133,38 @@ api.interceptors.response.use(
   }
 );
 
+// Intercepteur pour gérer les erreurs globales
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data);
+    
+    if (error.response?.status === 404) {
+      console.warn('Route non trouvée - Vérifier la configuration backend');
+    } else if (error.response?.status === 500) {
+      console.error('Erreur serveur - Contacter l\'administrateur');
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 // ============================================================================
 // SERVICES D'AUTHENTIFICATION ET UTILISATEURS
 // ============================================================================
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const response = await api.post<ApiResponse<AuthResponse>>(
-      "/api/v1/auth/login",
-      credentials
-    );
-
+    const response = await api.post<ApiResponse<AuthResponse>>("/auth/login", credentials);
     if (!response.data.data) {
       throw new Error("Authentication failed: no data received");
     }
-
     return response.data.data;
   },
 
   logout: async (): Promise<void> => {
     try {
-      await api.post("/api/v1/auth/logout");
+      await api.post("/auth/logout");
     } catch (error) {
       console.warn("Logout API call failed, proceeding with local cleanup");
     } finally {
@@ -171,7 +175,7 @@ export const authService = {
   },
 
   getProfile: async (): Promise<User> => {
-    const response = await api.get<ApiResponse<User>>("/api/v1/auth/profile");
+    const response = await api.get<ApiResponse<User>>("/auth/profile");
     if (!response.data.data) {
       throw new Error("Profile data not available");
     }
@@ -179,15 +183,10 @@ export const authService = {
   },
 
   refreshToken: async (refreshToken: string): Promise<{ token: string }> => {
-    const response = await api.post<ApiResponse<{ token: string }>>(
-      "/api/v1/auth/refresh",
-      { refreshToken }
-    );
-
+    const response = await api.post<ApiResponse<{ token: string }>>("/auth/refresh", { refreshToken });
     if (!response.data.data) {
       throw new Error("Token refresh failed: no data received");
     }
-
     return response.data.data;
   },
 };
@@ -201,58 +200,39 @@ export const userService = {
     serviceId?: number;
     isActive?: boolean;
   }): Promise<ApiResponse<User[]>> => {
-    const response = await api.get<ApiResponse<User[]>>("/api/v1/users", {
-      params,
-    });
+    const response = await api.get<ApiResponse<User[]>>("/users", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<User>> => {
-    const response = await api.get<ApiResponse<User>>(`/api/v1/users/${id}`);
+    const response = await api.get<ApiResponse<User>>(`/users/${id}`);
     return response.data;
   },
 
   create: async (userData: Partial<User>): Promise<ApiResponse<User>> => {
-    const response = await api.post<ApiResponse<User>>(
-      "/api/v1/users",
-      userData
-    );
+    const response = await api.post<ApiResponse<User>>("/users", userData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    userData: Partial<User>
-  ): Promise<ApiResponse<User>> => {
-    const response = await api.put<ApiResponse<User>>(
-      `/api/v1/users/${id}`,
-      userData
-    );
+  update: async (id: number, userData: Partial<User>): Promise<ApiResponse<User>> => {
+    const response = await api.put<ApiResponse<User>>(`/users/${id}`, userData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(`/api/v1/users/${id}`);
+    const response = await api.delete<ApiResponse<void>>(`/users/${id}`);
     return response.data;
   },
 
   getPermissions: async (userId: number): Promise<ApiResponse<string[]>> => {
-    const response = await api.get<ApiResponse<string[]>>(
-      `/api/v1/users/${userId}/permissions`
-    );
+    const response = await api.get<ApiResponse<string[]>>(`/users/${userId}/permissions`);
     return response.data;
   },
 
-  updatePermissions: async (
-    userId: number,
-    permissions: string[]
-  ): Promise<ApiResponse<string[]>> => {
+  updatePermissions: async (userId: number, permissions: string[]): Promise<ApiResponse<string[]>> => {
     console.log("📤 Envoi des permissions:", { userId, permissions });
     try {
-      const response = await api.put<ApiResponse<string[]>>(
-        `/api/v1/users/${userId}/permissions`,
-        { permissions }
-      );
+      const response = await api.put<ApiResponse<string[]>>(`/users/${userId}/permissions`, { permissions });
       console.log("✅ Réponse reçue:", response.data);
       return response.data;
     } catch (error: any) {
@@ -262,12 +242,12 @@ export const userService = {
   },
 
   getRoles: async (): Promise<ApiResponse<string[]>> => {
-    const response = await api.get<ApiResponse<string[]>>("/api/v1/users/roles");
+    const response = await api.get<ApiResponse<string[]>>("/users/roles");
     return response.data;
   },
 
   getServices: async (): Promise<ApiResponse<Service[]>> => {
-    const response = await api.get<ApiResponse<Service[]>>("/api/v1/users/services");
+    const response = await api.get<ApiResponse<Service[]>>("/users/services");
     return response.data;
   },
 };
@@ -285,45 +265,27 @@ export const employeeService = {
     serviceId?: number;
     isActive?: boolean;
   }): Promise<ApiResponse<Employee[]>> => {
-    const response = await api.get<ApiResponse<Employee[]>>(
-      "/api/v1/employees",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Employee[]>>("/employees", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Employee>> => {
-    const response = await api.get<ApiResponse<Employee>>(
-      `/api/v1/employees/${id}`
-    );
+    const response = await api.get<ApiResponse<Employee>>(`/employees/${id}`);
     return response.data;
   },
 
-  create: async (
-    employeeData: Partial<Employee>
-  ): Promise<ApiResponse<Employee>> => {
-    const response = await api.post<ApiResponse<Employee>>(
-      "/api/v1/employees",
-      employeeData
-    );
+  create: async (employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> => {
+    const response = await api.post<ApiResponse<Employee>>("/employees", employeeData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    employeeData: Partial<Employee>
-  ): Promise<ApiResponse<Employee>> => {
-    const response = await api.put<ApiResponse<Employee>>(
-      `/api/v1/employees/${id}`,
-      employeeData
-    );
+  update: async (id: number, employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> => {
+    const response = await api.put<ApiResponse<Employee>>(`/employees/${id}`, employeeData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/employees/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/employees/${id}`);
     return response.data;
   },
 };
@@ -336,43 +298,27 @@ export const contractService = {
     contractType?: string;
     isActive?: boolean;
   }): Promise<ApiResponse<Contract[]>> => {
-    const response = await api.get<ApiResponse<Contract[]>>(
-      "/api/v1/contracts",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Contract[]>>("/contracts", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Contract>> => {
-    const response = await api.get<ApiResponse<Contract>>(
-      `/api/v1/contracts/${id}`
-    );
+    const response = await api.get<ApiResponse<Contract>>(`/contracts/${id}`);
     return response.data;
   },
 
   create: async (contractData: Partial<Contract>): Promise<ApiResponse<Contract>> => {
-    const response = await api.post<ApiResponse<Contract>>(
-      "/api/v1/contracts",
-      contractData
-    );
+    const response = await api.post<ApiResponse<Contract>>("/contracts", contractData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    contractData: Partial<Contract>
-  ): Promise<ApiResponse<Contract>> => {
-    const response = await api.put<ApiResponse<Contract>>(
-      `/api/v1/contracts/${id}`,
-      contractData
-    );
+  update: async (id: number, contractData: Partial<Contract>): Promise<ApiResponse<Contract>> => {
+    const response = await api.put<ApiResponse<Contract>>(`/contracts/${id}`, contractData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/contracts/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/contracts/${id}`);
     return response.data;
   },
 };
@@ -386,43 +332,27 @@ export const salaryService = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApiResponse<Salary[]>> => {
-    const response = await api.get<ApiResponse<Salary[]>>(
-      "/api/v1/salaries",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Salary[]>>("/salaries", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Salary>> => {
-    const response = await api.get<ApiResponse<Salary>>(
-      `/api/v1/salaries/${id}`
-    );
+    const response = await api.get<ApiResponse<Salary>>(`/salaries/${id}`);
     return response.data;
   },
 
   create: async (salaryData: Partial<Salary>): Promise<ApiResponse<Salary>> => {
-    const response = await api.post<ApiResponse<Salary>>(
-      "/api/v1/salaries",
-      salaryData
-    );
+    const response = await api.post<ApiResponse<Salary>>("/salaries", salaryData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    salaryData: Partial<Salary>
-  ): Promise<ApiResponse<Salary>> => {
-    const response = await api.put<ApiResponse<Salary>>(
-      `/api/v1/salaries/${id}`,
-      salaryData
-    );
+  update: async (id: number, salaryData: Partial<Salary>): Promise<ApiResponse<Salary>> => {
+    const response = await api.put<ApiResponse<Salary>>(`/salaries/${id}`, salaryData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/salaries/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/salaries/${id}`);
     return response.data;
   },
 };
@@ -437,52 +367,32 @@ export const leaveService = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApiResponse<LeaveRequest[]>> => {
-    const response = await api.get<ApiResponse<LeaveRequest[]>>(
-      "/api/v1/leaves",
-      { params }
-    );
+    const response = await api.get<ApiResponse<LeaveRequest[]>>("/leaves", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<LeaveRequest>> => {
-    const response = await api.get<ApiResponse<LeaveRequest>>(
-      `/api/v1/leaves/${id}`
-    );
+    const response = await api.get<ApiResponse<LeaveRequest>>(`/leaves/${id}`);
     return response.data;
   },
 
   create: async (leaveData: Partial<LeaveRequest>): Promise<ApiResponse<LeaveRequest>> => {
-    const response = await api.post<ApiResponse<LeaveRequest>>(
-      "/api/v1/leaves",
-      leaveData
-    );
+    const response = await api.post<ApiResponse<LeaveRequest>>("/leaves", leaveData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    leaveData: Partial<LeaveRequest>
-  ): Promise<ApiResponse<LeaveRequest>> => {
-    const response = await api.put<ApiResponse<LeaveRequest>>(
-      `/api/v1/leaves/${id}`,
-      leaveData
-    );
+  update: async (id: number, leaveData: Partial<LeaveRequest>): Promise<ApiResponse<LeaveRequest>> => {
+    const response = await api.put<ApiResponse<LeaveRequest>>(`/leaves/${id}`, leaveData);
     return response.data;
   },
 
   approve: async (id: number, comments?: string): Promise<ApiResponse<LeaveRequest>> => {
-    const response = await api.patch<ApiResponse<LeaveRequest>>(
-      `/api/v1/leaves/${id}/approve`,
-      { comments }
-    );
+    const response = await api.patch<ApiResponse<LeaveRequest>>(`/leaves/${id}/approve`, { comments });
     return response.data;
   },
 
   reject: async (id: number, comments?: string): Promise<ApiResponse<LeaveRequest>> => {
-    const response = await api.patch<ApiResponse<LeaveRequest>>(
-      `/api/v1/leaves/${id}/reject`,
-      { comments }
-    );
+    const response = await api.patch<ApiResponse<LeaveRequest>>(`/leaves/${id}/reject`, { comments });
     return response.data;
   },
 };
@@ -494,43 +404,27 @@ export const loanService = {
     employeeId?: number;
     status?: string;
   }): Promise<ApiResponse<Loan[]>> => {
-    const response = await api.get<ApiResponse<Loan[]>>(
-      "/api/v1/loans",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Loan[]>>("/loans", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Loan>> => {
-    const response = await api.get<ApiResponse<Loan>>(
-      `/api/v1/loans/${id}`
-    );
+    const response = await api.get<ApiResponse<Loan>>(`/loans/${id}`);
     return response.data;
   },
 
   create: async (loanData: Partial<Loan>): Promise<ApiResponse<Loan>> => {
-    const response = await api.post<ApiResponse<Loan>>(
-      "/api/v1/loans",
-      loanData
-    );
+    const response = await api.post<ApiResponse<Loan>>("/loans", loanData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    loanData: Partial<Loan>
-  ): Promise<ApiResponse<Loan>> => {
-    const response = await api.put<ApiResponse<Loan>>(
-      `/api/v1/loans/${id}`,
-      loanData
-    );
+  update: async (id: number, loanData: Partial<Loan>): Promise<ApiResponse<Loan>> => {
+    const response = await api.put<ApiResponse<Loan>>(`/loans/${id}`, loanData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/loans/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/loans/${id}`);
     return response.data;
   },
 };
@@ -548,43 +442,27 @@ export const customerService = {
     serviceId?: number;
     isActive?: boolean;
   }): Promise<ApiResponse<Customer[]>> => {
-    const response = await api.get<ApiResponse<Customer[]>>(
-      "/api/v1/customers",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Customer[]>>("/customers", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Customer>> => {
-    const response = await api.get<ApiResponse<Customer>>(
-      `/api/v1/customers/${id}`
-    );
+    const response = await api.get<ApiResponse<Customer>>(`/customers/${id}`);
     return response.data;
   },
 
   create: async (customerData: Partial<Customer>): Promise<ApiResponse<Customer>> => {
-    const response = await api.post<ApiResponse<Customer>>(
-      "/api/v1/customers",
-      customerData
-    );
+    const response = await api.post<ApiResponse<Customer>>("/customers", customerData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    customerData: Partial<Customer>
-  ): Promise<ApiResponse<Customer>> => {
-    const response = await api.put<ApiResponse<Customer>>(
-      `/api/v1/customers/${id}`,
-      customerData
-    );
+  update: async (id: number, customerData: Partial<Customer>): Promise<ApiResponse<Customer>> => {
+    const response = await api.put<ApiResponse<Customer>>(`/customers/${id}`, customerData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/customers/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/customers/${id}`);
     return response.data;
   },
 };
@@ -598,58 +476,37 @@ export const prospectService = {
     priority?: string;
     assignedTo?: number;
   }): Promise<ApiResponse<Prospect[]>> => {
-    const response = await api.get<ApiResponse<Prospect[]>>(
-      "/api/v1/prospects",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Prospect[]>>("/prospects", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Prospect>> => {
-    const response = await api.get<ApiResponse<Prospect>>(
-      `/api/v1/prospects/${id}`
-    );
+    const response = await api.get<ApiResponse<Prospect>>(`/prospects/${id}`);
     return response.data;
   },
 
   create: async (prospectData: Partial<Prospect>): Promise<ApiResponse<Prospect>> => {
-    const response = await api.post<ApiResponse<Prospect>>(
-      "/api/v1/prospects",
-      prospectData
-    );
+    const response = await api.post<ApiResponse<Prospect>>("/prospects", prospectData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    prospectData: Partial<Prospect>
-  ): Promise<ApiResponse<Prospect>> => {
-    const response = await api.put<ApiResponse<Prospect>>(
-      `/api/v1/prospects/${id}`,
-      prospectData
-    );
+  update: async (id: number, prospectData: Partial<Prospect>): Promise<ApiResponse<Prospect>> => {
+    const response = await api.put<ApiResponse<Prospect>>(`/prospects/${id}`, prospectData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/prospects/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/prospects/${id}`);
     return response.data;
   },
 
   moveStage: async (id: number, stage: string, notes?: string): Promise<ApiResponse<Prospect>> => {
-    const response = await api.post<ApiResponse<Prospect>>(
-      `/api/v1/prospects/${id}/move`,
-      { stage, notes }
-    );
+    const response = await api.post<ApiResponse<Prospect>>(`/prospects/${id}/move`, { stage, notes });
     return response.data;
   },
 
   getStats: async (): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>(
-      "/api/v1/prospects/stats"
-    );
+    const response = await api.get<ApiResponse<any>>("/prospects/stats");
     return response.data;
   },
 };
@@ -663,67 +520,42 @@ export const quoteService = {
     status?: string;
     quoteType?: string;
   }): Promise<ApiResponse<Quote[]>> => {
-    const response = await api.get<ApiResponse<Quote[]>>(
-      "/api/v1/quotes",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Quote[]>>("/quotes", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Quote>> => {
-    const response = await api.get<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}`
-    );
+    const response = await api.get<ApiResponse<Quote>>(`/quotes/${id}`);
     return response.data;
   },
 
   create: async (quoteData: Partial<Quote>): Promise<ApiResponse<Quote>> => {
-    const response = await api.post<ApiResponse<Quote>>(
-      "/api/v1/quotes",
-      quoteData
-    );
+    const response = await api.post<ApiResponse<Quote>>("/quotes", quoteData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    quoteData: Partial<Quote>
-  ): Promise<ApiResponse<Quote>> => {
-    const response = await api.put<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}`,
-      quoteData
-    );
+  update: async (id: number, quoteData: Partial<Quote>): Promise<ApiResponse<Quote>> => {
+    const response = await api.put<ApiResponse<Quote>>(`/quotes/${id}`, quoteData);
     return response.data;
   },
 
   submitForApproval: async (id: number): Promise<ApiResponse<Quote>> => {
-    const response = await api.post<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}/submit`
-    );
+    const response = await api.post<ApiResponse<Quote>>(`/quotes/${id}/submit`);
     return response.data;
   },
 
   approveService: async (id: number, comments?: string): Promise<ApiResponse<Quote>> => {
-    const response = await api.post<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}/approve-service`,
-      { comments }
-    );
+    const response = await api.post<ApiResponse<Quote>>(`/quotes/${id}/approve-service`, { comments });
     return response.data;
   },
 
   approveDG: async (id: number, comments?: string): Promise<ApiResponse<Quote>> => {
-    const response = await api.post<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}/approve-dg`,
-      { comments }
-    );
+    const response = await api.post<ApiResponse<Quote>>(`/quotes/${id}/approve-dg`, { comments });
     return response.data;
   },
 
   reject: async (id: number, comments?: string): Promise<ApiResponse<Quote>> => {
-    const response = await api.post<ApiResponse<Quote>>(
-      `/api/v1/quotes/${id}/reject`,
-      { comments }
-    );
+    const response = await api.post<ApiResponse<Quote>>(`/quotes/${id}/reject`, { comments });
     return response.data;
   },
 };
@@ -737,50 +569,32 @@ export const invoiceService = {
     status?: string;
     type?: string;
   }): Promise<ApiResponse<Invoice[]>> => {
-    const response = await api.get<ApiResponse<Invoice[]>>(
-      "/api/v1/invoices",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Invoice[]>>("/invoices", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Invoice>> => {
-    const response = await api.get<ApiResponse<Invoice>>(
-      `/api/v1/invoices/${id}`
-    );
+    const response = await api.get<ApiResponse<Invoice>>(`/invoices/${id}`);
     return response.data;
   },
 
   create: async (invoiceData: Partial<Invoice>): Promise<ApiResponse<Invoice>> => {
-    const response = await api.post<ApiResponse<Invoice>>(
-      "/api/v1/invoices",
-      invoiceData
-    );
+    const response = await api.post<ApiResponse<Invoice>>("/invoices", invoiceData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    invoiceData: Partial<Invoice>
-  ): Promise<ApiResponse<Invoice>> => {
-    const response = await api.put<ApiResponse<Invoice>>(
-      `/api/v1/invoices/${id}`,
-      invoiceData
-    );
+  update: async (id: number, invoiceData: Partial<Invoice>): Promise<ApiResponse<Invoice>> => {
+    const response = await api.put<ApiResponse<Invoice>>(`/invoices/${id}`, invoiceData);
     return response.data;
   },
 
   send: async (id: number): Promise<ApiResponse<Invoice>> => {
-    const response = await api.post<ApiResponse<Invoice>>(
-      `/api/v1/invoices/${id}/send`
-    );
+    const response = await api.post<ApiResponse<Invoice>>(`/invoices/${id}/send`);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/invoices/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/invoices/${id}`);
     return response.data;
   },
 };
@@ -794,43 +608,27 @@ export const paymentService = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApiResponse<Payment[]>> => {
-    const response = await api.get<ApiResponse<Payment[]>>(
-      "/api/v1/payments",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Payment[]>>("/payments", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Payment>> => {
-    const response = await api.get<ApiResponse<Payment>>(
-      `/api/v1/payments/${id}`
-    );
+    const response = await api.get<ApiResponse<Payment>>(`/payments/${id}`);
     return response.data;
   },
 
   create: async (paymentData: Partial<Payment>): Promise<ApiResponse<Payment>> => {
-    const response = await api.post<ApiResponse<Payment>>(
-      "/api/v1/payments",
-      paymentData
-    );
+    const response = await api.post<ApiResponse<Payment>>("/payments", paymentData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    paymentData: Partial<Payment>
-  ): Promise<ApiResponse<Payment>> => {
-    const response = await api.put<ApiResponse<Payment>>(
-      `/api/v1/payments/${id}`,
-      paymentData
-    );
+  update: async (id: number, paymentData: Partial<Payment>): Promise<ApiResponse<Payment>> => {
+    const response = await api.put<ApiResponse<Payment>>(`/payments/${id}`, paymentData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/payments/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/payments/${id}`);
     return response.data;
   },
 };
@@ -848,43 +646,27 @@ export const missionService = {
     statut?: string;
     priorite?: string;
   }): Promise<ApiResponse<Mission[]>> => {
-    const response = await api.get<ApiResponse<Mission[]>>(
-      "/api/v1/missions",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Mission[]>>("/missions", { params });
     return response.data;
   },
 
   getById: async (id: string): Promise<ApiResponse<Mission>> => {
-    const response = await api.get<ApiResponse<Mission>>(
-      `/api/v1/missions/${id}`
-    );
+    const response = await api.get<ApiResponse<Mission>>(`/missions/${id}`);
     return response.data;
   },
 
   create: async (missionData: Partial<Mission>): Promise<ApiResponse<Mission>> => {
-    const response = await api.post<ApiResponse<Mission>>(
-      "/api/v1/missions",
-      missionData
-    );
+    const response = await api.post<ApiResponse<Mission>>("/missions", missionData);
     return response.data;
   },
 
-  update: async (
-    id: string,
-    missionData: Partial<Mission>
-  ): Promise<ApiResponse<Mission>> => {
-    const response = await api.put<ApiResponse<Mission>>(
-      `/api/v1/missions/${id}`,
-      missionData
-    );
+  update: async (id: string, missionData: Partial<Mission>): Promise<ApiResponse<Mission>> => {
+    const response = await api.put<ApiResponse<Mission>>(`/missions/${id}`, missionData);
     return response.data;
   },
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/missions/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/missions/${id}`);
     return response.data;
   },
 };
@@ -897,43 +679,27 @@ export const interventionService = {
     technicienId?: number;
     statut?: string;
   }): Promise<ApiResponse<Intervention[]>> => {
-    const response = await api.get<ApiResponse<Intervention[]>>(
-      "/api/v1/interventions",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Intervention[]>>("/interventions", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Intervention>> => {
-    const response = await api.get<ApiResponse<Intervention>>(
-      `/api/v1/interventions/${id}`
-    );
+    const response = await api.get<ApiResponse<Intervention>>(`/interventions/${id}`);
     return response.data;
   },
 
   create: async (interventionData: Partial<Intervention>): Promise<ApiResponse<Intervention>> => {
-    const response = await api.post<ApiResponse<Intervention>>(
-      "/api/v1/interventions",
-      interventionData
-    );
+    const response = await api.post<ApiResponse<Intervention>>("/interventions", interventionData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    interventionData: Partial<Intervention>
-  ): Promise<ApiResponse<Intervention>> => {
-    const response = await api.put<ApiResponse<Intervention>>(
-      `/api/v1/interventions/${id}`,
-      interventionData
-    );
+  update: async (id: number, interventionData: Partial<Intervention>): Promise<ApiResponse<Intervention>> => {
+    const response = await api.put<ApiResponse<Intervention>>(`/interventions/${id}`, interventionData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/interventions/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/interventions/${id}`);
     return response.data;
   },
 };
@@ -947,43 +713,27 @@ export const technicienService = {
     isActive?: boolean;
     status?: string;
   }): Promise<ApiResponse<Technicien[]>> => {
-    const response = await api.get<ApiResponse<Technicien[]>>(
-      "/api/v1/techniciens",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Technicien[]>>("/techniciens", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Technicien>> => {
-    const response = await api.get<ApiResponse<Technicien>>(
-      `/api/v1/techniciens/${id}`
-    );
+    const response = await api.get<ApiResponse<Technicien>>(`/techniciens/${id}`);
     return response.data;
   },
 
   create: async (technicienData: Partial<Technicien>): Promise<ApiResponse<Technicien>> => {
-    const response = await api.post<ApiResponse<Technicien>>(
-      "/api/v1/techniciens",
-      technicienData
-    );
+    const response = await api.post<ApiResponse<Technicien>>("/techniciens", technicienData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    technicienData: Partial<Technicien>
-  ): Promise<ApiResponse<Technicien>> => {
-    const response = await api.put<ApiResponse<Technicien>>(
-      `/api/v1/techniciens/${id}`,
-      technicienData
-    );
+  update: async (id: number, technicienData: Partial<Technicien>): Promise<ApiResponse<Technicien>> => {
+    const response = await api.put<ApiResponse<Technicien>>(`/techniciens/${id}`, technicienData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/techniciens/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/techniciens/${id}`);
     return response.data;
   },
 };
@@ -996,43 +746,27 @@ export const materielService = {
     categorie?: string;
     statut?: string;
   }): Promise<ApiResponse<Materiel[]>> => {
-    const response = await api.get<ApiResponse<Materiel[]>>(
-      "/api/v1/materiels",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Materiel[]>>("/materiels", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Materiel>> => {
-    const response = await api.get<ApiResponse<Materiel>>(
-      `/api/v1/materiels/${id}`
-    );
+    const response = await api.get<ApiResponse<Materiel>>(`/materiels/${id}`);
     return response.data;
   },
 
   create: async (materielData: Partial<Materiel>): Promise<ApiResponse<Materiel>> => {
-    const response = await api.post<ApiResponse<Materiel>>(
-      "/api/v1/materiels",
-      materielData
-    );
+    const response = await api.post<ApiResponse<Materiel>>("/materiels", materielData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    materielData: Partial<Materiel>
-  ): Promise<ApiResponse<Materiel>> => {
-    const response = await api.put<ApiResponse<Materiel>>(
-      `/api/v1/materiels/${id}`,
-      materielData
-    );
+  update: async (id: number, materielData: Partial<Materiel>): Promise<ApiResponse<Materiel>> => {
+    const response = await api.put<ApiResponse<Materiel>>(`/materiels/${id}`, materielData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/materiels/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/materiels/${id}`);
     return response.data;
   },
 };
@@ -1045,51 +779,32 @@ export const rapportService = {
     technicienId?: number;
     statut?: string;
   }): Promise<ApiResponse<RapportMission[]>> => {
-    const response = await api.get<ApiResponse<RapportMission[]>>(
-      "/api/v1/rapports",
-      { params }
-    );
+    const response = await api.get<ApiResponse<RapportMission[]>>("/rapports", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<RapportMission>> => {
-    const response = await api.get<ApiResponse<RapportMission>>(
-      `/api/v1/rapports/${id}`
-    );
+    const response = await api.get<ApiResponse<RapportMission>>(`/rapports/${id}`);
     return response.data;
   },
 
   create: async (rapportData: Partial<RapportMission>): Promise<ApiResponse<RapportMission>> => {
-    const response = await api.post<ApiResponse<RapportMission>>(
-      "/api/v1/rapports",
-      rapportData
-    );
+    const response = await api.post<ApiResponse<RapportMission>>("/rapports", rapportData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    rapportData: Partial<RapportMission>
-  ): Promise<ApiResponse<RapportMission>> => {
-    const response = await api.put<ApiResponse<RapportMission>>(
-      `/api/v1/rapports/${id}`,
-      rapportData
-    );
+  update: async (id: number, rapportData: Partial<RapportMission>): Promise<ApiResponse<RapportMission>> => {
+    const response = await api.put<ApiResponse<RapportMission>>(`/rapports/${id}`, rapportData);
     return response.data;
   },
 
   validate: async (id: number, commentaire?: string): Promise<ApiResponse<RapportMission>> => {
-    const response = await api.post<ApiResponse<RapportMission>>(
-      `/api/v1/rapports/${id}/validate`,
-      { commentaire }
-    );
+    const response = await api.post<ApiResponse<RapportMission>>(`/rapports/${id}/validate`, { commentaire });
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/rapports/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/rapports/${id}`);
     return response.data;
   },
 };
@@ -1104,43 +819,27 @@ export const supplierService = {
     limit?: number;
     search?: string;
   }): Promise<ApiResponse<Supplier[]>> => {
-    const response = await api.get<ApiResponse<Supplier[]>>(
-      "/api/v1/suppliers",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Supplier[]>>("/suppliers", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Supplier>> => {
-    const response = await api.get<ApiResponse<Supplier>>(
-      `/api/v1/suppliers/${id}`
-    );
+    const response = await api.get<ApiResponse<Supplier>>(`/suppliers/${id}`);
     return response.data;
   },
 
   create: async (supplierData: Partial<Supplier>): Promise<ApiResponse<Supplier>> => {
-    const response = await api.post<ApiResponse<Supplier>>(
-      "/api/v1/suppliers",
-      supplierData
-    );
+    const response = await api.post<ApiResponse<Supplier>>("/suppliers", supplierData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    supplierData: Partial<Supplier>
-  ): Promise<ApiResponse<Supplier>> => {
-    const response = await api.put<ApiResponse<Supplier>>(
-      `/api/v1/suppliers/${id}`,
-      supplierData
-    );
+  update: async (id: number, supplierData: Partial<Supplier>): Promise<ApiResponse<Supplier>> => {
+    const response = await api.put<ApiResponse<Supplier>>(`/suppliers/${id}`, supplierData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/suppliers/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/suppliers/${id}`);
     return response.data;
   },
 };
@@ -1154,79 +853,27 @@ export const purchaseService = {
     status?: string;
     serviceId?: number;
   }): Promise<ApiResponse<PurchaseOrder[]>> => {
-    const response = await api.get<ApiResponse<PurchaseOrder[]>>(
-      "/api/v1/purchases",
-      { params }
-    );
+    const response = await api.get<ApiResponse<PurchaseOrder[]>>("/purchases", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<PurchaseOrder>> => {
-    const response = await api.get<ApiResponse<PurchaseOrder>>(
-      `/api/v1/purchases/${id}`
-    );
+    const response = await api.get<ApiResponse<PurchaseOrder>>(`/purchases/${id}`);
     return response.data;
   },
 
   create: async (purchaseData: Partial<PurchaseOrder>): Promise<ApiResponse<PurchaseOrder>> => {
-    const response = await api.post<ApiResponse<PurchaseOrder>>(
-      "/api/v1/purchases",
-      purchaseData
-    );
+    const response = await api.post<ApiResponse<PurchaseOrder>>("/purchases", purchaseData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    purchaseData: Partial<PurchaseOrder>
-  ): Promise<ApiResponse<PurchaseOrder>> => {
-    const response = await api.put<ApiResponse<PurchaseOrder>>(
-      `/api/v1/purchases/${id}`,
-      purchaseData
-    );
+  update: async (id: number, purchaseData: Partial<PurchaseOrder>): Promise<ApiResponse<PurchaseOrder>> => {
+    const response = await api.put<ApiResponse<PurchaseOrder>>(`/purchases/${id}`, purchaseData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/purchases/${id}`
-    );
-    return response.data;
-  },
-};
-
-export const purchaseReceiptService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    purchaseOrderId?: number;
-  }): Promise<ApiResponse<PurchaseReceipt[]>> => {
-    const response = await api.get<ApiResponse<PurchaseReceipt[]>>(
-      "/api/v1/purchase-receipts",
-      { params }
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<PurchaseReceipt>> => {
-    const response = await api.get<ApiResponse<PurchaseReceipt>>(
-      `/api/v1/purchase-receipts/${id}`
-    );
-    return response.data;
-  },
-
-  create: async (receiptData: Partial<PurchaseReceipt>): Promise<ApiResponse<PurchaseReceipt>> => {
-    const response = await api.post<ApiResponse<PurchaseReceipt>>(
-      "/api/v1/purchase-receipts",
-      receiptData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/purchase-receipts/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/purchases/${id}`);
     return response.data;
   },
 };
@@ -1244,49 +891,32 @@ export const projectService = {
     status?: string;
     serviceId?: number;
   }): Promise<ApiResponse<ClientProject[]>> => {
-    const response = await api.get<ApiResponse<ClientProject[]>>(
-      "/api/v1/projects",
-      { params }
-    );
+    const response = await api.get<ApiResponse<ClientProject[]>>("/projects", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<ClientProject>> => {
-    const response = await api.get<ApiResponse<ClientProject>>(
-      `/api/v1/projects/${id}`
-    );
+    const response = await api.get<ApiResponse<ClientProject>>(`/projects/${id}`);
     return response.data;
   },
 
   create: async (projectData: Partial<ClientProject>): Promise<ApiResponse<ClientProject>> => {
-    const response = await api.post<ApiResponse<ClientProject>>(
-      "/api/v1/projects",
-      projectData
-    );
+    const response = await api.post<ApiResponse<ClientProject>>("/projects", projectData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    projectData: Partial<ClientProject>
-  ): Promise<ApiResponse<ClientProject>> => {
-    const response = await api.put<ApiResponse<ClientProject>>(
-      `/api/v1/projects/${id}`,
-      projectData
-    );
+  update: async (id: number, projectData: Partial<ClientProject>): Promise<ApiResponse<ClientProject>> => {
+    const response = await api.put<ApiResponse<ClientProject>>(`/projects/${id}`, projectData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/projects/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/projects/${id}`);
     return response.data;
   },
 };
 
 export const calendarService = {
-  // Événements calendrier
   getEvents: async (params?: {
     page?: number;
     limit?: number;
@@ -1295,97 +925,22 @@ export const calendarService = {
     type?: string;
     calendarId?: number;
   }): Promise<ApiResponse<CalendarEvent[]>> => {
-    const response = await api.get<ApiResponse<CalendarEvent[]>>(
-      "/api/v1/calendar/events",
-      { params }
-    );
-    return response.data;
-  },
-
-  getEventsWithTimeOffs: async (params?: {
-    startDate?: string;
-    endDate?: string;
-    userId?: number;
-    includeTimeOffs?: boolean;
-  }): Promise<ApiResponse<{ events: CalendarEvent[], timeOffs: TimeOffRequest[] }>> => {
-    const response = await api.get<ApiResponse<{ events: CalendarEvent[], timeOffs: TimeOffRequest[] }>>(
-      "/api/v1/calendar/with-timeoffs",
-      { params }
-    );
+    const response = await api.get<ApiResponse<CalendarEvent[]>>("/calendar/events", { params });
     return response.data;
   },
 
   createEvent: async (eventData: Partial<CalendarEvent>): Promise<ApiResponse<CalendarEvent>> => {
-    const response = await api.post<ApiResponse<CalendarEvent>>(
-      "/api/v1/calendar/events",
-      eventData
-    );
+    const response = await api.post<ApiResponse<CalendarEvent>>("/calendar/events", eventData);
     return response.data;
   },
 
-  updateEvent: async (
-    id: number,
-    eventData: Partial<CalendarEvent>
-  ): Promise<ApiResponse<CalendarEvent>> => {
-    const response = await api.put<ApiResponse<CalendarEvent>>(
-      `/api/v1/calendar/events/${id}`,
-      eventData
-    );
+  updateEvent: async (id: number, eventData: Partial<CalendarEvent>): Promise<ApiResponse<CalendarEvent>> => {
+    const response = await api.put<ApiResponse<CalendarEvent>>(`/calendar/events/${id}`, eventData);
     return response.data;
   },
 
   deleteEvent: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/calendar/events/${id}`
-    );
-    return response.data;
-  },
-
-  // Time Offs (Missions, Absences, Déplacements)
-  getTimeOffs: async (params?: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    type?: string;
-    userId?: number;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<ApiResponse<TimeOffRequest[]>> => {
-    const response = await api.get<ApiResponse<TimeOffRequest[]>>(
-      "/api/v1/time-off",
-      { params }
-    );
-    return response.data;
-  },
-
-  createTimeOff: async (timeOffData: Partial<TimeOffRequest>): Promise<ApiResponse<{ event: CalendarEvent, timeOff: TimeOffRequest }>> => {
-    const response = await api.post<ApiResponse<{ event: CalendarEvent, timeOff: TimeOffRequest }>>(
-      "/api/v1/time-off",
-      timeOffData
-    );
-    return response.data;
-  },
-
-  updateTimeOffStatus: async (
-    id: number,
-    statusData: { status: string; comments?: string; approvedById?: number }
-  ): Promise<ApiResponse<TimeOffRequest>> => {
-    const response = await api.patch<ApiResponse<TimeOffRequest>>(
-      `/api/v1/time-off/${id}/status`,
-      statusData
-    );
-    return response.data;
-  },
-
-  getTimeOffStats: async (params?: {
-    userId?: number;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>(
-      "/api/v1/time-off/stats",
-      { params }
-    );
+    const response = await api.delete<ApiResponse<void>>(`/calendar/events/${id}`);
     return response.data;
   },
 };
@@ -1393,118 +948,6 @@ export const calendarService = {
 // ============================================================================
 // SERVICES COMPTABILITÉ ET FINANCE
 // ============================================================================
-
-export const accountService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    accountType?: string;
-  }): Promise<ApiResponse<Account[]>> => {
-    const response = await api.get<ApiResponse<Account[]>>(
-      "/api/v1/comptes",
-      { params }
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<Account>> => {
-    const response = await api.get<ApiResponse<Account>>(
-      `/api/v1/comptes/${id}`
-    );
-    return response.data;
-  },
-
-  create: async (accountData: Partial<Account>): Promise<ApiResponse<Account>> => {
-    const response = await api.post<ApiResponse<Account>>(
-      "/api/v1/comptes",
-      accountData
-    );
-    return response.data;
-  },
-
-  update: async (
-    id: number,
-    accountData: Partial<Account>
-  ): Promise<ApiResponse<Account>> => {
-    const response = await api.put<ApiResponse<Account>>(
-      `/api/v1/comptes/${id}`,
-      accountData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/comptes/${id}`
-    );
-    return response.data;
-  },
-};
-
-export const accountingEntryService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    startDate?: string;
-    endDate?: string;
-    accountId?: number;
-    entryType?: string;
-  }): Promise<ApiResponse<AccountingEntry[]>> => {
-    const response = await api.get<ApiResponse<AccountingEntry[]>>(
-      "/api/v1/ecritures-comptables",
-      { params }
-    );
-    return response.data;
-  },
-
-  create: async (entryData: Partial<AccountingEntry>): Promise<ApiResponse<AccountingEntry>> => {
-    const response = await api.post<ApiResponse<AccountingEntry>>(
-      "/api/v1/ecritures-comptables",
-      entryData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/ecritures-comptables/${id}`
-    );
-    return response.data;
-  },
-};
-
-export const cashFlowService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    startDate?: string;
-    endDate?: string;
-    accountId?: number;
-    type?: string;
-  }): Promise<ApiResponse<CashFlow[]>> => {
-    const response = await api.get<ApiResponse<CashFlow[]>>(
-      "/api/v1/tresorerie",
-      { params }
-    );
-    return response.data;
-  },
-
-  create: async (cashFlowData: Partial<CashFlow>): Promise<ApiResponse<CashFlow>> => {
-    const response = await api.post<ApiResponse<CashFlow>>(
-      "/api/v1/tresorerie",
-      cashFlowData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/tresorerie/${id}`
-    );
-    return response.data;
-  },
-};
 
 export const expenseService = {
   getAll: async (params?: {
@@ -1516,166 +959,63 @@ export const expenseService = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApiResponse<Expense[]>> => {
-    const response = await api.get<ApiResponse<Expense[]>>(
-      "/api/v1/expenses",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Expense[]>>("/expenses", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Expense>> => {
-    const response = await api.get<ApiResponse<Expense>>(
-      `/api/v1/expenses/${id}`
-    );
+    const response = await api.get<ApiResponse<Expense>>(`/expenses/${id}`);
     return response.data;
   },
 
   create: async (expenseData: Partial<Expense>): Promise<ApiResponse<Expense>> => {
-    const response = await api.post<ApiResponse<Expense>>(
-      "/api/v1/expenses",
-      expenseData
-    );
+    const response = await api.post<ApiResponse<Expense>>("/expenses", expenseData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    expenseData: Partial<Expense>
-  ): Promise<ApiResponse<Expense>> => {
-    const response = await api.put<ApiResponse<Expense>>(
-      `/api/v1/expenses/${id}`,
-      expenseData
-    );
+  update: async (id: number, expenseData: Partial<Expense>): Promise<ApiResponse<Expense>> => {
+    const response = await api.put<ApiResponse<Expense>>(`/expenses/${id}`, expenseData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/expenses/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/expenses/${id}`);
     return response.data;
   },
 
   getCategories: async (): Promise<ApiResponse<string[]>> => {
-    const response = await api.get<ApiResponse<string[]>>(
-      "/api/v1/expenses/categories"
-    );
+    const response = await api.get<ApiResponse<string[]>>("/expenses/categories");
     return response.data;
   },
 };
 
 // ============================================================================
-// SERVICES ADMINISTRATION ET RAPPORTS
+// SERVICES ADMINISTRATION
 // ============================================================================
 
 export const serviceService = {
-  getAll: async (params?: {
-    search?: string;
-  }): Promise<ApiResponse<Service[]>> => {
-    const response = await api.get<ApiResponse<Service[]>>(
-      "/api/v1/services",
-      { params }
-    );
+  getAll: async (params?: { search?: string }): Promise<ApiResponse<Service[]>> => {
+    const response = await api.get<ApiResponse<Service[]>>("/services", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Service>> => {
-    const response = await api.get<ApiResponse<Service>>(
-      `/api/v1/services/${id}`
-    );
+    const response = await api.get<ApiResponse<Service>>(`/services/${id}`);
     return response.data;
   },
 
   create: async (serviceData: Partial<Service>): Promise<ApiResponse<Service>> => {
-    const response = await api.post<ApiResponse<Service>>(
-      "/api/v1/services",
-      serviceData
-    );
+    const response = await api.post<ApiResponse<Service>>("/services", serviceData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    serviceData: Partial<Service>
-  ): Promise<ApiResponse<Service>> => {
-    const response = await api.put<ApiResponse<Service>>(
-      `/api/v1/services/${id}`,
-      serviceData
-    );
+  update: async (id: number, serviceData: Partial<Service>): Promise<ApiResponse<Service>> => {
+    const response = await api.put<ApiResponse<Service>>(`/services/${id}`, serviceData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/services/${id}`
-    );
-    return response.data;
-  },
-};
-
-export const permissionService = {
-  getAll: async (): Promise<ApiResponse<Permission[]>> => {
-    const response = await api.get<ApiResponse<Permission[]>>(
-      "/api/v1/permissions"
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<Permission>> => {
-    const response = await api.get<ApiResponse<Permission>>(
-      `/api/v1/permissions/${id}`
-    );
-    return response.data;
-  },
-
-  update: async (
-    id: number,
-    permissionData: Partial<Permission>
-  ): Promise<ApiResponse<Permission>> => {
-    const response = await api.put<ApiResponse<Permission>>(
-      `/api/v1/permissions/${id}`,
-      permissionData
-    );
-    return response.data;
-  },
-};
-
-export const reportService = {
-  getFinancialReports: async (params?: {
-    startDate?: string;
-    endDate?: string;
-    period?: string;
-  }): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>(
-      "/api/v1/reports/financial",
-      { params }
-    );
-    return response.data;
-  },
-
-  getSalesReports: async (params?: {
-    startDate?: string;
-    endDate?: string;
-    period?: string;
-  }): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>(
-      "/api/v1/reports/sales",
-      { params }
-    );
-    return response.data;
-  },
-
-  getAuditLogs: async (params?: {
-    page?: number;
-    limit?: number;
-    startDate?: string;
-    endDate?: string;
-    userId?: number;
-  }): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>(
-      "/api/v1/reports/audit",
-      { params }
-    );
+    const response = await api.delete<ApiResponse<void>>(`/services/${id}`);
     return response.data;
   },
 };
@@ -1693,142 +1033,27 @@ export const productService = {
     type?: string;
     isActive?: boolean;
   }): Promise<ApiResponse<Product[]>> => {
-    const response = await api.get<ApiResponse<Product[]>>(
-      "/api/v1/products",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Product[]>>("/products", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Product>> => {
-    const response = await api.get<ApiResponse<Product>>(
-      `/api/v1/products/${id}`
-    );
+    const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
     return response.data;
   },
 
   create: async (productData: Partial<Product>): Promise<ApiResponse<Product>> => {
-    const response = await api.post<ApiResponse<Product>>(
-      "/api/v1/products",
-      productData
-    );
+    const response = await api.post<ApiResponse<Product>>("/products", productData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    productData: Partial<Product>
-  ): Promise<ApiResponse<Product>> => {
-    const response = await api.put<ApiResponse<Product>>(
-      `/api/v1/products/${id}`,
-      productData
-    );
+  update: async (id: number, productData: Partial<Product>): Promise<ApiResponse<Product>> => {
+    const response = await api.put<ApiResponse<Product>>(`/products/${id}`, productData);
     return response.data;
   },
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/products/${id}`
-    );
-    return response.data;
-  },
-};
-
-// ============================================================================
-// SERVICES SPÉCIALITÉS ET TECHNICAL
-// ============================================================================
-
-export const specialiteService = {
-  getAll: async (): Promise<ApiResponse<Specialite[]>> => {
-    const response = await api.get<ApiResponse<Specialite[]>>(
-      "/api/v1/specialites"
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<Specialite>> => {
-    const response = await api.get<ApiResponse<Specialite>>(
-      `/api/v1/specialites/${id}`
-    );
-    return response.data;
-  },
-
-  create: async (specialiteData: Partial<Specialite>): Promise<ApiResponse<Specialite>> => {
-    const response = await api.post<ApiResponse<Specialite>>(
-      "/api/v1/specialites",
-      specialiteData
-    );
-    return response.data;
-  },
-
-  update: async (
-    id: number,
-    specialiteData: Partial<Specialite>
-  ): Promise<ApiResponse<Specialite>> => {
-    const response = await api.put<ApiResponse<Specialite>>(
-      `/api/v1/specialites/${id}`,
-      specialiteData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/specialites/${id}`
-    );
-    return response.data;
-  },
-};
-
-// ============================================================================
-// SERVICES DE PERFORMANCE ET ÉVALUATIONS
-// ============================================================================
-
-export const performanceService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    employeeId?: number;
-    type?: string;
-    status?: string;
-  }): Promise<ApiResponse<PerformanceReview[]>> => {
-    const response = await api.get<ApiResponse<PerformanceReview[]>>(
-      "/api/v1/performance",
-      { params }
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<PerformanceReview>> => {
-    const response = await api.get<ApiResponse<PerformanceReview>>(
-      `/api/v1/performance/${id}`
-    );
-    return response.data;
-  },
-
-  create: async (reviewData: Partial<PerformanceReview>): Promise<ApiResponse<PerformanceReview>> => {
-    const response = await api.post<ApiResponse<PerformanceReview>>(
-      "/api/v1/performance",
-      reviewData
-    );
-    return response.data;
-  },
-
-  update: async (
-    id: number,
-    reviewData: Partial<PerformanceReview>
-  ): Promise<ApiResponse<PerformanceReview>> => {
-    const response = await api.put<ApiResponse<PerformanceReview>>(
-      `/api/v1/performance/${id}`,
-      reviewData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/performance/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/products/${id}`);
     return response.data;
   },
 };
@@ -1844,159 +1069,27 @@ export const messageService = {
     recipientId?: number;
     isRead?: boolean;
   }): Promise<ApiResponse<Message[]>> => {
-    const response = await api.get<ApiResponse<Message[]>>(
-      "/api/v1/messages",
-      { params }
-    );
+    const response = await api.get<ApiResponse<Message[]>>("/messages", { params });
     return response.data;
   },
 
   getById: async (id: number): Promise<ApiResponse<Message>> => {
-    const response = await api.get<ApiResponse<Message>>(
-      `/api/v1/messages/${id}`
-    );
+    const response = await api.get<ApiResponse<Message>>(`/messages/${id}`);
     return response.data;
   },
 
   create: async (messageData: Partial<Message>): Promise<ApiResponse<Message>> => {
-    const response = await api.post<ApiResponse<Message>>(
-      "/api/v1/messages",
-      messageData
-    );
+    const response = await api.post<ApiResponse<Message>>("/messages", messageData);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    messageData: Partial<Message>
-  ): Promise<ApiResponse<Message>> => {
-    const response = await api.put<ApiResponse<Message>>(
-      `/api/v1/messages/${id}`,
-      messageData
-    );
+  update: async (id: number, messageData: Partial<Message>): Promise<ApiResponse<Message>> => {
+    const response = await api.put<ApiResponse<Message>>(`/messages/${id}`, messageData);
     return response.data;
   },
 
   markAsRead: async (id: number): Promise<ApiResponse<Message>> => {
-    const response = await api.patch<ApiResponse<Message>>(
-      `/api/v1/messages/${id}/read`
-    );
-    return response.data;
-  },
-};
-
-export const notificationService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    isRead?: boolean;
-  }): Promise<ApiResponse<Notification[]>> => {
-    const response = await api.get<ApiResponse<Notification[]>>(
-      "/api/v1/notifications",
-      { params }
-    );
-    return response.data;
-  },
-
-  markAsRead: async (id: number): Promise<ApiResponse<Notification>> => {
-    const response = await api.patch<ApiResponse<Notification>>(
-      `/api/v1/notifications/${id}/read`
-    );
-    return response.data;
-  },
-
-  markAllAsRead: async (): Promise<ApiResponse<void>> => {
-    const response = await api.patch<ApiResponse<void>>(
-      "/api/v1/notifications/read-all"
-    );
-    return response.data;
-  },
-};
-
-// ============================================================================
-// SERVICES FACTURATION RÉCURRENTE ET RELANCES
-// ============================================================================
-
-export const recurringInvoiceService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    customerId?: number;
-    frequency?: string;
-    isActive?: boolean;
-  }): Promise<ApiResponse<RecurringInvoice[]>> => {
-    const response = await api.get<ApiResponse<RecurringInvoice[]>>(
-      "/api/v1/recurring-invoices",
-      { params }
-    );
-    return response.data;
-  },
-
-  getById: async (id: number): Promise<ApiResponse<RecurringInvoice>> => {
-    const response = await api.get<ApiResponse<RecurringInvoice>>(
-      `/api/v1/recurring-invoices/${id}`
-    );
-    return response.data;
-  },
-
-  create: async (invoiceData: Partial<RecurringInvoice>): Promise<ApiResponse<RecurringInvoice>> => {
-    const response = await api.post<ApiResponse<RecurringInvoice>>(
-      "/api/v1/recurring-invoices",
-      invoiceData
-    );
-    return response.data;
-  },
-
-  update: async (
-    id: number,
-    invoiceData: Partial<RecurringInvoice>
-  ): Promise<ApiResponse<RecurringInvoice>> => {
-    const response = await api.put<ApiResponse<RecurringInvoice>>(
-      `/api/v1/recurring-invoices/${id}`,
-      invoiceData
-    );
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/recurring-invoices/${id}`
-    );
-    return response.data;
-  },
-};
-
-export const reminderService = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    invoiceId?: number;
-    type?: string;
-    status?: string;
-  }): Promise<ApiResponse<Reminder[]>> => {
-    const response = await api.get<ApiResponse<Reminder[]>>(
-      "/api/v1/reminders",
-      { params }
-    );
-    return response.data;
-  },
-
-  create: async (reminderData: Partial<Reminder>): Promise<ApiResponse<Reminder>> => {
-    const response = await api.post<ApiResponse<Reminder>>(
-      "/api/v1/reminders",
-      reminderData
-    );
-    return response.data;
-  },
-
-  updateStatus: async (
-    id: number,
-    status: string
-  ): Promise<ApiResponse<Reminder>> => {
-    const response = await api.patch<ApiResponse<Reminder>>(
-      `/api/v1/reminders/${id}/status`,
-      { status }
-    );
+    const response = await api.patch<ApiResponse<Message>>(`/messages/${id}/read`);
     return response.data;
   },
 };
@@ -2005,45 +1098,30 @@ export const reminderService = {
 // UTILITAIRES ET GESTION D'ERREURS
 // ============================================================================
 
-// Service générique pour les opérations CRUD (fallback)
+// Service générique pour les opérations CRUD
 export const createCrudService = <T>(endpoint: string) => ({
-  getAll: async (
-    params?: Record<string, unknown>
-  ): Promise<ApiResponse<T[]>> => {
-    const response = await api.get<ApiResponse<T[]>>(`/api/v1/${endpoint}`, {
-      params,
-    });
+  getAll: async (params?: Record<string, unknown>): Promise<ApiResponse<T[]>> => {
+    const response = await api.get<ApiResponse<T[]>>(`/${endpoint}`, { params });
     return response.data;
   },
 
   getById: async (id: number | string): Promise<ApiResponse<T>> => {
-    const response = await api.get<ApiResponse<T>>(`/api/v1/${endpoint}/${id}`);
+    const response = await api.get<ApiResponse<T>>(`/${endpoint}/${id}`);
     return response.data;
   },
 
   create: async (data: Partial<T>): Promise<ApiResponse<T>> => {
-    const response = await api.post<ApiResponse<T>>(
-      `/api/v1/${endpoint}`,
-      data
-    );
+    const response = await api.post<ApiResponse<T>>(`/${endpoint}`, data);
     return response.data;
   },
 
-  update: async (
-    id: number | string,
-    data: Partial<T>
-  ): Promise<ApiResponse<T>> => {
-    const response = await api.put<ApiResponse<T>>(
-      `/api/v1/${endpoint}/${id}`,
-      data
-    );
+  update: async (id: number | string, data: Partial<T>): Promise<ApiResponse<T>> => {
+    const response = await api.put<ApiResponse<T>>(`/${endpoint}/${id}`, data);
     return response.data;
   },
 
   delete: async (id: number | string): Promise<ApiResponse<void>> => {
-    const response = await api.delete<ApiResponse<void>>(
-      `/api/v1/${endpoint}/${id}`
-    );
+    const response = await api.delete<ApiResponse<void>>(`/${endpoint}/${id}`);
     return response.data;
   },
 });
@@ -2118,5 +1196,4 @@ export const apiErrorHandler = {
   },
 };
 
-// Export de tous les services
 export default api;
