@@ -9,120 +9,106 @@ datasource db {
 }
 
 model Service {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  users          User[]
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  description    String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  clientProjects ClientProject[]
   customers      Customer[]
   employees      Employee[]
-  clientProjects ClientProject[]
   purchaseOrders PurchaseOrder[]
+  users          User[]
 
   @@map("services")
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  firstName    String    @map("first_name")
-  lastName     String    @map("last_name")
-  role         UserRole  @default(EMPLOYEE)
-  serviceId    Int?      @map("service_id")
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLogin    DateTime? @map("last_login")
-  preferences  String?
-  permissions  String? // JSON des permissions personnalisées
-  avatarUrl    String?   @map("avatar_url")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  service                   Service?           @relation(fields: [serviceId], references: [id])
-  createdCustomers          Customer[]         @relation("CustomerCreatedBy")
-  createdQuotes             Quote[]            @relation("QuoteCreatedBy")
-  createdInvoices           Invoice[]          @relation("InvoiceCreatedBy")
-  createdPayments           Payment[]          @relation("PaymentCreatedBy")
-  serviceApprovals          Quote[]            @relation("ServiceManagerApproval")
-  dgApprovals               Quote[]            @relation("DGApproval")
-  auditLogs                 AuditLog[]
-  quoteApprovals            QuoteApproval[]
-  createdExpenses           Expense[]          @relation("ExpenseCreatedBy")
+  id                        Int                 @id @default(autoincrement())
+  email                     String              @unique
+  passwordHash              String              @map("password_hash")
+  firstName                 String              @map("first_name")
+  lastName                  String              @map("last_name")
+  role                      UserRole            @default(EMPLOYEE)
+  serviceId                 Int?                @map("service_id")
+  isActive                  Boolean             @default(true) @map("is_active")
+  lastLogin                 DateTime?           @map("last_login")
+  preferences               String?
+  permissions               String?
+  avatarUrl                 String?             @map("avatar_url")
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  updatedAt                 DateTime            @updatedAt @map("updated_at")
   accountingEntries         AccountingEntry[]
+  auditLogs                 AuditLog[]
+  calendarEvents            CalendarEvent[]     @relation("CalendarEventCreatedBy")
   cashFlowEntries           CashFlow[]
-  createdReminders          Reminder[]         @relation("ReminderCreatedBy")
-  createdRecurringInvoices  RecurringInvoice[] @relation("RecurringInvoiceCreatedBy")
+  clientProjects            ClientProject[]     @relation("ClientProjectManagedBy")
+  createdCustomers          Customer[]          @relation("CustomerCreatedBy")
   employee                  Employee?
+  createdExpenses           Expense[]           @relation("ExpenseCreatedBy")
+  createdInvoices           Invoice[]           @relation("InvoiceCreatedBy")
+  leaveApprovals            LeaveRequest[]      @relation("LeaveApprovedBy")
+  receivedMessages          Message[]           @relation("MessageRecipient")
+  sentMessages              Message[]           @relation("MessageSender")
   notifications             Notification[]
-  sentMessages              Message[]          @relation("MessageSender")
-  receivedMessages          Message[]          @relation("MessageRecipient")
-  leaveApprovals            LeaveRequest[]     @relation("LeaveApprovedBy")
-  assignedProspects         Prospect[]         @relation("ProspectAssignedTo")
-  createdProspects          Prospect[]         @relation("ProspectCreatedBy")
-  createdProspectActivities ProspectActivity[] @relation("ProspectActivityCreatedBy")
+  createdPayments           Payment[]           @relation("PaymentCreatedBy")
+  reviewedPerformances      PerformanceReview[] @relation("PerformanceReviewReviewer")
+  projectDocuments          ProjectDocument[]   @relation("ProjectDocumentUploadedBy")
+  projectTasks              ProjectTask[]       @relation("ProjectTaskAssignedTo")
+  createdProspectActivities ProspectActivity[]  @relation("ProspectActivityCreatedBy")
+  assignedProspects         Prospect[]          @relation("ProspectAssignedTo")
+  createdProspects          Prospect[]          @relation("ProspectCreatedBy")
+  approvedPurchases         PurchaseOrder[]     @relation("PurchaseOrderApprovedBy")
+  purchaseOrders            PurchaseOrder[]     @relation("PurchaseOrderRequestedBy")
+  receivedReceipts          PurchaseReceipt[]   @relation("PurchaseReceiptReceivedBy")
+  quoteApprovals            QuoteApproval[]
+  createdQuotes             Quote[]             @relation("QuoteCreatedBy")
+  dgApprovals               Quote[]             @relation("DGApproval")
+  serviceApprovals          Quote[]             @relation("ServiceManagerApproval")
+  createdRecurringInvoices  RecurringInvoice[]  @relation("RecurringInvoiceCreatedBy")
+  createdReminders          Reminder[]          @relation("ReminderCreatedBy")
   technicien                Technicien?
-
-  //relations pour les projets clients
-  clientProjects   ClientProject[]   @relation("ClientProjectManagedBy")
-  projectTasks     ProjectTask[]     @relation("ProjectTaskAssignedTo")
-  timeEntries      TimeEntry[]
-  projectDocuments ProjectDocument[] @relation("ProjectDocumentUploadedBy")
-
-  //relations pour le service achat
-  purchaseOrders    PurchaseOrder[]   @relation("PurchaseOrderRequestedBy")
-  approvedPurchases PurchaseOrder[]   @relation("PurchaseOrderApprovedBy")
-  receivedReceipts  PurchaseReceipt[] @relation("PurchaseReceiptReceivedBy")
-
-  // relations pour les évaluations RH
-
-  reviewedPerformances PerformanceReview[] @relation("PerformanceReviewReviewer")
-
-  // relations pour le calendrier
-  userCalendars   UserCalendar[]
-  calendarEvents  CalendarEvent[]  @relation("CalendarEventCreatedBy")
-  timeOffRequests TimeOffRequest[] @relation("TimeOffApprovedBy")
+  timeEntries               TimeEntry[]
+  timeOffRequests           TimeOffRequest[]    @relation("TimeOffApprovedBy")
+  userCalendars             UserCalendar[]
+  service                   Service?            @relation(fields: [serviceId], references: [id])
 
   @@map("users")
 }
 
 model Customer {
-  id             Int           @id @default(autoincrement())
-  customerNumber String        @unique @map("customer_number")
-  type           CustomerType  @default(COMPANY)
-  name           String
-  legalName      String?       @map("legal_name")
-  siret          String?
-  vatNumber      String?       @map("vat_number")
-  email          String?
-  phone          String?
-  mobile         String?
-  website        String?
-  paymentTerms   Int           @default(30) @map("payment_terms")
-  paymentMethod  PaymentMethod @default(TRANSFER) @map("payment_method")
-  creditLimit    Float         @default(0) @map("credit_limit")
-  discountRate   Float         @default(0) @map("discount_rate")
-  category       String?
-  tags           String?
-  notes          String?
-  isActive       Boolean       @default(true) @map("is_active")
-  serviceId      Int?          @map("service_id")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  createdBy      Int           @map("created_by")
-
-  // Relations CORRIGÉES
-  service           Service?           @relation(fields: [serviceId], references: [id])
-  creator           User               @relation("CustomerCreatedBy", fields: [createdBy], references: [id])
-  addresses         CustomerAddress[]
-  quotes            Quote[]
-  invoices          Invoice[]
-  payments          Payment[]
-  recurringInvoices RecurringInvoice[]
-  missions          Mission[]
+  id                Int                @id @default(autoincrement())
+  customerNumber    String             @unique @map("customer_number")
+  type              CustomerType       @default(COMPANY)
+  name              String
+  legalName         String?            @map("legal_name")
+  vatNumber         String?            @map("vat_number")
+  email             String?
+  phone             String?
+  mobile            String?
+  website           String?
+  paymentTerms      Int                @default(30) @map("payment_terms")
+  paymentMethod     PaymentMethod      @default(TRANSFER) @map("payment_method")
+  creditLimit       Float              @default(0) @map("credit_limit")
+  discountRate      Float              @default(0) @map("discount_rate")
+  category          String?
+  tags              String?
+  notes             String?
+  isActive          Boolean            @default(true) @map("is_active")
+  serviceId         Int?               @map("service_id")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  createdBy         Int                @map("created_by")
+  idu               String?
   clientProjects    ClientProject[]
+  addresses         CustomerAddress[]
+  creator           User               @relation("CustomerCreatedBy", fields: [createdBy], references: [id])
+  service           Service?           @relation(fields: [serviceId], references: [id])
+  invoices          Invoice[]
+  missions          Mission[]
+  payments          Payment[]
+  quotes            Quote[]
+  recurringInvoices RecurringInvoice[]
 
   @@map("customers")
 }
@@ -139,39 +125,37 @@ model CustomerAddress {
   country      String      @default("France")
   isDefault    Boolean     @default(false) @map("is_default")
   createdAt    DateTime    @default(now()) @map("created_at")
-
-  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  quotes   Quote[]
-  invoices Invoice[]
+  customer     Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
+  quotes       Quote[]
 
   @@map("customer_addresses")
 }
 
 model Product {
-  id                  Int         @id @default(autoincrement())
-  sku                 String      @unique
-  name                String
-  description         String?
-  type                ProductType @default(PRODUCT)
-  category            String?
-  unit                String      @default("pièce")
-  priceHt             Float       @map("price_ht")
-  vatRate             Float       @default(20.00) @map("vat_rate")
-  costPrice           Float?      @map("cost_price")
-  stockQuantity       Int         @default(0) @map("stock_quantity")
-  stockAlertThreshold Int         @default(0) @map("stock_alert_threshold")
-  isActive            Boolean     @default(true) @map("is_active")
-  weight              Float?
-  dimensions          String?
-  imageUrl            String?     @map("image_url")
-  createdAt           DateTime    @default(now()) @map("created_at")
-  updatedAt           DateTime    @updatedAt @map("updated_at")
-
-  prices                ProductPrice[]
-  quoteItems            QuoteItem[]
+  id                    Int                    @id @default(autoincrement())
+  sku                   String                 @unique
+  name                  String
+  description           String?
+  type                  ProductType            @default(PRODUCT)
+  category              String?
+  unit                  String                 @default("pièce")
+  priceHt               Float                  @map("price_ht")
+  vatRate               Float                  @default(20.00) @map("vat_rate")
+  costPrice             Float?                 @map("cost_price")
+  stockQuantity         Int                    @default(0) @map("stock_quantity")
+  stockAlertThreshold   Int                    @default(0) @map("stock_alert_threshold")
+  isActive              Boolean                @default(true) @map("is_active")
+  weight                Float?
+  dimensions            String?
+  imageUrl              String?                @map("image_url")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
   invoiceItems          InvoiceItem[]
-  recurringInvoiceItems RecurringInvoiceItem[]
+  prices                ProductPrice[]
   purchaseOrderItems    PurchaseOrderItem[]
+  quoteItems            QuoteItem[]
+  recurringInvoiceItems RecurringInvoiceItem[]
 
   @@map("products")
 }
@@ -185,68 +169,65 @@ model ProductPrice {
   validFrom        DateTime? @map("valid_from")
   validUntil       DateTime? @map("valid_until")
   createdAt        DateTime  @default(now()) @map("created_at")
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("product_prices")
 }
 
 model Quote {
-  id                            Int         @id @default(autoincrement())
-  quoteNumber                   String      @unique @map("quote_number")
-  customerId                    Int         @map("customer_id")
-  customerAddressId             Int?        @map("customer_address_id")
-  status                        QuoteStatus @default(DRAFT)
-  quoteDate                     DateTime    @map("quote_date")
-  validUntil                    DateTime    @map("valid_until")
-  subtotalHt                    Float       @default(0) @map("subtotal_ht")
-  discountAmount                Float       @default(0) @map("discount_amount")
-  totalVat                      Float       @default(0) @map("total_vat")
-  totalTtc                      Float       @default(0) @map("total_ttc")
+  id                            Int              @id @default(autoincrement())
+  quoteNumber                   String           @unique @map("quote_number")
+  customerId                    Int              @map("customer_id")
+  customerAddressId             Int?             @map("customer_address_id")
+  status                        QuoteStatus      @default(DRAFT)
+  quoteDate                     DateTime         @map("quote_date")
+  validUntil                    DateTime         @map("valid_until")
+  subtotalHt                    Float            @default(0) @map("subtotal_ht")
+  discountAmount                Float            @default(0) @map("discount_amount")
+  totalVat                      Float            @default(0) @map("total_vat")
+  totalTtc                      Float            @default(0) @map("total_ttc")
   terms                         String?
   notes                         String?
-  createdBy                     Int         @map("created_by")
-  createdAt                     DateTime    @default(now()) @map("created_at")
-  updatedAt                     DateTime    @updatedAt @map("updated_at")
-  sentAt                        DateTime?   @map("sent_at")
-  submittedForServiceApprovalAt DateTime?   @map("submitted_for_service_approval_at")
-  serviceManagerApprovedBy      Int?        @map("service_manager_approved_by")
-  serviceManagerApprovalDate    DateTime?   @map("service_manager_approval_date")
-  serviceManagerComments        String?     @map("service_manager_comments")
-  dgApprovedBy                  Int?        @map("dg_approved_by")
-  dgApprovalDate                DateTime?   @map("dg_approval_date")
-  dgComments                    String?     @map("dg_comments")
-  acceptedAt                    DateTime?   @map("accepted_at")
-  quoteType                     QuoteType   @default(REAL) @map("quote_type") // Ajouté
-  dqeReference                  String?     @map("dqe_reference") // Ajouté
-
-  customer        Customer         @relation(fields: [customerId], references: [id])
-  customerAddress CustomerAddress? @relation(fields: [customerAddressId], references: [id])
-  creator         User             @relation("QuoteCreatedBy", fields: [createdBy], references: [id])
-  serviceManager  User?            @relation("ServiceManagerApproval", fields: [serviceManagerApprovedBy], references: [id])
-  dgApprover      User?            @relation("DGApproval", fields: [dgApprovedBy], references: [id])
-  items           QuoteItem[]
-  invoices        Invoice[]
-  approvals       QuoteApproval[]
-  missions        Mission[]
+  createdBy                     Int              @map("created_by")
+  createdAt                     DateTime         @default(now()) @map("created_at")
+  updatedAt                     DateTime         @updatedAt @map("updated_at")
+  sentAt                        DateTime?        @map("sent_at")
+  submittedForServiceApprovalAt DateTime?        @map("submitted_for_service_approval_at")
+  serviceManagerApprovedBy      Int?             @map("service_manager_approved_by")
+  serviceManagerApprovalDate    DateTime?        @map("service_manager_approval_date")
+  serviceManagerComments        String?          @map("service_manager_comments")
+  dgApprovedBy                  Int?             @map("dg_approved_by")
+  dgApprovalDate                DateTime?        @map("dg_approval_date")
+  dgComments                    String?          @map("dg_comments")
+  acceptedAt                    DateTime?        @map("accepted_at")
+  quoteType                     QuoteType        @default(REAL) @map("quote_type")
+  dqeReference                  String?          @map("dqe_reference")
+  invoices                      Invoice[]
+  approvals                     QuoteApproval[]
+  items                         QuoteItem[]
+  creator                       User             @relation("QuoteCreatedBy", fields: [createdBy], references: [id])
+  customerAddress               CustomerAddress? @relation(fields: [customerAddressId], references: [id])
+  customer                      Customer         @relation(fields: [customerId], references: [id])
+  dgApprover                    User?            @relation("DGApproval", fields: [dgApprovedBy], references: [id])
+  serviceManager                User?            @relation("ServiceManagerApproval", fields: [serviceManagerApprovedBy], references: [id])
+  missions                      Mission[]        @relation("MissionToQuote")
 
   @@map("quotes")
 }
 
 model QuoteItem {
-  id           Int    @id @default(autoincrement())
-  quoteId      Int    @map("quote_id")
-  productId    Int?   @map("product_id")
+  id           Int      @id @default(autoincrement())
+  quoteId      Int      @map("quote_id")
+  productId    Int?     @map("product_id")
   description  String
   quantity     Float
-  unitPriceHt  Float  @map("unit_price_ht")
-  discountRate Float  @default(0) @map("discount_rate")
-  vatRate      Float  @map("vat_rate")
-  totalHt      Float  @map("total_ht")
-  sortOrder    Int    @default(0) @map("sort_order")
-
-  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id])
+  unitPriceHt  Float    @map("unit_price_ht")
+  discountRate Float    @default(0) @map("discount_rate")
+  vatRate      Float    @map("vat_rate")
+  totalHt      Float    @map("total_ht")
+  sortOrder    Int      @default(0) @map("sort_order")
+  product      Product? @relation(fields: [productId], references: [id])
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@map("quote_items")
 }
@@ -261,44 +242,42 @@ model QuoteApproval {
   comments      String?
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
-
-  quote    Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  approver User  @relation(fields: [approverId], references: [id])
+  approver      User           @relation(fields: [approverId], references: [id])
+  quote         Quote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@unique([quoteId, approvalLevel])
   @@map("quote_approvals")
 }
 
 model Invoice {
-  id                Int           @id @default(autoincrement())
-  invoiceNumber     String        @unique @map("invoice_number")
-  customerId        Int           @map("customer_id")
-  customerAddressId Int?          @map("customer_address_id")
-  quoteId           Int?          @map("quote_id")
-  type              InvoiceType   @default(INVOICE)
-  status            InvoiceStatus @default(DRAFT)
-  invoiceDate       DateTime      @map("invoice_date")
-  dueDate           DateTime      @map("due_date")
-  subtotalHt        Float         @default(0) @map("subtotal_ht")
-  discountAmount    Float         @default(0) @map("discount_amount")
-  totalVat          Float         @default(0) @map("total_vat")
-  totalTtc          Float         @default(0) @map("total_ttc")
-  paidAmount        Float         @default(0) @map("paid_amount")
-  balanceDue        Float         @default(0) @map("balance_due")
-  paymentTerms      Int           @default(30) @map("payment_terms")
-  lateFeeRate       Float         @default(0) @map("late_fee_rate")
-  terms             String?
-  notes             String?
-  createdBy         Int           @map("created_by")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  sentAt            DateTime?     @map("sent_at")
-
-  customer           Customer            @relation(fields: [customerId], references: [id])
-  customerAddress    CustomerAddress?    @relation(fields: [customerAddressId], references: [id])
-  quote              Quote?              @relation(fields: [quoteId], references: [id])
-  creator            User                @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
+  id                 Int                 @id @default(autoincrement())
+  invoiceNumber      String              @unique @map("invoice_number")
+  customerId         Int                 @map("customer_id")
+  customerAddressId  Int?                @map("customer_address_id")
+  quoteId            Int?                @map("quote_id")
+  type               InvoiceType         @default(INVOICE)
+  status             InvoiceStatus       @default(DRAFT)
+  invoiceDate        DateTime            @map("invoice_date")
+  dueDate            DateTime            @map("due_date")
+  subtotalHt         Float               @default(0) @map("subtotal_ht")
+  discountAmount     Float               @default(0) @map("discount_amount")
+  totalVat           Float               @default(0) @map("total_vat")
+  totalTtc           Float               @default(0) @map("total_ttc")
+  paidAmount         Float               @default(0) @map("paid_amount")
+  balanceDue         Float               @default(0) @map("balance_due")
+  paymentTerms       Int                 @default(30) @map("payment_terms")
+  lateFeeRate        Float               @default(0) @map("late_fee_rate")
+  terms              String?
+  notes              String?
+  createdBy          Int                 @map("created_by")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  sentAt             DateTime?           @map("sent_at")
   items              InvoiceItem[]
+  creator            User                @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
+  customerAddress    CustomerAddress?    @relation(fields: [customerAddressId], references: [id])
+  customer           Customer            @relation(fields: [customerId], references: [id])
+  quote              Quote?              @relation(fields: [quoteId], references: [id])
   paymentAllocations PaymentAllocation[]
   reminders          Reminder[]
 
@@ -306,38 +285,36 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id           Int    @id @default(autoincrement())
-  invoiceId    Int    @map("invoice_id")
-  productId    Int?   @map("product_id")
+  id           Int      @id @default(autoincrement())
+  invoiceId    Int      @map("invoice_id")
+  productId    Int?     @map("product_id")
   description  String
   quantity     Float
-  unitPriceHt  Float  @map("unit_price_ht")
-  discountRate Float  @default(0) @map("discount_rate")
-  vatRate      Float  @map("vat_rate")
-  totalHt      Float  @map("total_ht")
-  sortOrder    Int    @default(0) @map("sort_order")
-
-  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id])
+  unitPriceHt  Float    @map("unit_price_ht")
+  discountRate Float    @default(0) @map("discount_rate")
+  vatRate      Float    @map("vat_rate")
+  totalHt      Float    @map("total_ht")
+  sortOrder    Int      @default(0) @map("sort_order")
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product      Product? @relation(fields: [productId], references: [id])
 
   @@map("invoice_items")
 }
 
 model Payment {
-  id            Int           @id @default(autoincrement())
-  paymentNumber String        @unique @map("payment_number")
-  customerId    Int           @map("customer_id")
+  id            Int                 @id @default(autoincrement())
+  paymentNumber String              @unique @map("payment_number")
+  customerId    Int                 @map("customer_id")
   amount        Float
-  paymentDate   DateTime      @map("payment_date")
-  paymentMethod PaymentMethod @map("payment_method")
+  paymentDate   DateTime            @map("payment_date")
+  paymentMethod PaymentMethod       @map("payment_method")
   reference     String?
   notes         String?
-  createdBy     Int           @map("created_by")
-  createdAt     DateTime      @default(now()) @map("created_at")
-
-  customer    Customer            @relation(fields: [customerId], references: [id])
-  creator     User                @relation("PaymentCreatedBy", fields: [createdBy], references: [id])
-  allocations PaymentAllocation[]
+  createdBy     Int                 @map("created_by")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  allocations   PaymentAllocation[]
+  creator       User                @relation("PaymentCreatedBy", fields: [createdBy], references: [id])
+  customer      Customer            @relation(fields: [customerId], references: [id])
 
   @@map("payments")
 }
@@ -348,51 +325,48 @@ model PaymentAllocation {
   invoiceId Int      @map("invoice_id")
   amount    Float
   createdAt DateTime @default(now()) @map("created_at")
-
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@map("payment_allocations")
 }
 
 model RecurringInvoice {
-  id              Int                @id @default(autoincrement())
-  customerId      Int                @map("customer_id")
-  templateName    String             @map("template_name")
+  id              Int                    @id @default(autoincrement())
+  customerId      Int                    @map("customer_id")
+  templateName    String                 @map("template_name")
   frequency       RecurringFrequency
-  startDate       DateTime           @map("start_date")
-  endDate         DateTime?          @map("end_date")
-  nextInvoiceDate DateTime           @map("next_invoice_date")
-  isActive        Boolean            @default(true) @map("is_active")
-  subtotalHt      Float              @default(0) @map("subtotal_ht")
-  totalVat        Float              @default(0) @map("total_vat")
-  totalTtc        Float              @default(0) @map("total_ttc")
+  startDate       DateTime               @map("start_date")
+  endDate         DateTime?              @map("end_date")
+  nextInvoiceDate DateTime               @map("next_invoice_date")
+  isActive        Boolean                @default(true) @map("is_active")
+  subtotalHt      Float                  @default(0) @map("subtotal_ht")
+  totalVat        Float                  @default(0) @map("total_vat")
+  totalTtc        Float                  @default(0) @map("total_ttc")
   terms           String?
   notes           String?
-  createdBy       Int                @map("created_by")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
-
-  customer Customer               @relation(fields: [customerId], references: [id])
-  creator  User                   @relation("RecurringInvoiceCreatedBy", fields: [createdBy], references: [id])
-  items    RecurringInvoiceItem[]
+  createdBy       Int                    @map("created_by")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  items           RecurringInvoiceItem[]
+  creator         User                   @relation("RecurringInvoiceCreatedBy", fields: [createdBy], references: [id])
+  customer        Customer               @relation(fields: [customerId], references: [id])
 
   @@map("recurring_invoices")
 }
 
 model RecurringInvoiceItem {
-  id                 Int    @id @default(autoincrement())
-  recurringInvoiceId Int    @map("recurring_invoice_id")
-  productId          Int?   @map("product_id")
+  id                 Int              @id @default(autoincrement())
+  recurringInvoiceId Int              @map("recurring_invoice_id")
+  productId          Int?             @map("product_id")
   description        String
   quantity           Float
-  unitPriceHt        Float  @map("unit_price_ht")
-  vatRate            Float  @map("vat_rate")
-  totalHt            Float  @map("total_ht")
-  sortOrder          Int    @default(0) @map("sort_order")
-
-  recurringInvoice RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
-  product          Product?         @relation(fields: [productId], references: [id])
+  unitPriceHt        Float            @map("unit_price_ht")
+  vatRate            Float            @map("vat_rate")
+  totalHt            Float            @map("total_ht")
+  sortOrder          Int              @default(0) @map("sort_order")
+  product            Product?         @relation(fields: [productId], references: [id])
+  recurringInvoice   RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
 
   @@map("recurring_invoice_items")
 }
@@ -410,9 +384,8 @@ model Reminder {
   emailBody    String?        @map("email_body")
   createdBy    Int            @map("created_by")
   createdAt    DateTime       @default(now()) @map("created_at")
-
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  creator User    @relation("ReminderCreatedBy", fields: [createdBy], references: [id])
+  creator      User           @relation("ReminderCreatedBy", fields: [createdBy], references: [id])
+  invoice      Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@map("reminders")
 }
@@ -424,12 +397,11 @@ model AuditLog {
   entityType String?
   details    String?
   entityId   String?
-  newValue   String?  @map("new_value") @db.Text
+  newValue   String?  @map("new_value")
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
-
-  user User? @relation(fields: [userId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
 }
@@ -448,9 +420,8 @@ model Expense {
   createdBy   Int           @map("created_by")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-  creator  User     @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
+  creator     User          @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
+  employee    Employee      @relation(fields: [employeeId], references: [id])
 
   @@map("expenses")
 }
@@ -466,25 +437,23 @@ model AccountingEntry {
   sourceDocumentId   String             @map("source_document_id")
   createdBy          Int                @map("created_by")
   createdAt          DateTime           @default(now()) @map("created_at")
-
-  account Account @relation(fields: [accountId], references: [id])
-  creator User    @relation(fields: [createdBy], references: [id])
+  account            Account            @relation(fields: [accountId], references: [id])
+  creator            User               @relation(fields: [createdBy], references: [id])
 
   @@map("accounting_entries")
 }
 
 model Account {
-  id            Int      @id @default(autoincrement())
-  name          String   @unique
-  accountNumber String   @unique @map("account_number")
-  accountType   String   @map("account_type")
-  balance       Float    @default(0)
-  currency      String   @default("XOF")
-  description   String?
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
+  id                Int               @id @default(autoincrement())
+  name              String            @unique
+  accountNumber     String            @unique @map("account_number")
+  accountType       String            @map("account_type")
+  balance           Float             @default(0)
+  currency          String            @default("XOF")
+  description       String?
+  isActive          Boolean           @default(true) @map("is_active")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
   accountingEntries AccountingEntry[]
   cashFlows         CashFlow[]
 
@@ -500,50 +469,48 @@ model CashFlow {
   accountId   Int          @map("account_id")
   createdBy   Int          @map("created_by")
   createdAt   DateTime     @default(now()) @map("created_at")
-
-  account Account @relation(fields: [accountId], references: [id])
-  creator User    @relation(fields: [createdBy], references: [id])
+  account     Account      @relation(fields: [accountId], references: [id])
+  creator     User         @relation(fields: [createdBy], references: [id])
 
   @@map("cash_flows")
 }
 
 model Employee {
-  id                   Int      @id @default(autoincrement())
-  employeeNumber       String   @unique @map("employee_number")
-  registrationNumber   String?  @unique @map("registration_number")
-  firstName            String   @map("first_name")
-  lastName             String   @map("last_name")
+  id                   Int                 @id @default(autoincrement())
+  employeeNumber       String              @unique @map("employee_number")
+  registrationNumber   String?             @unique @map("registration_number")
+  firstName            String              @map("first_name")
+  lastName             String              @map("last_name")
   email                String?
   phone                String?
   address              String?
-  dateOfBirth          DateTime @map("date_of_birth")
-  placeOfBirth         String?  @map("place_of_birth")
+  dateOfBirth          DateTime            @map("date_of_birth")
+  placeOfBirth         String?             @map("place_of_birth")
   nationality          String?
-  socialSecurityNumber String?  @map("social_security_number")
-  cnpsNumber           String?  @map("cnps_number")
-  cnamNumber           String?  @map("cnam_number")
-  bankAccount          String?  @map("bank_account")
-  emergencyContact     String?  @map("emergency_contact")
-  serviceId            Int?     @map("service_id")
+  socialSecurityNumber String?             @map("social_security_number")
+  cnpsNumber           String?             @map("cnps_number")
+  cnamNumber           String?             @map("cnam_number")
+  bankAccount          String?             @map("bank_account")
+  emergencyContact     String?             @map("emergency_contact")
+  serviceId            Int?                @map("service_id")
   position             String
   department           String?
-  category             String?  @map("professional_category")
-  level                String?  @map("professional_level")
+  category             String?             @map("professional_category")
+  level                String?             @map("professional_level")
   manager              String?
-  hireDate             DateTime @map("hire_date")
-  isActive             Boolean  @default(true) @map("is_active")
-  userId               Int?     @unique @map("user_id")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-
-  service            Service?            @relation(fields: [serviceId], references: [id])
-  user               User?               @relation(fields: [userId], references: [id])
-  contracts          Contract[]
-  salaries           Salary[]
-  leaveRequests      LeaveRequest[]
-  loans              Loan[]
-  expenses           Expense[]
-  performanceReviews PerformanceReview[] @relation("PerformanceReviewEmployee")
+  hireDate             DateTime            @map("hire_date")
+  isActive             Boolean             @default(true) @map("is_active")
+  userId               Int?                @unique @map("user_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  contracts            Contract[]
+  service              Service?            @relation(fields: [serviceId], references: [id])
+  user                 User?               @relation(fields: [userId], references: [id])
+  expenses             Expense[]
+  leaveRequests        LeaveRequest[]
+  loans                Loan[]
+  performanceReviews   PerformanceReview[] @relation("PerformanceReviewEmployee")
+  salaries             Salary[]
 
   @@map("employees")
 }
@@ -561,8 +528,7 @@ model Contract {
   isActive     Boolean      @default(true) @map("is_active")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("contracts")
 }
@@ -593,11 +559,8 @@ model Salary {
   reference           String?
   notes               String?
   createdAt           DateTime       @default(now()) @map("created_at")
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  // Ajout pour compléter la relation avec LoanPayment
-  loanPayments LoanPayment[]
+  loanPayments        LoanPayment[]
+  employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("salaries")
 }
@@ -617,46 +580,44 @@ model LeaveRequest {
   comments     String?
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
-
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  approvedBy User?    @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
+  approvedBy   User?       @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("leave_requests")
 }
 
 model Prospect {
-  id              Int       @id @default(autoincrement())
-  companyName     String    @map("company_name")
-  contactName     String    @map("contact_name")
+  id              Int                @id @default(autoincrement())
+  companyName     String             @map("company_name")
+  contactName     String             @map("contact_name")
   position        String?
   email           String?
   phone           String?
   address         String?
   website         String?
   industry        String?
-  companySize     String?   @map("company_size")
-  estimatedValue  Float?    @map("estimated_value")
-  priority        String    @default("B") // A, B, C
-  stage           String    @default("preparation") // preparation, research, contact, discovery, proposal, won, lost
+  companySize     String?            @map("company_size")
+  estimatedValue  Float?             @map("estimated_value")
+  priority        String             @default("B")
+  stage           String             @default("preparation")
   source          String?
-  sourceDetail    String?   @map("source_detail") // Ajouté
-  sourceAuthor    String?   @map("source_author") // Ajouté
+  sourceDetail    String?            @map("source_detail")
+  sourceAuthor    String?            @map("source_author")
   notes           String?
-  hasBudget       Boolean   @default(false) @map("has_budget")
-  isDecisionMaker Boolean   @default(false) @map("is_decision_maker")
-  hasNeed         Boolean   @default(false) @map("has_need")
+  hasBudget       Boolean            @default(false) @map("has_budget")
+  isDecisionMaker Boolean            @default(false) @map("is_decision_maker")
+  hasNeed         Boolean            @default(false) @map("has_need")
   timeline        String?
-  lastContact     DateTime  @default(now()) @map("last_contact")
-  nextAction      String?   @map("next_action")
-  nextActionDate  DateTime? @map("next_action_date")
-  assignedTo      Int?      @map("assigned_to")
-  createdBy       Int       @map("created_by")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  assignedUser User?              @relation("ProspectAssignedTo", fields: [assignedTo], references: [id])
-  creator      User               @relation("ProspectCreatedBy", fields: [createdBy], references: [id])
-  activities   ProspectActivity[]
+  lastContact     DateTime           @default(now()) @map("last_contact")
+  nextAction      String?            @map("next_action")
+  nextActionDate  DateTime?          @map("next_action_date")
+  assignedTo      Int?               @map("assigned_to")
+  createdBy       Int                @map("created_by")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  activities      ProspectActivity[]
+  assignedUser    User?              @relation("ProspectAssignedTo", fields: [assignedTo], references: [id])
+  creator         User               @relation("ProspectCreatedBy", fields: [createdBy], references: [id])
 
   @@map("prospects")
 }
@@ -664,7 +625,7 @@ model Prospect {
 model ProspectActivity {
   id          Int       @id @default(autoincrement())
   prospectId  Int       @map("prospect_id")
-  type        String // call, email, meeting, note
+  type        String
   subject     String?
   description String?
   scheduledAt DateTime? @map("scheduled_at")
@@ -673,9 +634,8 @@ model ProspectActivity {
   nextAction  String?   @map("next_action")
   createdBy   Int       @map("created_by")
   createdAt   DateTime  @default(now()) @map("created_at")
-
-  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  creator  User     @relation("ProspectActivityCreatedBy", fields: [createdBy], references: [id])
+  creator     User      @relation("ProspectActivityCreatedBy", fields: [createdBy], references: [id])
+  prospect    Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@map("prospect_activities")
 }
@@ -684,14 +644,12 @@ model Notification {
   id        Int       @id @default(autoincrement())
   type      String
   message   String
-  data      String? //  (JSON stocké en string)
+  data      String?
   isRead    Boolean   @default(false) @map("is_read")
   readAt    DateTime?
   createdAt DateTime  @default(now()) @map("created_at")
-
-  // Relation
-  user   User @relation(fields: [userId], references: [id])
-  userId Int  @map("user_id")
+  userId    Int       @map("user_id")
+  user      User      @relation(fields: [userId], references: [id])
 
   @@map("notifications")
 }
@@ -701,24 +659,515 @@ model Message {
   senderId    Int      @map("sender_id")
   recipientId Int      @map("recipient_id")
   subject     String?
-  body        String   @db.Text
+  body        String
   isRead      Boolean  @default(false) @map("is_read")
   sentAt      DateTime @default(now()) @map("sent_at")
-
-  sender    User @relation("MessageSender", fields: [senderId], references: [id])
-  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id])
+  recipient   User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
 
   @@map("messages")
 }
 
-// Enums
+model Loan {
+  id              Int           @id @default(autoincrement())
+  loanNumber      String        @unique @map("loan_number")
+  employeeId      Int           @map("employee_id")
+  amount          Float
+  interestRate    Float         @default(0) @map("interest_rate")
+  monthlyPayment  Float         @map("monthly_payment")
+  remainingAmount Float         @map("remaining_amount")
+  startDate       DateTime      @map("start_date")
+  endDate         DateTime      @map("end_date")
+  purpose         String?
+  status          LoanStatus    @default(ACTIVE)
+  notes           String?
+  createdBy       Int           @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  payments        LoanPayment[]
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("loans")
+}
+
+model LoanPayment {
+  id          Int      @id @default(autoincrement())
+  loanId      Int      @map("loan_id")
+  salaryId    Int?     @map("salary_id")
+  amount      Float
+  paymentDate DateTime @map("payment_date")
+  principal   Float
+  interest    Float
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  salary      Salary?  @relation(fields: [salaryId], references: [id])
+
+  @@map("loan_payments")
+}
+
+model Specialite {
+  id          Int          @id @default(autoincrement())
+  libelle     String       @unique
+  description String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  techniciens Technicien[]
+
+  @@map("specialites")
+}
+
+model Technicien {
+  id               Int                      @id @default(autoincrement())
+  nom              String
+  prenom           String
+  contact          String
+  specialiteId     Int                      @map("specialite_id")
+  utilisateurId    Int?                     @unique @map("utilisateur_id")
+  isActive         Boolean                  @default(true) @map("is_active")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  status           TechnicienStatus         @default(AVAILABLE) @map("status")
+  currentMissionId String?                  @map("current_mission_id")
+  rapports         RapportMission[]
+  sortiesMateriels SortieMateriel[]
+  interventions    TechnicienIntervention[]
+  currentMission   Mission?                 @relation(fields: [currentMissionId], references: [numIntervention])
+  specialite       Specialite               @relation(fields: [specialiteId], references: [id])
+  utilisateur      User?                    @relation(fields: [utilisateurId], references: [id])
+
+  @@map("techniciens")
+}
+
+model Mission {
+  numIntervention             String           @id @unique @map("num_intervention")
+  natureIntervention          String           @map("nature_intervention")
+  objectifDuContrat           String           @map("objectif_du_contrat")
+  description                 String?
+  priorite                    String?          @default("normale")
+  statut                      String?          @default("planifiee")
+  dateSortieFicheIntervention DateTime         @map("date_sortie_fiche_intervention")
+  clientId                    Int              @map("client_id")
+  createdAt                   DateTime         @default(now()) @map("created_at")
+  updatedAt                   DateTime         @updatedAt @map("updated_at")
+  interventions               Intervention[]
+  client                      Customer         @relation(fields: [clientId], references: [id])
+  rapports                    RapportMission[]
+  techniciens                 Technicien[]
+  timeOffRequests             TimeOffRequest[] @relation("TimeOffRequestMission")
+  devis                       Quote[]          @relation("MissionToQuote")
+
+  @@map("missions")
+}
+
+model Intervention {
+  id               Int                      @id @default(autoincrement())
+  dateHeureDebut   DateTime                 @map("date_heure_debut")
+  dateHeureFin     DateTime?                @map("date_heure_fin")
+  duree            Int?
+  missionId        String                   @map("mission_id")
+  statut           String                   @default("planifiee")
+  commentaire      String?
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  mission          Mission                  @relation(fields: [missionId], references: [numIntervention])
+  rapports         RapportMission[]
+  sortiesMateriels SortieMateriel[]
+  techniciens      TechnicienIntervention[]
+  timeOffRequests  TimeOffRequest[]         @relation("TimeOffRequestIntervention")
+
+  @@map("interventions")
+}
+
+model TechnicienIntervention {
+  id             Int          @id @default(autoincrement())
+  technicienId   Int          @map("technicien_id")
+  interventionId Int          @map("intervention_id")
+  role           String       @default("assistant")
+  commentaire    String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  intervention   Intervention @relation(fields: [interventionId], references: [id])
+  technicien     Technicien   @relation(fields: [technicienId], references: [id])
+
+  @@unique([technicienId, interventionId])
+  @@map("technicien_interventions")
+}
+
+model RapportMission {
+  id             Int            @id @default(autoincrement())
+  titre          String
+  contenu        String
+  interventionId Int?           @map("intervention_id")
+  technicienId   Int            @map("technicien_id")
+  missionId      String         @map("mission_id")
+  createdById    Int?           @map("created_by_id")
+  statut         String         @default("soumis")
+  dateValidation DateTime?      @map("date_validation")
+  commentaire    String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  images         RapportImage[]
+  intervention   Intervention?  @relation(fields: [interventionId], references: [id])
+  mission        Mission        @relation(fields: [missionId], references: [numIntervention])
+  technicien     Technicien     @relation(fields: [technicienId], references: [id])
+
+  @@map("rapports_mission")
+}
+
+model RapportImage {
+  id          Int            @id @default(autoincrement())
+  rapportId   Int            @map("rapport_id")
+  url         String
+  description String?
+  ordre       Int
+  createdAt   DateTime       @default(now()) @map("created_at")
+  rapport     RapportMission @relation(fields: [rapportId], references: [id], onDelete: Cascade)
+
+  @@map("rapport_images")
+}
+
+model Materiel {
+  id                 Int              @id @default(autoincrement())
+  reference          String           @unique
+  designation        String
+  description        String?
+  statut             String?          @default("actif")
+  quantiteTotale     Int              @default(0) @map("quantite_totale")
+  quantiteDisponible Int              @default(0) @map("quantite_disponible")
+  seuilAlerte        Int              @default(5) @map("seuil_alerte")
+  emplacement        String?
+  categorie          String           @default("Outillage")
+  prixUnitaire       Float?           @default(0) @map("prix_unitaire")
+  fournisseur        String?
+  dateAchat          DateTime?        @map("date_achat")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  garantie           String?
+  entrees            EntreeMateriel[]
+  sorties            SortieMateriel[]
+
+  @@map("materiels")
+}
+
+model SortieMateriel {
+  id             Int          @id @default(autoincrement())
+  materielId     Int          @map("materiel_id")
+  interventionId Int          @map("intervention_id")
+  technicienId   Int          @map("technicien_id")
+  quantite       Int
+  dateSortie     DateTime     @default(now()) @map("date_sortie")
+  notes          String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  intervention   Intervention @relation(fields: [interventionId], references: [id])
+  materiel       Materiel     @relation(fields: [materielId], references: [id])
+  technicien     Technicien   @relation(fields: [technicienId], references: [id])
+
+  @@map("sorties_materiel")
+}
+
+model EntreeMateriel {
+  id          Int      @id @default(autoincrement())
+  materielId  Int      @map("materiel_id")
+  quantite    Int
+  source      String   @default("achat")
+  prixTotal   Float?   @map("prix_total")
+  fournisseur String?
+  facture     String?
+  commentaire String?
+  dateEntree  DateTime @default(now()) @map("date_entree")
+  createdAt   DateTime @default(now()) @map("created_at")
+  materiel    Materiel @relation(fields: [materielId], references: [id], onDelete: Cascade)
+
+  @@map("entrees_materiel")
+}
+
+model Supplier {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model ClientProject {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  customerId  Int               @map("customer_id")
+  serviceId   Int               @map("service_id")
+  startDate   DateTime          @map("start_date")
+  endDate     DateTime?         @map("end_date")
+  budget      Float?
+  status      ProjectStatus     @default(PLANNED)
+  priority    String            @default("medium")
+  createdBy   Int               @map("created_by")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  creator     User              @relation("ClientProjectManagedBy", fields: [createdBy], references: [id])
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  service     Service           @relation(fields: [serviceId], references: [id])
+  documents   ProjectDocument[]
+  tasks       ProjectTask[]
+
+  @@map("client_projects")
+}
+
+model ProjectTask {
+  id          Int           @id @default(autoincrement())
+  projectId   Int           @map("project_id")
+  title       String
+  description String?
+  assignedTo  Int?          @map("assigned_to")
+  startDate   DateTime?     @map("start_date")
+  endDate     DateTime?     @map("end_date")
+  status      TaskStatus    @default(TODO)
+  priority    String        @default("medium")
+  progress    Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  assignee    User?         @relation("ProjectTaskAssignedTo", fields: [assignedTo], references: [id])
+  project     ClientProject @relation(fields: [projectId], references: [id])
+  timeEntries TimeEntry[]
+
+  @@map("project_tasks")
+}
+
+model TimeEntry {
+  id          Int         @id @default(autoincrement())
+  taskId      Int         @map("task_id")
+  userId      Int         @map("user_id")
+  date        DateTime
+  hours       Float
+  description String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  task        ProjectTask @relation(fields: [taskId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@map("time_entries")
+}
+
+model ProjectDocument {
+  id         Int           @id @default(autoincrement())
+  projectId  Int           @map("project_id")
+  name       String
+  type       String
+  url        String
+  uploadedBy Int           @map("uploaded_by")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  project    ClientProject @relation(fields: [projectId], references: [id])
+  uploader   User          @relation("ProjectDocumentUploadedBy", fields: [uploadedBy], references: [id])
+
+  @@map("project_documents")
+}
+
+model PurchaseOrder {
+  id            Int                 @id @default(autoincrement())
+  orderNumber   String              @unique @map("order_number")
+  supplierId    Int                 @map("supplier_id")
+  requestedById Int                 @map("requested_by_id")
+  approvedById  Int?                @map("approved_by_id")
+  serviceId     Int?                @map("service_id")
+  status        PurchaseOrderStatus @default(PENDING)
+  orderDate     DateTime            @map("order_date")
+  expectedDate  DateTime?           @map("expected_date")
+  deliveryDate  DateTime?           @map("delivery_date")
+  subtotalHt    Float               @default(0) @map("subtotal_ht")
+  totalVat      Float               @default(0) @map("total_vat")
+  totalTtc      Float               @default(0) @map("total_ttc")
+  notes         String?
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  items         PurchaseOrderItem[]
+  approvedBy    User?               @relation("PurchaseOrderApprovedBy", fields: [approvedById], references: [id])
+  requestedBy   User                @relation("PurchaseOrderRequestedBy", fields: [requestedById], references: [id])
+  service       Service?            @relation(fields: [serviceId], references: [id])
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  receipts      PurchaseReceipt[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               Int                   @id @default(autoincrement())
+  purchaseOrderId  Int                   @map("purchase_order_id")
+  productId        Int?                  @map("product_id")
+  description      String
+  quantity         Float
+  unitPriceHt      Float                 @map("unit_price_ht")
+  vatRate          Float                 @map("vat_rate")
+  totalHt          Float                 @map("total_ht")
+  receivedQuantity Float                 @default(0) @map("received_quantity")
+  product          Product?              @relation(fields: [productId], references: [id])
+  purchaseOrder    PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receiptItems     PurchaseReceiptItem[]
+
+  @@map("purchase_order_items")
+}
+
+model PurchaseReceipt {
+  id              Int                   @id @default(autoincrement())
+  purchaseOrderId Int                   @map("purchase_order_id")
+  receiptNumber   String                @unique @map("receipt_number")
+  receiptDate     DateTime              @map("receipt_date")
+  receivedBy      Int                   @map("received_by")
+  notes           String?
+  createdAt       DateTime              @default(now()) @map("created_at")
+  items           PurchaseReceiptItem[]
+  purchaseOrder   PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
+  receiver        User                  @relation("PurchaseReceiptReceivedBy", fields: [receivedBy], references: [id])
+
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptItem {
+  id                  Int               @id @default(autoincrement())
+  purchaseReceiptId   Int               @map("purchase_receipt_id")
+  purchaseOrderItemId Int               @map("purchase_order_item_id")
+  quantityReceived    Float             @map("quantity_received")
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+  purchaseReceipt     PurchaseReceipt   @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_receipt_items")
+}
+
+model PerformanceReview {
+  id               Int                         @id @default(autoincrement())
+  employeeId       Int                         @map("employee_id")
+  reviewerId       Int                         @map("reviewer_id")
+  reviewDate       DateTime                    @map("review_date")
+  periodStart      DateTime                    @map("period_start")
+  periodEnd        DateTime                    @map("period_end")
+  type             ReviewType                  @map("review_type")
+  status           ReviewStatus                @default(DRAFT)
+  overallScore     Float?                      @map("overall_score")
+  strengths        String?
+  areasToImprove   String?                     @map("areas_to_improve")
+  goals            String?
+  comments         String?
+  employeeComments String?                     @map("employee_comments")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  criteria         PerformanceReviewCriteria[]
+  employee         Employee                    @relation("PerformanceReviewEmployee", fields: [employeeId], references: [id])
+  reviewer         User                        @relation("PerformanceReviewReviewer", fields: [reviewerId], references: [id])
+
+  @@map("performance_reviews")
+}
+
+model PerformanceReviewCriteria {
+  id                  Int               @id @default(autoincrement())
+  performanceReviewId Int               @map("performance_review_id")
+  criteria            String
+  description         String?
+  weight              Float             @default(1.0)
+  score               Float?
+  comments            String?
+  performanceReview   PerformanceReview @relation(fields: [performanceReviewId], references: [id], onDelete: Cascade)
+
+  @@map("performance_review_criteria")
+}
+
+model UserCalendar {
+  id           Int              @id @default(autoincrement())
+  userId       Int              @map("user_id")
+  date         DateTime
+  workingHours Float            @default(8.0) @map("working_hours")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  events       CalendarEvent[]
+  timeOffs     TimeOffRequest[]
+  user         User             @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@map("user_calendars")
+}
+
+model CalendarEvent {
+  id          Int          @id @default(autoincrement())
+  calendarId  Int          @map("calendar_id")
+  title       String
+  description String?
+  startTime   DateTime     @map("start_time")
+  endTime     DateTime     @map("end_time")
+  type        EventType
+  priority    String       @default("medium")
+  isAllDay    Boolean      @default(false) @map("is_all_day")
+  location    String?
+  reminder    DateTime?
+  createdBy   Int?         @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  calendar    UserCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  creator     User?        @relation("CalendarEventCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("calendar_events")
+}
+
+model TimeOffRequest {
+  id             Int           @id @default(autoincrement())
+  calendarId     Int           @map("calendar_id")
+  type           TimeOffType   @map("time_off_type")
+  startDate      DateTime      @map("start_date")
+  endDate        DateTime      @map("end_date")
+  status         TimeOffStatus @default(PENDING)
+  reason         String?
+  approvedById   Int?          @map("approved_by_id")
+  comments       String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  missionId      String?       @map("mission_id")
+  interventionId Int?          @map("intervention_id")
+  approvedBy     User?         @relation("TimeOffApprovedBy", fields: [approvedById], references: [id])
+  calendar       UserCalendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  intervention   Intervention? @relation("TimeOffRequestIntervention", fields: [interventionId], references: [id])
+  mission        Mission?      @relation("TimeOffRequestMission", fields: [missionId], references: [numIntervention])
+
+  @@map("time_off_requests")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+  category        String
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  role         UserRole
+  permissionId Int        @map("permission_id")
+  canView      Boolean    @default(false) @map("can_view")
+  canCreate    Boolean    @default(false) @map("can_create")
+  canEdit      Boolean    @default(false) @map("can_edit")
+  canDelete    Boolean    @default(false) @map("can_delete")
+  canApprove   Boolean    @default(false) @map("can_approve")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
 enum UserRole {
   ADMIN
   GENERAL_DIRECTOR
   SERVICE_MANAGER
   EMPLOYEE
   ACCOUNTANT
-  PURCHASING_MANAGER // Ajouté
+  PURCHASING_MANAGER
 }
 
 enum CustomerType {
@@ -865,520 +1314,12 @@ enum SalaryStatus {
   PAID
 }
 
-model Loan {
-  id              Int        @id @default(autoincrement())
-  loanNumber      String     @unique @map("loan_number")
-  employeeId      Int        @map("employee_id")
-  amount          Float
-  interestRate    Float      @default(0) @map("interest_rate")
-  monthlyPayment  Float      @map("monthly_payment")
-  remainingAmount Float      @map("remaining_amount")
-  startDate       DateTime   @map("start_date")
-  endDate         DateTime   @map("end_date")
-  purpose         String?
-  status          LoanStatus @default(ACTIVE)
-  notes           String?
-  createdBy       Int        @map("created_by")
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
-
-  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  payments LoanPayment[]
-
-  @@map("loans")
-}
-
-model LoanPayment {
-  id          Int      @id @default(autoincrement())
-  loanId      Int      @map("loan_id")
-  salaryId    Int?     @map("salary_id")
-  amount      Float
-  paymentDate DateTime @map("payment_date")
-  principal   Float
-  interest    Float
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  loan   Loan    @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  salary Salary? @relation(fields: [salaryId], references: [id])
-
-  @@map("loan_payments")
-}
-
 enum LoanStatus {
   ACTIVE
   COMPLETED
   CANCELLED
 }
 
-model Specialite {
-  id          Int      @id @default(autoincrement())
-  libelle     String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  techniciens Technicien[]
-
-  @@map("specialites")
-}
-
-model Technicien {
-  id               Int              @id @default(autoincrement())
-  nom              String
-  prenom           String
-  contact          String
-  specialiteId     Int              @map("specialite_id")
-  utilisateurId    Int?             @unique @map("utilisateur_id")
-  isActive         Boolean          @default(true) @map("is_active")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  status           TechnicienStatus @default(AVAILABLE) @map("status") // Ajouté
-  currentMissionId String?          @map("current_mission_id") // Ajouté
-
-  specialite       Specialite               @relation(fields: [specialiteId], references: [id])
-  utilisateur      User?                    @relation(fields: [utilisateurId], references: [id])
-  interventions    TechnicienIntervention[]
-  rapports         RapportMission[]
-  sortiesMateriels SortieMateriel[]
-  currentMission   Mission?                 @relation(fields: [currentMissionId], references: [numIntervention]) // Ajouté
-
-  @@map("techniciens")
-}
-
-model Mission {
-  numIntervention             String   @id @unique @map("num_intervention")
-  natureIntervention          String   @map("nature_intervention")
-  objectifDuContrat           String   @map("objectif_du_contrat")
-  description                 String?
-  priorite                    String?  @default("normale")
-  statut                      String?  @default("planifiee")
-  dateSortieFicheIntervention DateTime @map("date_sortie_fiche_intervention")
-  clientId                    Int      @map("client_id")
-  createdAt                   DateTime @default(now()) @map("created_at")
-  updatedAt                   DateTime @updatedAt @map("updated_at")
-
-  client          Customer         @relation(fields: [clientId], references: [id])
-  interventions   Intervention[]
-  rapports        RapportMission[]
-  devis           Quote[]
-  techniciens     Technicien[]
-  timeOffRequests TimeOffRequest[] @relation("TimeOffRequestMission")
-
-  @@map("missions")
-}
-
-model Intervention {
-  id             Int       @id @default(autoincrement())
-  dateHeureDebut DateTime  @map("date_heure_debut")
-  dateHeureFin   DateTime? @map("date_heure_fin")
-  duree          Int?
-  missionId      String    @map("mission_id")
-  statut         String    @default("planifiee")
-  commentaire    String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-
-  mission          Mission                  @relation(fields: [missionId], references: [numIntervention])
-  techniciens      TechnicienIntervention[]
-  rapports         RapportMission[]
-  sortiesMateriels SortieMateriel[]
-  timeOffRequests  TimeOffRequest[]         @relation("TimeOffRequestIntervention")
-
-  @@map("interventions")
-}
-
-model TechnicienIntervention {
-  id             Int      @id @default(autoincrement())
-  technicienId   Int      @map("technicien_id")
-  interventionId Int      @map("intervention_id")
-  role           String   @default("assistant")
-  commentaire    String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  technicien   Technicien   @relation(fields: [technicienId], references: [id])
-  intervention Intervention @relation(fields: [interventionId], references: [id])
-
-  @@unique([technicienId, interventionId])
-  @@map("technicien_interventions")
-}
-
-model RapportMission {
-  id             Int       @id @default(autoincrement())
-  titre          String
-  contenu        String
-  interventionId Int?      @map("intervention_id")
-  technicienId   Int       @map("technicien_id")
-  missionId      String    @map("mission_id")
-  createdById    Int?      @map("created_by_id")
-  statut         String    @default("soumis")
-  dateValidation DateTime? @map("date_validation")
-  commentaire    String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-
-  intervention Intervention?  @relation(fields: [interventionId], references: [id])
-  technicien   Technicien     @relation(fields: [technicienId], references: [id])
-  mission      Mission        @relation(fields: [missionId], references: [numIntervention])
-  images       RapportImage[]
-
-  @@map("rapports_mission")
-}
-
-model RapportImage {
-  id          Int      @id @default(autoincrement())
-  rapportId   Int      @map("rapport_id")
-  url         String
-  description String?
-  ordre       Int
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  rapport RapportMission @relation(fields: [rapportId], references: [id], onDelete: Cascade)
-
-  @@map("rapport_images")
-}
-
-model Materiel {
-  id                 Int       @id @default(autoincrement())
-  reference          String    @unique
-  designation        String
-  description        String?
-  statut             String?
-  quantiteTotale     Int       @default(0) @map("quantite_totale")
-  quantiteDisponible Int       @default(0) @map("quantite_disponible")
-  seuilAlerte        Int       @default(5) @map("seuil_alerte")
-  emplacement        String?
-  categorie          String    @default("Outillage")
-  prixUnitaire       Float?    @default(0) @map("prix_unitaire")
-  fournisseur        String?
-  dateAchat          DateTime? @map("date_achat")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  sorties SortieMateriel[]
-
-  @@map("materiels")
-}
-
-model SortieMateriel {
-  id             Int      @id @default(autoincrement())
-  materielId     Int      @map("materiel_id")
-  interventionId Int      @map("intervention_id")
-  technicienId   Int      @map("technicien_id")
-  quantite       Int
-  dateSortie     DateTime @default(now()) @map("date_sortie")
-  notes          String?
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  materiel     Materiel     @relation(fields: [materielId], references: [id])
-  intervention Intervention @relation(fields: [interventionId], references: [id])
-  technicien   Technicien   @relation(fields: [technicienId], references: [id])
-
-  @@map("sorties_materiel")
-}
-
-model Supplier {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  contactName String?
-  email       String?
-  phone       String?
-  address     String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  purchaseOrders PurchaseOrder[]
-
-  @@map("suppliers")
-}
-
-// Nouvelle section pour les projets clients
-model ClientProject {
-  id          Int           @id @default(autoincrement())
-  name        String
-  description String?
-  customerId  Int           @map("customer_id")
-  serviceId   Int           @map("service_id")
-  startDate   DateTime      @map("start_date")
-  endDate     DateTime?     @map("end_date")
-  budget      Float?
-  status      ProjectStatus @default(PLANNED)
-  priority    String        @default("medium")
-  createdBy   Int           @map("created_by")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  customer  Customer          @relation(fields: [customerId], references: [id])
-  service   Service           @relation(fields: [serviceId], references: [id])
-  creator   User              @relation("ClientProjectManagedBy", fields: [createdBy], references: [id])
-  tasks     ProjectTask[]
-  documents ProjectDocument[]
-
-  @@map("client_projects")
-}
-
-model ProjectTask {
-  id          Int        @id @default(autoincrement())
-  projectId   Int        @map("project_id")
-  title       String
-  description String?
-  assignedTo  Int?       @map("assigned_to")
-  startDate   DateTime?  @map("start_date")
-  endDate     DateTime?  @map("end_date")
-  status      TaskStatus @default(TODO)
-  priority    String     @default("medium")
-  progress    Int        @default(0)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-
-  project     ClientProject @relation(fields: [projectId], references: [id])
-  assignee    User?         @relation("ProjectTaskAssignedTo", fields: [assignedTo], references: [id])
-  timeEntries TimeEntry[]
-
-  @@map("project_tasks")
-}
-
-model TimeEntry {
-  id          Int      @id @default(autoincrement())
-  taskId      Int      @map("task_id")
-  userId      Int      @map("user_id")
-  date        DateTime
-  hours       Float
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  task ProjectTask @relation(fields: [taskId], references: [id])
-  user User        @relation(fields: [userId], references: [id])
-
-  @@map("time_entries")
-}
-
-model ProjectDocument {
-  id         Int      @id @default(autoincrement())
-  projectId  Int      @map("project_id")
-  name       String
-  type       String
-  url        String
-  uploadedBy Int      @map("uploaded_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  project  ClientProject @relation(fields: [projectId], references: [id])
-  uploader User          @relation("ProjectDocumentUploadedBy", fields: [uploadedBy], references: [id])
-
-  @@map("project_documents")
-}
-
-// Nouvelle section pour le service achat
-model PurchaseOrder {
-  id            Int                 @id @default(autoincrement())
-  orderNumber   String              @unique @map("order_number")
-  supplierId    Int                 @map("supplier_id")
-  requestedById Int                 @map("requested_by_id")
-  approvedById  Int?                @map("approved_by_id")
-  serviceId     Int?                @map("service_id") // Ajouté pour l'accès par service
-  status        PurchaseOrderStatus @default(PENDING)
-  orderDate     DateTime            @map("order_date")
-  expectedDate  DateTime?           @map("expected_date")
-  deliveryDate  DateTime?           @map("delivery_date")
-  subtotalHt    Float               @default(0) @map("subtotal_ht")
-  totalVat      Float               @default(0) @map("total_vat")
-  totalTtc      Float               @default(0) @map("total_ttc")
-  notes         String?
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
-
-  supplier    Supplier            @relation(fields: [supplierId], references: [id])
-  requestedBy User                @relation("PurchaseOrderRequestedBy", fields: [requestedById], references: [id])
-  approvedBy  User?               @relation("PurchaseOrderApprovedBy", fields: [approvedById], references: [id])
-  service     Service?            @relation(fields: [serviceId], references: [id])
-  items       PurchaseOrderItem[]
-  receipts    PurchaseReceipt[]
-
-  @@map("purchase_orders")
-}
-
-model PurchaseOrderItem {
-  id               Int    @id @default(autoincrement())
-  purchaseOrderId  Int    @map("purchase_order_id")
-  productId        Int?   @map("product_id")
-  description      String
-  quantity         Float
-  unitPriceHt      Float  @map("unit_price_ht")
-  vatRate          Float  @map("vat_rate")
-  totalHt          Float  @map("total_ht")
-  receivedQuantity Float  @default(0) @map("received_quantity")
-
-  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product?              @relation(fields: [productId], references: [id])
-  receiptItems  PurchaseReceiptItem[] // Ajouté pour la relation inverse
-
-  @@map("purchase_order_items")
-}
-
-model PurchaseReceipt {
-  id              Int      @id @default(autoincrement())
-  purchaseOrderId Int      @map("purchase_order_id")
-  receiptNumber   String   @unique @map("receipt_number")
-  receiptDate     DateTime @map("receipt_date")
-  receivedBy      Int      @map("received_by")
-  notes           String?
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
-  receiver      User                  @relation("PurchaseReceiptReceivedBy", fields: [receivedBy], references: [id])
-  items         PurchaseReceiptItem[]
-
-  @@map("purchase_receipts")
-}
-
-model PurchaseReceiptItem {
-  id                  Int   @id @default(autoincrement())
-  purchaseReceiptId   Int   @map("purchase_receipt_id")
-  purchaseOrderItemId Int   @map("purchase_order_item_id")
-  quantityReceived    Float @map("quantity_received")
-
-  purchaseReceipt   PurchaseReceipt   @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
-  purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
-
-  @@map("purchase_receipt_items")
-}
-
-// Nouvelle section pour les évaluations RH
-model PerformanceReview {
-  id               Int          @id @default(autoincrement())
-  employeeId       Int          @map("employee_id")
-  reviewerId       Int          @map("reviewer_id")
-  reviewDate       DateTime     @map("review_date")
-  periodStart      DateTime     @map("period_start")
-  periodEnd        DateTime     @map("period_end")
-  type             ReviewType   @map("review_type")
-  status           ReviewStatus @default(DRAFT)
-  overallScore     Float?       @map("overall_score")
-  strengths        String?
-  areasToImprove   String?      @map("areas_to_improve")
-  goals            String?
-  comments         String?
-  employeeComments String?      @map("employee_comments")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-
-  employee Employee                    @relation("PerformanceReviewEmployee", fields: [employeeId], references: [id])
-  reviewer User                        @relation("PerformanceReviewReviewer", fields: [reviewerId], references: [id])
-  criteria PerformanceReviewCriteria[]
-
-  @@map("performance_reviews")
-}
-
-model PerformanceReviewCriteria {
-  id                  Int     @id @default(autoincrement())
-  performanceReviewId Int     @map("performance_review_id")
-  criteria            String
-  description         String?
-  weight              Float   @default(1.0)
-  score               Float?
-  comments            String?
-
-  performanceReview PerformanceReview @relation(fields: [performanceReviewId], references: [id], onDelete: Cascade)
-
-  @@map("performance_review_criteria")
-}
-
-// Nouvelle section pour le calendrier des tâches
-model UserCalendar {
-  id           Int      @id @default(autoincrement())
-  userId       Int      @map("user_id")
-  date         DateTime
-  workingHours Float    @default(8.0) @map("working_hours")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  user     User             @relation(fields: [userId], references: [id])
-  events   CalendarEvent[]
-  timeOffs TimeOffRequest[]
-
-  @@unique([userId, date])
-  @@map("user_calendars")
-}
-
-model CalendarEvent {
-  id          Int       @id @default(autoincrement())
-  calendarId  Int       @map("calendar_id")
-  title       String
-  description String?
-  startTime   DateTime  @map("start_time")
-  endTime     DateTime  @map("end_time")
-  type        EventType
-  priority    String    @default("medium")
-  isAllDay    Boolean   @default(false) @map("is_all_day")
-  location    String?
-  reminder    DateTime?
-  createdBy   Int?      @map("created_by") // Ajouté pour l'auteur de l'événement
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  calendar UserCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
-  creator  User?        @relation("CalendarEventCreatedBy", fields: [createdBy], references: [id])
-
-  @@map("calendar_events")
-}
-
-model TimeOffRequest {
-  id             Int           @id @default(autoincrement())
-  calendarId     Int           @map("calendar_id")
-  type           TimeOffType   @map("time_off_type")
-  startDate      DateTime      @map("start_date")
-  endDate        DateTime      @map("end_date")
-  status         TimeOffStatus @default(PENDING)
-  reason         String?
-  approvedById   Int?          @map("approved_by_id")
-  comments       String?
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  missionId      String?       @map("mission_id")
-  interventionId Int?          @map("intervention_id")
-
-  calendar     UserCalendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
-  approvedBy   User?         @relation("TimeOffApprovedBy", fields: [approvedById], references: [id])
-  mission      Mission?      @relation(fields: [missionId], references: [numIntervention], name: "TimeOffRequestMission")
-  intervention Intervention? @relation(fields: [interventionId], references: [id], name: "TimeOffRequestIntervention")
-
-  @@map("time_off_requests")
-}
-
-// Nouvelle section pour la gestion des permissions
-model Permission {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
-  category    String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  rolePermissions RolePermission[]
-
-  @@map("permissions")
-}
-
-model RolePermission {
-  id           Int      @id @default(autoincrement())
-  role         UserRole
-  permissionId Int      @map("permission_id")
-  canView      Boolean  @default(false) @map("can_view")
-  canCreate    Boolean  @default(false) @map("can_create")
-  canEdit      Boolean  @default(false) @map("can_edit")
-  canDelete    Boolean  @default(false) @map("can_delete")
-  canApprove   Boolean  @default(false) @map("can_approve")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  @@unique([role, permissionId])
-  @@map("role_permissions")
-}
-
-// Enums pour les fonctionnalités
 enum ProjectStatus {
   PLANNED
   IN_PROGRESS

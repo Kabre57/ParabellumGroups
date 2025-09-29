@@ -127,7 +127,7 @@ const swaggerOptions = {
             },
             name: { type: 'string' },
             legalName: { type: 'string', nullable: true },
-            siret: { type: 'string', nullable: true },
+            idu: { type: 'string', nullable: true },
             vatNumber: { type: 'string', nullable: true },
             email: { type: 'string', format: 'email', nullable: true },
             phone: { type: 'string', nullable: true },

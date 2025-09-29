@@ -13,7 +13,7 @@ const createCustomerSchema = z.object({
   name: z.string().min(1, 'Nom requis'),
   type: z.enum(['INDIVIDUAL', 'COMPANY']),
   legalName: z.string().optional(),
-  siret: z.string().optional(),
+  idu: z.string().optional(),
   vatNumber: z.string().optional(),
   email: z.string().email('Email invalide').optional().or(z.literal('')),
   phone: z.string().optional(),
@@ -139,7 +139,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({ isOpen
                 {...register('name')}
                 type="text"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder={customerType === 'COMPANY' ? 'ACME Corp' : 'Jean Dupont'}
+                placeholder={customerType === 'COMPANY' ? 'ACME Corp' : 'Nom et prenom'}
               />
               {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
             </div>
@@ -161,16 +161,16 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({ isOpen
           {customerType === 'COMPANY' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Identifiant Unique (IDU)</label>
                 <input
-                  {...register('siret')}
+                  {...register('idu')}
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="CI-123456789"
+                  placeholder="CI-2023-0046392 R"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">TVA</label>
                 <input
                   {...register('vatNumber')}
                   type="text"

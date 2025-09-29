@@ -79,17 +79,17 @@ export const ViewCustomerModal: React.FC<ViewCustomerModalProps> = ({ isOpen, on
           </div>
 
           {/* Informations légales pour entreprises */}
-          {customer.type === 'COMPANY' && (customer.siret || customer.vatNumber) && (
+          {customer.type === 'COMPANY' && (customer.idu || customer.vatNumber) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {customer.siret && (
+              {customer.idu && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
-                  <span>{customer.siret}</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">idu</label>
+                  <span>{customer.idu}</span>
                 </div>
               )}
               {customer.vatNumber && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">TVA</label>
                   <span>{customer.vatNumber}</span>
                 </div>
               )}

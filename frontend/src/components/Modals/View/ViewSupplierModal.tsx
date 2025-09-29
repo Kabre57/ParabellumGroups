@@ -97,7 +97,7 @@ export const ViewSupplierModal: React.FC<ViewSupplierModalProps> = ({ isOpen, on
             <div className="border-t pt-4">
               <h4 className="text-md font-medium text-gray-900 mb-4">Informations Fiscales</h4>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">TVA</label>
                 <span className="font-mono">{supplier.vatNumber}</span>
               </div>
             </div>

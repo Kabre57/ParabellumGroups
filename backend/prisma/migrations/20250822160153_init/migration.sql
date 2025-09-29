@@ -86,7 +86,7 @@ CREATE TABLE "customers" (
     "type" "CustomerType" NOT NULL DEFAULT 'COMPANY',
     "name" TEXT NOT NULL,
     "legal_name" TEXT,
-    "siret" TEXT,
+    "idu" TEXT,
     "vat_number" TEXT,
     "email" TEXT,
     "phone" TEXT,

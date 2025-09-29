@@ -83,7 +83,7 @@ export const ContractPrint: React.FC<ContractPrintProps> = ({ contract, onClose 
             <div className="space-y-2 text-sm">
               <p><strong>Raison sociale :</strong> Parabellum Groups SARL</p>
               <p><strong>Siège social :</strong> Abidjan, Côte d'Ivoire</p>
-              <p><strong>SIRET :</strong> CI-123456789</p>
+              <p><strong>idu :</strong> CI-2019-0046392 R</p>
               <p><strong>N° CNPS :</strong> 1234567</p>
               <p><strong>Représenté par :</strong> M. Koffi KOUASSI, Directeur Général</p>
               <p><strong>Ci-après dénommé :</strong> "L'Employeur"</p>
@@ -255,7 +255,7 @@ export const ContractPrint: React.FC<ContractPrintProps> = ({ contract, onClose 
           </p>
           <div className="flex justify-center space-x-8 mt-2">
             <span>CNPS Employeur : 1234567</span>
-            <span>SIRET : CI-123456789</span>
+            <span>IDU : CI-2019-0046392 R</span>
           </div>
         </div>
       </div>

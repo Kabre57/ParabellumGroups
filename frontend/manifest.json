@@ -1,0 +1,8 @@
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.js", "tat_popup.js", "content.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

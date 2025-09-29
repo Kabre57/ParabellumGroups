@@ -177,7 +177,7 @@ export const CreateProspectModal: React.FC<CreateProspectModalProps> = ({ isOpen
                   {...register('contactName')}
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Jean Dupont"
+                  placeholder="Nom et prenom"
                 />
                 {errors.contactName && <p className="mt-1 text-sm text-red-600">{errors.contactName.message}</p>}
               </div>

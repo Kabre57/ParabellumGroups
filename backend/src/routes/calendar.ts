@@ -1,35 +1,20 @@
 import { Router } from 'express';
 import type { Router as ExpressRouter } from 'express';
 import {
-  createEvent,
+  getCalendarWithTimeOffs,
   getEvents,
-  getEventById,
-  updateEvent,
-  deleteEvent,
-  validateEvent,
-  getCalendarWithTimeOffs
+  createEvent
 } from '../controllers/calendarController';
 import { authenticateToken, requirePermission } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
 
 const router: ExpressRouter = Router();
-
-// Toutes les routes nécessitent une authentification
 router.use(authenticateToken);
 
-// Route pour le calendrier avec time offs integres
-router.get('/with-timeoffs', 
+router.get('/', 
   requirePermission('calendar.read'),
-  auditLog('READ', 'CALENDAR_WITH_TIMEOFFS'),
+  auditLog('READ', 'CALENDAR'),
   getCalendarWithTimeOffs
-);
-
-// Routes pour les événements calendrier
-router.post('/events', 
-  requirePermission('calendar.create'),
-  validateEvent,
-  auditLog('CREATE', 'CALENDAR_EVENT'),
-  createEvent
 );
 
 router.get('/events', 
@@ -38,23 +23,10 @@ router.get('/events',
   getEvents
 );
 
-router.get('/events/:id', 
-  requirePermission('calendar.read'),
-  auditLog('READ', 'CALENDAR_EVENT'),
-  getEventById
-);
-
-router.put('/events/:id', 
-  requirePermission('calendar.update'),
-  validateEvent,
-  auditLog('UPDATE', 'CALENDAR_EVENT'),
-  updateEvent
-);
-
-router.delete('/events/:id', 
-  requirePermission('calendar.delete'),
-  auditLog('DELETE', 'CALENDAR_EVENT'),
-  deleteEvent
+router.post('/events', 
+  requirePermission('calendar.create'),
+  auditLog('CREATE', 'CALENDAR_EVENT'),
+  createEvent
 );
 
 export default router;

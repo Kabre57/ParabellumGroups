@@ -10,6 +10,7 @@ import invoiceRoutes from './invoices';
 import paymentRoutes from './payments';
 import productRoutes from './products';
 import reportRoutes from './reports';
+import calendarRoutes from './calendar';
 import userRoutes from './users';
 import employeeRoutes from './employees';
 import contractRoutes from './contracts';
@@ -38,6 +39,7 @@ import userCalendars from './user-calendars';
 import rolePermissions from './role-permissions';
 import reminders from './reminders';
 import rapportImages from './rapport-images';
+import calendarRoutes from './calendar';
 
 
 
@@ -57,6 +59,8 @@ router.get('/health', (req, res) => {
 // Routes v1 de l'API
 router.use('/v1/auth', authRoutes);
 router.use('/v1/reports', reportRoutes);
+
+router.use('/v1/calendar', calendarRoutes);
 router.use('/v1/customers', customerRoutes);
 router.use('/v1/quotes', quoteRoutes);
 router.use('/v1/invoices', invoiceRoutes);
@@ -93,6 +97,8 @@ router.use('/user-calendars', userCalendars);
 router.use('/role-permissions', rolePermissions);
 router.use('/reminders', reminders);
 router.use('/rapport-images', rapportImages);
+router.use('/v1/calendar', calendarRoutes);
+
 
 
 
@@ -144,7 +150,8 @@ router.use('*', (req, res) => {
       '/api/user-calendars',
       '/api/role-permissions',
       '/api/reminders',
-      '/api/rapport-images'
+      '/api/rapport-images',
+      '/api/calendrier'
     ]
   });
 });

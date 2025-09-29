@@ -929,6 +929,16 @@ export const calendarService = {
     return response.data;
   },
 
+// Méthode pour CalendarManagement
+  getAll: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    eventType?: string;
+  }): Promise<ApiResponse<any>> => {
+    const response = await api.get<ApiResponse<any>>("/calendar", { params });
+    return response.data;
+  },
+
   createEvent: async (eventData: Partial<CalendarEvent>): Promise<ApiResponse<CalendarEvent>> => {
     const response = await api.post<ApiResponse<CalendarEvent>>("/calendar/events", eventData);
     return response.data;

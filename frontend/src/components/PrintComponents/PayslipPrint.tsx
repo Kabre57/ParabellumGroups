@@ -52,7 +52,7 @@ export const PayslipPrint: React.FC<PayslipPrintProps> = ({ salary, onClose }) =
                 <p><strong>Adresse :</strong> Abidjan, Côte d'Ivoire</p>
                 <p><strong>Téléphone :</strong> +225 07 07 07 07 07</p>
                 <p><strong>Email :</strong> contact@parabellum.com</p>
-                <p><strong>SIRET :</strong> CI-123456789</p>
+                <p><strong>IDU :</strong> CI-2019-0046392 R</p>
                 <p><strong>N° CNPS Employeur :</strong> 1234567</p>
                 <p><strong>N° CNAM Employeur :</strong> 7654321</p>
               </div>
