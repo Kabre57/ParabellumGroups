@@ -124,6 +124,7 @@ export const PERMISSIONS_LIST = {
   'interventions.read': 'Consulter les interventions',
   'interventions.update': 'Modifier les interventions',
   'interventions.delete': 'Supprimer des interventions',
+  'interventions.schedule': 'Planifier les interventions (assignation / programmation)',
 
   'materiels.create': 'Créer du matériel',
   'materiels.read': 'Consulter le matériel',
@@ -182,6 +183,7 @@ export const PERMISSIONS_LIST = {
   'calendar.read': 'Consulter le planning',
   'calendar.update': 'Modifier le planning',
   'calendar.delete': 'Supprimer des événements',
+  'calendar.manage': 'Gérer la configuration du calendrier',
 
   // Facturation récurrente
   'recurring.create': 'Créer des factures récurrentes',

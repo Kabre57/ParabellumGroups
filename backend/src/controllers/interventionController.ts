@@ -1,674 +1,431 @@
+// src/controllers/interventionController.ts
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
-import { body, validationResult } from 'express-validator';
 
 const prisma = new PrismaClient();
 
+/**
+ * Utilitaire: construit le where Prisma selon les query params
+ */
+function buildWhere(query: any) {
+  const { search, statut, missionId, technicienId } = query;
+
+  const where: any = {};
+
+  if (statut) where.statut = String(statut);
+
+  if (missionId) where.missionId = String(missionId);
+
+  if (technicienId) {
+    // filtre par technicien via la table de jointure
+    where.techniciens = {
+      some: { technicienId: Number(technicienId) },
+    };
+  }
+
+  if (search) {
+    const s = String(search);
+    where.OR = [
+      { commentaire: { contains: s, mode: 'insensitive' } },
+      { missionId: { contains: s, mode: 'insensitive' } },
+      {
+        mission: {
+          OR: [
+            { numIntervention: { contains: s, mode: 'insensitive' } },
+            { natureIntervention: { contains: s, mode: 'insensitive' } },
+            { client: { name: { contains: s, mode: 'insensitive' } } as any },
+          ],
+        },
+      },
+    ];
+  }
+
+  return where;
+}
+
+/**
+ * Inclus communs pour retourner une intervention "complète"
+ * - mission + client
+ * - techniciens + technicien (user de base ou entité Technicien)
+ * - (laisser "materiels" si tu veux aussi joindre les sorties)
+ */
+const interventionInclude = {
+  mission: {
+    include: {
+      client: true,
+    },
+  },
+  techniciens: {
+    include: {
+      technicien: true, // <-- suppose un modèle Technicien et une FK technicienId
+    },
+  },
+} as const;
+
+/**
+ * GET /interventions
+ * Retourne { success, data: { interventions, pagination } }
+ */
 export const getInterventions = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { page = 1, limit = 10, search, missionId, statut, technicienId } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const page = Number(req.query.page ?? 1);
+    const limit = Number(req.query.limit ?? 10);
+    const skip = (page - 1) * limit;
 
-    let whereClause: any = {};
+    const where = buildWhere(req.query);
 
-    if (search) {
-      whereClause.OR = [
-        { mission: { numIntervention: { contains: search as string, mode: 'insensitive' } } },
-        { mission: { objectifDuContrat: { contains: search as string, mode: 'insensitive' } } },
-        { commentaire: { contains: search as string, mode: 'insensitive' } }
-      ];
-    }
+// /* RBAC where injected */
+try {
+  const role = req.user!.role;
+  const userId = req.user!.userId;
+  const serviceId = req.user!.serviceId;
 
-    if (missionId) {
-      whereClause.missionId = missionId as string;
-    }
+  if (role === 'EMPLOYEE') {
+    (where as any).userId = userId;
+  } else if ((role === 'SERVICE_MANAGER' || role === 'GENERAL_DIRECTOR') && serviceId) {
+    (where as any).user = { serviceId };
+  }
+} catch (_) { /* keep graceful */ }
 
-    if (statut) {
-      whereClause.statut = statut;
-    }
 
-    if (technicienId) {
-      whereClause.techniciens = {
-        some: {
-          technicienId: Number(technicienId)
-        }
-      };
-    }
-
-    const [interventions, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       prisma.intervention.findMany({
-        where: whereClause,
-        include: {
-          mission: {
-            include: {
-              client: {
-                select: { name: true, customerNumber: true }
-              }
-            }
-          },
-          techniciens: {
-            include: {
-              technicien: {
-                include: {
-                  specialite: true
-                }
-              }
-            }
-          },
-          rapports: {
-            select: { id: true, titre: true, statut: true }
-          },
-          sortiesMateriels: {
-            include: {
-              materiel: {
-                select: { designation: true, reference: true }
-              }
-            }
-          },
-          _count: {
-            select: {
-              rapports: true,
-              sortiesMateriels: true
-            }
-          }
-        },
-        skip: offset,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' }
+        where,
+        include: interventionInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
       }),
-      prisma.intervention.count({ where: whereClause })
+      prisma.intervention.count({ where }),
     ]);
+
+    // Normalisation de la durée: si elle est nulle mais qu’on a début+fin → calcule côté API
+    const interventions = rows.map((r) => {
+      let duree = r.duree ?? null;
+      if (duree == null && r.dateHeureDebut && r.dateHeureFin) {
+        const ms = new Date(r.dateHeureFin).getTime() - new Date(r.dateHeureDebut).getTime();
+        if (ms > 0) duree = Math.round(ms / 60000);
+      }
+      return { ...r, duree };
+    });
 
     res.json({
       success: true,
       data: {
         interventions,
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
+          page,
+          limit,
           total,
-          totalPages: Math.ceil(total / Number(limit))
-        }
-      }
+          pages: Math.max(1, Math.ceil(total / limit)),
+        },
+      },
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération des interventions:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[getInterventions] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * GET /interventions/:id
+ */
 export const getInterventionById = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-
-    const intervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) },
-      include: {
-        mission: {
-          include: {
-            client: true
-          }
-        },
-        techniciens: {
-          include: {
-            technicien: {
-              include: {
-                specialite: true,
-                utilisateur: {
-                  select: { firstName: true, lastName: true, email: true }
-                }
-              }
-            }
-          }
-        },
-        rapports: {
-          include: {
-            technicien: {
-              select: { nom: true, prenom: true }
-            },
-            images: true
-          }
-        },
-        sortiesMateriels: {
-          include: {
-            materiel: true,
-            technicien: {
-              select: { nom: true, prenom: true }
-            }
-          }
-        }
-      }
+    const id = Number(req.params.id);
+    const item = await prisma.intervention.findUnique({
+      where: { id },
+      include: interventionInclude,
     });
+    if (!item) return res.status(404).json({ success: false, message: 'Intervention non trouvée' });
 
-    if (!intervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
+    let duree = item.duree ?? null;
+    if (duree == null && item.dateHeureDebut && item.dateHeureFin) {
+      const ms = new Date(item.dateHeureFin).getTime() - new Date(item.dateHeureDebut).getTime();
+      if (ms > 0) duree = Math.round(ms / 60000);
     }
 
-    res.json({
-      success: true,
-      data: intervention
-    });
+    res.json({ success: true, data: { ...item, duree } });
   } catch (error) {
-    console.error('Erreur lors de la récupération de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[getInterventionById] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * POST /interventions
+ * Body attendu:
+ * {
+ *   missionId: string,
+ *   dateHeureDebut: string (ISO),
+ *   dateHeureFin?: string (ISO),
+ *   techniciens?: [{ technicienId:number, role:'Principal'|'Assistant', commentaire?:string }],
+ *   materiels?: [{ materielId:number, quantite:number, commentaire?:string }],
+ *   commentaire?: string
+ * }
+ */
 export const createIntervention = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données invalides',
-        errors: errors.array()
-      });
-    }
-
     const {
+      missionId,
       dateHeureDebut,
       dateHeureFin,
-      missionId,
+      techniciens = [],
+      materiels = [],
       commentaire,
-      techniciens,
-      materiels
-    } = req.body;
+    } = req.body ?? {};
 
-    // Vérifier que la mission existe
-    const mission = await prisma.mission.findUnique({
-      where: { numIntervention: missionId }
+    if (!missionId) return res.status(400).json({ success: false, message: 'missionId requis' });
+    if (!dateHeureDebut) return res.status(400).json({ success: false, message: 'dateHeureDebut requise' });
+
+    const userId = req.user!.userId;
+
+    // Crée l’intervention
+    const created = await prisma.intervention.create({
+      data: {
+        missionId: String(missionId),
+        dateHeureDebut: new Date(dateHeureDebut),
+        dateHeureFin: dateHeureFin ? new Date(dateHeureFin) : null,
+        commentaire: commentaire || null,
+        userId,
+        // statut laissé à sa valeur par défaut "planifiee"
+      },
     });
 
-    if (!mission) {
-      return res.status(404).json({
-        success: false,
-        message: 'Mission non trouvée'
+    // Crée les liaisons techniciens (table de jointure)
+    if (Array.isArray(techniciens) && techniciens.length > 0) {
+      await prisma.technicienIntervention.createMany({
+        data: techniciens
+          .filter((t: any) => t?.technicienId)
+          .map((t: any) => ({
+            interventionId: created.id,
+            technicienId: Number(t.technicienId),
+            role: t.role ?? 'Principal',
+            commentaire: t.commentaire ?? null,
+          })),
       });
     }
 
-    // Vérifier le stock des matériels
-    if (materiels && materiels.length > 0) {
-      for (const materielItem of materiels) {
-        const materiel = await prisma.materiel.findUnique({
-          where: { id: materielItem.materielId }
-        });
+    // Optionnel: traiter les "materiels" ici si tu as une table de sorties à créer
 
-        if (!materiel) {
-          return res.status(404).json({
-            success: false,
-            message: `Matériel ${materielItem.materielId} non trouvé`
-          });
-        }
-
-        if (materiel.quantiteDisponible < materielItem.quantite) {
-          return res.status(400).json({
-            success: false,
-            message: `Stock insuffisant pour ${materiel.designation}. Disponible: ${materiel.quantiteDisponible}`
-          });
-        }
-      }
-    }
-
-    // Calculer la durée si date de fin fournie
-    let duree = null;
-    if (dateHeureFin) {
-      const debut = new Date(dateHeureDebut);
-      const fin = new Date(dateHeureFin);
-      duree = Math.round((fin.getTime() - debut.getTime()) / (1000 * 60)); // en minutes
-    }
-
-    // Transaction pour créer l'intervention et gérer le stock
-    const intervention = await prisma.$transaction(async (tx) => {
-      // Créer l'intervention
-      const newIntervention = await tx.intervention.create({
-        data: {
-          dateHeureDebut: new Date(dateHeureDebut),
-          dateHeureFin: dateHeureFin ? new Date(dateHeureFin) : null,
-          duree,
-          missionId,
-          statut: dateHeureFin ? 'terminee' : 'planifiee',
-          commentaire,
-          techniciens: {
-            create: techniciens.map((tech: any) => ({
-              technicienId: tech.technicienId,
-              role: tech.role || 'Assistant',
-              commentaire: tech.commentaire
-            }))
-          }
-        },
-        include: {
-          mission: {
-            include: {
-              client: true
-            }
-          },
-          techniciens: {
-            include: {
-              technicien: {
-                include: {
-                  specialite: true
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Créer les sorties de matériel et déduire du stock
-      if (materiels && materiels.length > 0) {
-        for (const materielItem of materiels) {
-          // Créer la sortie
-          await tx.sortieMateriel.create({
-            data: {
-              materielId: materielItem.materielId,
-              interventionId: newIntervention.id,
-              technicienId: techniciens[0].technicienId, // Premier technicien par défaut
-              quantite: materielItem.quantite,
-              motif: 'Intervention',
-              commentaire: materielItem.commentaire
-            }
-          });
-
-          // Déduire du stock
-          await tx.materiel.update({
-            where: { id: materielItem.materielId },
-            data: {
-              quantiteDisponible: {
-                decrement: materielItem.quantite
-              }
-            }
-          });
-        }
-      }
-
-      return newIntervention;
+    // Recharger avec include
+    const full = await prisma.intervention.findUnique({
+      where: { id: created.id },
+      include: interventionInclude,
     });
 
-    res.status(201).json({
-      success: true,
-      data: intervention,
-      message: 'Intervention créée avec succès'
-    });
+    res.status(201).json({ success: true, data: full, message: 'Intervention créée avec succès' });
   } catch (error) {
-    console.error('Erreur lors de la création de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[createIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * PUT /interventions/:id
+ */
 export const updateIntervention = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const errors = validationResult(req);
-    
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données invalides',
-        errors: errors.array()
-      });
-    }
+    const id = Number(req.params.id);
 
-    const existingIntervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) }
+    const payload: any = {};
+    // on autorise les champs connus uniquement
+    [
+      'missionId',
+      'dateHeureDebut',
+      'dateHeureFin',
+      'statut',
+      'commentaire',
+    ].forEach((k) => {
+      if (k in req.body) payload[k] = req.body[k];
     });
 
-    if (!existingIntervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
-    }
+    if (payload.dateHeureDebut) payload.dateHeureDebut = new Date(payload.dateHeureDebut);
+    if (payload.dateHeureFin) payload.dateHeureFin = new Date(payload.dateHeureFin);
 
-    const {
-      dateHeureDebut,
-      dateHeureFin,
-      commentaire,
-      statut
-    } = req.body;
-
-    // Calculer la durée si les deux dates sont fournies
-    let duree = existingIntervention.duree;
-    if (dateHeureDebut && dateHeureFin) {
-      const debut = new Date(dateHeureDebut);
-      const fin = new Date(dateHeureFin);
-      duree = Math.round((fin.getTime() - debut.getTime()) / (1000 * 60));
-    }
-
-    const intervention = await prisma.intervention.update({
-      where: { id: Number(id) },
-      data: {
-        dateHeureDebut: dateHeureDebut ? new Date(dateHeureDebut) : undefined,
-        dateHeureFin: dateHeureFin ? new Date(dateHeureFin) : undefined,
-        duree,
-        commentaire,
-        statut
-      },
-      include: {
-        mission: {
-          include: {
-            client: true
-          }
-        },
-        techniciens: {
-          include: {
-            technicien: {
-              include: {
-                specialite: true
-              }
-            }
-          }
-        }
-      }
+    const updated = await prisma.intervention.update({
+      where: { id },
+      data: payload,
+      include: interventionInclude,
     });
 
-    res.json({
-      success: true,
-      data: intervention,
-      message: 'Intervention mise à jour avec succès'
-    });
+    res.json({ success: true, data: updated, message: 'Intervention mise à jour' });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[updateIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * DELETE /interventions/:id
+ */
 export const deleteIntervention = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
-    const existingIntervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) },
-      include: {
-        _count: {
-          select: {
-            rapports: true,
-            sortiesMateriels: true
-          }
-        }
-      }
-    });
+    // Nettoyage jointures techniciens
+    await prisma.technicienIntervention.deleteMany({ where: { interventionId: id } });
+    // (supprime aussi autres relations si nécessaire)
 
-    if (!existingIntervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
-    }
+    await prisma.intervention.delete({ where: { id } });
 
-    // Vérifier s'il y a des données associées
-    if (existingIntervention._count.rapports > 0 || existingIntervention._count.sortiesMateriels > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Impossible de supprimer une intervention ayant des rapports ou du matériel associé'
-      });
-    }
-
-    await prisma.intervention.delete({
-      where: { id: Number(id) }
-    });
-
-    res.json({
-      success: true,
-      message: 'Intervention supprimée avec succès'
-    });
+    res.json({ success: true, message: 'Intervention supprimée' });
   } catch (error) {
-    console.error('Erreur lors de la suppression de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[deleteIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * POST /interventions/:id/start
+ * - passe en "en_cours"
+ * - si pas de dateHeureDebut, met maintenant
+ */
 export const startIntervention = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
-    const intervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) }
-    });
+    const current = await prisma.intervention.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ success: false, message: 'Intervention non trouvée' });
 
-    if (!intervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
-    }
-
-    if (intervention.statut === 'en_cours') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cette intervention est déjà en cours'
-      });
-    }
-
-    const updatedIntervention = await prisma.intervention.update({
-      where: { id: Number(id) },
+    const updated = await prisma.intervention.update({
+      where: { id },
       data: {
-        dateHeureDebut: new Date(),
-        statut: 'en_cours'
+        statut: 'en_cours',
+        dateHeureDebut: current.dateHeureDebut ?? new Date(),
       },
-      include: {
-        mission: true,
-        techniciens: {
-          include: {
-            technicien: true
-          }
-        }
-      }
+      include: interventionInclude,
     });
 
-    res.json({
-      success: true,
-      data: updatedIntervention,
-      message: 'Intervention démarrée'
-    });
+    res.json({ success: true, data: updated, message: 'Intervention démarrée' });
   } catch (error) {
-    console.error('Erreur lors du démarrage de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[startIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * POST /interventions/:id/end
+ * Body: { commentaire?: string }
+ * - passe en "terminee"
+ * - calcule duree (minutes) = fin - début si possible
+ */
 export const endIntervention = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { commentaire } = req.body;
+    const id = Number(req.params.id);
+    const { commentaire } = req.body ?? {};
 
-    const intervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) }
-    });
+    const current = await prisma.intervention.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ success: false, message: 'Intervention non trouvée' });
 
-    if (!intervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
+    const fin = new Date();
+    let duree: number | null = current.duree ?? null;
+
+    if (current.dateHeureDebut) {
+      const ms = fin.getTime() - new Date(current.dateHeureDebut).getTime();
+      if (ms > 0) duree = Math.round(ms / 60000);
     }
 
-    if (intervention.statut === 'terminee') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cette intervention est déjà terminée'
-      });
-    }
-
-    const dateHeureFin = new Date();
-    const duree = Math.round((dateHeureFin.getTime() - intervention.dateHeureDebut.getTime()) / (1000 * 60));
-
-    const updatedIntervention = await prisma.intervention.update({
-      where: { id: Number(id) },
+    const updated = await prisma.intervention.update({
+      where: { id },
       data: {
-        dateHeureFin,
-        duree,
         statut: 'terminee',
-        commentaire: commentaire || intervention.commentaire
+        dateHeureFin: fin,
+        duree,
+        commentaire: commentaire ?? current.commentaire,
       },
-      include: {
-        mission: true,
-        techniciens: {
-          include: {
-            technicien: true
-          }
-        }
-      }
+      include: interventionInclude,
     });
 
-    res.json({
-      success: true,
-      data: updatedIntervention,
-      message: 'Intervention terminée'
-    });
+    res.json({ success: true, data: updated, message: 'Intervention terminée' });
   } catch (error) {
-    console.error('Erreur lors de la fin de l\'intervention:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[endIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * POST /interventions/:id/validate
+ * (à adapter selon ton flux métier : statut "terminee" ou "validee")
+ */
+export const validateIntervention = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const updated = await prisma.intervention.update({
+      where: { id },
+      data: { statut: 'terminee' }, // ou 'validee' si tu as ce statut
+      include: interventionInclude,
+    });
+    res.json({ success: true, data: updated, message: 'Intervention validée' });
+  } catch (error) {
+    console.error('[validateIntervention] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+  }
+};
+
+/**
+ * POST /interventions/:id/assign-technicien
+ * Body: { technicienId:number, role?:'Principal'|'Assistant', commentaire?:string }
+ */
 export const assignTechnicien = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { technicienId, role = 'Assistant', commentaire } = req.body;
+    const id = Number(req.params.id);
+    const { technicienId, role, commentaire } = req.body ?? {};
+    if (!technicienId) return res.status(400).json({ success: false, message: 'technicienId requis' });
 
-    const intervention = await prisma.intervention.findUnique({
-      where: { id: Number(id) }
-    });
-
-    if (!intervention) {
-      return res.status(404).json({
-        success: false,
-        message: 'Intervention non trouvée'
-      });
-    }
-
-    // Vérifier que le technicien existe
-    const technicien = await prisma.technicien.findUnique({
-      where: { id: technicienId }
-    });
-
-    if (!technicien) {
-      return res.status(404).json({
-        success: false,
-        message: 'Technicien non trouvé'
-      });
-    }
-
-    // Vérifier que le technicien n'est pas déjà assigné
-    const existingAssignment = await prisma.technicienIntervention.findUnique({
+    // unique (interventionId, technicienId) conseillé dans le schéma Prisma
+    await prisma.technicienIntervention.upsert({
       where: {
-        technicienId_interventionId: {
-          technicienId,
-          interventionId: Number(id)
-        }
-      }
-    });
-
-    if (existingAssignment) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ce technicien est déjà assigné à cette intervention'
-      });
-    }
-
-    const assignment = await prisma.technicienIntervention.create({
-      data: {
-        technicienId,
-        interventionId: Number(id),
-        role,
-        commentaire
+        interventionId_technicienId: {
+          interventionId: id,
+          technicienId: Number(technicienId),
+        },
       },
-      include: {
-        technicien: {
-          include: {
-            specialite: true
-          }
-        }
-      }
+      create: {
+        interventionId: id,
+        technicienId: Number(technicienId),
+        role: role ?? 'Assistant',
+        commentaire: commentaire ?? null,
+      },
+      update: {
+        role: role ?? 'Assistant',
+        commentaire: commentaire ?? null,
+      },
     });
 
-    res.status(201).json({
-      success: true,
-      data: assignment,
-      message: 'Technicien assigné avec succès'
+    const full = await prisma.intervention.findUnique({
+      where: { id },
+      include: interventionInclude,
     });
+
+    res.json({ success: true, data: full, message: 'Technicien assigné' });
   } catch (error) {
-    console.error('Erreur lors de l\'assignation du technicien:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[assignTechnicien] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/**
+ * DELETE /interventions/:id/technicien/:technicienId
+ */
 export const removeTechnicien = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id, technicienId } = req.params;
+    const id = Number(req.params.id);
+    const technicienId = Number(req.params.technicienId);
 
-    const assignment = await prisma.technicienIntervention.findUnique({
-      where: {
-        technicienId_interventionId: {
-          technicienId: Number(technicienId),
-          interventionId: Number(id)
-        }
-      }
+    await prisma.technicienIntervention.deleteMany({
+      where: { interventionId: id, technicienId },
     });
 
-    if (!assignment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Assignation non trouvée'
-      });
-    }
-
-    await prisma.technicienIntervention.delete({
-      where: {
-        technicienId_interventionId: {
-          technicienId: Number(technicienId),
-          interventionId: Number(id)
-        }
-      }
+    const full = await prisma.intervention.findUnique({
+      where: { id },
+      include: interventionInclude,
     });
 
-    res.json({
-      success: true,
-      message: 'Technicien retiré de l\'intervention'
-    });
+    res.json({ success: true, data: full, message: 'Technicien retiré' });
   } catch (error) {
-    console.error('Erreur lors du retrait du technicien:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    console.error('[removeTechnicien] error:', error);
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
-
-// Validation middleware
-export const validateIntervention = [
-  body('dateHeureDebut').isISO8601().withMessage('Date de début invalide'),
-  body('dateHeureFin').optional().isISO8601().withMessage('Date de fin invalide'),
-  body('missionId').notEmpty().withMessage('Mission requise'),
-  body('techniciens').isArray({ min: 1 }).withMessage('Au moins un technicien requis'),
-  body('techniciens.*.technicienId').isInt().withMessage('ID technicien invalide'),
-  body('techniciens.*.role').isIn(['Principal', 'Assistant']).withMessage('Rôle invalide')
-];

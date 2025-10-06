@@ -27,11 +27,60 @@ export interface Permission {
   description?: string;
 }
 
+
 export interface AuthResponse {
-  user: User;
+  user: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    serviceId?: number;
+    isActive: boolean;
+    lastLogin?: Date;
+    avatarUrl?: string;
+    
+    // ✅ Champs fusionnés depuis Employee
+    employeeNumber?: string;
+    phone?: string;
+    position?: string;
+    department?: string;
+    hireDate?: Date;
+    
+    service?: {
+      id: number;
+      name: string;
+      description?: string;
+    };
+  };
   token: string;
   refreshToken: string;
-  permissions: Permission[];
+  permissions: {
+    id: number;
+    name: string;
+    resource: string;
+    action: string;
+  }[];
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  serviceId?: number;
+  isActive: boolean;
+  lastLogin?: Date;
+  avatarUrl?: string;
+  employeeNumber?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  hireDate?: Date;
+  
+  service?: Service;
+  permissions: string[];
 }
 
 export interface LoginRequest {

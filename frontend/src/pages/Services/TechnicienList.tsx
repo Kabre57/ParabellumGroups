@@ -4,8 +4,47 @@ import { Plus, Search, Edit, Trash2, Eye, User, Wrench, Phone } from 'lucide-rea
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
 import { CreateTechnicienModal } from '../../components/Modals/Create/CreateTechnicienModal';
+import { EditTechnicienModal } from '../../components/Modals/Edit/EditTechnicienModal';
 
 const technicienService = createCrudService('techniciens');
+
+// Interface pour typer les données
+interface Technicien {
+  id: number;
+  prenom: string;
+  nom: string;
+  contact: string;
+  specialiteId: number;
+  utilisateurId?: number;
+  isActive: boolean;
+  status: string;
+  specialite?: {
+    id: number;
+    libelle: string;
+  };
+  utilisateur?: {
+    id: number;
+    email: string;
+    role: string;
+    firstName: string;
+    lastName: string;
+    serviceId?: number;
+  };
+}
+
+interface ApiResponse {
+  data: {
+    techniciens: Technicien[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  success: boolean;
+  message?: string;
+}
 
 export const TechnicienList: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -14,10 +53,17 @@ export const TechnicienList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [specialiteFilter, setSpecialiteFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTechnicien, setSelectedTechnicien] = useState<Technicien | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<ApiResponse>({
     queryKey: ['techniciens', page, search, specialiteFilter],
-    queryFn: () => technicienService.getAll({ page, limit: 10, search, specialiteId: specialiteFilter })
+    queryFn: () => technicienService.getAll({ 
+      page, 
+      limit: 10, 
+      search, 
+      specialiteId: specialiteFilter 
+    })
   });
 
   const deleteTechnicienMutation = useMutation({
@@ -26,6 +72,22 @@ export const TechnicienList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['techniciens'] });
     }
   });
+
+  const handleEditTechnicien = (technicien: Technicien) => {
+    setSelectedTechnicien(technicien);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteTechnicien = async (technicien: Technicien) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le technicien ${technicien.prenom} ${technicien.nom} ?`)) {
+      try {
+        await deleteTechnicienMutation.mutateAsync(technicien.id);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        alert('Erreur lors de la suppression du technicien');
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -43,18 +105,9 @@ export const TechnicienList: React.FC = () => {
     );
   }
 
+  // ✅ CORRECTION : Typage correct des données
   const techniciens = data?.data?.techniciens || [];
   const pagination = data?.data?.pagination;
-
-  const handleDeleteTechnicien = async (technicien: any) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le technicien ${technicien.prenom} ${technicien.nom} ?`)) {
-      try {
-        await deleteTechnicienMutation.mutateAsync(technicien.id);
-      } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
-      }
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -128,7 +181,7 @@ export const TechnicienList: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {techniciens.map((technicien: any) => (
+            {techniciens.map((technicien: Technicien) => (
               <tr key={technicien.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -150,7 +203,7 @@ export const TechnicienList: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                     <Wrench className="h-3 w-3 mr-1" />
-                    {technicien.specialite?.libelle}
+                    {technicien.specialite?.libelle || 'Non spécifiée'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -170,10 +223,11 @@ export const TechnicienList: React.FC = () => {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${technicien.isActive
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    technicien.isActive
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
-                    }`}>
+                  }`}>
                     {technicien.isActive ? 'Actif' : 'Inactif'}
                   </span>
                 </td>
@@ -185,7 +239,11 @@ export const TechnicienList: React.FC = () => {
                       </button>
                     )}
                     {hasPermission('techniciens.update') && (
-                      <button className="text-indigo-600 hover:text-indigo-900" title="Modifier">
+                      <button 
+                        onClick={() => handleEditTechnicien(technicien)}
+                        className="text-indigo-600 hover:text-indigo-900" 
+                        title="Modifier"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                     )}
@@ -204,6 +262,17 @@ export const TechnicienList: React.FC = () => {
             ))}
           </tbody>
         </table>
+
+        {/* Message si aucun résultat */}
+        {techniciens.length === 0 && (
+          <div className="text-center py-8">
+            <User className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun technicien</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Commencez par créer un nouveau technicien.
+            </p>
+          </div>
+        )}
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
@@ -244,10 +313,11 @@ export const TechnicienList: React.FC = () => {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pageNum === page
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        pageNum === page
                           ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                           : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
+                      }`}
                     >
                       {pageNum}
                     </button>
@@ -263,6 +333,16 @@ export const TechnicienList: React.FC = () => {
       <CreateTechnicienModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+      />
+
+      {/* ✅ MODALE D'ÉDITION AJOUTÉE */}
+      <EditTechnicienModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedTechnicien(null);
+        }}
+        technicien={selectedTechnicien}
       />
     </div>
   );

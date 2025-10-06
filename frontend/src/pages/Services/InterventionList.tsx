@@ -1,21 +1,9 @@
+// src/pages/Services/InterventionList.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Play, 
-  Square, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle,
-  Users,
-  FileText,
-  Package,
-  Calendar,
-  Timer
+import {
+  Plus, Search, Edit, Trash2, Eye, Play, Square, Clock, CheckCircle,
+  AlertCircle, Users, FileText, Package, Calendar, Timer
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createCrudService } from '../../services/api';
@@ -23,78 +11,93 @@ import { CreateInterventionModal } from '../../components/Modals/Create/CreateIn
 import { InterventionDetailModal } from '../../components/Modals/InterventionDetailModal';
 import { EditInterventionModal } from '../../components/Modals/EditInterventionModal';
 
-
 const interventionService = createCrudService('interventions');
 
 const statusConfig = {
   planifiee: { label: 'Planifiée', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   en_cours: { label: 'En cours', color: 'bg-blue-100 text-blue-800', icon: AlertCircle },
   terminee: { label: 'Terminée', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  annulee: { label: 'Annulée', color: 'bg-red-100 text-red-800', icon: Square }
-};
+  annulee: { label: 'Annulée', color: 'bg-red-100 text-red-800', icon: Square },
+} as const;
 
 export const InterventionList: React.FC = () => {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [missionFilter, setMissionFilter] = useState('');
-  
-  // États pour les modals
+
+  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRapportModal, setShowRapportModal] = useState(false);
   const [showMaterielModal, setShowMaterielModal] = useState(false);
-  
   const [selectedIntervention, setSelectedIntervention] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['interventions', page, search, statusFilter, missionFilter],
-    queryFn: () => interventionService.getAll({ 
-      page, 
-      limit: 10, 
-      search, 
-      statut: statusFilter,
-      missionId: missionFilter
-    })
+    queryFn: () =>
+      interventionService.getAll({
+        page,
+        limit: 10,
+        search,
+        statut: statusFilter || undefined,     // n’envoie pas de chaîne vide
+        missionId: missionFilter || undefined // n’envoie pas de chaîne vide
+      }),
+    keepPreviousData: true,
   });
 
+  // 🔧 Normalisation robuste de la réponse backend
+  // On n’utilise un Array QUE si c’en est un vraiment.
+  const raw = (data as any)?.data ?? data ?? null;
+
+  const interventions: any[] =
+    Array.isArray(raw) ? raw
+    : Array.isArray(raw?.items) ? raw.items
+    : Array.isArray(raw?.interventions) ? raw.interventions
+    : Array.isArray(raw?.data?.items) ? raw.data.items
+    : Array.isArray(raw?.data?.interventions) ? raw.data.interventions
+    : [];
+
+  const pagination =
+    raw?.pagination
+      ?? raw?.data?.pagination
+      ?? {
+        page,
+        limit: 10,
+        total: Array.isArray(interventions) ? interventions.length : 0,
+        pages: 1,
+      };
+
   const startInterventionMutation = useMutation({
-    mutationFn: (id: number) => 
+    mutationFn: (id: number) =>
       fetch(`/api/v1/interventions/${id}/start`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      }).then(res => res.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['interventions'] });
-    }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      }).then((res) => res.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interventions'] }),
   });
 
   const endInterventionMutation = useMutation({
-    mutationFn: ({ id, commentaire }: { id: number; commentaire?: string }) => 
+    mutationFn: ({ id, commentaire }: { id: number; commentaire?: string }) =>
       fetch(`/api/v1/interventions/${id}/end`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ commentaire })
-      }).then(res => res.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['interventions'] });
-    }
+        body: JSON.stringify({ commentaire }),
+      }).then((res) => res.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interventions'] }),
   });
 
   const deleteInterventionMutation = useMutation({
     mutationFn: (id: number) => interventionService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['interventions'] });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interventions'] }),
   });
 
   if (isLoading) {
@@ -113,23 +116,20 @@ export const InterventionList: React.FC = () => {
     );
   }
 
-  const interventions = data?.data?.interventions || [];
-  const pagination = data?.data?.pagination;
-
   const handleStartIntervention = async (intervention: any) => {
     try {
       await startInterventionMutation.mutateAsync(intervention.id);
-    } catch (error) {
-      console.error('Erreur lors du démarrage:', error);
+    } catch (e) {
+      console.error('Erreur lors du démarrage:', e);
     }
   };
 
   const handleEndIntervention = async (intervention: any) => {
-    const commentaire = prompt('Commentaire de fin d\'intervention (optionnel):');
+    const commentaire = prompt("Commentaire de fin d'intervention (optionnel):");
     try {
       await endInterventionMutation.mutateAsync({ id: intervention.id, commentaire: commentaire || undefined });
-    } catch (error) {
-      console.error('Erreur lors de la fin:', error);
+    } catch (e) {
+      console.error('Erreur lors de la fin:', e);
     }
   };
 
@@ -137,8 +137,8 @@ export const InterventionList: React.FC = () => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'intervention ${intervention.id} ?`)) {
       try {
         await deleteInterventionMutation.mutateAsync(intervention.id);
-      } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
+      } catch (e) {
+        console.error('Erreur lors de la suppression:', e);
       }
     }
   };
@@ -213,9 +213,7 @@ export const InterventionList: React.FC = () => {
             </div>
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Total Interventions</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {interventions.length}
-              </div>
+              <div className="text-2xl font-bold text-gray-900">{interventions.length}</div>
             </div>
           </div>
         </div>
@@ -228,7 +226,7 @@ export const InterventionList: React.FC = () => {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">En Cours</div>
               <div className="text-2xl font-bold text-gray-900">
-                {interventions.filter((i: any) => i.statut === 'en_cours').length}
+                {interventions.filter((i: any) => i?.statut === 'en_cours').length}
               </div>
             </div>
           </div>
@@ -242,7 +240,7 @@ export const InterventionList: React.FC = () => {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Terminées</div>
               <div className="text-2xl font-bold text-gray-900">
-                {interventions.filter((i: any) => i.statut === 'terminee').length}
+                {interventions.filter((i: any) => i?.statut === 'terminee').length}
               </div>
             </div>
           </div>
@@ -256,12 +254,15 @@ export const InterventionList: React.FC = () => {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Temps Moyen</div>
               <div className="text-2xl font-bold text-gray-900">
-                {formatDuration(
-                  interventions
-                    .filter((i: any) => i.duree)
-                    .reduce((sum: number, i: any) => sum + i.duree, 0) / 
-                  interventions.filter((i: any) => i.duree).length || 0
-                )}
+                {(() => {
+                  const withDur = interventions.filter((i: any) => typeof i?.duree === 'number');
+                  const avg = withDur.length
+                    ? withDur.reduce((s: number, i: any) => s + i.duree, 0) / withDur.length
+                    : 0;
+                  const hours = Math.floor(avg / 60);
+                  const mins = Math.round(avg % 60);
+                  return `${hours}h${mins.toString().padStart(2, '0')}`;
+                })()}
               </div>
             </div>
           </div>
@@ -272,7 +273,7 @@ export const InterventionList: React.FC = () => {
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
               type="text"
               placeholder="Rechercher une intervention..."
@@ -301,39 +302,29 @@ export const InterventionList: React.FC = () => {
         </div>
       </div>
 
-      {/* Liste des interventions */}
+      {/* Liste */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Intervention
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Mission
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Techniciens
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Période
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Durée
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Statut
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              {['Intervention', 'Mission', 'Techniciens', 'Période', 'Durée', 'Statut', 'Actions'].map((h) => (
+                <th
+                  key={h}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {interventions.map((intervention: any) => {
-              const statusInfo = statusConfig[intervention.statut as keyof typeof statusConfig] || statusConfig.planifiee;
+              const statusInfo =
+                statusConfig[intervention?.statut as keyof typeof statusConfig] || statusConfig.planifiee;
               const StatusIcon = statusInfo.icon;
-              
+              const mission = intervention?.mission || {};
+              const clientName = mission?.client?.name || 'Client inconnu';
+
               return (
                 <tr key={intervention.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -342,40 +333,39 @@ export const InterventionList: React.FC = () => {
                         <Calendar className="h-8 w-8 text-blue-600" />
                       </div>
                       <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">
-                          Intervention #{intervention.id}
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">Intervention #{intervention.id}</div>
                         <div className="text-sm text-gray-500">
-                          {intervention.commentaire && intervention.commentaire.substring(0, 50)}
-                          {intervention.commentaire && intervention.commentaire.length > 50 && '...'}
+                          {intervention?.commentaire?.slice(0, 50)}
+                          {intervention?.commentaire && intervention.commentaire.length > 50 && '...'}
                         </div>
                       </div>
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {intervention.mission.numIntervention}
+                        {mission?.numIntervention || mission?.id || '-'}
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {intervention.mission.client.name}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {intervention.mission.natureIntervention}
-                      </div>
+                      <div className="text-sm text-gray-500">{clientName}</div>
+                      <div className="text-xs text-gray-400">{mission?.natureIntervention || ''}</div>
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-1">
                       <Users className="h-4 w-4 text-gray-400" />
                       <span className="text-sm text-gray-900">
-                        {intervention.techniciens.length}
+                        {Array.isArray(intervention?.techniciens) ? intervention.techniciens.length : 0}
                       </span>
-                      {intervention.techniciens.length > 0 && (
+                      {Array.isArray(intervention?.techniciens) && intervention.techniciens.length > 0 && (
                         <div className="ml-2">
                           {intervention.techniciens.slice(0, 2).map((tech: any, index: number) => (
-                            <span key={index} className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">
-                              {tech.technicien.prenom} {tech.technicien.nom}
+                            <span
+                              key={`${tech?.technicien?.id ?? index}`}
+                              className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mr-1"
+                            >
+                              {(tech?.technicien?.prenom || '') + ' ' + (tech?.technicien?.nom || '')}
                             </span>
                           ))}
                           {intervention.techniciens.length > 2 && (
@@ -385,27 +375,42 @@ export const InterventionList: React.FC = () => {
                       )}
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div>
-                      <div>Début: {new Date(intervention.dateHeureDebut).toLocaleString()}</div>
-                      {intervention.dateHeureFin && (
+                      <div>
+                        Début:{' '}
+                        {intervention?.dateHeureDebut
+                          ? new Date(intervention.dateHeureDebut).toLocaleString()
+                          : '-'}
+                      </div>
+                      {intervention?.dateHeureFin && (
                         <div>Fin: {new Date(intervention.dateHeureFin).toLocaleString()}</div>
                       )}
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {formatDuration(intervention.duree)}
+                    {typeof intervention?.duree === 'number'
+                      ? (() => {
+                          const h = Math.floor(intervention.duree / 60);
+                          const m = intervention.duree % 60;
+                          return `${h}h${m.toString().padStart(2, '0')}`;
+                        })()
+                      : 'N/A'}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${statusInfo.color}`}>
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {statusInfo.label}
                     </span>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
                       {hasPermission('interventions.read') && (
-                        <button 
+                        <button
                           onClick={() => handleViewDetails(intervention)}
                           className="text-blue-600 hover:text-blue-900"
                           title="Voir détails"
@@ -413,10 +418,9 @@ export const InterventionList: React.FC = () => {
                           <Eye className="h-4 w-4" />
                         </button>
                       )}
-                      
-                      {/* Actions selon le statut */}
-                      {hasPermission('interventions.update') && intervention.statut === 'planifiee' && (
-                        <button 
+
+                      {hasPermission('interventions.update') && intervention?.statut === 'planifiee' && (
+                        <button
                           onClick={() => handleStartIntervention(intervention)}
                           className="text-green-600 hover:text-green-900"
                           title="Démarrer"
@@ -424,9 +428,9 @@ export const InterventionList: React.FC = () => {
                           <Play className="h-4 w-4" />
                         </button>
                       )}
-                      
-                      {hasPermission('interventions.update') && intervention.statut === 'en_cours' && (
-                        <button 
+
+                      {hasPermission('interventions.update') && intervention?.statut === 'en_cours' && (
+                        <button
                           onClick={() => handleEndIntervention(intervention)}
                           className="text-red-600 hover:text-red-900"
                           title="Terminer"
@@ -434,9 +438,9 @@ export const InterventionList: React.FC = () => {
                           <Square className="h-4 w-4" />
                         </button>
                       )}
-                      
+
                       {hasPermission('rapports.create') && (
-                        <button 
+                        <button
                           onClick={() => handleCreateRapport(intervention)}
                           className="text-purple-600 hover:text-purple-900"
                           title="Créer rapport"
@@ -444,9 +448,9 @@ export const InterventionList: React.FC = () => {
                           <FileText className="h-4 w-4" />
                         </button>
                       )}
-                      
+
                       {hasPermission('materiels.update') && (
-                        <button 
+                        <button
                           onClick={() => handleSortieMateriel(intervention)}
                           className="text-orange-600 hover:text-orange-900"
                           title="Sortie matériel"
@@ -454,9 +458,9 @@ export const InterventionList: React.FC = () => {
                           <Package className="h-4 w-4" />
                         </button>
                       )}
-                      
+
                       {hasPermission('interventions.update') && (
-                        <button 
+                        <button
                           onClick={() => handleEditIntervention(intervention)}
                           className="text-indigo-600 hover:text-indigo-900"
                           title="Modifier"
@@ -464,9 +468,9 @@ export const InterventionList: React.FC = () => {
                           <Edit className="h-4 w-4" />
                         </button>
                       )}
-                      
+
                       {hasPermission('interventions.update') && (
-                        <button 
+                        <button
                           onClick={() => handleAssignTechnicien(intervention)}
                           className="text-teal-600 hover:text-teal-900"
                           title="Assigner technicien"
@@ -474,9 +478,9 @@ export const InterventionList: React.FC = () => {
                           <Users className="h-4 w-4" />
                         </button>
                       )}
-                      
-                      {hasPermission('interventions.delete') && intervention.statut === 'planifiee' && (
-                        <button 
+
+                      {hasPermission('interventions.delete') && intervention?.statut === 'planifiee' && (
+                        <button
                           onClick={() => handleDeleteIntervention(intervention)}
                           className="text-red-600 hover:text-red-900"
                           title="Supprimer"
@@ -489,37 +493,28 @@ export const InterventionList: React.FC = () => {
                 </tr>
               );
             })}
+
+            {/* Aucun résultat */}
+            {interventions.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+                  Aucune intervention trouvée.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
         {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
+        {pagination && pagination.pages > 1 && (
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Précédent
-              </button>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page === pagination.totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Suivant
-              </button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between w-full">
               <div>
                 <p className="text-sm text-gray-700">
                   Affichage de{' '}
-                  <span className="font-medium">{(page - 1) * 10 + 1}</span>
+                  <span className="font-medium">{(pagination.page - 1) * 10 + 1}</span>
                   {' '}à{' '}
-                  <span className="font-medium">
-                    {Math.min(page * 10, pagination.total)}
-                  </span>
+                  <span className="font-medium">{Math.min(pagination.page * 10, pagination.total)}</span>
                   {' '}sur{' '}
                   <span className="font-medium">{pagination.total}</span>
                   {' '}résultats
@@ -527,7 +522,7 @@ export const InterventionList: React.FC = () => {
               </div>
               <div>
                 <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((pageNum) => (
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
@@ -548,23 +543,11 @@ export const InterventionList: React.FC = () => {
       </div>
 
       {/* Modales */}
-      <CreateInterventionModal 
-        isOpen={showCreateModal} 
-        onClose={closeAllModals} 
-      />
-      
-      <EditInterventionModal
-        isOpen={showEditModal}
-        onClose={closeAllModals}
-        intervention={selectedIntervention}
-      />
-      
-      <InterventionDetailModal
-        isOpen={showDetailModal}
-        onClose={closeAllModals}
-        intervention={selectedIntervention}
-      />
-      
+      <CreateInterventionModal isOpen={showCreateModal} onClose={closeAllModals} />
+      <EditInterventionModal isOpen={showEditModal} onClose={closeAllModals} intervention={selectedIntervention} />
+      <InterventionDetailModal isOpen={showDetailModal} onClose={closeAllModals} intervention={selectedIntervention} />
     </div>
   );
 };
+
+export default InterventionList;

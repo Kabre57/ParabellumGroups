@@ -1,89 +1,104 @@
-import { Request, Response } from 'express';
+// src/routes/permissions.ts
+import {  Request, Response, Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
+import { ALLOWED_PERMISSIONS } from '../middleware/permissions-constants';
 
 const prisma = new PrismaClient();
+const router: ExpressRouter = Router();
 
 // GET /api/v1/users/:id/permissions
-export const getUserPermissions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/users/:id/permissions', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
-    
-    const user = await prisma.user.findUnique({
+    const userId = Number(req.params.id);
+    const user = await prisma.user.findUnique({ 
       where: { id: userId },
-      include: {
-        service: true
+      include: { service: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Utilisateur introuvable' 
+      });
+    }
+
+    // Récupérer les permissions depuis le champ permissions (JSON) ou utiliser les permissions par défaut
+    const permissions = user.permissions ? JSON.parse(user.permissions) : [];
+
+    return res.json({ 
+      success: true, 
+      data: {
+        permissions,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          serviceId: user.serviceId
+        }
       }
     });
-
-    if (!user) {
-      res.status(404).json({ error: 'Utilisateur non trouvé' });
-      return;
-    }
-
-    // Récupérer les permissions depuis le champ permissions (JSON) ou utiliser les permissions par défaut du rôle
-    const userPermissions = user.permissions ? JSON.parse(user.permissions) : [];
-
-    res.json({
-      success: true,
-      data: userPermissions
-    });
-
   } catch (error) {
-    console.error('Erreur lors de la récupération des permissions:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('Erreur getUserPermissions:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur' 
+    });
   }
-};
+});
 
 // PUT /api/v1/users/:id/permissions
-export const updateUserPermissions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.put('/users/:id/permissions', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
-    const { permissions } = req.body;
+    const userId = Number(req.params.id);
+    const incoming = Array.isArray(req.body.permissions) ? req.body.permissions : [];
 
-    // Valider les données
-    if (!Array.isArray(permissions)) {
-      res.status(400).json({ error: 'Les permissions doivent être un tableau' });
-      return;
+    // Valider les permissions
+    const invalid = incoming.filter(p => !ALLOWED_PERMISSIONS.includes(p as any));
+    if (invalid.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Permissions invalides', 
+        invalid 
+      });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      res.status(404).json({ error: 'Utilisateur non trouvé' });
-      return;
-    }
-
-    // Mettre à jour les permissions de l'utilisateur
+    // Mettre à jour l'utilisateur
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        permissions: JSON.stringify(permissions)
+      data: { 
+        permissions: JSON.stringify(incoming) 
       },
       include: {
         service: true
       }
     });
 
-    res.json({
-      success: true,
-      message: 'Permissions mises à jour avec succès',
-      data: permissions
+    return res.json({ 
+      success: true, 
+      message: 'Permissions mises à jour avec succès', 
+      data: {
+        permissions: incoming,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          role: updatedUser.role,
+          serviceId: updatedUser.serviceId
+        }
+      }
     });
-
   } catch (error) {
-    console.error('Erreur lors de la mise à jour des permissions:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('Erreur updateUserPermissions:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur' 
+    });
   }
-};
-
-// Routeur principal (si vous voulez garder une structure de routeur séparée)
-import { Router } from 'express';
-const router = Router();
-
-router.get('/users/:id/permissions', getUserPermissions);
-router.put('/users/:id/permissions', updateUserPermissions);
+});
 
 export default router;

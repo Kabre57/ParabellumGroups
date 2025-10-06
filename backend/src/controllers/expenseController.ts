@@ -1,400 +1,324 @@
+// src/controllers/expenseController.ts
 import { Request, Response } from 'express';
-import { PrismaClient, SourceDocumentType } from '@prisma/client';
+import { PrismaClient, ExpenseStatus, SourceDocumentType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { body, validationResult } from 'express-validator';
 
 const prisma = new PrismaClient();
 
+/**
+ * NOTES D’ALIGNEMENT AVEC LE SCHÉMA
+ * ---------------------------------
+ * Modèle Expense (tel que fourni) :
+ *   id, userId, date, category, description?, amount, currency="XOF",
+ *   status=ExpenseStatus.PENDING, receiptUrl?, notes?, createdBy, createdAt, updatedAt
+ * Relations:
+ *   creator: User @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
+ *   user:    User @relation("ExpenseEmployee",  fields: [userId],    references: [id])
+ *
+ * => AUCUNE relation/colonne "supplier", "expenseNumber", "amountHt", "vatAmount", "paymentMethod".
+ * => On supprime tout ce qui y faisait référence.
+ */
+
+/* ===========================
+ * GET /expenses
+ * =========================== */
 export const getExpenses = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { page = 1, limit = 10, search, category, status } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const { page = '1', limit = '10', search = '', category, status } = req.query as Record<string, string>;
+    const take = Math.max(1, Number(limit) || 10);
+    const skip = (Math.max(1, Number(page) || 1) - 1) * take;
 
-    let whereClause: any = {};
-
+    const where: any = {};
     if (search) {
-      whereClause.OR = [
-        { expenseNumber: { contains: search as string, mode: 'insensitive' } },
-        { description: { contains: search as string, mode: 'insensitive' } },
-        { category: { contains: search as string, mode: 'insensitive' } }
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { category:    { contains: search, mode: 'insensitive' } },
       ];
     }
+    if (category) where.category = category;
+    if (status)   where.status   = status as ExpenseStatus; // string -> enum
 
-    if (category) {
-      whereClause.category = category;
-    }
-
-    if (status) {
-      whereClause.status = status;
-    }
-
-    const [expenses, total] = await Promise.all([
+    const [items, total] = await Promise.all([
       prisma.expense.findMany({
-        where: whereClause,
+        where,
         include: {
-          supplier: {
-            select: { name: true, contactPerson: true }
-          },
-          creator: {
-            select: { firstName: true, lastName: true }
-          }
+          // relations existantes dans ton schéma
+          creator: { select: { id: true, firstName: true, lastName: true, email: true } },
+          user:    { select: { id: true, firstName: true, lastName: true, email: true } },
         },
-        skip: offset,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' }
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
       }),
-      prisma.expense.count({ where: whereClause })
+      prisma.expense.count({ where }),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
-        expenses,
+        items,
         pagination: {
           page: Number(page),
-          limit: Number(limit),
+          limit: take,
           total,
-          totalPages: Math.ceil(total / Number(limit))
-        }
-      }
+          pages: Math.ceil(total / take),
+        },
+      },
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des dépenses:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/* ===========================
+ * GET /expenses/:id
+ * =========================== */
 export const getExpenseById = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'ID invalide' });
+    }
 
     const expense = await prisma.expense.findUnique({
-      where: { id: Number(id) },
+      where: { id },
       include: {
-        supplier: true,
-        creator: {
-          select: { firstName: true, lastName: true }
-        }
-      }
+        creator: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user:    { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
     });
 
     if (!expense) {
-      return res.status(404).json({
-        success: false,
-        message: 'Dépense non trouvée'
-      });
+      return res.status(404).json({ success: false, message: 'Dépense non trouvée' });
     }
 
-    res.json({
-      success: true,
-      data: expense
-    });
+    return res.json({ success: true, data: expense });
   } catch (error) {
     console.error('Erreur lors de la récupération de la dépense:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/* ===========================
+ * POST /expenses
+ * ===========================
+ * Champs acceptés (alignés modèle) :
+ *  - userId (employé concerné)
+ *  - date (ISO string)
+ *  - category
+ *  - description? , amount (number), currency? (default XOF)
+ *  - status? (PENDING/APPROVED/REJECTED/PAID selon ton enum)
+ *  - receiptUrl?, notes?
+ *  - createdBy = req.user!.id (depuis le token)
+ */
 export const createExpense = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données invalides',
-        errors: errors.array()
-      });
+      return res.status(400).json({ success: false, message: 'Données invalides', errors: errors.array() });
     }
 
+    const me = req.user!;
     const {
-      supplierId,
+      userId,
+      date,
       category,
       description,
-      amountHt,
-      vatAmount,
-      expenseDate,
-      paymentDate,
-      paymentMethod,
-      receiptUrl,
-      notes
+      amount,
+      currency,   // optionnel
+      status,     // optionnel (sinon PENDING par défaut)
+      receiptUrl, // optionnel
+      notes,      // optionnel
     } = req.body;
 
-    // Générer le numéro de dépense
-    const lastExpense = await prisma.expense.findFirst({
-      orderBy: { expenseNumber: 'desc' }
-    });
-    
-    let nextNumber = 1;
-    if (lastExpense) {
-      const lastNumber = parseInt(lastExpense.expenseNumber.split('-')[2]);
-      nextNumber = lastNumber + 1;
-    }
-    
-    const expenseNumber = `DEP-${new Date().getFullYear()}-${nextNumber.toString().padStart(3, '0')}`;
-
-    const totalTtc = amountHt + (vatAmount || 0);
-
-    const expense = await prisma.expense.create({
+    const created = await prisma.expense.create({
       data: {
-        expenseNumber,
-        supplierId,
+        userId: Number(userId),
+        date: new Date(date),
         category,
-        description,
-        amountHt,
-        vatAmount: vatAmount || 0,
-        totalTtc,
-        expenseDate: new Date(expenseDate),
-        paymentDate: paymentDate ? new Date(paymentDate) : null,
-        paymentMethod,
-        status: paymentDate ? 'PAID' : 'PENDING',
-        receiptUrl,
-        notes,
-        createdBy: req.user!.userId
+        description: description ?? null,
+        amount: Number(amount),
+        currency: currency ?? undefined, // laisser défaut "XOF" si non fourni
+        status: status as ExpenseStatus | undefined, // sinon défaut PENDING
+        receiptUrl: receiptUrl ?? null,
+        notes: notes ?? null,
+        createdBy: me.id,
       },
       include: {
-        supplier: true,
-        creator: {
-          select: { firstName: true, lastName: true }
-        }
-      }
+        creator: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user:    { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
     });
 
-    // Créer les écritures comptables
-    await createExpenseAccountingEntries(expense.id, amountHt, vatAmount || 0, totalTtc, req.user!.userId);
+    // (Optionnel) écriture comptable + cashflow (si tes modèles existent)
+    await createExpenseAccountingEntries(created.id, created.amount, me.id).catch(() => { /* ne pas bloquer */ });
 
-    res.status(201).json({
-      success: true,
-      data: expense,
-      message: 'Dépense créée avec succès'
-    });
+    return res.status(201).json({ success: true, data: created, message: 'Dépense créée avec succès' });
   } catch (error) {
     console.error('Erreur lors de la création de la dépense:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/* ===========================
+ * PUT /expenses/:id
+ * =========================== */
 export const updateExpense = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const errors = validationResult(req);
-    
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données invalides',
-        errors: errors.array()
-      });
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'ID invalide' });
     }
 
-    const existingExpense = await prisma.expense.findUnique({
-      where: { id: Number(id) }
-    });
-
-    if (!existingExpense) {
-      return res.status(404).json({
-        success: false,
-        message: 'Dépense non trouvée'
-      });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Données invalides', errors: errors.array() });
     }
 
     const {
-      supplierId,
+      userId,
+      date,
       category,
       description,
-      amountHt,
-      vatAmount,
-      expenseDate,
-      paymentDate,
-      paymentMethod,
+      amount,
+      currency,
       status,
       receiptUrl,
-      notes
+      notes,
     } = req.body;
 
-    const totalTtc = amountHt + (vatAmount || 0);
-
-    const expense = await prisma.expense.update({
-      where: { id: Number(id) },
+    const updated = await prisma.expense.update({
+      where: { id },
       data: {
-        supplierId,
-        category,
-        description,
-        amountHt,
-        vatAmount: vatAmount || 0,
-        totalTtc,
-        expenseDate: expenseDate ? new Date(expenseDate) : undefined,
-        paymentDate: paymentDate ? new Date(paymentDate) : null,
-        paymentMethod,
-        status,
-        receiptUrl,
-        notes
+        ...(userId       !== undefined && { userId: Number(userId) }),
+        ...(date         !== undefined && { date: new Date(date) }),
+        ...(category     !== undefined && { category }),
+        ...(description  !== undefined && { description }),
+        ...(amount       !== undefined && { amount: Number(amount) }),
+        ...(currency     !== undefined && { currency }),
+        ...(status       !== undefined && { status: status as ExpenseStatus }),
+        ...(receiptUrl   !== undefined && { receiptUrl }),
+        ...(notes        !== undefined && { notes }),
       },
       include: {
-        supplier: true,
-        creator: {
-          select: { firstName: true, lastName: true }
-        }
-      }
+        creator: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user:    { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
     });
 
-    res.json({
-      success: true,
-      data: expense,
-      message: 'Dépense mise à jour avec succès'
-    });
+    return res.json({ success: true, data: updated, message: 'Dépense mise à jour avec succès' });
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la dépense:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/* ===========================
+ * DELETE /expenses/:id
+ * =========================== */
 export const deleteExpense = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-
-    const existingExpense = await prisma.expense.findUnique({
-      where: { id: Number(id) }
-    });
-
-    if (!existingExpense) {
-      return res.status(404).json({
-        success: false,
-        message: 'Dépense non trouvée'
-      });
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'ID invalide' });
     }
 
-    await prisma.expense.delete({
-      where: { id: Number(id) }
-    });
-
-    res.json({
-      success: true,
-      message: 'Dépense supprimée avec succès'
-    });
+    await prisma.expense.delete({ where: { id } });
+    return res.json({ success: true, message: 'Dépense supprimée avec succès' });
   } catch (error) {
     console.error('Erreur lors de la suppression de la dépense:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
+/* ===========================
+ * GET /expenses/categories
+ * =========================== */
 export const getExpenseCategories = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const categories = await prisma.expense.findMany({
-      where: {
-        category: { not: undefined }
-      },
-      select: {
-        category: true
-      },
-      distinct: ['category']
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
     });
 
-    const categoryList = categories
-      .map(e => e.category)
-      .filter(Boolean)
-      .sort() as string[];
-
-    res.json({
+    return res.json({
       success: true,
-      data: categoryList
+      data: categories.map(c => c.category).filter(Boolean),
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des catégories:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur interne du serveur'
-    });
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
-// Fonction utilitaire pour créer les écritures comptables de dépense
+/* ==========================================================
+ * Utilitaire – écritures comptables et cashflow (optionnel)
+ * ========================================================== */
 async function createExpenseAccountingEntries(
   expenseId: number,
-  amountHt: number,
-  vatAmount: number,
-  totalTtc: number,
+  amount: number,
   userId: number
 ) {
-  const entries = [];
-
-  // Débit charges
-  entries.push({
-    entryDate: new Date(),
-    accountNumber: '606000', // Achats
-    debit: amountHt,
-    credit: 0,
-    description: 'Dépense HT',
-    sourceDocumentType: 'EXPENSE' as SourceDocumentType,
-    sourceDocumentId: expenseId,
-    createdBy: userId
-  });
-
-  // Débit TVA déductible
-  if (vatAmount > 0) {
-    entries.push({
-      entryDate: new Date(),
-      accountNumber: '445620', // TVA déductible
-      debit: vatAmount,
-      credit: 0,
-      description: 'TVA déductible',
-      sourceDocumentType: 'EXPENSE' as SourceDocumentType,
-      sourceDocumentId: expenseId,
-      createdBy: userId
+  // Si tes modèles n’existent pas, cette fonction ne doit pas bloquer.
+  // Adapte les numéros de comptes selon ta compta.
+  try {
+    await prisma.accountingEntry.createMany({
+      data: [
+        {
+          entryDate: new Date(),
+          accountNumber: '606000', // Charges - achats
+          debit: amount,
+          credit: 0,
+          description: 'Dépense',
+          sourceDocumentType: 'EXPENSE' as SourceDocumentType,
+          sourceDocumentId: expenseId,
+          createdBy: userId,
+        },
+        {
+          entryDate: new Date(),
+          accountNumber: '401000', // Fournisseurs (ou banque si tu préfères 512000)
+          debit: 0,
+          credit: amount,
+          description: 'Dépense',
+          sourceDocumentType: 'EXPENSE' as SourceDocumentType,
+          sourceDocumentId: expenseId,
+          createdBy: userId,
+        },
+      ],
     });
+
+    await prisma.cashFlow.create({
+      data: {
+        transactionDate: new Date(),
+        type: 'OUTFLOW',
+        amount,
+        description: 'Dépense',
+        category: 'Dépenses',
+        sourceDocumentType: 'EXPENSE' as SourceDocumentType,
+        sourceDocumentId: expenseId,
+        createdBy: userId,
+      },
+    });
+  } catch (e) {
+    // ne pas bloquer le flux principal
+    console.warn('[createExpenseAccountingEntries] ignoré:', e);
   }
-
-  // Crédit fournisseur ou banque
-  entries.push({
-    entryDate: new Date(),
-    accountNumber: '401000', // Fournisseurs
-    debit: 0,
-    credit: totalTtc,
-    description: 'Dépense fournisseur',
-    sourceDocumentType: 'EXPENSE' as SourceDocumentType,
-    sourceDocumentId: expenseId,
-    createdBy: userId
-  });
-
-  await prisma.accountingEntry.createMany({
-    data: entries
-  });
-
-  // Créer l'entrée de trésorerie
-  await prisma.cashFlow.create({
-    data: {
-      transactionDate: new Date(),
-      type: 'OUTFLOW',
-      amount: totalTtc,
-      description: 'Dépense',
-      category: 'Dépenses',
-      sourceDocumentType: 'EXPENSE' as SourceDocumentType,
-      sourceDocumentId: expenseId,
-      createdBy: userId
-    }
-  });
 }
 
-// Validation middleware
+/* ===========================
+ * VALIDATION (express-validator)
+ * =========================== */
 export const validateExpense = [
+  body('userId').isInt({ gt: 0 }).withMessage('Employé (userId) requis'),
+  body('date').isISO8601().withMessage('Date invalide'),
   body('category').notEmpty().withMessage('Catégorie requise'),
-  body('description').notEmpty().withMessage('Description requise'),
-  body('amountHt').isFloat({ min: 0 }).withMessage('Montant HT invalide'),
-  body('vatAmount').optional().isFloat({ min: 0 }).withMessage('Montant TVA invalide'),
-  body('expenseDate').isISO8601().withMessage('Date de dépense invalide'),
-  body('paymentMethod').isIn(['TRANSFER', 'CHECK', 'CARD', 'CASH', 'OTHER']).withMessage('Mode de paiement invalide')
+  body('amount').isFloat({ gt: 0 }).withMessage('Montant invalide'),
+  body('currency').optional().isString().isLength({ min: 3, max: 3 }).withMessage('Devise invalide (ex: XOF)'),
+  body('status').optional().isIn(['PENDING','APPROVED','REJECTED','PAID']).withMessage('Statut invalide'),
+  body('description').optional().isString(),
+  body('receiptUrl').optional().isString(),
+  body('notes').optional().isString(),
 ];

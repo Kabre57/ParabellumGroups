@@ -3,9 +3,9 @@ import type { Router as ExpressRouter } from 'express';
 import {
   getTechniciens,
   getTechnicienById,
-  createTechnicien,
   updateTechnicien,
   deleteTechnicien,
+  createTechnicienCombined,
   validateTechnicien
 } from '../controllers/technicienController';
 import { authenticateToken, requirePermission } from '../middleware/auth';
@@ -29,11 +29,12 @@ router.get('/:id',
   getTechnicienById
 );
 
+// ✅ CORRECTION : Une seule route POST avec createTechnicienCombined
 router.post('/', 
   requirePermission('techniciens.create'),
   validateTechnicien,
   auditLog('CREATE', 'TECHNICIEN'),
-  createTechnicien
+  createTechnicienCombined  // ✅ Fonction définie
 );
 
 router.put('/:id', 

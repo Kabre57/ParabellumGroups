@@ -7,7 +7,8 @@ import {
   markAsRead,
   archiveMessage,
   replyToMessage,
-  validateMessage
+  validateMessage,
+  validateReply
 } from '../controllers/messageController';
 import { authenticateToken, requirePermission } from '../middleware/auth';
 import { auditLog } from '../middleware/audit';
@@ -49,9 +50,9 @@ router.patch('/:id/archive',
   archiveMessage
 );
 
-router.post('/:id/reply', 
+router.post('/:id/reply',
   requirePermission('messages.create'),
-  validateMessage,
+  validateReply,
   auditLog('REPLY', 'MESSAGE'),
   replyToMessage
 );

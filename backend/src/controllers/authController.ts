@@ -24,7 +24,9 @@ export const login = async (req: Request, res: Response) => {
     // Rechercher l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { service: true }
+      include: { 
+        service: true 
+      }
     });
 
     if (!user || !user.isActive) {
@@ -42,6 +44,8 @@ export const login = async (req: Request, res: Response) => {
         message: 'Identifiants invalides'
       });
     }
+
+    // ✅ PLUS BESOIN DE CRÉER EMPLOYEE - User est déjà complet
 
     // Obtenir les permissions basées sur le rôle
     const customPermissions = user.preferences ? JSON.parse(user.preferences) : null;
@@ -69,7 +73,7 @@ export const login = async (req: Request, res: Response) => {
       data: { lastLogin: new Date() }
     });
 
-    // Préparer la réponse
+    // ✅ SUPPRIMER LA PARTIE EMPLOYEE - User contient déjà tous les champs
     const response: AuthResponse = {
       user: {
         id: user.id,
@@ -81,6 +85,13 @@ export const login = async (req: Request, res: Response) => {
         isActive: user.isActive,
         lastLogin: user.lastLogin || undefined,
         avatarUrl: user.avatarUrl || undefined,
+        // ✅ Champs fusionnés depuis Employee
+        employeeNumber: user.employeeNumber || undefined,
+        phone: user.phone || undefined,
+        position: user.position || undefined,
+        department: user.department || undefined,
+        hireDate: user.hireDate || undefined,
+        // Service
         service: user.service ? {
           ...user.service,
           description: user.service.description || undefined
@@ -95,6 +106,12 @@ export const login = async (req: Request, res: Response) => {
         action: perm.split('.')[1]
       }))
     };
+
+    // Log d'audit
+    auditLogger.info('Connexion réussie', {
+      userId: user.id,
+      email: user.email
+    });
 
     res.json({
       success: true,
@@ -201,6 +218,12 @@ export const getProfile = async (req: any, res: Response) => {
           isActive: user.isActive,
           lastLogin: user.lastLogin || undefined,
           avatarUrl: user.avatarUrl || undefined,
+          // ✅ Champs fusionnés depuis Employee
+          employeeNumber: user.employeeNumber || undefined,
+          phone: user.phone || undefined,
+          position: user.position || undefined,
+          department: user.department || undefined,
+          hireDate: user.hireDate || undefined,
           service: user.service || undefined
         },
         permissions: permissions.map((perm: string) => ({
@@ -212,11 +235,53 @@ export const getProfile = async (req: any, res: Response) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: unknown) { // ✅ Correction du type 'unknown'
     console.error('Erreur lors de la récupération du profil:', error);
+    
+    let errorMessage = 'Erreur interne du serveur';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Erreur interne du serveur'
+      message: errorMessage
+    });
+  }
+};
+
+/**
+ * Fonction utilitaire pour synchroniser les données User avec les anciennes données Employee
+ * À utiliser une fois pour migrer les données existantes
+ */
+export const syncUserEmployeeData = async (req: Request, res: Response) => {
+  try {
+    // Vérifier les droits d'administration si nécessaire
+    // if (req.user.role !== 'ADMIN') { ... }
+
+    // Cette fonction n'est plus nécessaire avec la fusion complète
+    // Mais gardons-la pour référence
+
+    res.json({
+      success: true,
+      message: 'Fusion User-Employee déjà effectuée',
+      data: {
+        status: 'completed',
+        note: 'Les données Employee sont maintenant intégrées dans la table User'
+      }
+    });
+
+  } catch (error: unknown) { // ✅ Correction du type 'unknown'
+    console.error('Erreur lors de la synchronisation:', error);
+    
+    let errorMessage = 'Erreur lors de la synchronisation';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: errorMessage
     });
   }
 };

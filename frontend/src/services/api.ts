@@ -1,5 +1,3 @@
-/** @format */
-
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import {
   ApiResponse,
@@ -9,6 +7,7 @@ import {
   Employee,
   Supplier,
   Product,
+  // Types basés sur votre schema Prisma - ajustez selon vos besoins
   Customer,
   Quote,
   Invoice,
@@ -678,6 +677,7 @@ export const interventionService = {
     missionId?: string;
     technicienId?: number;
     statut?: string;
+    search?: string;
   }): Promise<ApiResponse<Intervention[]>> => {
     const response = await api.get<ApiResponse<Intervention[]>>("/interventions", { params });
     return response.data;
@@ -916,7 +916,23 @@ export const projectService = {
   },
 };
 
+// ============================================================================
+// SERVICES CALENDRIER ET CONGÉS
+// ============================================================================
+
 export const calendarService = {
+  // Méthode principale pour CalendarManagement
+  getAll: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    eventType?: string;
+    userId?: number;
+    includeTimeOffs?: boolean;
+  }): Promise<ApiResponse<any>> => {
+    const response = await api.get<ApiResponse<any>>("/calendar", { params });
+    return response.data;
+  },
+
   getEvents: async (params?: {
     page?: number;
     limit?: number;
@@ -926,16 +942,6 @@ export const calendarService = {
     calendarId?: number;
   }): Promise<ApiResponse<CalendarEvent[]>> => {
     const response = await api.get<ApiResponse<CalendarEvent[]>>("/calendar/events", { params });
-    return response.data;
-  },
-
-// Méthode pour CalendarManagement
-  getAll: async (params?: {
-    startDate?: string;
-    endDate?: string;
-    eventType?: string;
-  }): Promise<ApiResponse<any>> => {
-    const response = await api.get<ApiResponse<any>>("/calendar", { params });
     return response.data;
   },
 
@@ -953,6 +959,30 @@ export const calendarService = {
     const response = await api.delete<ApiResponse<void>>(`/calendar/events/${id}`);
     return response.data;
   },
+
+  // Méthodes pour les time offs
+  createTimeOff: async (timeOffData: Partial<TimeOffRequest>): Promise<ApiResponse<any>> => {
+    const response = await api.post<ApiResponse<any>>("/time-off", timeOffData);
+    return response.data;
+  },
+
+  getTimeOffs: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    type?: string;
+    userId?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ApiResponse<any>> => {
+    const response = await api.get<ApiResponse<any>>("/time-off", { params });
+    return response.data;
+  },
+
+  updateTimeOffStatus: async (id: number, statusData: { status: string; comments?: string }): Promise<ApiResponse<any>> => {
+    const response = await api.patch<ApiResponse<any>>(`/time-off/${id}/status`, statusData);
+    return response.data;
+  }
 };
 
 // ============================================================================

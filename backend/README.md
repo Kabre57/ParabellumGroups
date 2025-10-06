@@ -29,7 +29,7 @@ cd ParrabellumGroups
 
 2. **Backend**
 ```bash
-cd Back-end
+cd Backend
 pnpm install
 cp .env.example .env
 # Configurer la base de données dans .env

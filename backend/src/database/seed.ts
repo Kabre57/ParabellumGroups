@@ -19,9 +19,12 @@ async function main() {
   // Hasher le mot de passe
   const hashedPassword = await bcrypt.hash('password123', 12);
 
-  // Créer l'utilisateur admin avec tous les droits
+  // Créer l'utilisateur admin avec toutes les informations d'employé
   console.log('👑 Création du super administrateur...');
   
+  const defaultDateOfBirth = new Date();
+  defaultDateOfBirth.setFullYear(defaultDateOfBirth.getFullYear() - 30);
+
   const admin = await prisma.user.create({
     data: {
       email: 'theogeoffroy5@gmail.com',
@@ -31,26 +34,15 @@ async function main() {
       role: UserRole.ADMIN,
       isActive: true,
       avatarUrl: null,
-      preferences: null
-    }
-  });
-
-  // Créer l'employé correspondant
-  console.log('👨‍💼 Création du profil employé admin...');
-  
-  const defaultDateOfBirth = new Date();
-  defaultDateOfBirth.setFullYear(defaultDateOfBirth.getFullYear() - 30);
-
-  await prisma.employee.create({
-    data: {
+      preferences: null,
+      // Informations d'employé
       employeeNumber: `EMP-${Date.now()}`,
-      firstName: 'Kabre',
-      lastName: 'W.Theodore',
-      email: 'theogeoffroy5@gmail.com',
       position: 'Administrateur Système',
       dateOfBirth: defaultDateOfBirth,
       hireDate: new Date(),
-      userId: admin.id
+      phone: '+225 07 00 00 00 00',
+      address: 'Abidjan, Côte d\'Ivoire',
+      nationality: 'Ivoirienne'
     }
   });
 
@@ -59,6 +51,7 @@ async function main() {
   console.log('📧 Email: theogeoffroy5@gmail.com');
   console.log('🔐 Mot de passe: password123');
   console.log('🎯 Rôle: ADMIN (tous les droits)');
+  console.log(`👤 Numéro employé: ${admin.employeeNumber}`);
 }
 
 main()

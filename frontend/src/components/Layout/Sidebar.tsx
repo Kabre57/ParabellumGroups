@@ -42,7 +42,9 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { NavigationItem } from '../../types';
 
-// Structure professionnelle organisée par flux métier
+// ===============================
+// Structure professionnelle (catégories + enfants)
+// ===============================
 const professionalCategories = [
   // === DASHBOARD & ANALYTIQUES ===
   {
@@ -169,7 +171,16 @@ const professionalCategories = [
   },
 ];
 
-// Navigation rapide pour les actions fréquentes
+// ===============================
+// Accès Rapide (base) + Raccourcis Employé
+// ===============================
+
+// patched: Employé — ajouter 2 raccourcis projets
+const employeeProjectShortcuts: NavigationItem[] = [
+  { name: 'Planning Projets', href: '/calendar', icon: CalendarDays, permission: 'calendar.read' },
+  { name: 'Feuilles de Temps', href: '/timesheets', icon: Clock, permission: 'time-entries.read' },
+];
+
 const quickAccessItems: NavigationItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read' },
   { name: 'Nouveau Devis', href: '/quotes?action=create', icon: FileText, permission: 'quotes.create' },
@@ -184,6 +195,31 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const { hasPermission, user } = useAuth();
+
+  // patched: helper rôle — une seule déclaration
+  const isEmployee = user?.role === 'EMPLOYEE';
+
+  // patched: helpers pour construire Accès Rapide employé
+  const flattenCategoryChildren = (categories: any[]): NavigationItem[] => {
+    return categories.flatMap((cat: any) =>
+      (cat.children ?? []).map((child: any) => ({
+        name: child.name,
+        href: child.href,
+        icon: child.icon,
+        permission: child.permission,
+      }))
+    );
+  };
+  const uniqByHref = (items: NavigationItem[]) => {
+    const seen = new Set<string>();
+    return items.filter((i) => {
+      if (!i.href) return false;
+      if (seen.has(i.href)) return false;
+      seen.add(i.href);
+      return true;
+    });
+  };
+
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     'Tableau de Bord': true,
     'CRM & Commercial': false,
@@ -203,7 +239,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     }));
   };
 
-  // Filtrage des éléments selon les permissions
+  // ===============================
+  // Filtrage Permissions
+  // ===============================
   const filterNavigationItems = (items: NavigationItem[]): NavigationItem[] => {
     return items.filter(item => {
       if (user?.role === 'ADMIN') return true;
@@ -213,34 +251,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   };
 
   const filterCategoryItems = (items: any[]) => {
+    // patched-hide-projects: pour EMPLOYEE, masquer la catégorie "Gestion de Projets"
+    const hideProjectCategory = (item: any) => isEmployee && item?.name === 'Gestion de Projets';
     return items.filter(item => {
+      if (hideProjectCategory(item)) return false;
       if (user?.role === 'ADMIN') return true;
       if (!item.permission) return true;
       if (hasPermission(item.permission)) return true;
-      
+
       if (item.children) {
-        const accessibleChildren = item.children.filter((child: any) => 
+        const accessibleChildren = item.children.filter((child: any) =>
           !child.permission || hasPermission(child.permission)
         );
         return accessibleChildren.length > 0;
       }
-      
       return false;
     });
   };
 
   const filterCategoryChildren = (children: any[]) => {
-    return children.filter(child => {
+    return children.filter((child: any) => {
       if (user?.role === 'ADMIN') return true;
       if (!child.permission) return true;
       return hasPermission(child.permission);
     });
   };
 
-  const visibleQuickAccess = filterNavigationItems(quickAccessItems);
+  // ===============================
+  // Accès Rapide visible
+  // ===============================
+  let visibleQuickAccess: NavigationItem[];
+  if (isEmployee) {
+    // EMPLOYÉ → QuickAccess = 2 raccourcis projets + QuickAccess de base + TOUS les sous-liens accessibles
+    const base = filterNavigationItems(quickAccessItems);
+    const projShortcuts = filterNavigationItems(employeeProjectShortcuts);
+    const allModuleChildren = flattenCategoryChildren(professionalCategories);
+    const allowedChildren = filterNavigationItems(allModuleChildren);
+    // fusion + dédoublonnage par href
+    visibleQuickAccess = uniqByHref([...projShortcuts, ...base, ...allowedChildren]);
+  } else {
+    // autres rôles → QuickAccess normal
+    visibleQuickAccess = filterNavigationItems(quickAccessItems);
+  }
+
   const visibleCategories = filterCategoryItems(professionalCategories);
 
-  // Déterminer le rôle de l'utilisateur pour l'affichage
+  // Affichage rôle lisible
   const getUserRoleDisplay = () => {
     const roles = {
       'ADMIN': 'Administrateur',
@@ -275,7 +331,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       <nav className="flex-1 scrollbar-custom overflow-y-auto">
         <div className="px-4 space-y-1 py-4">
           
-          {/* Accès rapide */}
+          {/* Accès Rapide */}
           <div className="mb-6">
             <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
               Accès Rapide
@@ -303,57 +359,62 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           <div className="border-t border-gray-700 my-4"></div>
 
           {/* Modules métier */}
-          <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Modules Métier
-          </h3>
-          
-          {visibleCategories.map((category) => {
-            const filteredChildren = category.children ? filterCategoryChildren(category.children) : [];
-            
-            if (filteredChildren.length === 0 && user?.role !== 'ADMIN') {
-              return null;
-            }
+          {/* patched: EMPLOYÉ → on masque entièrement le bloc catégories (tout est déjà dans Accès Rapide) */}
+          {!isEmployee && (
+            <>
+              <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Modules Métier
+              </h3>
 
-            return (
-              <div key={category.name} className="mb-2">
-                <button
-                  onClick={() => toggleCategory(category.name)}
-                  className="flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 text-gray-300 hover:bg-gray-800 hover:text-white group border border-transparent hover:border-gray-600"
-                >
-                  <div className="flex items-center">
-                    <category.icon className="mr-3 h-4 w-4 group-hover:text-blue-400" />
-                    <span className="text-sm font-semibold">{category.name}</span>
-                  </div>
-                  {expandedCategories[category.name] ? (
-                    <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-white" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-white" />
-                  )}
-                </button>
+              {visibleCategories.map((category) => {
+                const filteredChildren = category.children ? filterCategoryChildren(category.children) : [];
+                
+                if (filteredChildren.length === 0 && user?.role !== 'ADMIN') {
+                  return null;
+                }
 
-                {expandedCategories[category.name] && filteredChildren.length > 0 && (
-                  <div className="ml-2 mt-2 space-y-1 border-l-2 border-gray-600 pl-3">
-                    {filteredChildren.map((child: any) => (
-                      <NavLink
-                        key={child.name}
-                        to={child.href}
-                        className={({ isActive }) =>
-                          `flex items-center px-3 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
-                            isActive
-                              ? 'bg-blue-600 text-white shadow-md border-l-4 border-blue-400'
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-2 border-transparent'
-                          }`
-                        }
-                      >
-                        <child.icon className="mr-2 h-3 w-3" />
-                        {child.name}
-                      </NavLink>
-                    ))}
+                return (
+                  <div key={category.name} className="mb-2">
+                    <button
+                      onClick={() => toggleCategory(category.name)}
+                      className="flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 text-gray-300 hover:bg-gray-800 hover:text-white group border border-transparent hover:border-gray-600"
+                    >
+                      <div className="flex items-center">
+                        <category.icon className="mr-3 h-4 w-4 group-hover:text-blue-400" />
+                        <span className="text-sm font-semibold">{category.name}</span>
+                      </div>
+                      {expandedCategories[category.name] ? (
+                        <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-white" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-white" />
+                      )}
+                    </button>
+
+                    {expandedCategories[category.name] && filteredChildren.length > 0 && (
+                      <div className="ml-2 mt-2 space-y-1 border-l-2 border-gray-600 pl-3">
+                        {filteredChildren.map((child: any) => (
+                          <NavLink
+                            key={child.name}
+                            to={child.href}
+                            className={({ isActive }) =>
+                              `flex items-center px-3 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
+                                isActive
+                                  ? 'bg-blue-600 text-white shadow-md border-l-4 border-blue-400'
+                                  : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-2 border-transparent'
+                              }`
+                            }
+                          >
+                            <child.icon className="mr-2 h-3 w-3" />
+                            {child.name}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </>
+          )}
 
           {/* Indicateur de statut */}
           <div className="mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg border border-gray-600">
@@ -372,7 +433,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         </div>
       </nav>
 
-      {/* Footer avec informations système */}
+      {/* Footer */}
       <div className="flex-shrink-0 border-t border-gray-700 p-4 bg-gray-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center">

@@ -50,13 +50,17 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: env.APP_PORT ? Number(env.APP_PORT) : 5174,
-      proxy: { // CORRECTION : proxy doit être dans server, pas à la racine
+      headers: {
+        "Content-Security-Policy": "default-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:3001; font-src 'self' data:; img-src 'self' data: blob:;"
+      },
+      proxy: {
         '/api': {
           target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
-        }
-      }
-    }
+        },
+      },
+    },
   };
+
 });

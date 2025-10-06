@@ -13,7 +13,7 @@ export interface NavigationItem {
 export interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'textarea' | 'date';
+  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'textarea' | 'date' | 'datetime-local';
   required?: boolean;
   options?: { value: string; label: string }[];
   validation?: any;
@@ -32,6 +32,7 @@ export interface FilterOption {
   type: 'text' | 'select' | 'date' | 'daterange';
   options?: { value: string; label: string }[];
 }
+
 export interface Pagination {
   page: number;
   pageSize: number;
@@ -42,6 +43,130 @@ export interface SortOption {
   key: string;
   direction: 'asc' | 'desc';
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  errors?: Record<string, string>;
+}
+
+// ✅ USER TYPE FUSIONNÉ (User + Employee)
+export interface User {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: 'ADMIN' | 'GENERAL_DIRECTOR' | 'SERVICE_MANAGER' | 'EMPLOYEE' | 'ACCOUNTANT' | 'PURCHASING_MANAGER';
+  serviceId?: number | null;
+  isActive: boolean;
+  lastLogin?: string;
+  avatarUrl?: string;
+  permissions: string[];
+  
+  // Champs fusionnés depuis Employee
+  employeeNumber?: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  cnpsNumber?: string;
+  cnamNumber?: string;
+  bankAccount?: string;
+  position?: string;
+  department?: string;
+  hireDate?: string;
+  
+  // Relations
+  service?: Service;
+  contracts?: Contract[];
+  salaries?: Salary[];
+  leaveRequests?: LeaveRequest[];
+  loans?: Loan[];
+  expenses?: Expense[];
+}
+
+export interface Service {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contract {
+  id: number;
+  userId: number; // ✅ Changé de employeeId à userId
+  contractType: 'CDI' | 'CDD' | 'STAGE' | 'FREELANCE';
+  startDate: string;
+  endDate?: string;
+  baseSalary: number;
+  workingHours: number;
+  benefits?: string;
+  terms?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+}
+
+export interface Salary {
+  id: number;
+  userId: number; // ✅ Changé de employeeId à userId
+  paymentDate: string;
+  baseSalary: number;
+  grossSalary: number;
+  netSalary: number;
+  status: 'PENDING' | 'PAID';
+  createdAt: string;
+  user?: User;
+}
+
+export interface LeaveRequest {
+  id: number;
+  userId: number; // ✅ Changé de employeeId à userId
+  leaveType: 'ANNUAL' | 'SICK' | 'PERSONAL' | 'MATERNITY' | 'PATERNITY' | 'OTHER';
+  startDate: string;
+  endDate: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reason: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  approvedBy?: User;
+}
+
+export interface Loan {
+  id: number;
+  userId: number; // ✅ Changé de employeeId à userId
+  amount: number;
+  interestRate: number;
+  monthlyPayment: number;
+  remainingAmount: number;
+  startDate: string;
+  endDate: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+}
+
+export interface Expense {
+  id: number;
+  userId: number; // ✅ Changé de employeeId à userId
+  date: string;
+  category: string;
+  description?: string;
+  amount: number;
+  status: 'PENDING' | 'PAID' | 'REIMBURSED';
+  receiptUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  creator?: User;
+}
+
+// Types pour les réponses API standardisées
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -173,81 +298,7 @@ export interface Role {
   updatedAt: string;
 }
 
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  roles: Role[];
-  permissions: string[];
-  createdAt: string;
-  updatedAt: string;
-}
 
-// Types pour les employés
-export interface Employee {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  position?: string;
-  department?: string;
-  hireDate: string;
-  salary?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Types pour les contrats
-export interface Contract {
-  id: number;
-  employeeId: number;
-  startDate: string;
-  endDate?: string;
-  type: 'full_time' | 'part_time' | 'contractor' | 'intern';
-  terms?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Types pour les congés
-export interface Leave {
-  id: number;
-  employeeId: number;
-  startDate: string;
-  endDate: string;
-  type: 'vacation' | 'sick' | 'personal' | 'other';
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Types pour les prêts
-export interface Loan {
-  id: number;
-  employeeId: number;
-  amount: number;
-  interestRate: number;
-  startDate: string;
-  endDate?: string;
-  monthlyPayment?: number;
-  status: 'active' | 'paid_off' | 'defaulted';
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Types pour les dépenses
-export interface Expense {
-  id: number;
-  employeeId: number;
-  amount: number;
-  date: string;
-  category?: string;
-  description?: string;
-  receiptUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 // Types pour les services
 export interface Service {

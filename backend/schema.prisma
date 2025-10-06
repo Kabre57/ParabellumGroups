@@ -16,7 +16,6 @@ model Service {
   updatedAt      DateTime        @updatedAt @map("updated_at")
   clientProjects ClientProject[]
   customers      Customer[]
-  employees      Employee[]
   purchaseOrders PurchaseOrder[]
   users          User[]
 
@@ -24,27 +23,48 @@ model Service {
 }
 
 model User {
-  id                        Int                 @id @default(autoincrement())
-  email                     String              @unique
-  passwordHash              String              @map("password_hash")
-  firstName                 String              @map("first_name")
-  lastName                  String              @map("last_name")
-  role                      UserRole            @default(EMPLOYEE)
-  serviceId                 Int?                @map("service_id")
-  isActive                  Boolean             @default(true) @map("is_active")
-  lastLogin                 DateTime?           @map("last_login")
-  preferences               String?
-  permissions               String?
-  avatarUrl                 String?             @map("avatar_url")
-  createdAt                 DateTime            @default(now()) @map("created_at")
-  updatedAt                 DateTime            @updatedAt @map("updated_at")
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  role         UserRole  @default(EMPLOYEE)
+  serviceId    Int?      @map("service_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  preferences  String?
+  permissions  String?
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Champs Employee fusionnés
+  employeeNumber       String?   @unique @map("employee_number")
+  registrationNumber   String?   @unique @map("registration_number")
+  phone                String?
+  address              String?
+  dateOfBirth          DateTime? @map("date_of_birth")
+  placeOfBirth         String?   @map("place_of_birth")
+  nationality          String?
+  socialSecurityNumber String?   @map("social_security_number")
+  cnpsNumber           String?   @map("cnps_number")
+  cnamNumber           String?   @map("cnam_number")
+  bankAccount          String?   @map("bank_account")
+  emergencyContact     String?   @map("emergency_contact")
+  position             String?
+  department           String?
+  category             String?   @map("professional_category")
+  level                String?   @map("professional_level")
+  manager              String?
+  hireDate             DateTime? @map("hire_date")
+
+  // Relations User existantes
   accountingEntries         AccountingEntry[]
   auditLogs                 AuditLog[]
   calendarEvents            CalendarEvent[]     @relation("CalendarEventCreatedBy")
   cashFlowEntries           CashFlow[]
   clientProjects            ClientProject[]     @relation("ClientProjectManagedBy")
   createdCustomers          Customer[]          @relation("CustomerCreatedBy")
-  employee                  Employee?
   createdExpenses           Expense[]           @relation("ExpenseCreatedBy")
   createdInvoices           Invoice[]           @relation("InvoiceCreatedBy")
   leaveApprovals            LeaveRequest[]      @relation("LeaveApprovedBy")
@@ -72,6 +92,17 @@ model User {
   timeOffRequests           TimeOffRequest[]    @relation("TimeOffApprovedBy")
   userCalendars             UserCalendar[]
   service                   Service?            @relation(fields: [serviceId], references: [id])
+
+  // Relations Employee fusionnées
+  contracts          Contract[]
+  expenses           Expense[]           @relation("ExpenseEmployee")
+  leaveRequests      LeaveRequest[]      @relation("LeaveRequestEmployee")
+  loans              Loan[]
+  performanceReviews PerformanceReview[] @relation("PerformanceReviewEmployee")
+  salaries           Salary[]
+
+  // 🔗 Opposite field pour Intervention.user
+  interventions Intervention[] @relation("InterventionUser")
 
   @@map("users")
 }
@@ -408,7 +439,7 @@ model AuditLog {
 
 model Expense {
   id          Int           @id @default(autoincrement())
-  employeeId  Int           @map("employee_id")
+  userId      Int           @map("user_id")
   date        DateTime
   category    String
   description String?
@@ -421,7 +452,7 @@ model Expense {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
   creator     User          @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
-  employee    Employee      @relation(fields: [employeeId], references: [id])
+  user        User          @relation("ExpenseEmployee", fields: [userId], references: [id])
 
   @@map("expenses")
 }
@@ -475,49 +506,9 @@ model CashFlow {
   @@map("cash_flows")
 }
 
-model Employee {
-  id                   Int                 @id @default(autoincrement())
-  employeeNumber       String              @unique @map("employee_number")
-  registrationNumber   String?             @unique @map("registration_number")
-  firstName            String              @map("first_name")
-  lastName             String              @map("last_name")
-  email                String?
-  phone                String?
-  address              String?
-  dateOfBirth          DateTime            @map("date_of_birth")
-  placeOfBirth         String?             @map("place_of_birth")
-  nationality          String?
-  socialSecurityNumber String?             @map("social_security_number")
-  cnpsNumber           String?             @map("cnps_number")
-  cnamNumber           String?             @map("cnam_number")
-  bankAccount          String?             @map("bank_account")
-  emergencyContact     String?             @map("emergency_contact")
-  serviceId            Int?                @map("service_id")
-  position             String
-  department           String?
-  category             String?             @map("professional_category")
-  level                String?             @map("professional_level")
-  manager              String?
-  hireDate             DateTime            @map("hire_date")
-  isActive             Boolean             @default(true) @map("is_active")
-  userId               Int?                @unique @map("user_id")
-  createdAt            DateTime            @default(now()) @map("created_at")
-  updatedAt            DateTime            @updatedAt @map("updated_at")
-  contracts            Contract[]
-  service              Service?            @relation(fields: [serviceId], references: [id])
-  user                 User?               @relation(fields: [userId], references: [id])
-  expenses             Expense[]
-  leaveRequests        LeaveRequest[]
-  loans                Loan[]
-  performanceReviews   PerformanceReview[] @relation("PerformanceReviewEmployee")
-  salaries             Salary[]
-
-  @@map("employees")
-}
-
 model Contract {
   id           Int          @id @default(autoincrement())
-  employeeId   Int          @map("employee_id")
+  userId       Int          @map("user_id")
   contractType ContractType @map("contract_type")
   startDate    DateTime     @map("start_date")
   endDate      DateTime?    @map("end_date")
@@ -528,14 +519,14 @@ model Contract {
   isActive     Boolean      @default(true) @map("is_active")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("contracts")
 }
 
 model Salary {
   id                  Int            @id @default(autoincrement())
-  employeeId          Int            @map("employee_id")
+  userId              Int            @map("user_id")
   paymentDate         DateTime       @map("payment_date")
   workingDays         Int            @default(22) @map("working_days")
   baseSalary          Float          @map("base_salary")
@@ -560,14 +551,14 @@ model Salary {
   notes               String?
   createdAt           DateTime       @default(now()) @map("created_at")
   loanPayments        LoanPayment[]
-  employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("salaries")
 }
 
 model LeaveRequest {
   id           Int         @id @default(autoincrement())
-  employeeId   Int         @map("employee_id")
+  userId       Int         @map("user_id")
   leaveType    LeaveType   @map("leave_type")
   startDate    DateTime    @map("start_date")
   endDate      DateTime    @map("end_date")
@@ -581,7 +572,7 @@ model LeaveRequest {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
   approvedBy   User?       @relation("LeaveApprovedBy", fields: [approvedById], references: [id])
-  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user         User        @relation("LeaveRequestEmployee", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("leave_requests")
 }
@@ -655,23 +646,50 @@ model Notification {
 }
 
 model Message {
-  id          Int      @id @default(autoincrement())
-  senderId    Int      @map("sender_id")
-  recipientId Int      @map("recipient_id")
-  subject     String?
-  body        String
-  isRead      Boolean  @default(false) @map("is_read")
-  sentAt      DateTime @default(now()) @map("sent_at")
-  recipient   User     @relation("MessageRecipient", fields: [recipientId], references: [id])
-  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  id              Int       @id @default(autoincrement())
+  senderId        Int       @map("sender_id")
+  recipientId     Int       @map("recipient_id")
+  subject         String?
+  body            String
+  priority        String    @default("normal")
+  type            String    @default("internal")
+  status          String    @default("unread")
+  isRead          Boolean   @default(false) @map("is_read")
+  readAt          DateTime? @map("read_at")
+  archivedAt      DateTime? @map("archived_at")
+  parentMessageId Int?      @map("parent_message_id")
+  sentAt          DateTime  @default(now()) @map("sent_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  sender          User      @relation("MessageSender", fields: [senderId], references: [id])
+  recipient       User      @relation("MessageRecipient", fields: [recipientId], references: [id])
+  parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id])
+  replies         Message[] @relation("MessageReplies")
+  attachments     MessageAttachment[]
 
   @@map("messages")
+}
+
+model MessageAttachment {
+  id        Int      @id @default(autoincrement())
+  messageId Int      @map("message_id")
+  filename  String
+  url       String
+  size      Int?
+  mimeType  String?  @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("message_attachments")
 }
 
 model Loan {
   id              Int           @id @default(autoincrement())
   loanNumber      String        @unique @map("loan_number")
-  employeeId      Int           @map("employee_id")
+  userId          Int           @map("user_id")
   amount          Float
   interestRate    Float         @default(0) @map("interest_rate")
   monthlyPayment  Float         @map("monthly_payment")
@@ -685,7 +703,7 @@ model Loan {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   payments        LoanPayment[]
-  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("loans")
 }
@@ -761,16 +779,24 @@ model Mission {
 }
 
 model Intervention {
-  id               Int                      @id @default(autoincrement())
-  dateHeureDebut   DateTime                 @map("date_heure_debut")
-  dateHeureFin     DateTime?                @map("date_heure_fin")
-  duree            Int?
-  missionId        String                   @map("mission_id")
-  statut           String                   @default("planifiee")
-  commentaire      String?
-  createdAt        DateTime                 @default(now()) @map("created_at")
-  updatedAt        DateTime                 @updatedAt @map("updated_at")
-  mission          Mission                  @relation(fields: [missionId], references: [numIntervention])
+  id             Int       @id @default(autoincrement())
+  dateHeureDebut DateTime  @map("date_heure_debut")
+  dateHeureFin   DateTime? @map("date_heure_fin")
+  duree          Int?
+  missionId      String    @map("mission_id")
+  statut         String    @default("planifiee")
+  commentaire    String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // 🔗 Mission liée (clé étrangère = missionId -> Mission.numIntervention)
+  mission Mission @relation(fields: [missionId], references: [numIntervention])
+
+  // 🔗 ✅ Relation fusionnée vers User (remplace l’ancien employee/employeeId)
+  userId Int  @map("user_id")
+  user   User @relation("InterventionUser", fields: [userId], references: [id])
+
+  // 📎 Relations existantes (inchangées)
   rapports         RapportMission[]
   sortiesMateriels SortieMateriel[]
   techniciens      TechnicienIntervention[]
@@ -780,37 +806,39 @@ model Intervention {
 }
 
 model TechnicienIntervention {
-  id             Int          @id @default(autoincrement())
-  technicienId   Int          @map("technicien_id")
-  interventionId Int          @map("intervention_id")
-  role           String       @default("assistant")
+  id             Int      @id @default(autoincrement())
+  technicienId   Int      @map("technicien_id")
+  interventionId Int      @map("intervention_id")
+  role           String   @default("assistant")
   commentaire    String?
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  intervention   Intervention @relation(fields: [interventionId], references: [id])
-  technicien     Technicien   @relation(fields: [technicienId], references: [id])
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  @@unique([technicienId, interventionId])
-  @@map("technicien_interventions")
+  intervention Intervention @relation(fields: [interventionId], references: [id])
+  technicien   Technicien   @relation(fields: [technicienId], references: [id])
+
+  @@unique([interventionId, technicienId], name: "interventionId_technicienId")
+  @@map("techniciens_interventions")
 }
 
 model RapportMission {
-  id             Int            @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   titre          String
   contenu        String
-  interventionId Int?           @map("intervention_id")
-  technicienId   Int            @map("technicien_id")
-  missionId      String         @map("mission_id")
-  createdById    Int?           @map("created_by_id")
-  statut         String         @default("soumis")
-  dateValidation DateTime?      @map("date_validation")
+  interventionId Int?      @map("intervention_id")
+  technicienId   Int       @map("technicien_id")
+  missionId      String    @map("mission_id")
+  createdById    Int?      @map("created_by_id")
+  statut         String    @default("soumis")
+  dateValidation DateTime? @map("date_validation")
   commentaire    String?
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  images         RapportImage[]
-  intervention   Intervention?  @relation(fields: [interventionId], references: [id])
-  mission        Mission        @relation(fields: [missionId], references: [numIntervention])
-  technicien     Technicien     @relation(fields: [technicienId], references: [id])
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  images       RapportImage[]
+  intervention Intervention?  @relation(fields: [interventionId], references: [id])
+  mission      Mission        @relation(fields: [missionId], references: [numIntervention])
+  technicien   Technicien     @relation(fields: [technicienId], references: [id])
 
   @@map("rapports_mission")
 }
@@ -1039,7 +1067,7 @@ model PurchaseReceiptItem {
 
 model PerformanceReview {
   id               Int                         @id @default(autoincrement())
-  employeeId       Int                         @map("employee_id")
+  userId           Int                         @map("user_id")
   reviewerId       Int                         @map("reviewer_id")
   reviewDate       DateTime                    @map("review_date")
   periodStart      DateTime                    @map("period_start")
@@ -1055,7 +1083,7 @@ model PerformanceReview {
   createdAt        DateTime                    @default(now()) @map("created_at")
   updatedAt        DateTime                    @updatedAt @map("updated_at")
   criteria         PerformanceReviewCriteria[]
-  employee         Employee                    @relation("PerformanceReviewEmployee", fields: [employeeId], references: [id])
+  user             User                        @relation("PerformanceReviewEmployee", fields: [userId], references: [id])
   reviewer         User                        @relation("PerformanceReviewReviewer", fields: [reviewerId], references: [id])
 
   @@map("performance_reviews")

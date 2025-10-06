@@ -352,7 +352,8 @@ const permissionCategories = {
       { key: 'calendar.create', label: 'Créer des événements' },
       { key: 'calendar.update', label: 'Modifier le planning' },
       { key: 'calendar.delete', label: 'Supprimer des événements' },
-      { key: 'calendar.manage', label: 'Gérer le calendrier' }
+      { key: 'calendar.manage', label: 'Gérer le calendrier' },
+      { key: 'calendar.events.read', label: 'événements lieé a utilisateur' }
     ]
   },
 

@@ -1,3 +1,4 @@
+// src/controllers/serviceController.ts
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
@@ -25,7 +26,9 @@ export const getServices = async (req: AuthenticatedRequest, res: Response) => {
           select: {
             users: true,
             customers: true,
-            employees: true
+            // ✅ CORRECTION : employees n'existe plus après fusion User-Employee
+            clientProjects: true,
+            purchaseOrders: true
           }
         }
       },
@@ -59,7 +62,10 @@ export const getServiceById = async (req: AuthenticatedRequest, res: Response) =
             lastName: true,
             email: true,
             role: true,
-            isActive: true
+            isActive: true,
+            // ✅ Champs fusionnés depuis Employee
+            position: true,
+            department: true
           }
         },
         customers: {
@@ -70,13 +76,19 @@ export const getServiceById = async (req: AuthenticatedRequest, res: Response) =
             isActive: true
           }
         },
-        employees: {
+        // ✅ CORRECTION : employees n'existe plus
+        clientProjects: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
-            position: true,
-            isActive: true
+            name: true,
+            status: true
+          }
+        },
+        purchaseOrders: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true
           }
         }
       }
@@ -137,7 +149,8 @@ export const createService = async (req: AuthenticatedRequest, res: Response) =>
           select: {
             users: true,
             customers: true,
-            employees: true
+            clientProjects: true,
+            purchaseOrders: true
           }
         }
       }
@@ -208,7 +221,8 @@ export const updateService = async (req: AuthenticatedRequest, res: Response) =>
           select: {
             users: true,
             customers: true,
-            employees: true
+            clientProjects: true,
+            purchaseOrders: true
           }
         }
       }
@@ -239,7 +253,8 @@ export const deleteService = async (req: AuthenticatedRequest, res: Response) =>
           select: {
             users: true,
             customers: true,
-            employees: true
+            clientProjects: true,
+            purchaseOrders: true
           }
         }
       }
@@ -255,12 +270,13 @@ export const deleteService = async (req: AuthenticatedRequest, res: Response) =>
     // Vérifier s'il y a des données associées
     const hasData = existingService._count.users > 0 || 
                    existingService._count.customers > 0 || 
-                   existingService._count.employees > 0;
+                   existingService._count.clientProjects > 0 || 
+                   existingService._count.purchaseOrders > 0;
 
     if (hasData) {
       return res.status(400).json({
         success: false,
-        message: 'Impossible de supprimer un service ayant des utilisateurs, clients ou employés associés'
+        message: 'Impossible de supprimer un service ayant des utilisateurs, clients, projets ou commandes associés'
       });
     }
 
