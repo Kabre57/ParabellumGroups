@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Unite {
+  PIECE
+  KG
+  M
+  L
+}
+
+enum StatusArticle {
+  ACTIF
+  INACTIF
+  OBSOLETE
+}
+
+enum TypeMouvement {
+  ENTREE
+  SORTIE
+  AJUSTEMENT
+  TRANSFERT
+}
+
+enum StatusInventaire {
+  PLANIFIE
+  EN_COURS
+  TERMINE
+  VALIDE
+}
+
+enum StatusEquipement {
+  DISPONIBLE
+  EN_SERVICE
+  EN_PANNE
+  EN_MAINTENANCE
+  REFORME
+}
+
+enum TypeMaintenance {
+  PREVENTIVE
+  CORRECTIVE
+}
+
+enum StatusMaintenance {
+  PLANIFIEE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+model Article {
+  id              String            @id @default(uuid())
+  reference       String            @unique
+  nom             String
+  description     String?
+  categorie       String
+  unite           Unite             @default(PIECE)
+  prixAchat       Float             @default(0)
+  prixVente       Float             @default(0)
+  quantiteStock   Float             @default(0)
+  seuilAlerte     Float             @default(0)
+  seuilRupture    Float             @default(0)
+  emplacement     String?
+  fournisseurId   String?
+  status          StatusArticle     @default(ACTIF)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  mouvements      MouvementStock[]
+  lignesInventaire LigneInventaire[]
+
+  @@index([reference])
+  @@index([categorie])
+  @@index([status])
+}
+
+model MouvementStock {
+  id              String          @id @default(uuid())
+  articleId       String
+  type            TypeMouvement
+  quantite        Float
+  dateOperation   DateTime        @default(now())
+  utilisateurId   String
+  numeroDocument  String?
+  emplacement     String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+
+  article         Article         @relation(fields: [articleId], references: [id])
+
+  @@index([articleId])
+  @@index([type])
+  @@index([dateOperation])
+}
+
+model Inventaire {
+  id                String            @id @default(uuid())
+  numeroInventaire  String            @unique
+  dateDebut         DateTime
+  dateFin           DateTime?
+  status            StatusInventaire  @default(PLANIFIE)
+  nbArticles        Int               @default(0)
+  nbEcarts          Int               @default(0)
+  montantEcart      Float             @default(0)
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  lignes            LigneInventaire[]
+
+  @@index([numeroInventaire])
+  @@index([status])
+  @@index([dateDebut])
+}
+
+model LigneInventaire {
+  id                  String      @id @default(uuid())
+  inventaireId        String
+  articleId           String
+  quantiteTheorique   Float       @default(0)
+  quantiteReelle      Float       @default(0)
+  ecart               Float       @default(0)
+  valeurEcart         Float       @default(0)
+  notes               String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  inventaire          Inventaire  @relation(fields: [inventaireId], references: [id], onDelete: Cascade)
+  article             Article     @relation(fields: [articleId], references: [id])
+
+  @@index([inventaireId])
+  @@index([articleId])
+}
+
+model Equipement {
+  id              String                    @id @default(uuid())
+  reference       String                    @unique
+  nom             String
+  description     String?
+  categorie       String
+  dateAchat       DateTime?
+  valeurAchat     Float                     @default(0)
+  departement     String?
+  utilisateurId   String?
+  emplacement     String?
+  status          StatusEquipement          @default(DISPONIBLE)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  maintenances    MaintenanceEquipement[]
+
+  @@index([reference])
+  @@index([status])
+  @@index([categorie])
+}
+
+model MaintenanceEquipement {
+  id              String            @id @default(uuid())
+  equipementId    String
+  type            TypeMaintenance
+  dateDebut       DateTime
+  dateFin         DateTime?
+  technicienId    String?
+  description     String
+  coutReel        Float             @default(0)
+  status          StatusMaintenance @default(PLANIFIEE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  equipement      Equipement        @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+
+  @@index([equipementId])
+  @@index([status])
+  @@index([type])
+  @@index([dateDebut])
+}

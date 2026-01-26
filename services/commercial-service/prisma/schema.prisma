@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Prospect {
+  id                String              @id @default(uuid())
+  companyName       String
+  contactName       String
+  position          String?
+  email             String?
+  phone             String?
+  website           String?
+  sector            String?
+  employees         Int?
+  revenue           Float?
+  address           String?
+  city              String?
+  postalCode        String?
+  country           String              @default("France")
+  
+  stage             String              @default("preparation")
+  priority          String              @default("C")
+  score             Int                 @default(0)
+  
+  source            String?
+  assignedToId      String?
+  
+  potentialValue    Float?
+  closingProbability Float?
+  estimatedCloseDate DateTime?
+  
+  notes             String?
+  tags              String[]            @default([])
+  
+  isConverted       Boolean             @default(false)
+  convertedAt       DateTime?
+  customerId        String?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  activities        ProspectActivity[]
+  
+  @@map("prospects")
+  @@index([stage])
+  @@index([assignedToId])
+  @@index([isConverted])
+}
+
+model ProspectActivity {
+  id                String              @id @default(uuid())
+  prospectId        String
+  type              String
+  subject           String
+  description       String?
+  outcome           String?
+  scheduledAt       DateTime?
+  completedAt       DateTime?
+  duration          Int?
+  
+  createdById       String
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  @@map("prospect_activities")
+  @@index([prospectId])
+  @@index([type])
+  @@index([scheduledAt])
+}
+
+model ProspectionStats {
+  id                String              @id @default(uuid())
+  date              DateTime            @default(now())
+  
+  totalProspects    Int                 @default(0)
+  newProspects      Int                 @default(0)
+  qualifiedProspects Int                @default(0)
+  convertedProspects Int                @default(0)
+  
+  byStagePreparation Int                @default(0)
+  byStageResearch   Int                 @default(0)
+  byStageContact    Int                 @default(0)
+  byStageDiscovery  Int                 @default(0)
+  byStageProposal   Int                 @default(0)
+  byStageWon        Int                 @default(0)
+  byStageLost       Int                 @default(0)
+  
+  conversionRate    Float               @default(0)
+  averageScore      Float               @default(0)
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("prospection_stats")
+  @@index([date])
+}

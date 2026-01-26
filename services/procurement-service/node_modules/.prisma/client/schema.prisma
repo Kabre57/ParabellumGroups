@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusFournisseur {
+  ACTIF
+  INACTIF
+  BLOQUE
+}
+
+enum StatusDemandeAchat {
+  BROUILLON
+  SOUMISE
+  APPROUVEE
+  REJETEE
+  COMMANDEE
+}
+
+enum StatusBonCommande {
+  BROUILLON
+  ENVOYE
+  CONFIRME
+  LIVRE
+  ANNULE
+}
+
+model Fournisseur {
+  id                String             @id @default(uuid())
+  nom               String
+  email             String             @unique
+  telephone         String?
+  adresse           String?
+  categorieActivite String?
+  status            StatusFournisseur  @default(ACTIF)
+  rating            Float?             @db.DoublePrecision
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  bonsCommande      BonCommande[]
+
+  @@map("fournisseurs")
+}
+
+model DemandeAchat {
+  id              String              @id @default(uuid())
+  numeroDemande   String              @unique
+  titre           String
+  description     String?
+  demandeurId     String
+  dateDemande     DateTime            @default(now())
+  montantEstime   Decimal?            @db.Decimal(12, 2)
+  status          StatusDemandeAchat  @default(BROUILLON)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  bonsCommande    BonCommande[]
+
+  @@map("demandes_achat")
+}
+
+model BonCommande {
+  id              String             @id @default(uuid())
+  numeroBon       String             @unique
+  demandeAchatId  String?
+  fournisseurId   String
+  dateCommande    DateTime           @default(now())
+  dateLivraison   DateTime?
+  montantTotal    Decimal            @db.Decimal(12, 2)
+  status          StatusBonCommande  @default(BROUILLON)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  demandeAchat    DemandeAchat?      @relation(fields: [demandeAchatId], references: [id], onDelete: SetNull)
+  fournisseur     Fournisseur        @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
+  lignes          LigneCommande[]
+
+  @@map("bons_commande")
+}
+
+model LigneCommande {
+  id            String      @id @default(uuid())
+  bonCommandeId String
+  designation   String
+  quantite      Int
+  prixUnitaire  Decimal     @db.Decimal(10, 2)
+  montant       Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  bonCommande   BonCommande @relation(fields: [bonCommandeId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_commande")
+}

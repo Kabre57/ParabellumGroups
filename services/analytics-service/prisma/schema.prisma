@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Dashboard {
+  id          String    @id @default(uuid())
+  nom         String
+  description String?
+  userId      String
+  config      Json      @default("{}")
+  actif       Boolean   @default(true)
+  parDefaut   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  widgets     Widget[]
+
+  @@index([userId])
+}
+
+model Widget {
+  id          String    @id @default(uuid())
+  dashboardId String
+  type        WidgetType
+  titre       String
+  config      Json      @default("{}")
+  position    Json      @default("{}")
+  refresh     Int       @default(60)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+}
+
+enum WidgetType {
+  CHART
+  TABLE
+  KPI
+  MAP
+}
+
+model Rapport {
+  id          String              @id @default(uuid())
+  nom         String
+  description String?
+  type        RapportType
+  format      RapportFormat
+  frequence   RapportFrequence
+  parametres  Json                @default("{}")
+  actif       Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  executions  RapportExecution[]
+}
+
+enum RapportType {
+  VENTES
+  FINANCES
+  RH
+  PROJETS
+  CUSTOM
+}
+
+enum RapportFormat {
+  PDF
+  EXCEL
+  CSV
+}
+
+enum RapportFrequence {
+  QUOTIDIEN
+  HEBDO
+  MENSUEL
+  ANNUEL
+}
+
+model RapportExecution {
+  id            String                  @id @default(uuid())
+  rapportId     String
+  dateExecution DateTime                @default(now())
+  statut        RapportExecutionStatut
+  fichier       String?
+  erreur        String?
+  duree         Int?
+  rapport       Rapport                 @relation(fields: [rapportId], references: [id], onDelete: Cascade)
+
+  @@index([rapportId])
+  @@index([dateExecution])
+}
+
+enum RapportExecutionStatut {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model KPI {
+  id          String      @id @default(uuid())
+  nom         String
+  description String?
+  categorie   String
+  valeur      Float
+  cible       Float?
+  unite       String?
+  dateCalcul  DateTime    @default(now())
+  tendance    KPITendance @default(STABLE)
+  variation   Float?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([categorie])
+  @@index([dateCalcul])
+}
+
+enum KPITendance {
+  UP
+  DOWN
+  STABLE
+}

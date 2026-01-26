@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Specialite {
+  id          String       @id @default(uuid())
+  nom         String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  techniciens Technicien[]
+
+  @@map("specialites")
+}
+
+model Technicien {
+  id              String   @id @default(uuid())
+  nom             String
+  prenom          String
+  email           String   @unique
+  telephone       String
+  specialiteId    String
+  status          String   @default("AVAILABLE")
+  matricule       String   @unique
+  dateEmbauche    DateTime
+  tauxHoraire     Float?
+  competences     String[]
+  certifications  String[]
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  specialite               Specialite                @relation(fields: [specialiteId], references: [id])
+  missions                 MissionTechnicien[]
+  interventions            InterventionTechnicien[]
+  sortiesMateriel          SortieMateriel[]
+  rapportsRediges          Rapport[]
+  
+  @@map("techniciens")
+}
+
+model Mission {
+  id                  String   @id @default(uuid())
+  numeroMission       String   @unique
+  titre               String
+  description         String?
+  clientNom           String
+  clientContact       String?
+  adresse             String
+  dateDebut           DateTime
+  dateFin             DateTime?
+  status              String   @default("PLANIFIEE")
+  priorite            String   @default("MOYENNE")
+  budgetEstime        Float?
+  coutReel            Float?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  techniciens         MissionTechnicien[]
+  interventions       Intervention[]
+  
+  @@map("missions")
+}
+
+model MissionTechnicien {
+  id              String   @id @default(uuid())
+  missionId       String
+  technicienId    String
+  role            String?
+  dateAssignation DateTime @default(now())
+  
+  mission         Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  technicien      Technicien  @relation(fields: [technicienId], references: [id])
+  
+  @@unique([missionId, technicienId])
+  @@map("missions_techniciens")
+}
+
+model Intervention {
+  id                  String   @id @default(uuid())
+  missionId           String
+  titre               String
+  description         String?
+  dateDebut           DateTime
+  dateFin             DateTime?
+  dureeEstimee        Float?
+  dureeReelle         Float?
+  status              String   @default("PLANIFIEE")
+  resultats           String?
+  observations        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  mission             Mission                    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  techniciens         InterventionTechnicien[]
+  materielUtilise     SortieMateriel[]
+  rapports            Rapport[]
+  
+  @@map("interventions")
+}
+
+model InterventionTechnicien {
+  id              String   @id @default(uuid())
+  interventionId  String
+  technicienId    String
+  dateAssignation DateTime @default(now())
+  
+  intervention    Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  technicien      Technicien   @relation(fields: [technicienId], references: [id])
+  
+  @@unique([interventionId, technicienId])
+  @@map("interventions_techniciens")
+}
+
+model Materiel {
+  id                String   @id @default(uuid())
+  reference         String   @unique
+  nom               String
+  description       String?
+  categorie         String
+  quantiteStock     Int      @default(0)
+  seuilAlerte       Int      @default(10)
+  seuilRupture      Int      @default(5)
+  prixUnitaire      Float?
+  fournisseur       String?
+  emplacementStock  String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  sorties           SortieMateriel[]
+  
+  @@map("materiel")
+}
+
+model SortieMateriel {
+  id              String   @id @default(uuid())
+  materielId      String
+  interventionId  String
+  technicienId    String
+  quantite        Int
+  dateSortie      DateTime @default(now())
+  dateRetour      DateTime?
+  etatRetour      String?
+  notes           String?
+  
+  materiel        Materiel     @relation(fields: [materielId], references: [id])
+  intervention    Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  technicien      Technicien   @relation(fields: [technicienId], references: [id])
+  
+  @@map("sorties_materiel")
+}
+
+model Rapport {
+  id                  String   @id @default(uuid())
+  interventionId      String
+  redacteurId         String
+  titre               String
+  contenu             String
+  conclusions         String?
+  recommandations     String?
+  status              String   @default("BROUILLON")
+  dateCreation        DateTime @default(now())
+  dateModification    DateTime @updatedAt
+  dateValidation      DateTime?
+  
+  intervention        Intervention @relation(fields: [interventionId], references: [id])
+  redacteur           Technicien   @relation(fields: [redacteurId], references: [id])
+  
+  @@map("rapports")
+}

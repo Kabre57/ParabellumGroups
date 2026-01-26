@@ -1,0 +1,181 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  code        String   @unique @db.VarChar(50)
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+  @@index([isActive])
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  roleId       Int?      @map("role_id")
+  serviceId    Int?      @map("service_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  preferences  String?
+  permissions  String?
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  employeeNumber       String?   @unique @map("employee_number")
+  registrationNumber   String?   @unique @map("registration_number")
+  phone                String?
+  address              String?
+  dateOfBirth          DateTime? @map("date_of_birth")
+  placeOfBirth         String?   @map("place_of_birth")
+  nationality          String?
+  socialSecurityNumber String?   @map("social_security_number")
+  cnpsNumber           String?   @map("cnps_number")
+  cnamNumber           String?   @map("cnam_number")
+  bankAccount          String?   @map("bank_account")
+  emergencyContact     String?   @map("emergency_contact")
+  position             String?
+  department           String?
+  category             String?   @map("professional_category")
+  level                String?   @map("professional_level")
+  manager              String?
+  hireDate             DateTime? @map("hire_date")
+
+  // Relations
+  role            Role?             @relation(fields: [roleId], references: [id])
+  service         Service?          @relation(fields: [serviceId], references: [id])
+  managedServices Service[]         @relation("ServiceManager")
+  auditLogs       AuditLog[]
+  refreshTokens   RefreshToken[]
+  userPermissions UserPermission[]
+
+  @@map("users")
+  @@index([roleId])
+}
+
+model Service {
+  id             Int      @id @default(autoincrement())
+  name           String   @unique
+  code           String?  @unique @map("service_code") @db.VarChar(10)
+  description    String?
+  parentId       Int?     @map("parent_id")
+  managerId      Int?     @map("manager_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  parent         Service? @relation("ServiceHierarchy", fields: [parentId], references: [id])
+  children       Service[] @relation("ServiceHierarchy")
+  manager        User?    @relation("ServiceManager", fields: [managerId], references: [id])
+  members        User[]   // Pas besoin de @relation ici, c'est la relation inverse
+
+  @@map("services")
+  @@index([parentId])
+  @@index([managerId])
+  @@index([isActive])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  details    String?
+  entityId   String?  @map("entity_id")
+  newValue   String?  @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  @@map("audit_logs")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+  category        String
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  canView      Boolean    @default(false) @map("can_view")
+  canCreate    Boolean    @default(false) @map("can_create")
+  canEdit      Boolean    @default(false) @map("can_edit")
+  canDelete    Boolean    @default(false) @map("can_delete")
+  canApprove   Boolean    @default(false) @map("can_approve")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           Int        @id @default(autoincrement())
+  userId       Int        @map("user_id")
+  permissionId Int        @map("permission_id")
+  granted      Boolean    @default(true)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@map("user_permissions")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isRevoked])
+  @@map("refresh_tokens")
+}

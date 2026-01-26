@@ -72,7 +72,7 @@ export default function SpecialitesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Spécialités Techniques</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Gestion des spécialités des techniciens (Électricité, Plomberie, Climatisation, etc.)
+            Gestion des spécialités des techniciens (vidéosurveillance & sécurité, réseau & connectivité, programmation & développement logiciel, etc.)
           </p>
         </div>
         <Button className="flex items-center gap-2" onClick={handleCreate}>

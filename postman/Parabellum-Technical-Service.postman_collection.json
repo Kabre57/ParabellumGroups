@@ -1,0 +1,781 @@
+{
+	"info": {
+		"_postman_id": "technical-service-uuid",
+		"name": "Parabellum ERP - Technical Service",
+		"description": "Collection complète pour tester tous les endpoints du service technique",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "GET Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/health",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "health"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Spécialités",
+			"item": [
+				{
+					"name": "GET List Specialites",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/specialites",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "specialites"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Create Specialite",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('SPECIALITE_ID', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nom\": \"Électricité\",\n  \"description\": \"Installation et maintenance électrique\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/specialites",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "specialites"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Specialite by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/specialites/{{SPECIALITE_ID}}",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "specialites", "{{SPECIALITE_ID}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PUT Update Specialite",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nom\": \"Électricité Générale\",\n  \"description\": \"Installation et maintenance électrique complète\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/specialites/{{SPECIALITE_ID}}",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "specialites", "{{SPECIALITE_ID}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Techniciens",
+			"item": [
+				{
+					"name": "GET List Techniciens",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens?page=1&limit=10",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Available Techniciens",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens/available",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens", "available"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Techniciens Stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens/stats",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens", "stats"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Create Technicien",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('TECHNICIEN_ID', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nom\": \"Dupont\",\n  \"prenom\": \"Jean\",\n  \"email\": \"jean.dupont@parabellum.fr\",\n  \"telephone\": \"0612345678\",\n  \"specialiteId\": \"{{SPECIALITE_ID}}\",\n  \"matricule\": \"TECH001\",\n  \"dateEmbauche\": \"2020-01-15\",\n  \"tauxHoraire\": 45.50,\n  \"competences\": [\"Électricité basse tension\", \"Domotique\"],\n  \"certifications\": [\"CERT-ELEC-2023\"],\n  \"notes\": \"Technicien expérimenté\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Technicien by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens/{{TECHNICIEN_ID}}",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens", "{{TECHNICIEN_ID}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PUT Update Technicien",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tauxHoraire\": 50.00,\n  \"competences\": [\"Électricité basse tension\", \"Domotique\", \"Installation solaire\"]\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens/{{TECHNICIEN_ID}}",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens", "{{TECHNICIEN_ID}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Update Technicien Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"ON_MISSION\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/techniciens/{{TECHNICIEN_ID}}/status",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "techniciens", "{{TECHNICIEN_ID}}", "status"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Missions",
+			"item": [
+				{
+					"name": "GET List Missions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions?page=1&limit=10",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Missions Stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions/stats",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions", "stats"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Create Mission",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('MISSION_NUM', jsonData.data.numIntervention);",
+									"    pm.environment.set('MISSION_ID', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"clientId\": \"client-uuid-001\",\n  \"titre\": \"Installation électrique complète\",\n  \"description\": \"Installation complète du système électrique pour nouveau bâtiment\",\n  \"typeIntervention\": \"Installation\",\n  \"priorite\": \"HAUTE\",\n  \"dateDebut\": \"2026-01-22T08:00:00.000Z\",\n  \"dateFin\": \"2026-01-23T18:00:00.000Z\",\n  \"dureeEstimee\": 16,\n  \"adresse\": \"123 Rue de la République\",\n  \"codePostal\": \"75001\",\n  \"ville\": \"Paris\",\n  \"contact\": \"M. Entreprise\",\n  \"telephoneContact\": \"0198765432\",\n  \"instructions\": \"Accès par l'arrière du bâtiment\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Mission by Num",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions/{{MISSION_NUM}}",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions", "{{MISSION_NUM}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Assign Techniciens to Mission",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"technicienIds\": [\"{{TECHNICIEN_ID}}\"],\n  \"roles\": [\"Chef d'équipe\"]\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions/{{MISSION_NUM}}/techniciens",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions", "{{MISSION_NUM}}", "techniciens"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Update Mission Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"statut\": \"EN_COURS\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/missions/{{MISSION_NUM}}/statut",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "missions", "{{MISSION_NUM}}", "statut"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Interventions",
+			"item": [
+				{
+					"name": "GET List Interventions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/interventions?page=1&limit=10",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "interventions"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Create Intervention",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('INTERVENTION_ID', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"missionId\": \"{{MISSION_ID}}\",\n  \"titre\": \"Pose des câbles électriques\",\n  \"description\": \"Installation des câbles dans les gaines techniques\",\n  \"type\": \"Installation\",\n  \"dateHeureDebut\": \"2026-01-22T08:00:00.000Z\",\n  \"observations\": \"Prévoir échelle et équipement de protection\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/interventions",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "interventions"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Complete Intervention",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dateHeureFin\": \"2026-01-22T17:00:00.000Z\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/interventions/{{INTERVENTION_ID}}/complete",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "interventions", "{{INTERVENTION_ID}}", "complete"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Matériel",
+			"item": [
+				{
+					"name": "GET List Materiels",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/materiels?page=1&limit=10",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "materiels"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Materiels Alertes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/materiels/alertes",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "materiels", "alertes"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Sorties en Cours",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/materiels/sorties-en-cours",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "materiels", "sorties-en-cours"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rapports",
+			"item": [
+				{
+					"name": "GET List Rapports",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/rapports?page=1&limit=10",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "rapports"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Create Rapport",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('RAPPORT_ID', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"interventionId\": \"{{INTERVENTION_ID}}\",\n  \"technicienId\": \"{{TECHNICIEN_ID}}\",\n  \"titre\": \"Rapport d'installation électrique\",\n  \"contenu\": \"L'installation des câbles électriques a été réalisée selon les normes NF C 15-100. Tous les tests de continuité sont conformes.\",\n  \"typeRapport\": \"Intervention\",\n  \"observations\": \"Client satisfait du travail effectué\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/rapports",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "rapports"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Update Rapport Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "{{USER_ID}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"statut\": \"VALIDE\",\n  \"valideParId\": \"{{USER_ID}}\"\n}"
+						},
+						"url": {
+							"raw": "{{TECHNICAL_SERVICE_URL}}/api/rapports/{{RAPPORT_ID}}/statut",
+							"host": ["{{TECHNICAL_SERVICE_URL}}"],
+							"path": ["api", "rapports", "{{RAPPORT_ID}}", "statut"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
