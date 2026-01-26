@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { authenticateUser } = require('./middleware/auth');
+const { convertPagination, formatPaginationResponse } = require('./middleware/pagination');
 
 const specialiteRoutes = require('./routes/specialite.routes');
 const technicienRoutes = require('./routes/technicien.routes');
@@ -12,7 +13,7 @@ const rapportRoutes = require('./routes/rapport.routes');
 const materielRoutes = require('./routes/materiel.routes');
 
 const app = express();
-const PORT = process.env.PORT || 4006;
+const PORT = process.env.PORT || 4003;
 
 app.use(helmet());
 app.use(cors({
@@ -37,12 +38,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.use('/api/specialites', authenticateUser, specialiteRoutes);
-app.use('/api/techniciens', authenticateUser, technicienRoutes);
-app.use('/api/missions', authenticateUser, missionRoutes);
-app.use('/api/interventions', authenticateUser, interventionRoutes);
-app.use('/api/rapports', authenticateUser, rapportRoutes);
-app.use('/api/materiel', authenticateUser, materielRoutes);
+app.use('/api/technical/specialites', authenticateUser, specialiteRoutes);
+app.use('/api/technical/techniciens', authenticateUser, technicienRoutes);
+app.use('/api/technical/missions', authenticateUser, missionRoutes);
+app.use('/api/technical/interventions', authenticateUser, interventionRoutes);
+app.use('/api/technical/rapports', authenticateUser, rapportRoutes);
+app.use('/api/technical/materiel', authenticateUser, materielRoutes);
+
+app.use(convertPagination);
+app.use(formatPaginationResponse);
 
 app.use((req, res) => {
   res.status(404).json({

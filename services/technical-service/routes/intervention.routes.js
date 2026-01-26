@@ -4,6 +4,9 @@ const interventionController = require('../controllers/intervention.controller')
 
 router.get('/', interventionController.getAll);
 router.post('/', interventionController.create);
+router.get('/:id', interventionController.getById);          // NOUVEAU
+router.put('/:id', interventionController.update);           // NOUVEAU
+router.delete('/:id', interventionController.delete);        // NOUVEAU
 router.patch('/:id/complete', interventionController.complete);
 
 module.exports = router;

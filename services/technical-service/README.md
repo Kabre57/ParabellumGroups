@@ -18,7 +18,7 @@ Copy-Item env.example .env
 Modifier `.env` avec vos paramètres de base de données :
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost:5432/parabellum_technical?schema=public
-PORT=4006
+PORT=4003
 ```
 
 ### 3. Installation des dépendances
@@ -56,7 +56,7 @@ npm run dev
 npm start
 ```
 
-Le service sera accessible sur `http://localhost:4006`
+Le service sera accessible sur `http://localhost:4003`
 
 ## Endpoints Principaux
 
@@ -138,13 +138,13 @@ Ouvre l'interface sur `http://localhost:5555`
 
 ### Test du Health Check
 ```powershell
-curl http://localhost:4006/health
+curl http://localhost:4003/health
 ```
 
 ### Test avec Postman
 1. Importer la collection : `postman/Parabellum-Technical-Service.postman_collection.json`
 2. Configurer les variables d'environnement :
-   - `TECHNICAL_SERVICE_URL` = `http://localhost:4006`
+   - `TECHNICAL_SERVICE_URL` = `http://localhost:4003`
    - `USER_ID` = (ID utilisateur valide)
 3. Suivre le guide de test : `postman/TECHNICAL_SERVICE_GUIDE.md`
 

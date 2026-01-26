@@ -138,14 +138,14 @@ export interface Rapport {
 // ===== TECHNICAL SERVICE =====
 
 class TechnicalService {
-  private basePath = '/technical';
+  private basePath = process.env.NEXT_PUBLIC_TECHNICAL_API_URL || '/technical';
 
   // Helper pour extraire les données de la réponse
-  private extractData<T>(response: any): T {
-    // Si la réponse a un format { data: ... }, extraire data
-    // Sinon retourner la réponse directement
-    return response.data?.data !== undefined ? response.data.data : response.data;
-  }
+private extractData<T>(response: any): T {
+  console.log('API Response URL:', response.config?.url);
+  console.log('API Response Data:', response.data);
+  return response.data?.data !== undefined ? response.data.data : response.data;
+}
 
   // === SPECIALITES ===
   async getSpecialites(): Promise<Specialite[]> {
