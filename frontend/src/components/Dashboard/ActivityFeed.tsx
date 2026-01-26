@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { 
   FileText, 
@@ -7,7 +9,8 @@ import {
   CheckCircle, 
   XCircle,
   Clock,
-  User
+  User,
+  LucideIcon
 } from 'lucide-react';
 
 interface Activity {
@@ -24,7 +27,7 @@ interface ActivityFeedProps {
   activities: Activity[];
 }
 
-const getActivityIcon = (type: string) => {
+const getActivityIcon = (type: string): LucideIcon => {
   switch (type) {
     case 'quote': return FileText;
     case 'invoice': return Receipt;
@@ -36,14 +39,14 @@ const getActivityIcon = (type: string) => {
   }
 };
 
-const getActivityColor = (type: string) => {
+const getActivityColor = (type: string): string => {
   switch (type) {
-    case 'quote': return 'text-blue-600 bg-blue-100 dark:bg-blue-900';
-    case 'invoice': return 'text-purple-600 bg-purple-100 dark:bg-purple-900';
-    case 'payment': return 'text-green-600 bg-green-100 dark:bg-green-900';
-    case 'customer': return 'text-indigo-600 bg-indigo-100 dark:bg-indigo-900';
-    case 'approval': return 'text-green-600 bg-green-100 dark:bg-green-900';
-    case 'rejection': return 'text-red-600 bg-red-100 dark:bg-red-900';
+    case 'quote': return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30';
+    case 'invoice': return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30';
+    case 'payment': return 'text-green-600 bg-green-100 dark:bg-green-900/30';
+    case 'customer': return 'text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30';
+    case 'approval': return 'text-green-600 bg-green-100 dark:bg-green-900/30';
+    case 'rejection': return 'text-red-600 bg-red-100 dark:bg-red-900/30';
     default: return 'text-gray-600 bg-gray-100 dark:bg-gray-700';
   }
 };
@@ -75,7 +78,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
                         />
                       )}
                       <div className="relative flex items-start space-x-3">
-                        <div className={`relative px-1`}>
+                        <div className="relative px-1">
                           <div className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white dark:ring-gray-800 ${colorClass}`}>
                             <Icon className="h-4 w-4" />
                           </div>

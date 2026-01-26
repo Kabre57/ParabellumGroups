@@ -1,0 +1,258 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { technicalService, InterventionDetailed } from '@/shared/api/services/technical';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
+import { Dialog } from '@/components/ui/dialog';
+import InterventionForm from './InterventionForm';
+
+const statusColors = {
+  SCHEDULED: 'bg-blue-100 text-blue-800',
+  IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
+  COMPLETED: 'bg-green-100 text-green-800',
+  CANCELLED: 'bg-red-100 text-red-800',
+};
+
+const statusLabels = {
+  SCHEDULED: 'Planifiée',
+  IN_PROGRESS: 'En cours',
+  COMPLETED: 'Terminée',
+  CANCELLED: 'Annulée',
+};
+
+export default function InterventionsList() {
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [technicianFilter, setTechnicianFilter] = useState<string>('');
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['interventions', statusFilter, technicianFilter, dateFromFilter, dateToFilter],
+    queryFn: () =>
+      technicalService.getInterventions({
+        status: statusFilter || undefined,
+        technicianId: technicianFilter || undefined,
+        dateFrom: dateFromFilter || undefined,
+        dateTo: dateToFilter || undefined,
+        pageSize: 100,
+      }),
+  });
+
+  const { data: techniciansData } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: () => technicalService.getTechnicians({ pageSize: 100 }),
+  });
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatTime = (timeString: string) => {
+    return timeString.substring(0, 5);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <p className="text-center text-gray-500">Chargement...</p>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6">
+        <Alert className="bg-red-50 border-red-200 text-red-800">
+          Erreur lors du chargement des interventions
+        </Alert>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Interventions
+          </h2>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            + Nouvelle intervention
+          </Button>
+        </div>
+
+        {/* Filtres */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Statut
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm"
+            >
+              <option value="">Tous les statuts</option>
+              <option value="SCHEDULED">Planifiée</option>
+              <option value="IN_PROGRESS">En cours</option>
+              <option value="COMPLETED">Terminée</option>
+              <option value="CANCELLED">Annulée</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Technicien
+            </label>
+            <select
+              value={technicianFilter}
+              onChange={(e) => setTechnicianFilter(e.target.value)}
+              className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm"
+            >
+              <option value="">Tous les techniciens</option>
+              {techniciansData?.data?.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.firstName} {tech.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Date début
+            </label>
+            <Input
+              type="date"
+              value={dateFromFilter}
+              onChange={(e) => setDateFromFilter(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Date fin
+            </label>
+            <Input
+              type="date"
+              value={dateToFilter}
+              onChange={(e) => setDateToFilter(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Date
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Horaires
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Technicien
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Mission
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Durée
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
+                  Statut
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.data?.map((intervention) => (
+                <tr
+                  key={intervention.id}
+                  className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
+                >
+                  <td className="py-3 px-4">
+                    <span className="text-gray-900 dark:text-white">
+                      {formatDate(intervention.scheduledDate || intervention.date)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {formatTime(intervention.startTime)}
+                      {intervention.endTime && ` - ${formatTime(intervention.endTime)}`}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-gray-900 dark:text-white">
+                      {intervention.technician
+                        ? `${intervention.technician.firstName} ${intervention.technician.lastName}`
+                        : '-'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
+                      {intervention.mission?.title || intervention.missionNum}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {intervention.estimatedDuration
+                        ? `${intervention.estimatedDuration}h (estimé)`
+                        : intervention.actualDuration
+                        ? `${intervention.actualDuration}h`
+                        : '-'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <Badge
+                      className={
+                        statusColors[intervention.status as keyof typeof statusColors] ||
+                        'bg-gray-100 text-gray-800'
+                      }
+                    >
+                      {statusLabels[intervention.status as keyof typeof statusLabels] ||
+                        intervention.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {data?.data?.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              Aucune intervention trouvée
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          Total: {data?.data?.length || 0} intervention(s)
+        </div>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-950 rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <InterventionForm onSuccess={handleCloseDialog} onCancel={handleCloseDialog} />
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}

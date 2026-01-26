@@ -1,11 +1,13 @@
+'use client';
+
 import React from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, LucideIcon } from 'lucide-react';
 
 interface KPICardProps {
   title: string;
   value: number;
   format: 'currency' | 'number' | 'percentage';
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   color: string;
   bgColor: string;
   change?: number;
@@ -27,7 +29,8 @@ export const KPICard: React.FC<KPICardProps> = ({
         return new Intl.NumberFormat('fr-FR', {
           style: 'currency',
           currency: 'XOF',
-          notation: 'compact'
+          notation: 'compact',
+          maximumFractionDigits: 0
         }).format(val);
       case 'percentage':
         return `${val.toFixed(1)}%`;

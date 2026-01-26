@@ -1,5 +1,7 @@
+'use client';
+
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { 
   Plus, 
   FileText, 
@@ -9,14 +11,15 @@ import {
   CreditCard,
   BarChart3,
   Settings,
-  Calendar
+  Calendar,
+  Wrench,
+  LucideIcon
 } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
 
 interface QuickAction {
   title: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   color: string;
   bgColor: string;
   href: string;
@@ -24,8 +27,7 @@ interface QuickAction {
 }
 
 export const QuickActions: React.FC = () => {
-  const { hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const actions: QuickAction[] = [
     {
@@ -33,78 +35,66 @@ export const QuickActions: React.FC = () => {
       description: 'Ajouter un client',
       icon: Users,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100 dark:bg-blue-900',
-      href: '/customers/create',
-      permission: 'customers.create'
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      href: '/dashboard/clients',
     },
     {
       title: 'Créer un Devis',
       description: 'Nouveau devis',
       icon: FileText,
       color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100 dark:bg-yellow-900',
-      href: '/quotes/create',
-      permission: 'quotes.create'
+      bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+      href: '/dashboard/commercial/quotes',
     },
     {
       title: 'Nouvelle Facture',
       description: 'Créer une facture',
       icon: Receipt,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-100 dark:bg-purple-900',
-      href: '/invoices/create',
-      permission: 'invoices.create'
+      bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+      href: '/dashboard/facturation/factures',
     },
     {
       title: 'Enregistrer Paiement',
       description: 'Nouveau paiement',
       icon: CreditCard,
       color: 'text-green-600',
-      bgColor: 'bg-green-100 dark:bg-green-900',
-      href: '/payments/create',
-      permission: 'payments.create'
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      href: '/dashboard/facturation/paiements',
     },
     {
       title: 'Ajouter Produit',
       description: 'Nouveau produit',
       icon: Package,
       color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100 dark:bg-indigo-900',
-      href: '/products/create',
-      permission: 'products.create'
+      bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+      href: '/dashboard/achats/produits',
     },
     {
       title: 'Voir Rapports',
       description: 'Analytics détaillés',
       icon: BarChart3,
-      color: 'text-gray-600',
+      color: 'text-gray-600 dark:text-gray-400',
       bgColor: 'bg-gray-100 dark:bg-gray-700',
-      href: '/reports',
-      permission: 'reports.sales'
+      href: '/dashboard/analytics',
     },
     {
       title: 'Nouvelle Mission',
       description: 'Créer une mission',
       icon: FileText,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-100 dark:bg-orange-900',
-      href: '/services/missions',
-      permission: 'missions.create'
+      bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+      href: '/dashboard/technical/missions',
     },
     {
       title: 'Nouvelle Intervention',
       description: 'Planifier intervention',
       icon: Calendar,
       color: 'text-teal-600',
-      bgColor: 'bg-teal-100 dark:bg-teal-900',
-      href: '/services/interventions',
-      permission: 'interventions.create'
+      bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+      href: '/dashboard/technical/interventions',
     }
   ];
-
-  const visibleActions = actions.filter(action => 
-    !action.permission || hasPermission(action.permission)
-  );
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
@@ -116,13 +106,13 @@ export const QuickActions: React.FC = () => {
       </div>
       <div className="p-6">
         <div className="grid grid-cols-1 gap-4">
-          {visibleActions.map((action, index) => {
+          {actions.map((action, index) => {
             const Icon = action.icon;
             
             return (
               <button
                 key={index}
-                onClick={() => navigate(action.href)}
+                onClick={() => router.push(action.href)}
                 className="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
               >
                 <div className={`flex-shrink-0 p-2 rounded-lg ${action.bgColor} group-hover:scale-110 transition-transform duration-200`}>
@@ -141,7 +131,7 @@ export const QuickActions: React.FC = () => {
           })}
         </div>
         
-        {visibleActions.length === 0 && (
+        {actions.length === 0 && (
           <div className="text-center py-8">
             <Settings className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
