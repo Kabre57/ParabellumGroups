@@ -6,23 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
-
-interface Specialite {
-  id?: number;
-  nom: string;
-  description?: string;
-}
+import { Specialite } from '@/shared/api/services/technical'; // Import correct de l'interface API
 
 interface SpecialiteFormProps {
-  item?: Specialite;
+  specialite?: Specialite; // Utilise l'interface importée
   onSubmit: (data: Partial<Specialite>) => void;
   onClose: () => void;
   isLoading?: boolean;
 }
 
-export function SpecialiteForm({ item, onSubmit, onClose, isLoading }: SpecialiteFormProps) {
+export function SpecialiteForm({ specialite, onSubmit, onClose, isLoading }: SpecialiteFormProps) {
   const { register, handleSubmit, formState: { errors } } = useForm<Partial<Specialite>>({
-    defaultValues: item || {
+    defaultValues: specialite || {
       nom: '',
       description: '',
     },
@@ -33,7 +28,7 @@ export function SpecialiteForm({ item, onSubmit, onClose, isLoading }: Specialit
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
           <h2 className="text-2xl font-bold">
-            {item ? 'Modifier la spécialité' : 'Nouvelle spécialité'}
+            {specialite ? 'Modifier la spécialité' : 'Nouvelle spécialité'}
           </h2>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -73,7 +68,7 @@ export function SpecialiteForm({ item, onSubmit, onClose, isLoading }: Specialit
               Annuler
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Enregistrement...' : (item ? 'Mettre à jour' : 'Créer')}
+              {isLoading ? 'Enregistrement...' : (specialite ? 'Mettre à jour' : 'Créer')}
             </Button>
           </div>
         </form>

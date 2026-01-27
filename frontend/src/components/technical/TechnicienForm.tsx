@@ -156,7 +156,7 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
                 {...register('competences')}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
                 rows={3}
-                placeholder='["Électricité", "Plomberie", "HVAC"]'
+                placeholder='["Developpement web", "Réseaux informatiques"]'
               />
             </div>
 

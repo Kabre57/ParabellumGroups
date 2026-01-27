@@ -6,5 +6,6 @@ router.get('/', specialiteController.getAll);
 router.post('/', specialiteController.create);
 router.get('/:id', specialiteController.getById);
 router.put('/:id', specialiteController.update);
+router.delete('/:id', specialiteController.delete);
 
 module.exports = router;

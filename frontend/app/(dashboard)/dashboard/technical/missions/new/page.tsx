@@ -3,30 +3,23 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateMission } from '@/hooks/useTechnical';
-import { MissionForm } from '@/components/technical/MissionForm';
 import { Mission } from '@/shared/api/services/technical';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { CreateMissionModal } from '@/components/technical/CreateMissionModal'; // Utiliser CreateMissionModal ici
 
 export default function NewMissionPage() {
   const router = useRouter();
   const createMutation = useCreateMission();
-
-  const handleSubmit = (data: Partial<Mission>) => {
-    createMutation.mutate(data, {
-      onSuccess: () => {
-        router.push('/dashboard/technical/missions');
-      },
-      onError: (error) => {
-        console.error('Erreur lors de la création de la mission:', error);
-        alert('Erreur lors de la création de la mission. Veuillez réessayer.');
-      }
-    });
-  };
+  const [isModalOpen, setIsModalOpen] = React.useState(true);
 
   const handleClose = () => {
     router.back();
+  };
+
+  const handleSubmitSuccess = () => {
+    router.push('/dashboard/technical/missions');
   };
 
   return (
@@ -46,10 +39,10 @@ export default function NewMissionPage() {
         </div>
       </div>
 
-      <MissionForm
-        onSubmit={handleSubmit}
+      {/* Utiliser CreateMissionModal au lieu de MissionForm */}
+      <CreateMissionModal
+        isOpen={isModalOpen}
         onClose={handleClose}
-        isLoading={createMutation.isPending}
       />
     </div>
   );

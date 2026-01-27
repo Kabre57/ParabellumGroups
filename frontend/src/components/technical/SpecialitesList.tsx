@@ -6,10 +6,8 @@ import { technicalService, Specialite } from '@/shared/api/services/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table } from '@/components/ui/table';
-import { Dialog } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
-import SpecialiteForm from './SpecialiteForm';
+import { SpecialiteForm } from './SpecialiteForm'; // Import nommé, pas par défaut
 
 export default function SpecialitesList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,10 +15,17 @@ export default function SpecialitesList() {
   const [editingSpecialite, setEditingSpecialite] = useState<Specialite | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['specialites', searchTerm],
-    queryFn: () => technicalService.getSpecialites({ search: searchTerm, pageSize: 100 }),
+  // getSpecialites ne prend pas de params de recherche selon votre API
+  const { data: specialites = [], isLoading, error } = useQuery({
+    queryKey: ['specialites'],
+    queryFn: () => technicalService.getSpecialites(),
   });
+
+  // Filtrage côté client pour la recherche
+  const filteredSpecialites = specialites.filter((specialite) =>
+    specialite.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    specialite.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => technicalService.deleteSpecialite(id),
@@ -43,6 +48,13 @@ export default function SpecialitesList() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingSpecialite(null);
+  };
+
+  const handleFormSubmit = (data: Partial<Specialite>) => {
+    // Logique de création/mise à jour à implémenter ici
+    // Vous devrez ajouter une mutation pour create/update
+    console.log('Form data submitted:', data);
+    handleCloseDialog();
   };
 
   if (isLoading) {
@@ -96,9 +108,6 @@ export default function SpecialitesList() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
                 <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-                  Code
-                </th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
                   Nom
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
@@ -110,19 +119,14 @@ export default function SpecialitesList() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((specialite) => (
+              {filteredSpecialites.map((specialite) => (
                 <tr
                   key={specialite.id}
                   className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
                 >
                   <td className="py-3 px-4">
-                    <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
-                      {specialite.code}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {specialite.name}
+                      {specialite.nom}
                     </span>
                   </td>
                   <td className="py-3 px-4">
@@ -144,6 +148,7 @@ export default function SpecialitesList() {
                         size="sm"
                         onClick={() => handleDelete(specialite.id)}
                         disabled={deleteMutation.isPending}
+                        className="text-red-600 hover:text-red-700"
                       >
                         Supprimer
                       </Button>
@@ -154,29 +159,26 @@ export default function SpecialitesList() {
             </tbody>
           </table>
 
-          {data?.data?.length === 0 && (
+          {filteredSpecialites.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              Aucune spécialité trouvée
+              {searchTerm ? 'Aucune spécialité ne correspond à votre recherche' : 'Aucune spécialité trouvée'}
             </div>
           )}
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          Total: {data?.data?.length || 0} spécialité(s)
+          Total: {filteredSpecialites.length} spécialité(s)
         </div>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-950 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <SpecialiteForm
-              specialite={editingSpecialite}
-              onSuccess={handleCloseDialog}
-              onCancel={handleCloseDialog}
-            />
-          </div>
-        </div>
-      </Dialog>
+      {isDialogOpen && (
+        <SpecialiteForm
+          specialite={editingSpecialite || undefined}
+          onSubmit={handleFormSubmit}
+          onClose={handleCloseDialog}
+          isLoading={false} // À ajuster selon vos mutations
+        />
+      )}
     </div>
   );
 }

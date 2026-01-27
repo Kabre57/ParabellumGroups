@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Technician } from '@/shared/api/services/technical';
+import { technicalService, Technicien } from '@/shared/api/services/technical'; // Changé Technician -> Technicien
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,13 +24,19 @@ export default function TechnicianAssignment({
   const { data: techniciansData, isLoading } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
-      return await technicalService.getTechnicians({ pageSize: 100 });
+      return await technicalService.getTechniciens({ pageSize: 100 }); // Changé getTechnicians -> getTechniciens
     },
   });
 
   const assignMutation = useMutation({
-    mutationFn: (technicianIds: string[]) =>
-      technicalService.assignTechnicians(missionNum, technicianIds),
+    mutationFn: (technicianIds: string[]) => {
+      // Pour chaque technicien sélectionné, appeler assignTechnicienToMission
+      // Note: Vous pourriez vouloir créer une méthode bulk si disponible
+      const promises = technicianIds.map(technicienId => 
+        technicalService.assignTechnicienToMission(missionNum, technicienId)
+      );
+      return Promise.all(promises);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mission', missionNum] });
       setSelectedTechnicians([]);
@@ -50,6 +56,11 @@ export default function TechnicianAssignment({
     if (selectedTechnicians.length > 0) {
       assignMutation.mutate(selectedTechnicians);
     }
+  };
+
+  // Vérifier si un technicien est disponible
+  const isAvailable = (technicien: Technicien) => {
+    return technicien.status === 'AVAILABLE';
   };
 
   if (isLoading) {
@@ -87,9 +98,9 @@ export default function TechnicianAssignment({
             Sélectionnez les techniciens à assigner à cette mission
           </p>
 
-          {techniciansData?.data && techniciansData.data.length > 0 ? (
+          {techniciansData && techniciansData.length > 0 ? (
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {techniciansData.data.map((technician: Technician) => (
+              {techniciansData.map((technician: Technicien) => (
                 <div
                   key={technician.id}
                   onClick={() => toggleTechnician(technician.id)}
@@ -112,20 +123,20 @@ export default function TechnicianAssignment({
                           className="w-4 h-4"
                         />
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {technician.firstName} {technician.lastName}
+                          {technician.nom} {technician.prenom} {/* Changé firstName/lastName -> nom/prenom */}
                         </p>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400 ml-6">
                         {technician.email}
                       </p>
-                      {technician.specialization && (
+                      {technician.specialite && (
                         <p className="text-sm text-gray-500 dark:text-gray-500 ml-6">
-                          Spécialité: {technician.specialization}
+                          Spécialité: {technician.specialite.nom} {/* Accès à la spécialité */}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {technician.isAvailable ? (
+                      {isAvailable(technician) ? (
                         <Badge variant="success">Disponible</Badge>
                       ) : (
                         <Badge variant="warning">Non disponible</Badge>

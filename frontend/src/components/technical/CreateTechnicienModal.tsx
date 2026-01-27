@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, User as UserIcon, Phone, Wrench, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSpecialites, useCreateTechnicien } from '@/hooks/useTechnical';
+import { Specialite } from '@/shared/api/services/technical';
 
 const createTechnicienSchema = z.object({
   prenom: z.string().min(1, 'Prénom requis'),
@@ -27,7 +28,17 @@ interface CreateTechnicienModalProps {
 }
 
 export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ isOpen, onClose }) => {
-  const { data: specialites = [] } = useSpecialites();
+  const { data: specialites, isLoading: isLoadingSpecialites, error: specialitesError } = useSpecialites();
+  
+  // Debug
+  console.log('Specialites dans modal:', {
+    data: specialites,
+    isLoading: isLoadingSpecialites,
+    error: specialitesError,
+    isArray: Array.isArray(specialites),
+    length: Array.isArray(specialites) ? specialites.length : 'not array'
+  });
+
   const createMutation = useCreateTechnicien();
 
   const {
@@ -46,6 +57,7 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
     try {
       const payload = {
         ...data,
+        email: data.email || undefined,
         tauxHoraire: data.tauxHoraire ? parseFloat(data.tauxHoraire) : undefined
       };
       await createMutation.mutateAsync(payload);
@@ -136,16 +148,49 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
               <select
                 {...register('specialiteId')}
                 className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                disabled={isLoadingSpecialites}
               >
                 <option value="">Sélectionner une spécialité</option>
-                {specialites.map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nom}
-                  </option>
-                ))}
+                
+                {/* Afficher un message de chargement */}
+                {isLoadingSpecialites && (
+                  <option disabled>Chargement des spécialités...</option>
+                )}
+                
+                {/* Afficher les spécialités quand elles sont chargées */}
+                {!isLoadingSpecialites && Array.isArray(specialites) && specialites.length > 0 && (
+                  specialites.map((s: Specialite) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nom}
+                    </option>
+                  ))
+                )}
+                
+                {/* Afficher un message si aucune spécialité */}
+                {!isLoadingSpecialites && Array.isArray(specialites) && specialites.length === 0 && (
+                  <option disabled>Aucune spécialité disponible</option>
+                )}
+                
+                {/* Afficher un message d'erreur */}
+                {specialitesError && (
+                  <option disabled>Erreur de chargement</option>
+                )}
               </select>
             </div>
             {errors.specialiteId && <p className="mt-1 text-sm text-red-600">{errors.specialiteId.message}</p>}
+            
+            {/* Messages d'information */}
+            {specialitesError && (
+              <p className="mt-1 text-sm text-red-600">
+                Impossible de charger les spécialités. Veuillez réessayer.
+              </p>
+            )}
+            
+            {!isLoadingSpecialites && Array.isArray(specialites) && specialites.length === 0 && (
+              <p className="mt-1 text-sm text-yellow-600">
+                Aucune spécialité disponible. Veuillez d'abord créer une spécialité.
+              </p>
+            )}
           </div>
 
           {/* Matricule et Date Embauche */}
@@ -195,7 +240,7 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || isLoadingSpecialites || (Array.isArray(specialites) && specialites.length === 0)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {createMutation.isPending ? 'Création...' : 'Créer le technicien'}

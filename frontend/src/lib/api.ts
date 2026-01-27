@@ -77,7 +77,8 @@ export interface LoginResponse {
 
 export interface User {
   id: string;
-  nom: string;
+  firstName: string;
+  lastName: string;
   email: string;
   actif: boolean;
   createdAt: string;

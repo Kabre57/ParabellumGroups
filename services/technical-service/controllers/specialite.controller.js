@@ -151,3 +151,30 @@ exports.update = async (req, res) => {
     });
   }
 };
+
+exports.delete = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.specialite.delete({
+      where: { id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Spécialité supprimée avec succès'
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: 'Spécialité non trouvée'
+      });
+    }
+    console.error('Error in delete specialite:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression de la spécialité'
+    });
+  }
+};

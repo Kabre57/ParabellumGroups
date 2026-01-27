@@ -41,7 +41,7 @@ export interface Mission {
   dateDebut: string;
   dateFin?: string;
   status: 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE';
-  priorite: 'FAIBLE' | 'MOYENNE' | 'HAUTE' | 'URGENTE';
+  priorite: 'BASSE' | 'MOYENNE' | 'HAUTE' | 'URGENTE';
   budgetEstime?: number;
   coutReel?: number;
   notes?: string;
@@ -138,7 +138,7 @@ export interface Rapport {
 // ===== TECHNICAL SERVICE =====
 
 class TechnicalService {
-  private basePath = process.env.NEXT_PUBLIC_TECHNICAL_API_URL || '/technical';
+private basePath = '/technical';
 
   // Helper pour extraire les données de la réponse
 private extractData<T>(response: any): T {

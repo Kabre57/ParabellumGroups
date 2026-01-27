@@ -13,6 +13,9 @@ export const UserMenu: React.FC = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
 
+  // Ajoutez ce console.log pour debug
+  console.log('User object in UserMenu:', user);
+
   // Fermer le menu au clic à l'extérieur
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -30,10 +33,27 @@ export const UserMenu: React.FC = () => {
     };
   }, [isOpen]);
 
-  const getInitials = (firstName?: string, lastName?: string) => {
-    const first = firstName?.charAt(0) || '';
-    const last = lastName?.charAt(0) || '';
+  // CORRIGÉ : Utilisez la bonne structure
+  const getInitials = () => {
+    if (!user || !user.lastName) return 'U';
+    
+    // Le nom complet est dans user.nom (ex: "John Doe")
+    const names = user.lastName.split(' ');
+    const first = names[0]?.charAt(0) || '';
+    const last = names[names.length - 1]?.charAt(0) || '';
     return `${first}${last}`.toUpperCase();
+  };
+
+  // Fonction pour obtenir le nom complet
+  const getFullName = () => {
+    if (!user) return 'Utilisateur';
+    return user.lastName || 'Utilisateur';
+  };
+
+  // Fonction pour obtenir le rôle
+  const getUserRole = () => {
+    if (!user || !user.role || user.role.length === 0) return '';
+    return user.role[0] || '';
   };
 
   const handleLogout = async () => {
@@ -65,16 +85,18 @@ export const UserMenu: React.FC = () => {
         {/* Avatar */}
         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
           <span className="text-white font-semibold text-xs">
-            {user ? getInitials(user.firstName, user.lastName) : 'U'}
+            {getInitials()}
           </span>
         </div>
 
         {/* User info (hidden on mobile) */}
         <div className="hidden sm:block text-left">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {user ? `${user.firstName} ${user.lastName}` : 'Utilisateur'}
+            {getFullName()}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role || ''}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {getUserRole()}
+          </p>
         </div>
 
         {/* Chevron */}
@@ -94,12 +116,12 @@ export const UserMenu: React.FC = () => {
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-semibold text-sm">
-                  {user ? getInitials(user.firstName, user.lastName) : 'U'}
+                  {getInitials()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user ? `${user.firstName} ${user.lastName}` : 'Utilisateur'}
+                  {getFullName()}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {user?.email || ''}
