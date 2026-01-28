@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useInterventions, useDeleteIntervention, useCompleteIntervention, useCreateIntervention, useUpdateIntervention } from '@/hooks/useTechnical';
-import { Intervention } from '@/shared/api/services/technical';
+import { useInterventions, useDeleteIntervention, useCompleteIntervention } from '@/hooks/useTechnical';
+import { Intervention, technicalService } from '@/shared/api/services/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, CheckCircle, Clock, FileText, Users, Printer } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, CheckCircle, Clock, FileText, Printer, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { CreateInterventionModal } from '@/components/technical/CreateInterventionModal';
+import RapportPrint from '@/components/PrintComponents/RapportPrint';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -23,6 +24,10 @@ export default function InterventionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedIntervention, setSelectedIntervention] = useState<Intervention | undefined>();
+  
+  // États pour l'impression (peut être un Rapport ou une Intervention)
+  const [printingData, setPrintingData] = useState<any | null>(null);
+  const [isFetching, setIsFetching] = useState<string | null>(null);
 
   const { data: interventions = [], isLoading } = useInterventions({ pageSize: 100 });
   const deleteMutation = useDeleteIntervention();
@@ -50,6 +55,28 @@ export default function InterventionsPage() {
   const handleEdit = (item: Intervention) => {
     setSelectedIntervention(item);
     setShowEditModal(true);
+  };
+
+  const handlePrint = async (intervention: Intervention) => {
+    // Si l'intervention a un rapport, on essaie de charger le rapport complet pour une impression détaillée
+    if (intervention.rapports && intervention.rapports.length > 0) {
+      try {
+        setIsFetching(intervention.id);
+        const rapportId = intervention.rapports[intervention.rapports.length - 1].id;
+        const fullRapport = await technicalService.getRapport(rapportId);
+        if (fullRapport) {
+          setPrintingData(fullRapport);
+          return;
+        }
+      } catch (error) {
+        console.error("Erreur chargement rapport, repli sur l'intervention:", error);
+      } finally {
+        setIsFetching(null);
+      }
+    }
+
+    // Si pas de rapport ou erreur, on imprime directement les détails de l'intervention
+    setPrintingData(intervention);
   };
 
   const handleComplete = (id: string) => {
@@ -85,14 +112,21 @@ export default function InterventionsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Chargement des interventions...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      {printingData && (
+        <RapportPrint 
+          rapport={printingData} 
+          onClose={() => setPrintingData(null)} 
+        />
+      )}
+
+      <div className="flex justify-between items-center no-print">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Interventions</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -119,7 +153,7 @@ export default function InterventionsPage() {
         missionId={selectedIntervention?.missionId}
       />
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 no-print">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
@@ -147,7 +181,7 @@ export default function InterventionsPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden no-print">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
@@ -247,8 +281,18 @@ export default function InterventionsPage() {
                       <Edit className="w-3 h-3" />
                       Modifier
                     </Button>
-                    <Button variant="outline" size="sm" title="Imprimer">
-                      <Printer className="w-3 h-3" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      title="Imprimer"
+                      onClick={() => handlePrint(intervention)}
+                      disabled={isFetching === intervention.id}
+                    >
+                      {isFetching === intervention.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Printer className="w-3 h-3" />
+                      )}
                     </Button>
                     <Button
                       variant="outline"
@@ -268,7 +312,7 @@ export default function InterventionsPage() {
       </div>
 
       {filteredInterventions.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg no-print">
           <p className="text-gray-500 dark:text-gray-400 mb-4">Aucune intervention trouvée</p>
           <Link href="/dashboard/technical/interventions/new">
             <Button>

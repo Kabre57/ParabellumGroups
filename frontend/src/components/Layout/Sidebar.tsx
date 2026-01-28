@@ -185,19 +185,6 @@ const professionalCategories: CategoryItem[] = [
     ],
   },
 
-    // === ADMINISTRATION ===
-    {
-      name: 'Administration',
-      icon: Shield,
-      permission: 'admin',
-      children: [
-        { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: 'admin' },
-        { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
-        { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck, permission: 'admin' },
-        { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },
-        { name: 'Paramètres Système', href: '/dashboard/settings', icon: Settings, permission: 'admin' },
-      ],
-    },
 ];
 
 // Accès Rapide (base) + Raccourcis Employé
@@ -229,19 +216,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // CORRECTION : Vérification robuste du rôle
+  // CORRECTION 1: Vérification robuste du rôle avec typecasting approprié
   const isEmployee = useMemo(() => {
     if (!user?.role) return false;
     
+    // Vérification plus flexible pour éviter l'erreur TypeScript
+    const role = user.role;
+    
     // Si role est une string
-    if (typeof user.role === 'string') {
-      return user.role === 'EMPLOYEE';
+    if (typeof role === 'string') {
+      return role.toUpperCase() === 'EMPLOYEE';
     }
     
-    // Si role est un objet avec code
-    if (user.role && typeof user.role === 'object') {
-      const roleObj = user.role as any;
-      return roleObj.code === 'EMPLOYEE' || roleObj.name === 'EMPLOYEE';
+    // Si role est un objet, vérifier les propriétés possibles
+    if (role && typeof role === 'object') {
+      const roleObj = role as any;
+      
+      // Vérifier plusieurs propriétés possibles (code, name, value, etc.)
+      const roleValue = roleObj.code || roleObj.name || roleObj.value || roleObj.role;
+      
+      if (roleValue && typeof roleValue === 'string') {
+        return roleValue.toUpperCase() === 'EMPLOYEE';
+      }
+      
+      // Si c'est un objet avec une propriété stringify-able
+      if (roleObj.toString && typeof roleObj.toString === 'function') {
+        const strValue = roleObj.toString().toUpperCase();
+        return strValue.includes('EMPLOYEE');
+      }
     }
     
     return false;
@@ -250,15 +252,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const isAdmin = useMemo(() => {
     if (!user?.role) return false;
     
+    const role = user.role;
+    
     // Si role est une string
-    if (typeof user.role === 'string') {
-      return user.role === 'ADMIN';
+    if (typeof role === 'string') {
+      return role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ADMINISTRATOR';
     }
     
-    // Si role est un objet avec code
-    if (user.role && typeof user.role === 'object') {
-      const roleObj = user.role as any;
-      return roleObj.code === 'ADMIN' || roleObj.name === 'ADMIN';
+    // Si role est un objet
+    if (role && typeof role === 'object') {
+      const roleObj = role as any;
+      
+      // Vérifier plusieurs propriétés possibles
+      const roleValue = roleObj.code || roleObj.name || roleObj.value || roleObj.role;
+      
+      if (roleValue && typeof roleValue === 'string') {
+        const upperValue = roleValue.toUpperCase();
+        return upperValue === 'ADMIN' || upperValue === 'ADMINISTRATOR';
+      }
+      
+      // Vérification toString
+      if (roleObj.toString && typeof roleObj.toString === 'function') {
+        const strValue = roleObj.toString().toUpperCase();
+        return strValue.includes('ADMIN');
+      }
     }
     
     return false;
@@ -274,7 +291,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     'Achats & Logistique': false,
     'Ressources Humaines': false,
     'Communication': false,
-
   });
 
   // Fonction pour vérifier l'accès (simulé - à adapter selon votre système de permissions)
@@ -343,51 +359,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     });
   }, [isEmployee, isAdmin, hasAccess]);
 
-  // CORRECTION : Affichage rôle lisible - SIMPLIFIÉ
+  // CORRECTION 2: Affichage rôle lisible avec typage sécurisé
   const getUserRoleDisplay = () => {
     if (!user?.role) return 'Utilisateur';
     
-    // Si role est une string, retourner directement
-    if (typeof user.role === 'string') {
+    const role = user.role;
+    
+    // Si role est une string simple
+    if (typeof role === 'string') {
       const roles: Record<string, string> = {
         'ADMIN': 'Administrateur',
+        'ADMINISTRATOR': 'Administrateur',
         'GENERAL_DIRECTOR': 'Directeur Général',
         'SERVICE_MANAGER': 'Responsable Service',
         'EMPLOYEE': 'Collaborateur',
         'ACCOUNTANT': 'Comptable',
         'PURCHASING_MANAGER': 'Responsable Achats'
       };
-      return roles[user.role] || user.role;
+      return roles[role.toUpperCase()] || role;
     }
     
-    // Si role est un objet, utiliser name ou code
-    if (user.role && typeof user.role === 'object') {
-      const roleObj = user.role as any;
+    // Si role est un objet
+    if (role && typeof role === 'object') {
+      const roleObj = role as any;
       
-      // Si l'objet a un nom lisible, l'utiliser
-      if (roleObj.name && typeof roleObj.name === 'string') {
+      // Essayer plusieurs propriétés possibles
+      const roleName = roleObj.name || roleObj.code || roleObj.value || roleObj.role || roleObj.label;
+      
+      if (roleName && typeof roleName === 'string') {
         const roles: Record<string, string> = {
           'ADMIN': 'Administrateur',
+          'ADMINISTRATOR': 'Administrateur',
           'GENERAL_DIRECTOR': 'Directeur Général',
           'SERVICE_MANAGER': 'Responsable Service',
           'EMPLOYEE': 'Collaborateur',
           'ACCOUNTANT': 'Comptable',
           'PURCHASING_MANAGER': 'Responsable Achats'
         };
-        return roles[roleObj.name] || roleObj.name;
-      }
-      
-      // Sinon utiliser code
-      if (roleObj.code && typeof roleObj.code === 'string') {
-        const roles: Record<string, string> = {
-          'ADMIN': 'Administrateur',
-          'GENERAL_DIRECTOR': 'Directeur Général',
-          'SERVICE_MANAGER': 'Responsable Service',
-          'EMPLOYEE': 'Collaborateur',
-          'ACCOUNTANT': 'Comptable',
-          'PURCHASING_MANAGER': 'Responsable Achats'
-        };
-        return roles[roleObj.code] || roleObj.code;
+        return roles[roleName.toUpperCase()] || roleName;
       }
       
       // Si c'est un objet complexe, retourner une string simple
@@ -397,25 +406,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     return 'Utilisateur';
   };
 
-  // CORRECTION : Nom d'utilisateur sécurisé
+  // CORRECTION 3: Nom d'utilisateur sécurisé avec vérification des propriétés
   const getUserName = () => {
     if (!user) return 'Utilisateur';
     
-    // Si user a un nom
-    if (user.name && typeof user.name === 'string') {
-      return user.name;
+    // CORRECTION: Utiliser les propriétés existantes dans le type User
+    // Selon UserMenu.tsx, le user a firstName et lastName
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
     }
     
-    // Si user a un email
+    // CORRECTION: Vérifier si la propriété existe avant de l'utiliser
+    // Ne pas utiliser 'name' car il n'existe pas dans le type User
+    // Utiliser plutôt email comme fallback
     if (user.email && typeof user.email === 'string') {
       return user.email.split('@')[0]; // Retirer le domaine
     }
     
-    // Si user a un username
-    if (user.username && typeof user.username === 'string') {
-      return user.username;
-    }
-    
+    // CORRECTION: Ne pas utiliser 'username' car il n'existe pas
+    // Utiliser un fallback générique
     return 'Utilisateur';
   };
 
@@ -577,14 +586,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center">
                 <Settings className="h-4 w-4 text-white" />
               </div>
-            </div>
-            <div className="ml-3 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                v1.0.0 • BÊTA
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                {new Date().getFullYear()} • Parabellum Groups
-              </p>
             </div>
           </div>
           <div className="flex items-center">

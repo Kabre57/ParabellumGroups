@@ -135,6 +135,52 @@ export interface Rapport {
   dateValidation?: string;
 }
 
+export interface RapportPrintData {
+  id: string;
+  titre: string;
+  contenu: string;
+  conclusions?: string;
+  recommandations?: string;
+  status: string;
+  dateCreation: string;
+  redacteur?: {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone?: string;
+    matricule?: string;
+    competences?: string[];
+    specialite?: {
+      nom: string;
+    };
+  };
+  intervention?: {
+    id: string;
+    titre: string;
+    description?: string;
+    dateDebut: string;
+    dateFin?: string;
+    mission?: {
+      id: string;
+      numeroMission: string;
+      titre: string;
+      clientNom: string;
+      clientContact?: string;
+      adresse: string;
+    };
+    materielUtilise?: Array<{
+      id: string;
+      quantite: number;
+      notes?: string;
+      materiel?: {
+        reference: string;
+        nom: string;
+      };
+    }>;
+  };
+}
+
 // ===== TECHNICAL SERVICE =====
 
 class TechnicalService {

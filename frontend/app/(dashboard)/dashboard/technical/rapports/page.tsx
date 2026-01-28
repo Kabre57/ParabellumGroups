@@ -6,28 +6,41 @@ import { technicalService } from '@/shared/api/services/technical';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
-import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Search, Eye, Download, Calendar, X, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Eye, Calendar, X, FileText, AlertCircle, CheckCircle, Printer } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import RapportPrint from '@/components/PrintComponents/RapportPrint';
+import { SearchParams } from '@/shared/api/types';
 
 export default function RapportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRapportId, setSelectedRapportId] = useState<string | null>(null);
+  const [printingRapport, setPrintingRapport] = useState<any | null>(null);
+
+  // Créer des params de recherche corrects
+  const searchParams: SearchParams = {};
+  if (searchTerm) {
+    // On peut passer le terme de recherche via un paramètre personnalisé ou filtrer côté client
+    // Pour l'instant, on laisse le filtrage côté client
+  }
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['rapports', searchTerm],
-    queryFn: () => technicalService.getRapports({ search: searchTerm }),
+    queryKey: ['rapports'],
+    queryFn: () => technicalService.getRapports(),
   });
 
-  if (isLoading) {
+  // Filtrer les résultats côté client
+  const filteredRapports = (data || []).filter((rapport: any) => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Chargement des rapports...</div>
-      </div>
+      rapport.titre?.toLowerCase().includes(searchLower) ||
+      rapport.contenu?.toLowerCase().includes(searchLower) ||
+      rapport.redacteur?.nom?.toLowerCase().includes(searchLower) ||
+      rapport.redacteur?.prenom?.toLowerCase().includes(searchLower) ||
+      rapport.intervention?.titre?.toLowerCase().includes(searchLower)
     );
-  }
+  });
 
   if (error) {
     return (
@@ -35,7 +48,6 @@ export default function RapportsPage() {
         <div className="text-center">
           <p className="text-lg text-red-600 mb-2">Erreur lors du chargement des rapports</p>
           <p className="text-sm text-gray-600">{error instanceof Error ? error.message : 'Erreur inconnue'}</p>
-          <p className="text-xs text-gray-500 mt-2">Vérifiez que le service Technical backend est démarré</p>
         </div>
       </div>
     );
@@ -43,14 +55,21 @@ export default function RapportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      {printingRapport && (
+        <RapportPrint 
+          rapport={printingRapport} 
+          onClose={() => setPrintingRapport(null)} 
+        />
+      )}
+
+      <div className="no-print">
         <h1 className="text-3xl font-bold">Rapports d&apos;Intervention</h1>
         <p className="text-muted-foreground mt-2">
           Consulter les rapports d&apos;intervention et leurs photos
         </p>
       </div>
 
-      <Card>
+      <Card className="no-print">
         <CardHeader>
           <CardTitle>Rechercher un rapport</CardTitle>
         </CardHeader>
@@ -70,12 +89,12 @@ export default function RapportsPage() {
       </Card>
 
       {isLoading ? (
-        <div className="flex justify-center p-8">
-          <Spinner />
+        <div className="flex justify-center p-12 no-print">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data?.data?.map((rapport) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 no-print">
+          {filteredRapports.map((rapport: any) => (
             <Card key={rapport.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -85,42 +104,29 @@ export default function RapportsPage() {
                     </CardTitle>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      {new Date(rapport.createdAt).toLocaleDateString('fr-FR')}
+                      {new Date(rapport.dateCreation).toLocaleDateString('fr-FR')}
                     </div>
                   </div>
-                  {rapport.photos && rapport.photos.length > 0 && (
-                    <Badge variant="secondary">
-                      {rapport.photos.length} photo{rapport.photos.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
+                  <Badge variant="outline">
+                    {rapport.status}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm font-medium">Travaux effectués</p>
+                    <p className="text-sm font-medium">Titre</p>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {rapport.workDone}
+                      {rapport.titre}
                     </p>
                   </div>
 
-                  {rapport.issuesFound && (
-                    <div>
-                      <p className="text-sm font-medium text-orange-600">Problèmes rencontrés</p>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {rapport.issuesFound}
-                      </p>
-                    </div>
-                  )}
-
-                  {rapport.recommendations && (
-                    <div>
-                      <p className="text-sm font-medium text-blue-600">Recommandations</p>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {rapport.recommendations}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-sm font-medium">Rédacteur</p>
+                    <p className="text-sm text-muted-foreground">
+                      {rapport.redacteur?.prenom} {rapport.redacteur?.nom}
+                    </p>
+                  </div>
 
                   <div className="flex gap-2 pt-4">
                     <Button
@@ -135,12 +141,9 @@ export default function RapportsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        // TODO: Implémenter le téléchargement PDF
-                        console.log('Télécharger PDF rapport', rapport.id);
-                      }}
+                      onClick={() => setPrintingRapport(rapport)}
                     >
-                      <Download className="h-4 w-4" />
+                      <Printer className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -150,8 +153,8 @@ export default function RapportsPage() {
         </div>
       )}
 
-      {!isLoading && data?.data?.length === 0 && (
-        <Card>
+      {!isLoading && filteredRapports.length === 0 && (
+        <Card className="no-print">
           <CardContent className="text-center py-12">
             <p className="text-muted-foreground">Aucun rapport d&apos;intervention trouvé</p>
           </CardContent>
@@ -164,6 +167,7 @@ export default function RapportsPage() {
             <RapportDetailView
               rapportId={selectedRapportId}
               onClose={() => setSelectedRapportId(null)}
+              onPrint={(rapport) => setPrintingRapport(rapport)}
             />
           )}
         </DialogContent>
@@ -172,8 +176,7 @@ export default function RapportsPage() {
   );
 }
 
-// Composant inline pour afficher les détails du rapport
-function RapportDetailView({ rapportId, onClose }: { rapportId: string; onClose: () => void }) {
+function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string; onClose: () => void; onPrint: (rapport: any) => void }) {
   const { data: rapport, isLoading, error } = useQuery({
     queryKey: ['rapport', rapportId],
     queryFn: () => technicalService.getRapport(rapportId),
@@ -183,32 +186,31 @@ function RapportDetailView({ rapportId, onClose }: { rapportId: string; onClose:
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Spinner />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error || !rapport) {
     return (
-      <Alert variant="destructive">
+      <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
         <AlertCircle className="h-4 w-4" />
-        <span className="ml-2">Erreur lors du chargement du rapport</span>
-      </Alert>
+        <span>Erreur lors du chargement du rapport</span>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
       <div className="flex items-start justify-between border-b pb-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            Rapport d&apos;Intervention #{rapport.id.slice(0, 8)}
+            {rapport.titre}
           </h2>
           <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            {new Date(rapport.createdAt).toLocaleDateString('fr-FR', {
+            {new Date(rapport.dateCreation).toLocaleDateString('fr-FR', {
               day: 'numeric',
               month: 'long',
               year: 'numeric',
@@ -222,75 +224,71 @@ function RapportDetailView({ rapportId, onClose }: { rapportId: string; onClose:
         </Button>
       </div>
 
-      {/* Travaux effectués */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <CheckCircle className="h-5 w-5 text-green-600" />
-          <h3 className="text-lg font-semibold">Travaux Effectués</h3>
+          <h3 className="text-lg font-semibold">Contenu</h3>
         </div>
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-          <p className="whitespace-pre-wrap">{rapport.workDone || 'Non renseigné'}</p>
+          <p className="whitespace-pre-wrap">{rapport.contenu}</p>
         </div>
       </div>
 
-      {/* Problèmes rencontrés */}
-      {rapport.issuesFound && (
+      {rapport.conclusions && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-600" />
-            <h3 className="text-lg font-semibold">Problèmes Rencontrés</h3>
+            <h3 className="text-lg font-semibold">Conclusions</h3>
           </div>
           <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
-            <p className="whitespace-pre-wrap">{rapport.issuesFound}</p>
+            <p className="whitespace-pre-wrap">{rapport.conclusions}</p>
           </div>
         </div>
       )}
 
-      {/* Recommandations */}
-      {rapport.recommendations && (
+      {rapport.recommandations && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-600" />
             <h3 className="text-lg font-semibold">Recommandations</h3>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="whitespace-pre-wrap">{rapport.recommendations}</p>
+            <p className="whitespace-pre-wrap">{rapport.recommandations}</p>
           </div>
         </div>
       )}
 
-      {/* Photos */}
-      {rapport.photos && rapport.photos.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Photos ({rapport.photos.length})</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {rapport.photos.map((photo: any, index: number) => (
-              <div key={index} className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-                {typeof photo === 'string' ? (
-                  <img 
-                    src={photo} 
-                    alt={`Photo ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                    Photo {index + 1}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+      <div className="grid grid-cols-2 gap-6 text-sm">
+        <div>
+          <p className="font-semibold text-muted-foreground">Statut</p>
+          <Badge variant="outline" className="mt-1">
+            {rapport.status}
+          </Badge>
         </div>
-      )}
+        <div>
+          <p className="font-semibold text-muted-foreground">Rédacteur</p>
+          <p className="mt-1">
+            {rapport.redacteur?.prenom} {rapport.redacteur?.nom}
+          </p>
+        </div>
+        {rapport.intervention && (
+          <>
+            <div>
+              <p className="font-semibold text-muted-foreground">Intervention</p>
+              <p className="mt-1">{rapport.intervention?.titre}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-muted-foreground">Mission</p>
+              <p className="mt-1">{rapport.intervention?.mission?.titre}</p>
+            </div>
+          </>
+        )}
+      </div>
 
-      {/* Actions */}
       <div className="flex gap-3 pt-4 border-t">
-        <Button className="flex-1" onClick={() => {
-          // TODO: Implémenter impression PDF
-          console.log('Imprimer rapport', rapportId);
-        }}>
-          <Download className="h-4 w-4 mr-2" />
-          Télécharger PDF
+        <Button className="flex-1" onClick={() => onPrint(rapport)}>
+          <Printer className="h-4 w-4 mr-2" />
+          Imprimer le Rapport
         </Button>
         <Button variant="outline" onClick={onClose}>
           Fermer

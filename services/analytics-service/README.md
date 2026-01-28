@@ -92,6 +92,7 @@ Service de gestion des analytics, rapports, dashboards et KPIs.
 ```bash
 npm install
 npx prisma generate
+npm start
 npx prisma migrate dev
 npm start
 ```
