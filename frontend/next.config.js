@@ -44,10 +44,8 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Fix monorepo / multiple lockfiles
-  turbopack: {
-    root: __dirname,
-  },
+  // Ajoutez ceci pour le problème de lockfile
+  outputFileTracingRoot: __dirname,
 };
 
 module.exports = nextConfig;

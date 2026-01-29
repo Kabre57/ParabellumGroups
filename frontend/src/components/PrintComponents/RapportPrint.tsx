@@ -581,21 +581,6 @@ export default function RapportPrint({ rapport, onClose }: RapportPrintProps) {
       Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D&apos;IVOIRE
     </p>
   </div>
-  <div className="mt-1 pt-1 border-t border-gray-200">
-    <p className="font-bold">PARABELLUM GROUP ERP - Version 1.0.0</p>
-    <p className="text-[9px]">
-      Document généré le {new Date().toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })} • Référence : {rapport.id.slice(0, 8).toUpperCase()}
-    </p>
-    <p className="text-[9px] italic">
-      Localhost:3000/dashboard/technical/rapports • Page 1/1
-    </p>
-  </div>
 </div>
       </div>
     </div>
