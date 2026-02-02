@@ -7,98 +7,698 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==================== ENUMS ====================
+enum EtatProspect {
+  PREPARATION
+  RECHERCHE
+  CONTACT_INITIAL
+  DECOUVERTE
+  PROPOSITION
+  NEGOCIATION
+  GAGNE
+  PERDU
+  MISE_EN_ATTENTE
+}
+
+enum PrioriteProspect {
+  A
+  B
+  C
+  D
+}
+
+enum SourceProspect {
+  APPEL_SORTANT
+  APPEL_ENTRANT
+  EMAIL
+  SITE_WEB
+  RESEAUX_SOCIAUX
+  SALON
+  PARTENAIRE
+  RECOMMANDATION
+  CAMPAGNE
+  BASE_ACHETEE
+  AUTRE
+}
+
+enum TypeActivite {
+  APPEL
+  EMAIL
+  REUNION
+  VISITE
+  DEMONSTRATION
+  PRESENTATION
+  PROPOSITION
+  SUIVI
+  RELANCE
+}
+
+enum ResultatActivite {
+  POSITIF
+  NEUTRE
+  NEGATIF
+  A_RELANCER
+  A_SUIVRE
+  TERMINE
+  REPORTE
+  ANNULE
+}
+
+// ==================== TABLES PRINCIPALES ====================
+
+// Table principale des prospects
 model Prospect {
+  // ===== IDENTIFIANT =====
   id                String              @id @default(uuid())
+  reference         String              @unique
+  
+  // ===== INFORMATIONS ENTREPRISE =====
   companyName       String
+  siret             String?             @unique
+  tvaIntra          String?             @unique
+  secteurActivite   String?
+  codeNAF           String?
+  
+  // ===== INFORMATIONS CONTACT =====
   contactName       String
+  civilite          String?
   position          String?
-  email             String?
+  email             String?             @unique
+  emailSecondaire   String?
   phone             String?
+  mobile            String?
+  linkedin          String?
+  
+  // ===== INFORMATIONS GEOGRAPHIQUES =====
+  address           String?
+  address2          String?
+  postalCode        String?
+  city              String?
+  region            String?
+  country           String              @default("cote d\'ivoire")
+  
+  // ===== INFORMATIONS ENTREPRISE =====
   website           String?
-  sector            String?
   employees         Int?
   revenue           Float?
-  address           String?
-  city              String?
-  postalCode        String?
-  country           String              @default("France")
+  revenueRange      String?             // "1M-5M", "5M-10M", etc.
+  foundedYear       Int?
   
-  stage             String              @default("preparation")
-  priority          String              @default("C")
+  // ===== SUIVI COMMERCIAL =====
+  stage             EtatProspect        @default(PREPARATION)
+  priorite          PrioriteProspect    @default(C)
   score             Int                 @default(0)
+  source            SourceProspect?
   
-  source            String?
+  // ===== ASSIGNATION =====
   assignedToId      String?
+  assignedAt        DateTime?
+  assignedBy        String?
   
+  // ===== POTENTIEL =====
   potentialValue    Float?
-  closingProbability Float?
+  potentialValueRange String?           // "10K-50K", "50K-100K", etc.
+  closingProbability Int?               // 0-100
   estimatedCloseDate DateTime?
+  budgetAllocated   Boolean?            @default(false)
+  decisionMaker     Boolean?            @default(false)
+  decisionTimeframe String?             // "1M", "3M", "6M", "1Y"
   
+  // ===== CONTENU =====
   notes             String?
   tags              String[]            @default([])
+  customFields      Json?               // Champs personnalisés
+  documents         String[]            // Références aux documents
   
+  // ===== CONVERSION =====
   isConverted       Boolean             @default(false)
   convertedAt       DateTime?
-  customerId        String?
+  convertedBy       String?
+  customerId        String?             @unique
+  conversionReason  String?             // Raison de la conversion
   
+  // ===== DATES =====
+  firstContactDate  DateTime?
+  lastContactDate   DateTime?
+  nextActivityDate  DateTime?
+  lastActivityDate  DateTime?
+  
+  // ===== RELATIONS =====
+  activities        ProspectActivity[]
+  documentsRel      DocumentProspect[]
+  notesRel          NoteProspect[]
+  competitors       CompetitorProspect[]
+  history           ProspectHistory[]
+  
+  // ===== METADONNEES =====
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  
-  activities        ProspectActivity[]
+  createdBy         String?
+  updatedBy         String?
+  version           Int                 @default(1)
   
   @@map("prospects")
   @@index([stage])
+  @@index([priorite])
   @@index([assignedToId])
   @@index([isConverted])
+  @@index([source])
+  @@index([createdAt])
+  @@index([nextActivityDate])
+  @@index([secteurActivite])
 }
 
+// Table des activités de prospection
 model ProspectActivity {
   id                String              @id @default(uuid())
   prospectId        String
-  type              String
+  type              TypeActivite
   subject           String
   description       String?
-  outcome           String?
+  outcome           ResultatActivite?
+  notes             String?
+  
+  // Dates
   scheduledAt       DateTime?
+  startedAt         DateTime?
   completedAt       DateTime?
-  duration          Int?
+  duration          Int?               // En minutes
   
-  createdById       String
+  // Participants
+  participants      String[]           // IDs ou emails
+  location          String?            // Lieu ou lien de visio
   
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
+  // Relations
   prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  nextActivity      ProspectActivity?   @relation("ActivityFollowUp")
+  previousActivity  ProspectActivity?   @relation("ActivityFollowUp")
+  documents         DocumentProspect[]
+  
+  // Métadonnées
+  createdById       String
+  priority          String?            @default("NORMAL")
+  tags              String[]
+  isCompleted       Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   
   @@map("prospect_activities")
   @@index([prospectId])
   @@index([type])
   @@index([scheduledAt])
+  @@index([completedAt])
+  @@index([createdById])
+  @@index([isCompleted])
 }
 
+// Table des documents prospects
+model DocumentProspect {
+  id                String              @id @default(uuid())
+  prospectId        String?
+  activityId        String?
+  type              String              // "PROPOSITION", "DEVIS", "PRESENTATION", etc.
+  name              String
+  description       String?
+  filePath          String
+  fileSize          Int
+  mimeType          String
+  version           String              @default("1.0")
+  isLatest          Boolean             @default(true)
+  
+  // Relations
+  prospect          Prospect?           @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  activity          ProspectActivity?   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  uploadedById      String
+  uploadedAt        DateTime            @default(now())
+  tags              String[]
+  accessLevel       String              @default("PRIVATE") // "PUBLIC", "TEAM", "PRIVATE"
+  
+  @@map("prospect_documents")
+  @@index([prospectId])
+  @@index([activityId])
+  @@index([type])
+  @@index([uploadedAt])
+}
+
+// Table des notes prospects
+model NoteProspect {
+  id                String              @id @default(uuid())
+  prospectId        String
+  title             String
+  content           String
+  type              String              @default("INTERNAL") // "MEETING", "CALL", "EMAIL", "INTERNAL"
+  isPrivate         Boolean             @default(true)
+  
+  // Relations
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  createdById       String
+  tags              String[]
+  reminderAt        DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("prospect_notes")
+  @@index([prospectId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@index([reminderAt])
+}
+
+// Table des concurrents par prospect
+model CompetitorProspect {
+  id                String              @id @default(uuid())
+  prospectId        String
+  competitorName    String
+  competitorStrength String?            // Forces du concurrent
+  competitorWeakness String?           // Faiblesses du concurrent
+  competitorPrice   String?            // "LOWER", "SAME", "HIGHER"
+  competitorStatus  String?            // "ACTIVE", "INACTIVE", "POTENTIAL"
+  
+  // Relations
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("prospect_competitors")
+  @@index([prospectId])
+  @@index([competitorName])
+}
+
+// Table d'historique des prospects
+model ProspectHistory {
+  id                String              @id @default(uuid())
+  prospectId        String
+  fieldChanged      String
+  oldValue          String?
+  newValue          String?
+  changeType        String              // "UPDATE", "STATUS_CHANGE", "ASSIGNMENT"
+  
+  // Relations
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  changedById       String
+  changedAt         DateTime            @default(now())
+  ipAddress         String?
+  userAgent         String?
+  
+  @@map("prospect_history")
+  @@index([prospectId])
+  @@index([changedAt])
+  @@index([fieldChanged])
+}
+
+// Table des statistiques de prospection
 model ProspectionStats {
   id                String              @id @default(uuid())
   date              DateTime            @default(now())
+  period            String              @default("DAILY") // "DAILY", "WEEKLY", "MONTHLY"
+  userId            String?
+  teamId            String?
   
+  // Totaux
   totalProspects    Int                 @default(0)
   newProspects      Int                 @default(0)
   qualifiedProspects Int                @default(0)
   convertedProspects Int                @default(0)
+  lostProspects     Int                 @default(0)
   
+  // Par étape
   byStagePreparation Int                @default(0)
   byStageResearch   Int                 @default(0)
   byStageContact    Int                 @default(0)
   byStageDiscovery  Int                 @default(0)
   byStageProposal   Int                 @default(0)
+  byStageNegotiation Int                @default(0)
   byStageWon        Int                 @default(0)
   byStageLost       Int                 @default(0)
   
+  // Métriques
   conversionRate    Float               @default(0)
   averageScore      Float               @default(0)
+  averageTimeInStage Json?              // Temps moyen par étape
+  activityCount     Int                 @default(0)
+  emailCount        Int                 @default(0)
+  callCount         Int                 @default(0)
+  meetingCount      Int                 @default(0)
   
+  // Valeur
+  totalPotentialValue Float             @default(0)
+  averageDealSize    Float              @default(0)
+  wonValue           Float              @default(0)
+  lostValue          Float              @default(0)
+  
+  // Métadonnées
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   
   @@map("prospection_stats")
+  @@unique([date, period, userId])
   @@index([date])
+  @@index([period])
+  @@index([userId])
+  @@index([teamId])
+}
+
+// Table des campagnes de prospection
+model ProspectionCampaign {
+  id                String              @id @default(uuid())
+  name              String
+  description       String?
+  type              String              // "EMAIL", "CALL", "SOCIAL", "MULTI"
+  status            String              @default("DRAFT") // "DRAFT", "ACTIVE", "PAUSED", "COMPLETED"
+  
+  // Période
+  startDate         DateTime?
+  endDate           DateTime?
+  scheduledAt       DateTime?
+  
+  // Ciblage
+  targetCriteria    Json?               // Critères de ciblage
+  targetCount       Int                 @default(0)
+  
+  // Résultats
+  sentCount         Int                 @default(0)
+  openedCount       Int                 @default(0)
+  repliedCount      Int                 @default(0)
+  convertedCount    Int                 @default(0)
+  
+  // Contenu
+  templateId        String?
+  subject           String?
+  content           String?
+  attachments       String[]
+  
+  // Relations
+  prospects         CampaignProspect[]
+  
+  // Métadonnées
+  createdById       String
+  teamId            String?
+  budget            Float?
+  tags              String[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("prospection_campaigns")
+  @@index([status])
+  @@index([startDate])
+  @@index([createdById])
+  @@index([type])
+}
+
+// Table de liaison campagne-prospect
+model CampaignProspect {
+  id                String              @id @default(uuid())
+  campaignId        String
+  prospectId        String
+  status            String              @default("PENDING") // "PENDING", "SENT", "OPENED", "REPLIED", "CONVERTED"
+  sentAt            DateTime?
+  openedAt          DateTime?
+  repliedAt         DateTime?
+  convertedAt       DateTime?
+  
+  // Suivi
+  openCount         Int                 @default(0)
+  lastOpenedAt      DateTime?
+  replyContent      String?
+  bounceReason      String?
+  
+  // Relations
+  campaign          ProspectionCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("campaign_prospects")
+  @@unique([campaignId, prospectId])
+  @@index([campaignId])
+  @@index([prospectId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+// Table des modèles d'email/templates
+model EmailTemplate {
+  id                String              @id @default(uuid())
+  name              String
+  subject           String
+  content           String
+  type              String              @default("PROSPECTION") // "PROSPECTION", "FOLLOWUP", "MEETING", "PROPOSAL"
+  category          String?
+  isActive          Boolean             @default(true)
+  
+  // Variables
+  variables         String[]            // Variables disponibles {{nom}}, {{entreprise}}, etc.
+  previewText       String?
+  
+  // Métadonnées
+  createdById       String
+  usedCount         Int                 @default(0)
+  lastUsedAt        DateTime?
+  tags              String[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("email_templates")
+  @@index([type])
+  @@index([isActive])
+  @@index([category])
+}
+
+// Table des séquences de prospection
+model ProspectionSequence {
+  id                String              @id @default(uuid())
+  name              String
+  description       String?
+  isActive          Boolean             @default(true)
+  totalSteps        Int                 @default(0)
+  estimatedDuration Int?                // En jours
+  
+  // Relations
+  steps             SequenceStep[]
+  assignedProspects SequenceAssignment[]
+  
+  // Métadonnées
+  createdById       String
+  tags              String[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("prospection_sequences")
+  @@index([isActive])
+  @@index([createdById])
+}
+
+// Table des étapes de séquence
+model SequenceStep {
+  id                String              @id @default(uuid())
+  sequenceId        String
+  stepNumber        Int
+  actionType        String              // "EMAIL", "CALL", "WAIT", "TASK"
+  name              String
+  description       String?
+  
+  // Configuration
+  templateId        String?             // Pour les emails
+  delayDays         Int                 @default(1) // Jours d'attente avant l'étape
+  delayType         String              @default("AFTER_PREVIOUS") // "AFTER_PREVIOUS", "AFTER_START"
+  conditions        Json?               // Conditions pour exécuter l'étape
+  
+  // Relations
+  sequence          ProspectionSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("sequence_steps")
+  @@unique([sequenceId, stepNumber])
+  @@index([sequenceId])
+  @@index([stepNumber])
+}
+
+// Table d'assignation des séquences
+model SequenceAssignment {
+  id                String              @id @default(uuid())
+  sequenceId        String
+  prospectId        String
+  status            String              @default("ACTIVE") // "ACTIVE", "PAUSED", "COMPLETED", "STOPPED"
+  currentStep       Int                 @default(1)
+  startedAt         DateTime            @default(now())
+  completedAt       DateTime?
+  pausedAt          DateTime?
+  
+  // Suivi
+  lastActivityAt    DateTime?
+  nextStepScheduledAt DateTime?
+  completedSteps    Int                 @default(0)
+  
+  // Relations
+  sequence          ProspectionSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  activities        SequenceActivity[]
+  
+  // Métadonnées
+  assignedById      String
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("sequence_assignments")
+  @@unique([sequenceId, prospectId])
+  @@index([sequenceId])
+  @@index([prospectId])
+  @@index([status])
+  @@index([nextStepScheduledAt])
+}
+
+// Table des activités de séquence
+model SequenceActivity {
+  id                String              @id @default(uuid())
+  assignmentId      String
+  stepId            String
+  stepNumber        Int
+  actionType        String
+  status            String              @default("PENDING") // "PENDING", "SENT", "COMPLETED", "SKIPPED"
+  
+  // Exécution
+  scheduledAt       DateTime?
+  executedAt        DateTime?
+  executedById      String?
+  result            String?
+  notes             String?
+  
+  // Relations
+  assignment        SequenceAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  step              SequenceStep        @relation(fields: [stepId], references: [id])
+  
+  // Métadonnées
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("sequence_activities")
+  @@index([assignmentId])
+  @@index([stepId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+// Table des objectifs commerciaux
+model SalesTarget {
+  id                String              @id @default(uuid())
+  userId            String?
+  teamId            String?
+  period            String              // "MONTHLY", "QUARTERLY", "YEARLY"
+  year              Int
+  month             Int?                // 1-12
+  quarter           Int?                // 1-4
+  
+  // Objectifs
+  targetProspects   Int                 @default(0)
+  targetMeetings    Int                 @default(0)
+  targetProposals   Int                 @default(0)
+  targetConversions Int                 @default(0)
+  targetRevenue     Float               @default(0)
+  
+  // Réalisations
+  actualProspects   Int                 @default(0)
+  actualMeetings    Int                 @default(0)
+  actualProposals   Int                 @default(0)
+  actualConversions Int                 @default(0)
+  actualRevenue     Float               @default(0)
+  
+  // Calculés
+  completionRate    Float               @default(0)
+  
+  // Métadonnées
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("sales_targets")
+  @@unique([userId, teamId, period, year, month, quarter])
+  @@index([userId])
+  @@index([teamId])
+  @@index([period])
+  @@index([year, month])
+  @@index([isActive])
+}
+
+// Table de reporting avancé
+model AdvancedReport {
+  id                String              @id @default(uuid())
+  name              String
+  description       String?
+  type              String              // "PERFORMANCE", "CONVERSION", "ACTIVITY", "REVENUE"
+  filters           Json?
+  groupBy           String[]
+  metrics           String[]
+  period            String              // "DAILY", "WEEKLY", "MONTHLY", "CUSTOM"
+  
+  // Planification
+  isScheduled       Boolean             @default(false)
+  scheduleFrequency String?             // "DAILY", "WEEKLY", "MONTHLY"
+  scheduleDay       Int?                // Jour de la semaine/mois
+  scheduleTime      String?             // Heure d'envoi
+  
+  // Destinataires
+  recipients        String[]            // Emails des destinataires
+  
+  // Métadonnées
+  createdById       String
+  isActive          Boolean             @default(true)
+  lastGeneratedAt   DateTime?
+  tags              String[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@map("advanced_reports")
+  @@index([type])
+  @@index([isActive])
+  @@index([createdById])
+}
+
+// Table de synchronisation avec le CRM
+model SyncCRM {
+  id                String              @id @default(uuid())
+  prospectId        String
+  clientId          String?
+  direction         String              @default("TO_CRM") // "TO_CRM", "FROM_CRM"
+  status            String              @default("PENDING") // "PENDING", "SYNCED", "FAILED"
+  
+  // Données
+  data              Json?
+  changes           Json?               // Différences détectées
+  
+  // Tentatives
+  attempts          Int                 @default(0)
+  lastAttemptAt     DateTime?
+  errorMessage      String?
+  errorDetails      Json?
+  
+  // Relations
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  // Métadonnées
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  syncedAt          DateTime?
+  
+  @@map("sync_crm")
+  @@index([prospectId])
+  @@index([clientId])
+  @@index([status])
+  @@index([direction])
+  @@index([createdAt])
 }

@@ -99,7 +99,7 @@ Ouvre l'interface sur `http://localhost:5555`
 
 ## Modèles de Données
 
-- **Specialite** : Spécialités techniques (Électricité, Plomberie, etc.)
+- **Specialite** : Spécialités techniques
 - **Technicien** : Techniciens avec compétences et certifications
 - **Mission** : Missions client avec numéro auto-généré (MIS-YYYYMM-NNNN)
 - **Intervention** : Interventions techniques sur une mission

@@ -257,7 +257,7 @@ function LocalizationSettings() {
           <div>
             <label className="block text-sm font-medium mb-2">Langue</label>
             <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-              <option>Français (France)</option>
+              <option>Français (cote d\'ivoire)</option>
               <option>English (US)</option>
               <option>Español (España)</option>
             </select>
@@ -273,6 +273,7 @@ function LocalizationSettings() {
           <div>
             <label className="block text-sm font-medium mb-2">Devise</label>
             <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
+              <option>XOF (Xof)</option>
               <option>EUR (Euro)</option>
               <option>USD (Dollar)</option>
               <option>GBP (Livre)</option>

@@ -1,0 +1,1744 @@
+{
+  "info": {
+    "name": "CRM Service API",
+    "description": "API complète de gestion CRM - Clients, Contacts, Contrats, etc.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "📊 Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/health",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API Documentation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api-docs",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api-docs"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👥 Clients",
+      "item": [
+        {
+          "name": "GET - Liste des clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients?page=1&limit=10&status=ACTIF",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIF"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"TechnoSoft Solutions\",\n  \"raisonSociale\": \"TechnoSoft Solutions SAS\",\n  \"email\": \"contact@technosoft.fr\",\n  \"telephone\": \"0123456789\",\n  \"typeClientId\": \"{{type_client_id}}\",\n  \"secteurActiviteId\": \"{{secteur_id}}\",\n  \"status\": \"PROSPECT\",\n  \"source\": \"RECOMMANDATION\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Rechercher clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/search?q=techno",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "techno"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Statistiques clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/stats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Client par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{client_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour client",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"TechnoSoft Solutions Mise à jour\",\n  \"email\": \"contact@technosoft.fr\",\n  \"priorite\": \"HAUTE\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{client_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Mettre à jour statut",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIF\",\n  \"raison\": \"Client converti\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{client_id}}/status",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{client_id}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Mettre à jour priorité",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priorite\": \"CRITIQUE\",\n  \"raison\": \"Projet urgent\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{client_id}}/priority",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{client_id}}", "priority"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Archiver client",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{client_id}}/archive",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{client_id}}", "archive"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📇 Contacts",
+      "item": [
+        {
+          "name": "GET - Liste des contacts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts?clientId={{client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"civilite\": \"M.\",\n  \"nom\": \"Dupont\",\n  \"prenom\": \"Jean\",\n  \"email\": \"jean.dupont@technosoft.fr\",\n  \"telephone\": \"0123456789\",\n  \"poste\": \"Directeur Technique\",\n  \"type\": \"TECHNIQUE\",\n  \"principal\": true\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Contact par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{contact_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{contact_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour contact",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Dupont\",\n  \"prenom\": \"Jean-Paul\",\n  \"email\": \"jeanpaul.dupont@technosoft.fr\",\n  \"poste\": \"Directeur Général\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{contact_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{contact_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer contact",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{contact_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{contact_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Définir comme principal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"principal\": true\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{contact_id}}/principal",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{contact_id}}", "principal"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📄 Contrats",
+      "item": [
+        {
+          "name": "GET - Liste des contrats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats?clientId={{client_id}}&status=ACTIF",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIF"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un contrat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"titre\": \"Contrat de maintenance premium\",\n  \"description\": \"Contrat de maintenance annuelle avec support 24/7\",\n  \"typeContrat\": \"MAINTENANCE\",\n  \"dateDebut\": \"2024-01-01T00:00:00.000Z\",\n  \"dateFin\": \"2024-12-31T23:59:59.999Z\",\n  \"montantHT\": 15000,\n  \"tauxTVA\": 20,\n  \"devise\": \"EUR\",\n  \"status\": \"ACTIF\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Statistiques contrats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/stats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Contrats expirant bientôt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/expiring?days=30",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "expiring"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Contrat par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{contrat_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{contrat_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Mettre à jour statut contrat",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDU\",\n  \"motif\": \"Paiement en retard\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{contrat_id}}/status",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{contrat_id}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un avenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Extension de la période de garantie\",\n  \"modifications\": {\n    \"garantie\": \"Prolongée de 12 à 24 mois\"\n  },\n  \"dateEffet\": \"2024-06-01T00:00:00.000Z\",\n  \"montantAdditionnel\": 2000\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{contrat_id}}/avenants",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{contrat_id}}", "avenants"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏠 Adresses",
+      "item": [
+        {
+          "name": "GET - Liste des adresses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses?clientId={{client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer une adresse",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"typeAdresse\": \"FACTURATION\",\n  \"ligne1\": \"12 Rue de la Technologie\",\n  \"codePostal\": \"75015\",\n  \"ville\": \"Paris\",\n  \"pays\": \"cote d\'ivoire\",\n  \"isPrincipal\": true\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Adresse par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{adresse_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{adresse_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour adresse",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ligne1\": \"15 Avenue des Champs-Élysées\",\n  \"codePostal\": \"75008\",\n  \"ville\": \"Paris\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{adresse_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{adresse_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer adresse",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{adresse_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{adresse_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Définir comme principale",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{adresse_id}}/principal",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{adresse_id}}", "principal"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💬 Interactions",
+      "item": [
+        {
+          "name": "GET - Liste des interactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions?clientId={{client_id}}&type=APPEL",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                },
+                {
+                  "key": "type",
+                  "value": "APPEL"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer une interaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"contactId\": \"{{contact_id}}\",\n  \"type\": \"APPEL\",\n  \"canal\": \"TELEPHONE\",\n  \"sujet\": \"Discussion sur le nouveau projet\",\n  \"description\": \"Appel pour discuter des spécifications du nouveau projet\",\n  \"dateInteraction\": \"2024-01-15T14:30:00.000Z\",\n  \"dureeMinutes\": 45,\n  \"resultat\": \"POSITIF\",\n  \"actionRequise\": \"Envoyer le devis\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Statistiques interactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/stats?clientId={{client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "stats"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Interaction par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{interaction_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{interaction_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour interaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sujet\": \"Discussion projet - Suite\",\n  \"resultat\": \"TERMINE\",\n  \"actionRequise\": \"Aucune\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{interaction_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{interaction_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer interaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{interaction_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{interaction_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Lier à une tâche",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tacheId\": \"{{tache_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{interaction_id}}/link-task",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{interaction_id}}", "link-task"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📎 Documents",
+      "item": [
+        {
+          "name": "GET - Liste des documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents?clientId={{client_id}}&typeDocument=CONTRAT",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                },
+                {
+                  "key": "typeDocument",
+                  "value": "CONTRAT"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Uploader un document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"typeDocument\": \"CONTRAT\",\n  \"nomFichier\": \"contrat_signé.pdf\",\n  \"chemin\": \"/documents/clients/contrats/contrat_signé.pdf\",\n  \"taille\": 2048000,\n  \"mimeType\": \"application/pdf\",\n  \"description\": \"Contrat signé par les deux parties\",\n  \"estValide\": true\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/upload",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Documents expirant bientôt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/expiring?days=30",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "expiring"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Document par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{document_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{document_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour document",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Contrat signé - Version finale\",\n  \"estValide\": true\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{document_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{document_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{document_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{document_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Mettre à jour validité",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estValide\": false,\n  \"raison\": \"Document périmé\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{document_id}}/validity",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{document_id}}", "validity"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🎯 Opportunités",
+      "item": [
+        {
+          "name": "GET - Liste des opportunités",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites?clientId={{client_id}}&etape=NEGOCIATION",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}"
+                },
+                {
+                  "key": "etape",
+                  "value": "NEGOCIATION"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer une opportunité",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"nom\": \"Migration vers le cloud\",\n  \"description\": \"Migration de l'infrastructure vers Azure\",\n  \"montantEstime\": 50000,\n  \"probabilite\": 70,\n  \"etape\": \"PROPOSITION\",\n  \"source\": \"APPEL_ENTRANT\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Pipeline statistiques",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/pipeline",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "pipeline"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Opportunité par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{opportunite_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{opportunite_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour opportunité",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"montantEstime\": 55000,\n  \"probabilite\": 80,\n  \"dateFermetureEstimee\": \"2024-03-15T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{opportunite_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{opportunite_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Changer étape",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"etape\": \"NEGOCIATION\",\n  \"notes\": \"Client intéressé, négociation en cours\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{opportunite_id}}/stage",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{opportunite_id}}", "stage"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Fermer opportunité",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"GAGNEE\",\n  \"montantFinal\": 52000\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{opportunite_id}}/close",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{opportunite_id}}", "close"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Ajouter produit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Serveur Azure VM\",\n  \"prixUnitaire\": 1000,\n  \"quantite\": 10,\n  \"tva\": 20\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{opportunite_id}}/products",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{opportunite_id}}", "products"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📋 Types de Clients",
+      "item": [
+        {
+          "name": "GET - Liste des types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STARTUP\",\n  \"libelle\": \"Startup\",\n  \"description\": \"Jeunes entreprises innovantes\",\n  \"couleur\": \"#8B5CF6\",\n  \"icone\": \"🚀\",\n  \"ordre\": 5\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Type par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{type_client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{type_client_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libelle\": \"Startup & Scale-up\",\n  \"description\": \"Jeunes entreprises innovantes en croissance\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{type_client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{type_client_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer type",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{type_client_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{type_client_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Activer/Désactiver type",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{type_client_id}}/toggle-active",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{type_client_id}}", "toggle-active"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏭 Secteurs d'Activité",
+      "item": [
+        {
+          "name": "GET - Liste des secteurs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Arbre des secteurs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs/tree",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs", "tree"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Créer un secteur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codeNAF\": \"62.03Z\",\n  \"libelle\": \"Gestion d'installations informatiques\",\n  \"description\": \"Gestion et exploitation d'installations informatiques\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Secteur par ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs/{{secteur_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs", "{{secteur_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT - Mettre à jour secteur",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libelle\": \"Services informatiques\",\n  \"description\": \"Services informatiques divers\"\n}"
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs/{{secteur_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs", "{{secteur_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Supprimer secteur",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "manager",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/secteurs/{{secteur_id}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "secteurs", "{{secteur_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "CUSTOMERS_SERVICE_URL",
+      "value": "http://localhost:4008",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    },
+    {
+      "key": "client_id",
+      "value": "",
+      "type": "string",
+      "description": "À remplir après avoir créé un client"
+    },
+    {
+      "key": "contact_id",
+      "value": "",
+      "type": "string",
+      "description": "À remplir après avoir créé un contact"
+    },
+    {
+      "key": "contrat_id",
+      "value": "",
+      "type": "string",
+      "description": "À remplir après avoir créé un contrat"
+    },
+    {
+      "key": "type_client_id",
+      "value": "",
+      "type": "string",
+      "description": "À remplir après avoir récupéré les types de clients"
+    },
+    {
+      "key": "secteur_id",
+      "value": "",
+      "type": "string",
+      "description": "À remplir après avoir récupéré les secteurs"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "console.log('Préparation de la requête...');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Status code is 200', function () {",
+          "    pm.response.to.have.status(200);",
+          "});",
+          "",
+          "pm.test('Response has JSON body', function () {",
+          "    pm.response.to.be.json;",
+          "});",
+          "",
+          "pm.test('Response contains success field', function () {",
+          "    var jsonData = pm.response.json();",
+          "    pm.expect(jsonData.success).to.be.true;",
+          "});"
+        ]
+      }
+    }
+  ]
+}

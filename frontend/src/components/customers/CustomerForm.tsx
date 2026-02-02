@@ -1,37 +1,34 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import customersService, { CustomerData } from '@/shared/api/services/customers';
-import { Customer } from '@/shared/api/types';
+import customersService, { Client, ClientData, TypeClient } from '@/shared/api/services/customers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 
-const customerSchema = z.object({
-  companyName: z.string().min(1, 'Le nom de l\'entreprise est requis'),
-  contactFirstName: z.string().min(1, 'Le prénom est requis'),
-  contactLastName: z.string().min(1, 'Le nom est requis'),
+const clientSchema = z.object({
+  nom: z.string().min(1, 'Le nom est requis'),
+  raisonSociale: z.string().optional(),
   email: z.string().email('Email invalide'),
-  phoneNumber: z.string().optional(),
+  telephone: z.string().optional(),
+  mobile: z.string().optional(),
+  siteWeb: z.string().optional(),
   siret: z.string().optional(),
-  vatNumber: z.string().optional(),
-  street: z.string().optional(),
-  city: z.string().optional(),
-  postalCode: z.string().optional(),
-  country: z.string().optional(),
-  isActive: z.boolean().default(true),
+  tvaIntra: z.string().optional(),
+  typeClientId: z.string().min(1, 'Le type de client est requis'),
+  status: z.string().default('PROSPECT'),
+  priorite: z.string().default('MOYENNE'),
 });
 
-type CustomerFormData = z.infer<typeof customerSchema>;
+type ClientFormData = z.infer<typeof clientSchema>;
 
 interface CustomerFormProps {
-  customer?: Customer;
+  customer?: Client;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -39,35 +36,46 @@ interface CustomerFormProps {
 export default function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!customer;
+  const [types, setTypes] = useState<TypeClient[]>([]);
+
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        const response = await customersService.getTypeClients();
+        setTypes(response.data);
+      } catch (error) {
+        console.error('Erreur lors du chargement des types de clients', error);
+      }
+    };
+    fetchTypes();
+  }, []);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch,
-  } = useForm<CustomerFormData>({
-    resolver: zodResolver(customerSchema),
+  } = useForm<ClientFormData>({
+    resolver: zodResolver(clientSchema),
     defaultValues: customer ? {
-      companyName: customer.companyName,
-      contactFirstName: customer.contactFirstName,
-      contactLastName: customer.contactLastName,
+      nom: customer.nom,
+      raisonSociale: customer.raisonSociale || '',
       email: customer.email,
-      phoneNumber: customer.phoneNumber || '',
+      telephone: customer.telephone || '',
+      mobile: customer.mobile || '',
+      siteWeb: customer.siteWeb || '',
       siret: customer.siret || '',
-      vatNumber: customer.vatNumber || '',
-      street: customer.address?.street || '',
-      city: customer.address?.city || '',
-      postalCode: customer.address?.postalCode || '',
-      country: customer.address?.country || '',
-      isActive: customer.isActive,
+      tvaIntra: customer.tvaIntra || '',
+      typeClientId: customer.typeClientId,
+      status: customer.status,
+      priorite: customer.priorite,
     } : {
-      isActive: true,
+      status: 'PROSPECT',
+      priorite: 'MOYENNE',
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CustomerData) => customersService.createCustomer(data),
+    mutationFn: (data: ClientData) => customersService.createCustomer(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       onSuccess?.();
@@ -75,7 +83,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: CustomerData) => customersService.updateCustomer(customer!.id, data),
+    mutationFn: (data: ClientData) => customersService.updateCustomer(customer!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer', customer!.id] });
@@ -83,28 +91,11 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
     },
   });
 
-  const onSubmit = (data: CustomerFormData) => {
-    const customerData: CustomerData = {
-      companyName: data.companyName,
-      contactFirstName: data.contactFirstName,
-      contactLastName: data.contactLastName,
-      email: data.email,
-      phoneNumber: data.phoneNumber,
-      siret: data.siret,
-      vatNumber: data.vatNumber,
-      isActive: data.isActive,
-      address: data.street ? {
-        street: data.street,
-        city: data.city || '',
-        postalCode: data.postalCode || '',
-        country: data.country || '',
-      } : undefined,
-    };
-
+  const onSubmit = (data: ClientFormData) => {
     if (isEditing) {
-      updateMutation.mutate(customerData);
+      updateMutation.mutate(data as ClientData);
     } else {
-      createMutation.mutate(customerData);
+      createMutation.mutate(data as ClientData);
     }
   };
 
@@ -113,19 +104,125 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Informations de l'entreprise</h3>
+        <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <Label htmlFor="companyName">Nom de l'entreprise *</Label>
+            <Label htmlFor="nom">Nom / Nom de l'entreprise *</Label>
             <Input
-              id="companyName"
-              {...register('companyName')}
-              placeholder="Acme Corporation"
+              id="nom"
+              {...register('nom')}
+              placeholder="Acme Corp ou Jean Dupont"
               className="mt-1"
             />
-            {errors.companyName && (
-              <p className="text-sm text-red-500 mt-1">{errors.companyName.message}</p>
+            {errors.nom && (
+              <p className="text-sm text-red-500 mt-1">{errors.nom.message}</p>
             )}
+          </div>
+
+          <div>
+            <Label htmlFor="raisonSociale">Raison Sociale</Label>
+            <Input
+              id="raisonSociale"
+              {...register('raisonSociale')}
+              placeholder="SARL Acme"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="typeClientId">Type de client *</Label>
+            <select
+              id="typeClientId"
+              {...register('typeClientId')}
+              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+            >
+              <option value="">Sélectionner un type</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>{t.libelle}</option>
+              ))}
+            </select>
+            {errors.typeClientId && (
+              <p className="text-sm text-red-500 mt-1">{errors.typeClientId.message}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="status">Statut</Label>
+            <select
+              id="status"
+              {...register('status')}
+              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+            >
+              <option value="PROSPECT">Prospect</option>
+              <option value="ACTIF">Actif</option>
+              <option value="INACTIF">Inactif</option>
+              <option value="SUSPENDU">Suspendu</option>
+              <option value="LEAD_CHAUD">Lead Chaud</option>
+              <option value="LEAD_FROID">Lead Froid</option>
+            </select>
+          </div>
+
+          <div>
+            <Label htmlFor="priorite">Priorité</Label>
+            <select
+              id="priorite"
+              {...register('priorite')}
+              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+            >
+              <option value="BASSE">Basse</option>
+              <option value="MOYENNE">Moyenne</option>
+              <option value="HAUTE">Haute</option>
+              <option value="CRITIQUE">Critique</option>
+            </select>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Contact & Identifiants</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="email">Email *</Label>
+            <Input
+              id="email"
+              type="email"
+              {...register('email')}
+              placeholder="contact@example.com"
+              className="mt-1"
+            />
+            {errors.email && (
+              <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="telephone">Téléphone fixe</Label>
+            <Input
+              id="telephone"
+              {...register('telephone')}
+              placeholder="+33 1 23 45 67 89"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="mobile">Mobile</Label>
+            <Input
+              id="mobile"
+              {...register('mobile')}
+              placeholder="+33 6 12 34 56 78"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="siteWeb">Site Web</Label>
+            <Input
+              id="siteWeb"
+              {...register('siteWeb')}
+              placeholder="https://www.example.com"
+              className="mt-1"
+            />
           </div>
 
           <div>
@@ -139,115 +236,13 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
           </div>
 
           <div>
-            <Label htmlFor="vatNumber">TVA Intracommunautaire</Label>
+            <Label htmlFor="tvaIntra">TVA Intracommunautaire</Label>
             <Input
-              id="vatNumber"
-              {...register('vatNumber')}
+              id="tvaIntra"
+              {...register('tvaIntra')}
               placeholder="FR12345678901"
               className="mt-1"
             />
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Contact principal</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="contactFirstName">Prénom *</Label>
-            <Input
-              id="contactFirstName"
-              {...register('contactFirstName')}
-              placeholder="Jean"
-              className="mt-1"
-            />
-            {errors.contactFirstName && (
-              <p className="text-sm text-red-500 mt-1">{errors.contactFirstName.message}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="contactLastName">Nom *</Label>
-            <Input
-              id="contactLastName"
-              {...register('contactLastName')}
-              placeholder="Dupont"
-              className="mt-1"
-            />
-            {errors.contactLastName && (
-              <p className="text-sm text-red-500 mt-1">{errors.contactLastName.message}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="email">Email *</Label>
-            <Input
-              id="email"
-              type="email"
-              {...register('email')}
-              placeholder="jean.dupont@example.com"
-              className="mt-1"
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="phoneNumber">Téléphone</Label>
-            <Input
-              id="phoneNumber"
-              {...register('phoneNumber')}
-              placeholder="+33 1 23 45 67 89"
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Adresse</h3>
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <Label htmlFor="street">Rue</Label>
-            <Input
-              id="street"
-              {...register('street')}
-              placeholder="123 Rue de la Paix"
-              className="mt-1"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="postalCode">Code postal</Label>
-              <Input
-                id="postalCode"
-                {...register('postalCode')}
-                placeholder="75001"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="city">Ville</Label>
-              <Input
-                id="city"
-                {...register('city')}
-                placeholder="Paris"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="country">Pays</Label>
-              <Input
-                id="country"
-                {...register('country')}
-                placeholder="France"
-                className="mt-1"
-              />
-            </div>
           </div>
         </div>
       </Card>

@@ -8,19 +8,23 @@
     "dev": "nodemon server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js",
+    "test": "jest",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.js\""
   },
   "dependencies": {
-    "express": "4.18.2",
     "@prisma/client": "5.9.1",
-    "dotenv": "16.4.1",
     "cors": "2.8.5",
-    "helmet": "7.1.0",
+    "dotenv": "16.4.1",
+    "express": "^4.22.1",
     "express-validator": "7.0.1",
+    "helmet": "7.1.0",
     "winston": "3.11.0"
   },
   "devDependencies": {
-    "prisma": "5.9.1",
-    "nodemon": "3.0.2"
+    "nodemon": "3.0.2",
+    "prisma": "5.9.1"
   }
 }

@@ -1,0 +1,2109 @@
+{
+  "info": {
+    "_postman_id": "crm-service-collection",
+    "name": "CRM Service - Customers, Contacts & Contracts",
+    "description": "Collection complète pour tester le microservice CRM (Clients, Contacts, Contrats)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "parabellum-team"
+  },
+  "item": [
+    {
+      "name": "🏥 Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/health",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["health"]
+            },
+            "description": "Vérifie l'état du service CRM"
+          },
+          "response": []
+        },
+        {
+          "name": "API Documentation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api-docs",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api-docs"]
+            },
+            "description": "Récupère la documentation de l'API CRM"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👥 Clients",
+      "item": [
+        {
+          "name": "Get All Clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients?page=1&limit=10",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Récupère tous les clients avec pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/search?q=tech&limit=5",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "tech"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Recherche avancée de clients"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/stats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "stats"]
+            },
+            "description": "Récupère les statistiques clients"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('CLIENT_ID', jsonData.data.id);",
+                  "    console.log('Client créé avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"TechCorp Solutions\",\n  \"raisonSociale\": \"TechCorp Solutions SAS\",\n  \"email\": \"contact@techcorp.com\",\n  \"telephone\": \"0123456789\",\n  \"mobile\": \"0612345678\",\n  \"siteWeb\": \"https://www.techcorp.com\",\n  \"siret\": \"12345678901234\",\n  \"tvaIntra\": \"FR12345678901\",\n  \"typeClientId\": \"\",\n  \"status\": \"PROSPECT\",\n  \"priorite\": \"HAUTE\",\n  \"source\": \"SITE_WEB\",\n  \"chiffreAffaireAnnuel\": 1500000,\n  \"effectif\": 25,\n  \"commercialId\": \"{{USER_ID}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"]
+            },
+            "description": "Crée un nouveau client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{CLIENT_ID}}"]
+            },
+            "description": "Récupère un client par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Client",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"TechCorp Solutions Updated\",\n  \"email\": \"contact@techcorp-updated.com\",\n  \"telephone\": \"0987654321\",\n  \"priorite\": \"CRITIQUE\",\n  \"chiffreAffaireAnnuel\": 2000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{CLIENT_ID}}"]
+            },
+            "description": "Met à jour un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Client Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIF\",\n  \"raison\": \"Client validé après réunion\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{CLIENT_ID}}/status",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{CLIENT_ID}}", "status"]
+            },
+            "description": "Met à jour le statut d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Client Priority",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priorite\": \"CRITIQUE\",\n  \"raison\": \"Projet urgent à démarrer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{CLIENT_ID}}/priority",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{CLIENT_ID}}", "priority"]
+            },
+            "description": "Met à jour la priorité d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Archive Client",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raison\": \"Client inactif depuis plus d'un an\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/{{CLIENT_ID}}/archive",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "{{CLIENT_ID}}", "archive"]
+            },
+            "description": "Archive un client (soft delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📇 Contacts",
+      "item": [
+        {
+          "name": "Get All Contacts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère tous les contacts d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('CONTACT_ID', jsonData.data.id);",
+                  "    console.log('Contact créé avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"civilite\": \"M.\",\n  \"nom\": \"Martin\",\n  \"prenom\": \"Pierre\",\n  \"email\": \"pierre.martin@techcorp.com\",\n  \"telephone\": \"0123456790\",\n  \"mobile\": \"0623456789\",\n  \"poste\": \"Directeur Technique\",\n  \"departement\": \"IT\",\n  \"type\": \"TECHNIQUE\",\n  \"principal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts"]
+            },
+            "description": "Crée un nouveau contact"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Contact by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{CONTACT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{CONTACT_ID}}"]
+            },
+            "description": "Récupère un contact par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Contact",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Martin Updated\",\n  \"email\": \"pierre.martin-updated@techcorp.com\",\n  \"poste\": \"Directeur IT\",\n  \"type\": \"DIRECTION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{CONTACT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{CONTACT_ID}}"]
+            },
+            "description": "Met à jour un contact"
+          },
+          "response": []
+        },
+        {
+          "name": "Set Contact as Principal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"principal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{CONTACT_ID}}/principal",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{CONTACT_ID}}", "principal"]
+            },
+            "description": "Définit un contact comme principal"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Contact",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contacts/{{CONTACT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contacts", "{{CONTACT_ID}}"]
+            },
+            "description": "Supprime un contact"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📄 Contrats",
+      "item": [
+        {
+          "name": "Get All Contracts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère tous les contrats d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Contract Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/stats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "stats"]
+            },
+            "description": "Récupère les statistiques des contrats"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Expiring Contracts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/expiring?days=30",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "expiring"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Récupère les contrats expirant bientôt"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Contract",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('CONTRACT_ID', jsonData.data.id);",
+                  "    console.log('Contrat créé avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"titre\": \"Contrat de maintenance annuelle\",\n  \"description\": \"Maintenance des serveurs et support technique\",\n  \"typeContrat\": \"MAINTENANCE\",\n  \"dateDebut\": \"2024-01-01\",\n  \"dateFin\": \"2024-12-31\",\n  \"montantHT\": 25000,\n  \"tauxTVA\": 20,\n  \"devise\": \"EUR\",\n  \"status\": \"ACTIF\",\n  \"estRenouvelable\": true,\n  \"periodeRenouvellement\": \"1Y\",\n  \"dateProchainRenouvellement\": \"2024-12-01\",\n  \"preavisRenouvellement\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats"]
+            },
+            "description": "Crée un nouveau contrat"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Contract by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{CONTRACT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{CONTRACT_ID}}"]
+            },
+            "description": "Récupère un contrat par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Contract Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDU\",\n  \"motif\": \"Retard de paiement\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{CONTRACT_ID}}/status",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{CONTRACT_ID}}", "status"]
+            },
+            "description": "Met à jour le statut d'un contrat"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Contract Amendment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Extension des services de support\",\n  \"modifications\": {\n    \"servicesAjoutes\": [\"Support 24/7\", \"Formation supplémentaire\"],\n    \"montantAugmentation\": 5000\n  },\n  \"dateEffet\": \"2024-07-01\",\n  \"montantAdditionnel\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/contrats/{{CONTRACT_ID}}/avenants",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "contrats", "{{CONTRACT_ID}}", "avenants"]
+            },
+            "description": "Crée un avenant de contrat"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏠 Adresses",
+      "item": [
+        {
+          "name": "Get Client Addresses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère toutes les adresses d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Address",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('ADDRESS_ID', jsonData.data.id);",
+                  "    console.log('Adresse créée avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"typeAdresse\": \"SIEGE_SOCIAL\",\n  \"ligne1\": \"12 Rue de la Technologie\",\n  \"codePostal\": \"75015\",\n  \"ville\": \"Paris\",\n  \"pays\": \"cote d\'ivoire\",\n  \"isPrincipal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses"]
+            },
+            "description": "Crée une nouvelle adresse"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ligne1\": \"15 Avenue des Champs-Élysées\",\n  \"codePostal\": \"75008\",\n  \"ville\": \"Paris\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{ADDRESS_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{ADDRESS_ID}}"]
+            },
+            "description": "Met à jour une adresse"
+          },
+          "response": []
+        },
+        {
+          "name": "Set Address as Principal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{ADDRESS_ID}}/principal",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{ADDRESS_ID}}", "principal"]
+            },
+            "description": "Définit une adresse comme principale"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/adresses/{{ADDRESS_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "adresses", "{{ADDRESS_ID}}"]
+            },
+            "description": "Supprime une adresse"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💬 Interactions",
+      "item": [
+        {
+          "name": "Get Client Interactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère toutes les interactions d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Interaction Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/stats",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "stats"]
+            },
+            "description": "Récupère les statistiques des interactions"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Interaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('INTERACTION_ID', jsonData.data.id);",
+                  "    console.log('Interaction créée avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"contactId\": \"{{CONTACT_ID}}\",\n  \"type\": \"REUNION\",\n  \"canal\": \"EN_PERSONNE\",\n  \"sujet\": \"Présentation des nouveaux services\",\n  \"description\": \"Réunion de présentation des services cloud\",\n  \"dateInteraction\": \"2024-02-15T10:00:00\",\n  \"dureeMinutes\": 90,\n  \"resultat\": \"POSITIF\",\n  \"actionRequise\": \"Envoyer devis dans les 48h\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions"]
+            },
+            "description": "Crée une nouvelle interaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Interaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{INTERACTION_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{INTERACTION_ID}}"]
+            },
+            "description": "Récupère une interaction par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Interaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sujet\": \"Présentation services cloud - Suite\",\n  \"resultat\": \"TERMINE\",\n  \"description\": \"Réunion terminée avec succès, devis envoyé\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{INTERACTION_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{INTERACTION_ID}}"]
+            },
+            "description": "Met à jour une interaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Interaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/interactions/{{INTERACTION_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "interactions", "{{INTERACTION_ID}}"]
+            },
+            "description": "Supprime une interaction"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📎 Documents",
+      "item": [
+        {
+          "name": "Get Client Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère tous les documents d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Expiring Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/expiring?days=30",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "expiring"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Récupère les documents expirant bientôt"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('DOCUMENT_ID', jsonData.data.id);",
+                  "    console.log('Document créé avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"typeDocument\": \"CONTRAT\",\n  \"nomFichier\": \"contrat_maintenance.pdf\",\n  \"chemin\": \"/documents/clients/techcorp/contrats/maintenance.pdf\",\n  \"taille\": 2457600,\n  \"mimeType\": \"application/pdf\",\n  \"description\": \"Contrat de maintenance annuelle\",\n  \"estValide\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/upload",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "upload"]
+            },
+            "description": "Upload un nouveau document"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Document",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Contrat de maintenance - Version finale\",\n  \"estValide\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{DOCUMENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{DOCUMENT_ID}}"]
+            },
+            "description": "Met à jour les métadonnées d'un document"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Document Validity",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estValide\": false,\n  \"raison\": \"Contrat expiré\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{DOCUMENT_ID}}/validity",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{DOCUMENT_ID}}", "validity"]
+            },
+            "description": "Met à jour la validité d'un document"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/documents/{{DOCUMENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "documents", "{{DOCUMENT_ID}}"]
+            },
+            "description": "Supprime un document"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🎯 Opportunités",
+      "item": [
+        {
+          "name": "Get Client Opportunities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites?clientId={{CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{CLIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Récupère toutes les opportunités d'un client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pipeline Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/pipeline",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "pipeline"]
+            },
+            "description": "Récupère les statistiques du pipeline"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Opportunity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('OPPORTUNITY_ID', jsonData.data.id);",
+                  "    console.log('Opportunité créée avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"nom\": \"Migration vers le cloud\",\n  \"description\": \"Migration complète de l'infrastructure vers Azure\",\n  \"montantEstime\": 75000,\n  \"probabilite\": 85,\n  \"dateFermetureEstimee\": \"2024-03-15\",\n  \"etape\": \"PROPOSITION\",\n  \"statut\": \"OUVERTE\",\n  \"source\": \"APPEL_ENTRANT\",\n  \"commercialId\": \"{{USER_ID}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites"]
+            },
+            "description": "Crée une nouvelle opportunité"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Opportunity by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{OPPORTUNITY_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{OPPORTUNITY_ID}}"]
+            },
+            "description": "Récupère une opportunité par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Opportunity Stage",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"etape\": \"NEGOCIATION\",\n  \"notes\": \"Client intéressé, début des négociations\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{OPPORTUNITY_ID}}/stage",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{OPPORTUNITY_ID}}", "stage"]
+            },
+            "description": "Met à jour l'étape d'une opportunité"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Opportunity (Won)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"GAGNEE\",\n  \"montantFinal\": 70000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{OPPORTUNITY_ID}}/close",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{OPPORTUNITY_ID}}", "close"]
+            },
+            "description": "Ferme une opportunité (gagnée)"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Opportunity (Lost)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"PERDUE\",\n  \"raisonPerdue\": \"Budget insuffisant\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{OPPORTUNITY_ID}}/close",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{OPPORTUNITY_ID}}", "close"]
+            },
+            "description": "Ferme une opportunité (perdue)"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Product to Opportunity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Migration serveurs vers Azure\",\n  \"prixUnitaire\": 3000,\n  \"quantite\": 10,\n  \"tva\": 20\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/opportunites/{{OPPORTUNITY_ID}}/products",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "opportunites", "{{OPPORTUNITY_ID}}", "products"]
+            },
+            "description": "Ajoute un produit à une opportunité"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Types de Clients",
+      "item": [
+        {
+          "name": "Get All Client Types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients"]
+            },
+            "description": "Récupère tous les types de clients"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Client Type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('TYPE_CLIENT_ID', jsonData.data.id);",
+                  "    console.log('Type client créé avec ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STARTUP\",\n  \"libelle\": \"Startup\",\n  \"description\": \"Jeunes entreprises innovantes\",\n  \"couleur\": \"#8B5CF6\",\n  \"icone\": \"🚀\",\n  \"ordre\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients"]
+            },
+            "description": "Crée un nouveau type de client"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client Type by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{TYPE_CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{TYPE_CLIENT_ID}}"]
+            },
+            "description": "Récupère un type de client par son ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Client Type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libelle\": \"Startup & Scale-up\",\n  \"description\": \"Jeunes entreprises innovantes en croissance\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{TYPE_CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{TYPE_CLIENT_ID}}"]
+            },
+            "description": "Met à jour un type de client"
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Client Type Active Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{TYPE_CLIENT_ID}}/toggle-active",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{TYPE_CLIENT_ID}}", "toggle-active"]
+            },
+            "description": "Active/désactive un type de client"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Client Type",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/type-clients/{{TYPE_CLIENT_ID}}",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "type-clients", "{{TYPE_CLIENT_ID}}"]
+            },
+            "description": "Supprime un type de client"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📋 Tests d'Erreurs & Validation",
+      "item": [
+        {
+          "name": "Create Client - Validation Error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"\",\n  \"email\": \"invalid-email\",\n  \"typeClientId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"]
+            },
+            "description": "Test de validation des données (erreur attendue)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Non-existent Client",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{USER_ID}}",
+                "type": "text"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients/non-existent-id",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients", "non-existent-id"]
+            },
+            "description": "Test de récupération d'un client inexistant (404 attendu)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Client Without Auth Headers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Test Client\",\n  \"email\": \"test@test.com\",\n  \"typeClientId\": \"test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{CUSTOMERS_SERVICE_URL}}/api/clients",
+              "host": ["{{CUSTOMERS_SERVICE_URL}}"],
+              "path": ["api", "clients"]
+            },
+            "description": "Test d'authentification (401 attendu)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "console.log('Préparation de la requête...');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Tests communs pour toutes les réponses",
+          "pm.test('Status code is successful', function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+          "});",
+          "",
+          "pm.test('Response has correct structure', function () {",
+          "    const response = pm.response.json();",
+          "    pm.expect(response).to.have.property('success');",
+          "    pm.expect(response.success).to.be.a('boolean');",
+          "    if (response.success) {",
+          "        pm.expect(response).to.have.property('data');",
+          "    } else {",
+          "        pm.expect(response).to.have.property('error');",
+          "    }",
+          "});",
+          "",
+          "// Sauvegarde des tokens si présents",
+          "const response = pm.response.json();",
+          "if (response.data && response.data.accessToken) {",
+          "    pm.environment.set('ACCESS_TOKEN', response.data.accessToken);",
+          "}",
+          "if (response.data && response.data.refreshToken) {",
+          "    pm.environment.set('REFRESH_TOKEN', response.data.refreshToken);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "CUSTOMERS_SERVICE_URL",
+      "value": "http://localhost:4007",
+      "type": "string"
+    },
+    {
+      "key": "CLIENT_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "CONTACT_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "CONTRACT_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ADDRESS_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "INTERACTION_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "DOCUMENT_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "OPPORTUNITY_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "TYPE_CLIENT_ID",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": null
+}

@@ -29,14 +29,14 @@ const statusLabels: Record<SupplierStatus, string> = {
 };
 
 const mockSuppliers: Supplier[] = [
-  { id: '1', name: 'Dell France', contact: 'Jean Dupont', email: 'jean.dupont@dell.fr', phone: '01 23 45 67 89', productsCount: 45, annualAmount: 125000, rating: 4.5, status: 'active' },
+  { id: '1', name: 'Dell cote d\'ivoire', contact: 'Jean Dupont', email: 'jean.dupont@dell.fr', phone: '01 23 45 67 89', productsCount: 45, annualAmount: 125000, rating: 4.5, status: 'active' },
   { id: '2', name: 'Office Depot', contact: 'Marie Martin', email: 'marie.martin@officedepot.fr', phone: '01 34 56 78 90', productsCount: 78, annualAmount: 85000, rating: 4.2, status: 'active' },
   { id: '3', name: 'Herman Miller', contact: 'Pierre Bernard', email: 'p.bernard@hermanmiller.com', phone: '01 45 67 89 01', productsCount: 12, annualAmount: 95000, rating: 4.8, status: 'active' },
   { id: '4', name: 'Logitech', contact: 'Sophie Dubois', email: 'sophie.dubois@logitech.com', phone: '01 56 78 90 12', productsCount: 34, annualAmount: 45000, rating: 4.3, status: 'active' },
   { id: '5', name: 'Hamelin', contact: 'Luc Thomas', email: 'luc.thomas@hamelin.fr', phone: '01 67 89 01 23', productsCount: 156, annualAmount: 28000, rating: 3.9, status: 'active' },
   { id: '6', name: 'BIC', contact: 'Anne Petit', email: 'anne.petit@bic.fr', phone: '01 78 90 12 34', productsCount: 89, annualAmount: 32000, rating: 4.1, status: 'active' },
   { id: '7', name: 'Staples', contact: 'Marc Robert', email: 'marc.robert@staples.fr', phone: '01 89 01 23 45', productsCount: 23, annualAmount: 15000, rating: 3.5, status: 'inactive' },
-  { id: '8', name: 'HP France', contact: 'Claire Simon', email: 'claire.simon@hp.com', phone: '01 90 12 34 56', productsCount: 67, annualAmount: 98000, rating: 4.4, status: 'active' },
+  { id: '8', name: 'HP cote d\'ivoire', contact: 'Claire Simon', email: 'claire.simon@hp.com', phone: '01 90 12 34 56', productsCount: 67, annualAmount: 98000, rating: 4.4, status: 'active' },
 ];
 
 export default function SuppliersPage() {

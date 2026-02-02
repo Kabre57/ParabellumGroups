@@ -28,10 +28,10 @@ const statusLabels: Record<ProductStatus, string> = {
 };
 
 const mockProducts: Product[] = [
-  { id: '1', code: 'PROD-001', name: 'Ordinateur portable Dell XPS', category: 'Informatique', stock: 45, price: 1299.99, supplier: 'Dell France', status: 'active' },
+  { id: '1', code: 'PROD-001', name: 'Ordinateur portable Dell XPS', category: 'Informatique', stock: 45, price: 1299.99, supplier: 'Dell cote d\'ivoire', status: 'active' },
   { id: '2', code: 'PROD-002', name: 'Bureau ergonomique réglable', category: 'Mobilier', stock: 12, price: 450.00, supplier: 'Office Depot', status: 'active' },
   { id: '3', code: 'PROD-003', name: 'Chaise de bureau Herman Miller', category: 'Mobilier', stock: 8, price: 850.00, supplier: 'Herman Miller', status: 'active' },
-  { id: '4', code: 'PROD-004', name: 'Écran Dell 27 pouces', category: 'Informatique', stock: 23, price: 350.00, supplier: 'Dell France', status: 'active' },
+  { id: '4', code: 'PROD-004', name: 'Écran Dell 27 pouces', category: 'Informatique', stock: 23, price: 350.00, supplier: 'Dell cote d\'ivoire', status: 'active' },
   { id: '5', code: 'PROD-005', name: 'Clavier mécanique Logitech', category: 'Informatique', stock: 67, price: 89.99, supplier: 'Logitech', status: 'active' },
   { id: '6', code: 'PROD-006', name: 'Souris sans fil', category: 'Informatique', stock: 0, price: 35.00, supplier: 'Logitech', status: 'discontinued' },
   { id: '7', code: 'PROD-007', name: 'Papier A4 (ramette)', category: 'Fournitures', stock: 234, price: 5.50, supplier: 'Hamelin', status: 'active' },

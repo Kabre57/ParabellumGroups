@@ -15,7 +15,7 @@ import {
   Building2,
   UserCheck,
   DollarSign,
-  BarChart3,
+  FileSignature,
   Calendar,
   Wrench,
   Target,
@@ -40,9 +40,12 @@ import {
   Mail,
   HelpCircle,
   Search,
-  Star,
+  FileCheck,
   X,
   Shield,
+  BarChart,
+  Building,
+  Tag,
 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -91,17 +94,22 @@ const professionalCategories: CategoryItem[] = [
     ],
   },
 
-  // === CRM & CLIENTS (Microservice customer-service) ===
-  {
-    name: 'CRM & Clients',
-    icon: Users,
-    permission: 'customers.read',
-    children: [
-      { name: 'Clients', href: '/dashboard/clients', icon: Users, permission: 'customers.read' },
-      { name: 'Contacts', href: '/dashboard/contacts', icon: PhoneCall, permission: 'customers.read' },
-      { name: 'Historique Interactions', href: '/dashboard/clients/interactions', icon: MessageSquare, permission: 'customers.read' },
-    ],
-  },
+// === CRM (Microservice customer-service) ===
+{
+  name: 'CRM',
+  icon: Users,
+  permission: 'customers.read',
+  children: [
+    { name: 'CRM', href: '/dashboard/crm', icon: Users, permission: 'customers.read' },
+    { name: 'Clients', href: '/dashboard/crm/clients', icon: Users, permission: 'customers.read' },
+    { name: 'Contacts', href: '/dashboard/crm/contacts', icon: PhoneCall, permission: 'customers.read' },
+    { name: 'Contrats', href: '/dashboard/crm/contracts', icon: FileCheck, permission: 'customers.read' },
+    { name: 'Documents', href: '/dashboard/crm/documents', icon: FileText, permission: 'customers.read' },
+    { name: 'Historique Interactions', href: '/dashboard/crm/interactions', icon: MessageSquare, permission: 'customers.read' },
+    { name: 'Opportunités', href: '/dashboard/crm/opportunities', icon: TrendingUp, permission: 'opportunities.read' },
+    { name: 'Rapports', href: '/dashboard/crm/reports', icon: BarChart, permission: 'reports.read' },
+  ],
+},
 
   // === FACTURATION (Microservice billing-service) ===
   {
@@ -534,7 +542,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             );
           })}
 
-          {/* Administration - CORRECTION : toujours visible pour les admins */}
+          {/* Administration  : toujours visible pour les admins */}
           {isAdmin && (
             <div className="pt-6">
               <div className="px-4 mb-2">

@@ -17,7 +17,7 @@ cp .env.example .env
 
 Contenu du .env :
 ```
-PORT=3004
+PORT=4004
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/parabellum_commercial?schema=public"
 JWT_SECRET=your_jwt_secret_key_here
 NODE_ENV=development
@@ -45,7 +45,7 @@ npm run prisma:migrate
 npm run dev
 ```
 
-Le service sera disponible sur http://localhost:3004
+Le service sera disponible sur http://localhost:4004
 
 ## Endpoints API
 

@@ -31,7 +31,7 @@ Le module **Service Technique** de Parabellum ERP est maintenant **100% opérati
 
 #### Interfaces TypeScript
 ```typescript
-- Specialite: Spécialités techniques (Électricité, Plomberie, etc.)
+- Specialite: Spécialités techniques
 - Technicien: Profil complet technicien avec compétences, certifications
 - Mission: Mission d'intervention avec budget, priorité, client
 - MissionTechnicien: Affectation techniciens aux missions

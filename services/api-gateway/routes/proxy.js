@@ -78,7 +78,7 @@ function getOrCreateBreaker(serviceName, customOptions = {}) {
           const options = {
             hostname: parsedUrl.hostname,
             port: parsedUrl.port,
-            path: '/api/health',
+            path: '/health',
             method: 'GET',
             timeout: 5000
           };
@@ -194,10 +194,15 @@ router.use('/technical',
   createProxy(config.SERVICES.TECHNICAL, { '^/api/technical': '/api' })
 );
 
+// MODIFICATION CRITIQUE ICI - Routes customers
 router.use('/customers', 
   authenticateToken,
   customersServiceLimiter,
-  createProxy(config.SERVICES.CUSTOMERS, { '^/api/customers': '' })
+  createProxy(config.SERVICES.CUSTOMERS, {
+    '^/api/customers/type-clients': '/api/type-clients',
+    '^/api/customers/interactions': '/api/interactions',
+    '^/api/customers': '/api/clients'
+  })
 );
 
 router.use('/projects', 

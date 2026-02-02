@@ -22,7 +22,7 @@ export default function TechnicalPage() {
               Spécialités
             </CardTitle>
             <CardDescription>
-              Gérer les spécialités techniques (électricité, plomberie, etc.)
+              Gérer les spécialités techniques
             </CardDescription>
           </CardHeader>
         </Card>

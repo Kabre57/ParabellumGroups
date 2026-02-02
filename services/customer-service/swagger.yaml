@@ -1,0 +1,3399 @@
+openapi: 3.0.0
+info:
+  title: CRM Service API
+  description: API complète de gestion CRM - Clients, Contacts, Contrats, Opportunités
+  version: 1.0.0
+  contact:
+    name: Support CRM
+    email: support@crm-service.com
+servers:
+  - url: http://localhost:4007
+    description: Serveur de développement
+  - url: https://api.crm-service.com
+    description: Serveur de production
+
+tags:
+  - name: Health
+    description: Endpoints de vérification de santé
+  - name: Clients
+    description: Gestion des clients
+  - name: Contacts
+    description: Gestion des contacts
+  - name: Contrats
+    description: Gestion des contrats
+  - name: Adresses
+    description: Gestion des adresses
+  - name: Interactions
+    description: Gestion des interactions client
+  - name: Documents
+    description: Gestion des documents
+  - name: Opportunités
+    description: Gestion des opportunités commerciales
+  - name: Types Clients
+    description: Gestion des types de clients
+  - name: Secteurs
+    description: Gestion des secteurs d'activité
+
+paths:
+  # ==================== HEALTH ====================
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Vérification de santé du service
+      description: Retourne l'état du service et des informations système
+      responses:
+        '200':
+          description: Service en bonne santé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api-docs:
+    get:
+      tags:
+        - Health
+      summary: Documentation de l'API
+      description: Retourne la documentation des endpoints disponibles
+      responses:
+        '200':
+          description: Documentation récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiDocsResponse'
+
+  # ==================== CLIENTS ====================
+  /api/clients:
+    get:
+      tags:
+        - Clients
+      summary: Lister tous les clients
+      description: Récupère la liste des clients avec pagination et filtres
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          description: Filtre par statut
+          required: false
+          schema:
+            type: string
+            enum: [PROSPECT, ACTIF, INACTIF, SUSPENDU, ARCHIVE, LEAD_CHAUD, LEAD_FROID]
+        - name: typeClientId
+          in: query
+          description: Filtre par type de client
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Recherche textuelle
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Liste des clients récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientsListResponse'
+        '401':
+          description: Non authentifié
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Clients
+      summary: Créer un nouveau client
+      description: Crée un nouveau client dans le système
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientRequest'
+      responses:
+        '201':
+          description: Client créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Données invalides
+        '401':
+          description: Non authentifié
+        '403':
+          description: Non autorisé (rôle insuffisant)
+        '409':
+          description: Client avec cet email existe déjà
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/search:
+    get:
+      tags:
+        - Clients
+      summary: Rechercher des clients
+      description: Recherche avancée de clients par texte
+      parameters:
+        - name: q
+          in: query
+          description: Terme de recherche
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: limit
+          in: query
+          description: Nombre maximum de résultats
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientsSearchResponse'
+        '400':
+          description: Terme de recherche trop court
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/stats:
+    get:
+      tags:
+        - Clients
+      summary: Statistiques clients
+      description: Récupère les statistiques et KPI des clients
+      parameters:
+        - name: startDate
+          in: query
+          description: Date de début (format ISO)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Date de fin (format ISO)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: commercialId
+          in: query
+          description: Filtre par commercial
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistiques récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientsStatsResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/{id}:
+    get:
+      tags:
+        - Clients
+      summary: Récupérer un client par ID
+      description: Récupère les détails complets d'un client
+      parameters:
+        - name: id
+          in: path
+          description: ID du client
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Client récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientDetailResponse'
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Clients
+      summary: Mettre à jour un client
+      description: Met à jour les informations d'un client existant
+      parameters:
+        - name: id
+          in: path
+          description: ID du client
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClientRequest'
+      responses:
+        '200':
+          description: Client mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '409':
+          description: Violation de contrainte unique
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/{id}/status:
+    patch:
+      tags:
+        - Clients
+      summary: Mettre à jour le statut d'un client
+      description: Modifie le statut d'un client
+      parameters:
+        - name: id
+          in: path
+          description: ID du client
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClientStatusRequest'
+      responses:
+        '200':
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Statut invalide
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/{id}/priority:
+    patch:
+      tags:
+        - Clients
+      summary: Mettre à jour la priorité d'un client
+      description: Modifie la priorité d'un client
+      parameters:
+        - name: id
+          in: path
+          description: ID du client
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClientPriorityRequest'
+      responses:
+        '200':
+          description: Priorité mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Priorité invalide
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/clients/{id}/archive:
+    delete:
+      tags:
+        - Clients
+      summary: Archiver un client
+      description: Archive un client (soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du client
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                raison:
+                  type: string
+                  description: Raison de l'archivage
+      responses:
+        '200':
+          description: Client archivé
+        '403':
+          description: Non autorisé (rôle insuffisant)
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== CONTACTS ====================
+  /api/contacts:
+    get:
+      tags:
+        - Contacts
+      summary: Lister les contacts
+      description: Récupère la liste des contacts avec filtres
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filtre par type de contact
+          required: false
+          schema:
+            type: string
+            enum: [COMMERCIAL, TECHNIQUE, COMPTABLE, DIRECTION, SUPPORT, AUTRE]
+        - name: statut
+          in: query
+          description: Filtre par statut
+          required: false
+          schema:
+            type: string
+            enum: [ACTIF, INACTIF, PARTI]
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Liste des contacts récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactsListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Contacts
+      summary: Créer un contact
+      description: Crée un nouveau contact pour un client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '409':
+          description: Contact avec cet email existe déjà pour ce client
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contacts/{id}:
+    get:
+      tags:
+        - Contacts
+      summary: Récupérer un contact par ID
+      description: Récupère les détails d'un contact
+      parameters:
+        - name: id
+          in: path
+          description: ID du contact
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Contact récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactDetailResponse'
+        '404':
+          description: Contact non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Contacts
+      summary: Mettre à jour un contact
+      description: Met à jour les informations d'un contact
+      parameters:
+        - name: id
+          in: path
+          description: ID du contact
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+      responses:
+        '200':
+          description: Contact mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Contact non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Contacts
+      summary: Supprimer un contact
+      description: Supprime définitivement un contact
+      parameters:
+        - name: id
+          in: path
+          description: ID du contact
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Contact supprimé
+        '404':
+          description: Contact non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contacts/{id}/principal:
+    patch:
+      tags:
+        - Contacts
+      summary: Définir comme contact principal
+      description: Définit ou retire un contact comme principal
+      parameters:
+        - name: id
+          in: path
+          description: ID du contact
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                principal:
+                  type: boolean
+                  description: true pour définir comme principal
+              required:
+                - principal
+      responses:
+        '200':
+          description: Contact principal mis à jour
+        '404':
+          description: Contact non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== CONTRATS ====================
+  /api/contrats:
+    get:
+      tags:
+        - Contrats
+      summary: Lister les contrats
+      description: Récupère la liste des contrats avec filtres
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtre par statut
+          required: false
+          schema:
+            type: string
+            enum: [BROUILLON, EN_ATTENTE_SIGNATURE, ACTIF, SUSPENDU, RESILIE, TERMINE, EN_RENOUVELLEMENT]
+        - name: typeContrat
+          in: query
+          description: Filtre par type de contrat
+          required: false
+          schema:
+            type: string
+            enum: [MAINTENANCE, SERVICE, PRODUIT, PARTENARIAT, ABONNEMENT, FORFAIT, CONSULTING, FORMATION, LICENCE, SAAS]
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Liste des contrats récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratsListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Contrats
+      summary: Créer un contrat
+      description: Crée un nouveau contrat pour un client
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContratRequest'
+      responses:
+        '201':
+          description: Contrat créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '409':
+          description: Numéro de contrat déjà existant
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contrats/stats:
+    get:
+      tags:
+        - Contrats
+      summary: Statistiques contrats
+      description: Récupère les statistiques des contrats
+      responses:
+        '200':
+          description: Statistiques récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratsStatsResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contrats/expiring:
+    get:
+      tags:
+        - Contrats
+      summary: Contrats expirant bientôt
+      description: Récupère les contrats arrivant à expiration
+      parameters:
+        - name: days
+          in: query
+          description: Nombre de jours avant expiration
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Contrats expirant bientôt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratsExpiringResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contrats/{id}:
+    get:
+      tags:
+        - Contrats
+      summary: Récupérer un contrat par ID
+      description: Récupère les détails d'un contrat avec ses avenants et factures
+      parameters:
+        - name: id
+          in: path
+          description: ID du contrat
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Contrat récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratDetailResponse'
+        '404':
+          description: Contrat non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contrats/{id}/status:
+    patch:
+      tags:
+        - Contrats
+      summary: Mettre à jour le statut d'un contrat
+      description: Modifie le statut d'un contrat
+      parameters:
+        - name: id
+          in: path
+          description: ID du contrat
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContratStatusRequest'
+      responses:
+        '200':
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratResponse'
+        '400':
+          description: Statut invalide
+        '404':
+          description: Contrat non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/contrats/{id}/avenants:
+    post:
+      tags:
+        - Contrats
+      summary: Créer un avenant
+      description: Crée un avenant pour un contrat existant
+      parameters:
+        - name: id
+          in: path
+          description: ID du contrat
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAvenantRequest'
+      responses:
+        '201':
+          description: Avenant créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvenantResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Contrat non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== ADRESSES ====================
+  /api/adresses:
+    get:
+      tags:
+        - Adresses
+      summary: Lister les adresses
+      description: Récupère les adresses d'un client
+      parameters:
+        - name: clientId
+          in: query
+          description: ID du client
+          required: true
+          schema:
+            type: string
+        - name: typeAdresse
+          in: query
+          description: Filtre par type d'adresse
+          required: false
+          schema:
+            type: string
+            enum: [FACTURATION, LIVRAISON, SIEGE_SOCIAL, ETABLISSEMENT, CORRESPONDANCE]
+      responses:
+        '200':
+          description: Liste des adresses récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdressesListResponse'
+        '400':
+          description: clientId manquant
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Adresses
+      summary: Créer une adresse
+      description: Crée une nouvelle adresse pour un client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdresseRequest'
+      responses:
+        '201':
+          description: Adresse créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresseResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/adresses/{id}:
+    get:
+      tags:
+        - Adresses
+      summary: Récupérer une adresse par ID
+      description: Récupère les détails d'une adresse
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'adresse
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Adresse récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresseResponse'
+        '404':
+          description: Adresse non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Adresses
+      summary: Mettre à jour une adresse
+      description: Met à jour les informations d'une adresse
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'adresse
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdresseRequest'
+      responses:
+        '200':
+          description: Adresse mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresseResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Adresse non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Adresses
+      summary: Supprimer une adresse
+      description: Supprime définitivement une adresse
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'adresse
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Adresse supprimée
+        '404':
+          description: Adresse non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  /api/adresses/{id}/principal:
+    patch:
+      tags:
+        - Adresses
+      summary: Définir comme adresse principale
+      description: Définit une adresse comme principale pour son type
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'adresse
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Adresse définie comme principale
+        '404':
+          description: Adresse non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== INTERACTIONS ====================
+  /api/interactions:
+    get:
+      tags:
+        - Interactions
+      summary: Lister les interactions
+      description: Récupère la liste des interactions avec filtres
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filtre par type d'interaction
+          required: false
+          schema:
+            type: string
+            enum: [APPEL, EMAIL, REUNION, VISITE, SUPPORT, COMMERCIAL, TECHNIQUE, FORMATION, DEMONSTRATION, PRESENTATION, NEGOCIATION]
+        - name: canal
+          in: query
+          description: Filtre par canal
+          required: false
+          schema:
+            type: string
+            enum: [TELEPHONE, EMAIL, EN_PERSONNE, VIDEO, CHAT, RESEAUX_SOCIAUX, PORTAL_CLIENT, MOBILE]
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Liste des interactions récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionsListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Interactions
+      summary: Créer une interaction
+      description: Crée une nouvelle interaction pour un client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInteractionRequest'
+      responses:
+        '201':
+          description: Interaction créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/interactions/stats:
+    get:
+      tags:
+        - Interactions
+      summary: Statistiques interactions
+      description: Récupère les statistiques des interactions
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistiques récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionsStatsResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/interactions/{id}:
+    get:
+      tags:
+        - Interactions
+      summary: Récupérer une interaction par ID
+      description: Récupère les détails d'une interaction
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'interaction
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Interaction récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionDetailResponse'
+        '404':
+          description: Interaction non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Interactions
+      summary: Mettre à jour une interaction
+      description: Met à jour les informations d'une interaction
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'interaction
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInteractionRequest'
+      responses:
+        '200':
+          description: Interaction mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Interaction non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Interactions
+      summary: Supprimer une interaction
+      description: Supprime définitivement une interaction
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'interaction
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Interaction supprimée
+        '404':
+          description: Interaction non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  /api/interactions/{id}/link-task:
+    patch:
+      tags:
+        - Interactions
+      summary: Lier à une tâche
+      description: Lie une interaction à une tâche existante
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'interaction
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tacheId:
+                  type: string
+                  format: uuid
+                  description: ID de la tâche à lier
+              required:
+                - tacheId
+      responses:
+        '200':
+          description: Interaction liée à la tâche
+        '404':
+          description: Interaction ou tâche non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== DOCUMENTS ====================
+  /api/documents:
+    get:
+      tags:
+        - Documents
+      summary: Lister les documents
+      description: Récupère la liste des documents avec filtres
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+        - name: typeDocument
+          in: query
+          description: Filtre par type de document
+          required: false
+          schema:
+            type: string
+            enum: [CONTRAT, FACTURE, DEVIS, AVENANT, KYC, LEGAL, TECHNIQUE, COMMERCIAL, ADMINISTRATIF, FINANCIER, RAPPORT]
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Liste des documents récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentsListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Documents
+      summary: Uploader un document
+      description: Upload un nouveau document pour un client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+      responses:
+        '201':
+          description: Document uploadé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/documents/expiring:
+    get:
+      tags:
+        - Documents
+      summary: Documents expirant bientôt
+      description: Récupère les documents arrivant à expiration
+      parameters:
+        - name: days
+          in: query
+          description: Nombre de jours avant expiration
+          required: false
+          schema:
+            type: integer
+            default: 30
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Documents expirant bientôt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentsExpiringResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/documents/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Récupérer un document par ID
+      description: Récupère les détails d'un document
+      parameters:
+        - name: id
+          in: path
+          description: ID du document
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '403':
+          description: Accès interdit (document confidentiel)
+        '404':
+          description: Document non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Documents
+      summary: Mettre à jour un document
+      description: Met à jour les métadonnées d'un document
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du document
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentRequest'
+      responses:
+        '200':
+          description: Document mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Données invalides
+        '403':
+          description: Non autorisé (document confidentiel)
+        '404':
+          description: Document non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Documents
+      summary: Supprimer un document
+      description: Supprime définitivement un document
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du document
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Document supprimé
+        '403':
+          description: Non autorisé (document confidentiel)
+        '404':
+          description: Document non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/documents/{id}/validity:
+    patch:
+      tags:
+        - Documents
+      summary: Mettre à jour la validité
+      description: Modifie l'état de validité d'un document
+      parameters:
+        - name: id
+          in: path
+          description: ID du document
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentValidityRequest'
+      responses:
+        '200':
+          description: Validité mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== OPPORTUNITES ====================
+  /api/opportunites:
+    get:
+      tags:
+        - Opportunités
+      summary: Lister les opportunités
+      description: Récupère la liste des opportunités avec filtres
+      parameters:
+        - name: clientId
+          in: query
+          description: Filtre par client
+          required: false
+          schema:
+            type: string
+        - name: etape
+          in: query
+          description: Filtre par étape
+          required: false
+          schema:
+            type: string
+            enum: [PROSPECTION, QUALIFICATION, PROPOSITION, NEGOCIATION, FINALISATION]
+        - name: statut
+          in: query
+          description: Filtre par statut
+          required: false
+          schema:
+            type: string
+            enum: [OUVERTE, GAGNEE, PERDUE, MISE_EN_ATTENTE]
+        - name: page
+          in: query
+          description: Numéro de page
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Liste des opportunités récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportunitesListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Opportunités
+      summary: Créer une opportunité
+      description: Crée une nouvelle opportunité commerciale
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOpportuniteRequest'
+      responses:
+        '201':
+          description: Opportunité créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportuniteResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Client non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/opportunites/pipeline:
+    get:
+      tags:
+        - Opportunités
+      summary: Pipeline statistiques
+      description: Récupère les statistiques du pipeline commercial
+      parameters:
+        - name: commercialId
+          in: query
+          description: Filtre par commercial
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistiques du pipeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportunitesPipelineResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/opportunites/{id}:
+    get:
+      tags:
+        - Opportunités
+      summary: Récupérer une opportunité par ID
+      description: Récupère les détails d'une opportunité avec ses produits
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'opportunité
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Opportunité récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportuniteDetailResponse'
+        '404':
+          description: Opportunité non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Opportunités
+      summary: Mettre à jour une opportunité
+      description: Met à jour les informations d'une opportunité
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'opportunité
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOpportuniteRequest'
+      responses:
+        '200':
+          description: Opportunité mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportuniteResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Opportunité non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  /api/opportunites/{id}/stage:
+    patch:
+      tags:
+        - Opportunités
+      summary: Changer l'étape
+      description: Modifie l'étape du pipeline d'une opportunité
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'opportunité
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOpportuniteStageRequest'
+      responses:
+        '200':
+          description: Étape mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportuniteResponse'
+        '400':
+          description: Étape invalide
+        '404':
+          description: Opportunité non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  /api/opportunites/{id}/close:
+    patch:
+      tags:
+        - Opportunités
+      summary: Fermer opportunité
+      description: Ferme une opportunité (gagnée ou perdue)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'opportunité
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseOpportuniteRequest'
+      responses:
+        '200':
+          description: Opportunité fermée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportuniteResponse'
+        '400':
+          description: Statut invalide
+        '404':
+          description: Opportunité non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  /api/opportunites/{id}/products:
+    post:
+      tags:
+        - Opportunités
+      summary: Ajouter produit
+      description: Ajoute un produit à une opportunité
+      parameters:
+        - name: id
+          in: path
+          description: ID de l'opportunité
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddProductRequest'
+      responses:
+        '201':
+          description: Produit ajouté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LigneProduitResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Opportunité non trouvée
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== TYPES CLIENTS ====================
+  /api/type-clients:
+    get:
+      tags:
+        - Types Clients
+      summary: Lister les types de clients
+      description: Récupère la liste des types de clients
+      parameters:
+        - name: isActive
+          in: query
+          description: Filtre par statut actif
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Liste des types récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeClientsListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Types Clients
+      summary: Créer un type de client
+      description: Crée un nouveau type de client
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTypeClientRequest'
+      responses:
+        '201':
+          description: Type créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeClientResponse'
+        '400':
+          description: Données invalides
+        '409':
+          description: Code déjà existant
+        '500':
+          description: Erreur interne du serveur
+
+  /api/type-clients/{id}:
+    get:
+      tags:
+        - Types Clients
+      summary: Récupérer un type par ID
+      description: Récupère les détails d'un type de client
+      parameters:
+        - name: id
+          in: path
+          description: ID du type
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Type récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeClientDetailResponse'
+        '404':
+          description: Type non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Types Clients
+      summary: Mettre à jour un type
+      description: Met à jour les informations d'un type de client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du type
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTypeClientRequest'
+      responses:
+        '200':
+          description: Type mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeClientResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Type non trouvé
+        '409':
+          description: Code déjà existant
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Types Clients
+      summary: Supprimer un type
+      description: Supprime définitivement un type de client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du type
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Type supprimé
+        '400':
+          description: Type utilisé par des clients
+        '404':
+          description: Type non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  /api/type-clients/{id}/toggle-active:
+    patch:
+      tags:
+        - Types Clients
+      summary: Activer/Désactiver type
+      description: Bascule l'état actif d'un type de client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du type
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: État actif modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeClientResponse'
+        '404':
+          description: Type non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+  # ==================== SECTEURS ====================
+  /api/secteurs:
+    get:
+      tags:
+        - Secteurs
+      summary: Lister les secteurs
+      description: Récupère la liste des secteurs d'activité
+      parameters:
+        - name: parentId
+          in: query
+          description: Filtre par secteur parent
+          required: false
+          schema:
+            type: string
+        - name: niveau
+          in: query
+          description: Filtre par niveau
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Liste des secteurs récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecteursListResponse'
+        '500':
+          description: Erreur interne du serveur
+
+    post:
+      tags:
+        - Secteurs
+      summary: Créer un secteur
+      description: Crée un nouveau secteur d'activité
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSecteurRequest'
+      responses:
+        '201':
+          description: Secteur créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecteurResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Secteur parent non trouvé
+        '409':
+          description: Code NAF déjà existant
+        '500':
+          description: Erreur interne du serveur
+
+  /api/secteurs/tree:
+    get:
+      tags:
+        - Secteurs
+      summary: Arbre des secteurs
+      description: Récupère la structure arborescente des secteurs
+      responses:
+        '200':
+          description: Arbre des secteurs récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecteursTreeResponse'
+        '500':
+          description: Erreur interne du serveur
+
+  /api/secteurs/{id}:
+    get:
+      tags:
+        - Secteurs
+      summary: Récupérer un secteur par ID
+      description: Récupère les détails d'un secteur avec ses enfants
+      parameters:
+        - name: id
+          in: path
+          description: ID du secteur
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Secteur récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecteurDetailResponse'
+        '404':
+          description: Secteur non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+    put:
+      tags:
+        - Secteurs
+      summary: Mettre à jour un secteur
+      description: Met à jour les informations d'un secteur
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du secteur
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSecteurRequest'
+      responses:
+        '200':
+          description: Secteur mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecteurResponse'
+        '400':
+          description: Données invalides
+        '404':
+          description: Secteur non trouvé
+        '409':
+          description: Code NAF déjà existant
+        '500':
+          description: Erreur interne du serveur
+
+    delete:
+      tags:
+        - Secteurs
+      summary: Supprimer un secteur
+      description: Supprime définitivement un secteur
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID du secteur
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Secteur supprimé
+        '400':
+          description: Secteur utilisé par des clients ou a des enfants
+        '404':
+          description: Secteur non trouvé
+        '500':
+          description: Erreur interne du serveur
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ==================== HEALTH SCHEMAS ====================
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: OK
+        service:
+          type: string
+          example: crm-service
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+        environment:
+          type: string
+          example: development
+
+    ApiDocsResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          example: CRM Service API
+        version:
+          type: string
+          example: 1.0.0
+        endpoints:
+          type: object
+          properties:
+            clients:
+              type: string
+              example: /api/clients
+            contacts:
+              type: string
+              example: /api/contacts
+            contrats:
+              type: string
+              example: /api/contrats
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Erreur interne du serveur
+        details:
+          type: string
+          example: "PrismaClientKnownRequestError: ..."
+        timestamp:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Opération réussie
+        data:
+          type: object
+
+    # ==================== CLIENTS SCHEMAS ====================
+    CreateClientRequest:
+      type: object
+      required:
+        - nom
+        - email
+        - typeClientId
+      properties:
+        nom:
+          type: string
+          example: TechnoSoft Solutions
+        raisonSociale:
+          type: string
+          example: TechnoSoft Solutions SAS
+        email:
+          type: string
+          format: email
+          example: contact@technosoft.fr
+        telephone:
+          type: string
+          example: 0123456789
+        mobile:
+          type: string
+          example: 0612345678
+        siteWeb:
+          type: string
+          example: https://www.technosoft.fr
+        siret:
+          type: string
+          example: 12345678901234
+        tvaIntra:
+          type: string
+          example: FR12345678901
+        typeClientId:
+          type: string
+          format: uuid
+        secteurActiviteId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PROSPECT, ACTIF, INACTIF, SUSPENDU, ARCHIVE, LEAD_CHAUD, LEAD_FROID]
+          default: PROSPECT
+        priorite:
+          type: string
+          enum: [BASSE, MOYENNE, HAUTE, CRITIQUE]
+          default: MOYENNE
+        source:
+          type: string
+          enum: [PROSPECTION, RECOMMANDATION, PARTENAIRE, SALON, SITE_WEB, RESEAUX_SOCIAUX, CAMPAGNE_EMAIL, APPEL_ENTRANT, BASE_ACHETEE, AUTRE]
+        chiffreAffaireAnnuel:
+          type: number
+          format: decimal
+          example: 2500000
+        effectif:
+          type: integer
+          example: 45
+        prospectId:
+          type: string
+          format: uuid
+        commercialId:
+          type: string
+          format: uuid
+
+    UpdateClientRequest:
+      type: object
+      properties:
+        nom:
+          type: string
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        typeClientId:
+          type: string
+          format: uuid
+        secteurActiviteId:
+          type: string
+          format: uuid
+        priorite:
+          type: string
+          enum: [BASSE, MOYENNE, HAUTE, CRITIQUE]
+        chiffreAffaireAnnuel:
+          type: number
+          format: decimal
+        effectif:
+          type: integer
+
+    UpdateClientStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [PROSPECT, ACTIF, INACTIF, SUSPENDU, ARCHIVE, LEAD_CHAUD, LEAD_FROID]
+        raison:
+          type: string
+          example: Client converti en prospect
+
+    UpdateClientPriorityRequest:
+      type: object
+      required:
+        - priorite
+      properties:
+        priorite:
+          type: string
+          enum: [BASSE, MOYENNE, HAUTE, CRITIQUE]
+        raison:
+          type: string
+          example: Projet urgent à traiter
+
+    ClientResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          type: string
+          example: CLI-202401-0001
+        nom:
+          type: string
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+        priorite:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClientDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ClientResponse'
+        - type: object
+          properties:
+            typeClient:
+              $ref: '#/components/schemas/TypeClientResponse'
+            secteurActivite:
+              $ref: '#/components/schemas/SecteurResponse'
+            contacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/ContactResponse'
+            contrats:
+              type: array
+              items:
+                $ref: '#/components/schemas/ContratResponse'
+            adresses:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdresseResponse'
+
+    ClientsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  example: 150
+                page:
+                  type: integer
+                  example: 1
+                limit:
+                  type: integer
+                  example: 10
+                totalPages:
+                  type: integer
+                  example: 15
+
+    ClientsSearchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientResponse'
+        meta:
+          type: object
+          properties:
+            query:
+              type: string
+            limit:
+              type: integer
+            count:
+              type: integer
+
+    ClientsStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            totals:
+              type: object
+              properties:
+                all:
+                  type: integer
+                active:
+                  type: integer
+                newThisMonth:
+                  type: integer
+                growthRate:
+                  type: string
+            byStatus:
+              type: object
+            byType:
+              type: object
+            revenue:
+              type: object
+              properties:
+                totalHT:
+                  type: number
+                  format: decimal
+                totalTTC:
+                  type: number
+                  format: decimal
+                averageContractValue:
+                  type: number
+                  format: decimal
+
+    # ==================== CONTACTS SCHEMAS ====================
+    CreateContactRequest:
+      type: object
+      required:
+        - clientId
+        - nom
+        - prenom
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        civilite:
+          type: string
+          enum: [M., Mme, Mlle]
+        nom:
+          type: string
+        prenom:
+          type: string
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        mobile:
+          type: string
+        poste:
+          type: string
+        departement:
+          type: string
+        type:
+          type: string
+          enum: [COMMERCIAL, TECHNIQUE, COMPTABLE, DIRECTION, SUPPORT, AUTRE]
+          default: COMMERCIAL
+        principal:
+          type: boolean
+          default: false
+        dateNaissance:
+          type: string
+          format: date
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        nom:
+          type: string
+        prenom:
+          type: string
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        poste:
+          type: string
+        type:
+          type: string
+          enum: [COMMERCIAL, TECHNIQUE, COMPTABLE, DIRECTION, SUPPORT, AUTRE]
+        statut:
+          type: string
+          enum: [ACTIF, INACTIF, PARTI]
+        principal:
+          type: boolean
+
+    ContactResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+        prenom:
+          type: string
+        email:
+          type: string
+          format: email
+        telephone:
+          type: string
+        poste:
+          type: string
+        type:
+          type: string
+        statut:
+          type: string
+        principal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ContactDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ContactResponse'
+        - type: object
+          properties:
+            client:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                nom:
+                  type: string
+                email:
+                  type: string
+                  format: email
+
+    ContactsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalPages:
+                  type: integer
+
+    # ==================== CONTRATS SCHEMAS ====================
+    CreateContratRequest:
+      type: object
+      required:
+        - clientId
+        - titre
+        - typeContrat
+        - dateDebut
+        - montantHT
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        titre:
+          type: string
+        description:
+          type: string
+        typeContrat:
+          type: string
+          enum: [MAINTENANCE, SERVICE, PRODUIT, PARTENARIAT, ABONNEMENT, FORFAIT, CONSULTING, FORMATION, LICENCE, SAAS]
+        dateDebut:
+          type: string
+          format: date-time
+        dateFin:
+          type: string
+          format: date-time
+        montantHT:
+          type: number
+          format: decimal
+        tauxTVA:
+          type: number
+          format: decimal
+          default: 20.00
+        devise:
+          type: string
+          default: EUR
+        status:
+          type: string
+          enum: [BROUILLON, EN_ATTENTE_SIGNATURE, ACTIF, SUSPENDU, RESILIE, TERMINE, EN_RENOUVELLEMENT]
+          default: BROUILLON
+        estRenouvelable:
+          type: boolean
+          default: false
+
+    UpdateContratStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [BROUILLON, EN_ATTENTE_SIGNATURE, ACTIF, SUSPENDU, RESILIE, TERMINE, EN_RENOUVELLEMENT]
+        motif:
+          type: string
+
+    CreateAvenantRequest:
+      type: object
+      required:
+        - description
+        - modifications
+        - dateEffet
+      properties:
+        description:
+          type: string
+        modifications:
+          type: object
+        dateEffet:
+          type: string
+          format: date-time
+        montantAdditionnel:
+          type: number
+          format: decimal
+
+    ContratResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          type: string
+        numeroContrat:
+          type: string
+        titre:
+          type: string
+        typeContrat:
+          type: string
+        status:
+          type: string
+        montantTTC:
+          type: number
+          format: decimal
+        dateDebut:
+          type: string
+          format: date-time
+        dateFin:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ContratDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ContratResponse'
+        - type: object
+          properties:
+            client:
+              $ref: '#/components/schemas/ClientResponse'
+            avenants:
+              type: array
+              items:
+                $ref: '#/components/schemas/AvenantResponse'
+            factures:
+              type: array
+              items:
+                $ref: '#/components/schemas/FactureResponse'
+
+    ContratsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContratResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+
+    ContratsStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            totals:
+              type: object
+              properties:
+                all:
+                  type: integer
+                activeValue:
+                  type: number
+                  format: decimal
+            byStatus:
+              type: object
+            byType:
+              type: object
+            alerts:
+              type: object
+              properties:
+                upcomingRenewals:
+                  type: integer
+                expiringSoon:
+                  type: integer
+
+    ContratsExpiringResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContratResponse'
+        meta:
+          type: object
+          properties:
+            thresholdDays:
+              type: integer
+            thresholdDate:
+              type: string
+              format: date-time
+            count:
+              type: integer
+
+    AvenantResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroAvenant:
+          type: string
+        description:
+          type: string
+        dateEffet:
+          type: string
+          format: date-time
+        montantAdditionnel:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+
+    FactureResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroFacture:
+          type: string
+        typeFacture:
+          type: string
+        dateEmission:
+          type: string
+          format: date-time
+        montantTTC:
+          type: number
+          format: decimal
+        statut:
+          type: string
+        dateEcheance:
+          type: string
+          format: date-time
+
+    # ==================== ADRESSES SCHEMAS ====================
+    CreateAdresseRequest:
+      type: object
+      required:
+        - clientId
+        - typeAdresse
+        - ligne1
+        - codePostal
+        - ville
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        typeAdresse:
+          type: string
+          enum: [FACTURATION, LIVRAISON, SIEGE_SOCIAL, ETABLISSEMENT, CORRESPONDANCE]
+          default: FACTURATION
+        nomAdresse:
+          type: string
+        ligne1:
+          type: string
+        ligne2:
+          type: string
+        ligne3:
+          type: string
+        codePostal:
+          type: string
+        ville:
+          type: string
+        region:
+          type: string
+        pays:
+          type: string
+          default: cote d\'ivoire
+        isPrincipal:
+          type: boolean
+          default: false
+
+    UpdateAdresseRequest:
+      type: object
+      properties:
+        typeAdresse:
+          type: string
+          enum: [FACTURATION, LIVRAISON, SIEGE_SOCIAL, ETABLISSEMENT, CORRESPONDANCE]
+        ligne1:
+          type: string
+        codePostal:
+          type: string
+        ville:
+          type: string
+        isPrincipal:
+          type: boolean
+
+    AdresseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        typeAdresse:
+          type: string
+        ligne1:
+          type: string
+        codePostal:
+          type: string
+        ville:
+          type: string
+        pays:
+          type: string
+        isPrincipal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    AdressesListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdresseResponse'
+
+    # ==================== INTERACTIONS SCHEMAS ====================
+    CreateInteractionRequest:
+      type: object
+      required:
+        - clientId
+        - type
+        - canal
+        - sujet
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [APPEL, EMAIL, REUNION, VISITE, SUPPORT, COMMERCIAL, TECHNIQUE, FORMATION, DEMONSTRATION, PRESENTATION, NEGOCIATION]
+        canal:
+          type: string
+          enum: [TELEPHONE, EMAIL, EN_PERSONNE, VIDEO, CHAT, RESEAUX_SOCIAUX, PORTAL_CLIENT, MOBILE]
+        sujet:
+          type: string
+        description:
+          type: string
+        dateInteraction:
+          type: string
+          format: date-time
+        dureeMinutes:
+          type: integer
+        resultat:
+          type: string
+          enum: [POSITIF, NEUTRE, NEGATIF, A_RELANCER, A_SUIVRE, TERMINE, REPORTE, ANNULE]
+        actionRequise:
+          type: string
+
+    UpdateInteractionRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [APPEL, EMAIL, REUNION, VISITE, SUPPORT, COMMERCIAL, TECHNIQUE, FORMATION, DEMONSTRATION, PRESENTATION, NEGOCIATION]
+        sujet:
+          type: string
+        description:
+          type: string
+        resultat:
+          type: string
+          enum: [POSITIF, NEUTRE, NEGATIF, A_RELANCER, A_SUIVRE, TERMINE, REPORTE, ANNULE]
+        actionRequise:
+          type: string
+
+    InteractionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        canal:
+          type: string
+        sujet:
+          type: string
+        dateInteraction:
+          type: string
+          format: date-time
+        resultat:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    InteractionDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/InteractionResponse'
+        - type: object
+          properties:
+            client:
+              $ref: '#/components/schemas/ClientResponse'
+            contact:
+              $ref: '#/components/schemas/ContactResponse'
+
+    InteractionsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/InteractionResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+
+    InteractionsStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            totals:
+              type: object
+              properties:
+                interactions:
+                  type: integer
+                averageDuration:
+                  type: number
+            byType:
+              type: object
+            byCanal:
+              type: object
+            byResultat:
+              type: object
+
+    # ==================== DOCUMENTS SCHEMAS ====================
+    CreateDocumentRequest:
+      type: object
+      required:
+        - clientId
+        - typeDocument
+        - nomFichier
+        - chemin
+        - taille
+        - mimeType
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        contratId:
+          type: string
+          format: uuid
+        typeDocument:
+          type: string
+          enum: [CONTRAT, FACTURE, DEVIS, AVENANT, KYC, LEGAL, TECHNIQUE, COMMERCIAL, ADMINISTRATIF, FINANCIER, RAPPORT]
+        nomFichier:
+          type: string
+        chemin:
+          type: string
+        taille:
+          type: integer
+        mimeType:
+          type: string
+        description:
+          type: string
+        estValide:
+          type: boolean
+          default: true
+        confidential:
+          type: boolean
+          default: false
+
+    UpdateDocumentRequest:
+      type: object
+      properties:
+        nomFichier:
+          type: string
+        description:
+          type: string
+        estValide:
+          type: boolean
+        confidential:
+          type: boolean
+
+    UpdateDocumentValidityRequest:
+      type: object
+      required:
+        - estValide
+      properties:
+        estValide:
+          type: boolean
+        raison:
+          type: string
+
+    DocumentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        typeDocument:
+          type: string
+        nomFichier:
+          type: string
+        taille:
+          type: integer
+        mimeType:
+          type: string
+        estValide:
+          type: boolean
+        dateUpload:
+          type: string
+          format: date-time
+        confidential:
+          type: boolean
+
+    DocumentsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+
+    DocumentsExpiringResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            expiring:
+              type: array
+              items:
+                $ref: '#/components/schemas/DocumentResponse'
+            expired:
+              type: array
+              items:
+                $ref: '#/components/schemas/DocumentResponse'
+            meta:
+              type: object
+              properties:
+                thresholdDays:
+                  type: integer
+                thresholdDate:
+                  type: string
+                  format: date-time
+                expiringCount:
+                  type: integer
+                expiredCount:
+                  type: integer
+
+    # ==================== OPPORTUNITES SCHEMAS ====================
+    CreateOpportuniteRequest:
+      type: object
+      required:
+        - clientId
+        - nom
+        - montantEstime
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        nom:
+          type: string
+        description:
+          type: string
+        montantEstime:
+          type: number
+          format: decimal
+        probabilite:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 50
+        dateFermetureEstimee:
+          type: string
+          format: date-time
+        etape:
+          type: string
+          enum: [PROSPECTION, QUALIFICATION, PROPOSITION, NEGOCIATION, FINALISATION]
+          default: PROSPECTION
+        statut:
+          type: string
+          enum: [OUVERTE, GAGNEE, PERDUE, MISE_EN_ATTENTE]
+          default: OUVERTE
+        source:
+          type: string
+
+    UpdateOpportuniteRequest:
+      type: object
+      properties:
+        nom:
+          type: string
+        montantEstime:
+          type: number
+          format: decimal
+        probabilite:
+          type: integer
+          minimum: 0
+          maximum: 100
+        dateFermetureEstimee:
+          type: string
+          format: date-time
+        etape:
+          type: string
+          enum: [PROSPECTION, QUALIFICATION, PROPOSITION, NEGOCIATION, FINALISATION]
+        statut:
+          type: string
+          enum: [OUVERTE, GAGNEE, PERDUE, MISE_EN_ATTENTE]
+
+    UpdateOpportuniteStageRequest:
+      type: object
+      required:
+        - etape
+      properties:
+        etape:
+          type: string
+          enum: [PROSPECTION, QUALIFICATION, PROPOSITION, NEGOCIATION, FINALISATION]
+        notes:
+          type: string
+
+    CloseOpportuniteRequest:
+      type: object
+      required:
+        - statut
+      properties:
+        statut:
+          type: string
+          enum: [GAGNEE, PERDUE]
+        raisonPerdue:
+          type: string
+        montantFinal:
+          type: number
+          format: decimal
+
+    AddProductRequest:
+      type: object
+      required:
+        - description
+        - prixUnitaire
+        - quantite
+      properties:
+        description:
+          type: string
+        prixUnitaire:
+          type: number
+          format: decimal
+        quantite:
+          type: integer
+          minimum: 1
+        tva:
+          type: number
+          format: decimal
+          default: 20.00
+        remise:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 100
+
+    OpportuniteResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+        montantEstime:
+          type: number
+          format: decimal
+        probabilite:
+          type: integer
+        etape:
+          type: string
+        statut:
+          type: string
+        dateFermetureEstimee:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    OpportuniteDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/OpportuniteResponse'
+        - type: object
+          properties:
+            client:
+              $ref: '#/components/schemas/ClientResponse'
+            produits:
+              type: array
+              items:
+                $ref: '#/components/schemas/LigneProduitResponse'
+
+    OpportunitesListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpportuniteResponse'
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+            pipelineValue:
+              type: number
+              format: decimal
+
+    OpportunitesPipelineResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            pipeline:
+              type: object
+            byStatut:
+              type: object
+            totals:
+              type: object
+              properties:
+                pipelineValue:
+                  type: number
+                  format: decimal
+                wonValue:
+                  type: number
+                  format: decimal
+                conversionRate:
+                  type: string
+
+    LigneProduitResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        quantite:
+          type: integer
+        prixUnitaire:
+          type: number
+          format: decimal
+        tva:
+          type: number
+          format: decimal
+        montantHT:
+          type: number
+          format: decimal
+        montantTTC:
+          type: number
+          format: decimal
+
+    # ==================== TYPES CLIENTS SCHEMAS ====================
+    CreateTypeClientRequest:
+      type: object
+      required:
+        - code
+        - libelle
+      properties:
+        code:
+          type: string
+        libelle:
+          type: string
+        description:
+          type: string
+        couleur:
+          type: string
+          pattern: '^#[0-9A-F]{6}$'
+        icone:
+          type: string
+        ordre:
+          type: integer
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateTypeClientRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        libelle:
+          type: string
+        description:
+          type: string
+        couleur:
+          type: string
+          pattern: '^#[0-9A-F]{6}$'
+        icone:
+          type: string
+        ordre:
+          type: integer
+        isActive:
+          type: boolean
+
+    TypeClientResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        libelle:
+          type: string
+        couleur:
+          type: string
+        icone:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    TypeClientDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/TypeClientResponse'
+        - type: object
+          properties:
+            clients:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClientResponse'
+
+    TypeClientsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeClientResponse'
+
+    # ==================== SECTEURS SCHEMAS ====================
+    CreateSecteurRequest:
+      type: object
+      required:
+        - libelle
+      properties:
+        codeNAF:
+          type: string
+          pattern: '^\d{2}\.\d{2}[A-Z]$'
+        libelle:
+          type: string
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+
+    UpdateSecteurRequest:
+      type: object
+      properties:
+        codeNAF:
+          type: string
+          pattern: '^\d{2}\.\d{2}[A-Z]$'
+        libelle:
+          type: string
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+
+    SecteurResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codeNAF:
+          type: string
+        libelle:
+          type: string
+        niveau:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    SecteurDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/SecteurResponse'
+        - type: object
+          properties:
+            parent:
+              $ref: '#/components/schemas/SecteurResponse'
+            enfants:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecteurResponse'
+            clients:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClientResponse'
+
+    SecteursListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecteurResponse'
+
+    SecteursTreeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecteurTreeItem'
+
+    SecteurTreeItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codeNAF:
+          type: string
+        libelle:
+          type: string
+        niveau:
+          type: integer
+        enfants:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecteurTreeItem'
