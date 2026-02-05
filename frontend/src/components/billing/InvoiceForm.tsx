@@ -44,9 +44,22 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     queryKey: ['customers'],
     queryFn: async () => {
       const response = await customersService.getCustomers({ pageSize: 100 });
-      return response.data.data;
+      return response.data;
     },
   });
+
+  const mapLineItems = (
+    items?: Array<{ description?: string; quantity?: number; unitPrice?: number; unit_price?: number }>
+  ) => {
+    if (!items || items.length === 0) {
+      return [{ description: '', quantity: 1, unit_price: 0 }];
+    }
+    return items.map((item) => ({
+      description: item.description || '',
+      quantity: item.quantity ?? 1,
+      unit_price: item.unitPrice ?? item.unit_price ?? 0,
+    }));
+  };
 
   const {
     register,
@@ -59,11 +72,11 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     resolver: zodResolver(invoiceSchema),
     defaultValues: invoice
       ? {
-          customer_id: invoice.customer_id?.toString(),
-          issue_date: invoice.issue_date,
-          due_date: invoice.due_date,
+          customer_id: (invoice.customerId || invoice.customer_id || '').toString(),
+          issue_date: invoice.issueDate || invoice.issue_date || invoice.date || '',
+          due_date: invoice.dueDate || invoice.due_date || '',
           status: invoice.status,
-          line_items: invoice.line_items || [{ description: '', quantity: 1, unit_price: 0 }],
+          line_items: mapLineItems(invoice.items || invoice.line_items),
           notes: invoice.notes || '',
           tax_rate: invoice.tax_rate || 20,
         }
@@ -92,10 +105,10 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => billingService.updateInvoice(invoice.invoice_num, data),
+    mutationFn: (data: any) => billingService.updateInvoice(invoice.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice', invoice.invoice_num] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoice.id] });
       onSuccess?.();
     },
   });
@@ -115,7 +128,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
 
   const onSubmit = (data: InvoiceFormData) => {
     const invoiceData = {
-      customer_id: parseInt(data.customer_id),
+      customer_id: data.customer_id,
       issue_date: data.issue_date,
       due_date: data.due_date,
       status: data.status,
@@ -155,12 +168,16 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
               {...register('customer_id')}
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
-              <option value="">Sélectionner un client</option>
-              {customers?.map((customer) => (
+            <option value="">Sélectionner un client</option>
+            {customers?.map((customer) => {
+              const name = customer.raisonSociale || customer.nom || customer.reference || customer.email || customer.id;
+              const email = customer.email ? ` - ${customer.email}` : '';
+              return (
                 <option key={customer.id} value={customer.id}>
-                  {customer.companyName} - {customer.contactFirstName} {customer.contactLastName}
+                  {`${name}${email}`}
                 </option>
-              ))}
+              );
+            })}
             </select>
             {errors.customer_id && (
               <p className="text-sm text-red-500 mt-1">{errors.customer_id.message}</p>

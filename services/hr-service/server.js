@@ -14,7 +14,7 @@ const payrollRoutes = require('./routes/payroll.routes');
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 4010;
+const PORT = process.env.PORT || 4009;
 
 // Configure Winston logger
 const logger = winston.createLogger({

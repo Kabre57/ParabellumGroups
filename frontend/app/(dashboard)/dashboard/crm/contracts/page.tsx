@@ -24,12 +24,12 @@ export default function ContractsPage() {
     queryKey: ['contracts', page],
     queryFn: async () => {
       const response = await crmService.getContrats({ page, limit: 10 });
-      return response.data;
+      return response;
     },
   });
 
   const contracts = data?.data || [];
-  const pagination = data?.pagination;
+  const pagination = data?.meta?.pagination;
 
   const getStatusBadge = (status: string) => {
     const statuses: Record<string, string> = {

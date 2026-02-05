@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTechniciens, useDeleteTechnicien, useUpdateTechnicienStatus, useCreateTechnicien, useUpdateTechnicien } from '@/hooks/useTechnical';
+import { useTechniciens, useDeleteTechnicien, useCreateTechnicien, useUpdateTechnicien } from '@/hooks/useTechnical';
 import { Technicien } from '@/shared/api/services/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,16 +13,18 @@ import { CreateTechnicienModal } from '@/components/technical/CreateTechnicienMo
 
 const statusColors: Record<string, string> = {
   AVAILABLE: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-  BUSY: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
+  ON_MISSION: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
   ON_LEAVE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
-  INACTIVE: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+  SICK: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
+  TRAINING: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
 };
 
 const statusLabels: Record<string, string> = {
   AVAILABLE: 'Disponible',
-  BUSY: 'Occupé',
-  ON_LEAVE: 'En congé',
-  INACTIVE: 'Inactif',
+  ON_MISSION: 'En mission',
+  ON_LEAVE: 'En conge',
+  SICK: 'Malade',
+  TRAINING: 'Formation',
 };
 
 export default function TechniciensPage() {
@@ -33,7 +35,6 @@ export default function TechniciensPage() {
 
   const { data: techniciens = [], isLoading, error } = useTechniciens({ pageSize: 100 });
   const deleteMutation = useDeleteTechnicien();
-  const updateStatusMutation = useUpdateTechnicienStatus();
   const createMutation = useCreateTechnicien();
   const updateMutation = useUpdateTechnicien();
 

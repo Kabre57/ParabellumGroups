@@ -25,12 +25,12 @@ export default function InteractionsHistoryPage() {
       // Note: customersService.getInteractions needs to support getting all if clientId is omitted
       // For now we use it as is, assuming the backend supports it or we'll fix the service
       const response = await customersService.getInteractions({ clientId: '' });
-      return response.data;
+      return response;
     },
   });
 
   const interactions = data?.data || [];
-  const pagination = data?.pagination;
+  const pagination = data?.meta?.pagination;
 
   return (
     <div className="space-y-6">
@@ -93,7 +93,7 @@ export default function InteractionsHistoryPage() {
             {pagination && pagination.totalPages > 1 && (
               <div className="flex justify-between items-center p-4 border-t">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {pagination.currentPage} sur {pagination.totalPages}
+                  Page {pagination.page} sur {pagination.totalPages}
                 </div>
                 <div className="flex gap-2">
                   <Button

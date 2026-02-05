@@ -102,7 +102,7 @@ npm start
 ```
 PORT=4013
 DATABASE_URL="postgresql://user:password@localhost:5432/analytics_db"
-JWT_SECRET="votre_secret_jwt"
+JWT_SECRET=416500b0f18082fb66834e3a45d550cfc154218b718d8fdb91185168c873682c2bfb9a4c6bf69e5b6060bc5b22366f54fedfd5a3da38065246d0093c19ea861b
 NODE_ENV="development"
 ```
 

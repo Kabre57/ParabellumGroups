@@ -26,7 +26,7 @@ export default function ContractsPage() {
   const [selectedContract, setSelectedContract] = useState<any>(null);
   const [showPrint, setShowPrint] = useState(false);
 
-  const { data, isLoading, error } = useContracts({ pageSize: 100, search: searchTerm });
+  const { data, isLoading, error } = useContracts({ pageSize: 100, query: searchTerm });
   const deleteMutation = useDeleteContract();
 
   const handlePrint = (contract: any) => {
@@ -138,7 +138,7 @@ export default function ContractsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data?.data?.data?.map((contract: any) => (
+                {data?.data?.map((contract: any) => (
                   <tr
                     key={contract.id}
                     className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -212,7 +212,7 @@ export default function ContractsPage() {
               </tbody>
             </table>
 
-            {data?.data?.data?.length === 0 && (
+            {data?.data?.length === 0 && (
               <div className="text-center py-8 text-gray-500">Aucun contrat trouvé</div>
             )}
           </div>
@@ -220,7 +220,7 @@ export default function ContractsPage() {
 
         {data?.data && (
           <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            Total: {data.data.total} contrat(s)
+            Total: {data.pagination?.totalItems || data.data.length} contrat(s)
           </div>
         )}
       </Card>

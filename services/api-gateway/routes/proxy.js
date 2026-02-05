@@ -13,9 +13,12 @@ const {
   projectsServiceLimiter,
   procurementServiceLimiter,
   communicationServiceLimiter,
+  commercialServiceLimiter,
+  inventoryServiceLimiter,
   hrServiceLimiter,
   billingServiceLimiter,
-  analyticsServiceLimiter
+  analyticsServiceLimiter,
+  notificationsServiceLimiter
 } = require('../middleware/serviceLimiters');
 
 const router = express.Router();
@@ -163,82 +166,272 @@ const createResilientProxy = (serviceName, target, pathRewrite = {}) => {
   };
 };
 
+const rewriteAuthPath = (path) => path.replace(/^\/auth/, '/api/auth');
+
+const rewriteTechnicalPath = (path) => path.replace(/^\/technical/, '/api');
+
+const rewriteProjectsPath = (path) => {
+  const tasksMatch = path.match(/^\/projects\/([^\/]+)\/tasks(\/[^?]*)?(\?.*)?$/);
+  if (tasksMatch) {
+    const projectId = tasksMatch[1];
+    const tail = tasksMatch[2] || '';
+    const query = tasksMatch[3] || '';
+    const queryPrefix = query ? `${query}&` : '?';
+    return `/api/taches${tail}${queryPrefix}projetId=${encodeURIComponent(projectId)}`;
+  }
+
+  return path.replace(/^\/projects/, '/api/projets');
+};
+
+const rewriteProcurementPath = (path) => {
+  if (path.startsWith('/procurement/orders')) {
+    return path.replace('/procurement/orders', '/api/bons-commande');
+  }
+  if (path.startsWith('/procurement/requests')) {
+    return path.replace('/procurement/requests', '/api/demandes-achat');
+  }
+  if (path.startsWith('/procurement/suppliers')) {
+    return path.replace('/procurement/suppliers', '/api/fournisseurs');
+  }
+  return path.replace(/^\/procurement/, '/api');
+};
+
+const rewriteCommunicationPath = (path) => path.replace(/^\/communication/, '/api');
+
+const rewriteHrPath = (path) => {
+  const employeeContractsMatch = path.match(/^\/hr\/employees\/([^\/]+)\/contracts(\?.*)?$/);
+  if (employeeContractsMatch) {
+    const employeeId = employeeContractsMatch[1];
+    const query = employeeContractsMatch[2] || '';
+    const queryPrefix = query ? `${query}&` : '?';
+    return `/contracts${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
+  }
+  if (path.startsWith('/hr/employees')) {
+    return path.replace('/hr/employees', '/api/employes');
+  }
+  if (path.startsWith('/hr/leave-requests')) {
+    return path.replace('/hr/leave-requests', '/api/conges');
+  }
+  if (path.startsWith('/hr/presences')) {
+    return path.replace('/hr/presences', '/api/presences');
+  }
+  if (path.startsWith('/hr/evaluations')) {
+    return path.replace('/hr/evaluations', '/api/evaluations');
+  }
+  if (path.startsWith('/hr/contracts')) {
+    return path.replace('/hr/contracts', '/contracts');
+  }
+  if (path.startsWith('/hr/payroll')) {
+    return path.replace('/hr/payroll', '/payroll');
+  }
+
+  return path.replace(/^\/hr/, '/api');
+};
+
+const rewriteBillingPath = (path) => {
+  if (path.startsWith('/billing/invoices')) {
+    return path.replace('/billing/invoices', '/api/factures');
+  }
+  if (path.startsWith('/billing/quotes')) {
+    return path.replace('/billing/quotes', '/api/devis');
+  }
+  if (path.startsWith('/billing/payments')) {
+    return path.replace('/billing/payments', '/api/paiements');
+  }
+  return path.replace(/^\/billing/, '/api');
+};
+
+const rewriteCommercialPath = (path) => path.replace(/^\/commercial/, '/api/prospects');
+
+const rewriteInventoryPath = (path) => path.replace(/^\/inventory/, '/api');
+
+const rewriteNotificationsPath = (path) => path.replace(/^\/notifications/, '/api/notifications');
+
 // Routes auth avec validation
 router.post('/auth/login', 
   authServiceLimiter,
   validateSchema(schemas.auth.login),
-  createProxy(config.SERVICES.AUTH, { '^/api/auth': '/api/auth' })
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
 );
 
 router.post('/auth/register',
   authServiceLimiter,
   validateSchema(schemas.auth.register),
-  createProxy(config.SERVICES.AUTH, { '^/api/auth': '/api/auth' })
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
 );
 
 router.post('/auth/refresh',
   authServiceLimiter,
   validateSchema(schemas.auth.refresh),
-  createProxy(config.SERVICES.AUTH, { '^/api/auth': '/api/auth' })
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
 );
 
 // Toutes les autres routes auth sans validation spécifique
 router.use('/auth',
   authServiceLimiter,
-  createProxy(config.SERVICES.AUTH, { '^/api/auth': '/api/auth' })
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
 );
 
 router.use('/technical', 
   authenticateToken,
   technicalServiceLimiter,
-  createProxy(config.SERVICES.TECHNICAL, { '^/api/technical': '/api' })
+  createProxy(config.SERVICES.TECHNICAL, rewriteTechnicalPath)
 );
 
 // MODIFICATION CRITIQUE ICI - Routes customers
 router.use('/customers', 
   authenticateToken,
   customersServiceLimiter,
-  createProxy(config.SERVICES.CUSTOMERS, {
-    '^/api/customers/type-clients': '/api/type-clients',
-    '^/api/customers/interactions': '/api/interactions',
-    '^/api/customers': '/api/clients'
+  createProxy(config.SERVICES.CUSTOMERS, (path) => {
+    if (path.startsWith('/customers/type-clients')) {
+      return path.replace('/customers/type-clients', '/api/type-clients');
+    }
+    if (path.startsWith('/customers/interactions')) {
+      return path.replace('/customers/interactions', '/api/interactions');
+    }
+    if (path.startsWith('/customers/contrats')) {
+      return path.replace('/customers/contrats', '/api/contrats');
+    }
+    if (path.startsWith('/customers/opportunites')) {
+      return path.replace('/customers/opportunites', '/api/opportunites');
+    }
+    if (path.startsWith('/customers/contacts')) {
+      return path.replace('/customers/contacts', '/api/contacts');
+    }
+    if (path.startsWith('/customers/documents')) {
+      return path.replace('/customers/documents', '/api/documents');
+    }
+    if (path.startsWith('/customers/adresses')) {
+      return path.replace('/customers/adresses', '/api/adresses');
+    }
+    if (path.startsWith('/customers/secteurs')) {
+      return path.replace('/customers/secteurs', '/api/secteurs');
+    }
+    return path.replace('/customers', '/api/clients');
   })
+);
+
+// Routes CRM directes (compatibles avec le frontend)
+router.use('/clients',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/clients': '/api/clients' })
+);
+
+router.use('/contacts',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/contacts': '/api/contacts' })
+);
+
+router.use('/contrats',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/contrats': '/api/contrats' })
+);
+
+router.use('/interactions',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/interactions': '/api/interactions' })
+);
+
+router.use('/opportunites',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/opportunites': '/api/opportunites' })
+);
+
+router.use('/type-clients',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/type-clients': '/api/type-clients' })
+);
+
+router.use('/documents',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/documents': '/api/documents' })
+);
+
+router.use('/adresses',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/adresses': '/api/adresses' })
+);
+
+router.use('/secteurs',
+  authenticateToken,
+  customersServiceLimiter,
+  createProxy(config.SERVICES.CUSTOMERS, { '^/secteurs': '/api/secteurs' })
 );
 
 router.use('/projects', 
   authenticateToken,
   projectsServiceLimiter,
-  createProxy(config.SERVICES.PROJECTS, { '^/api/projects': '' })
+  createProxy(config.SERVICES.PROJECTS, rewriteProjectsPath)
 );
 
 router.use('/procurement', 
   authenticateToken,
   procurementServiceLimiter,
-  createProxy(config.SERVICES.PROCUREMENT, { '^/api/procurement': '' })
+  createProxy(config.SERVICES.PROCUREMENT, rewriteProcurementPath)
 );
 
 router.use('/communication', 
   authenticateToken,
   communicationServiceLimiter,
-  createProxy(config.SERVICES.COMMUNICATION, { '^/api/communication': '' })
+  createProxy(config.SERVICES.COMMUNICATION, rewriteCommunicationPath)
 );
 
 router.use('/hr', 
   authenticateToken,
   hrServiceLimiter,
-  createProxy(config.SERVICES.HR, { '^/api/hr': '' })
+  createProxy(config.SERVICES.HR, rewriteHrPath)
 );
 
 router.use('/billing', 
   authenticateToken,
   billingServiceLimiter,
-  createProxy(config.SERVICES.BILLING, { '^/api/billing': '' })
+  createProxy(config.SERVICES.BILLING, rewriteBillingPath)
+);
+
+router.use('/commercial',
+  authenticateToken,
+  commercialServiceLimiter,
+  createProxy(config.SERVICES.COMMERCIAL, rewriteCommercialPath)
+);
+
+router.use('/inventory',
+  authenticateToken,
+  inventoryServiceLimiter,
+  createProxy(config.SERVICES.INVENTORY, rewriteInventoryPath)
+);
+
+router.use('/notifications',
+  authenticateToken,
+  notificationsServiceLimiter,
+  createProxy(config.SERVICES.NOTIFICATIONS, rewriteNotificationsPath)
 );
 
 router.use('/analytics', 
   authenticateToken,
   analyticsServiceLimiter,
-  createProxy(config.SERVICES.ANALYTICS, { '^/api/analytics': '' })
+  createProxy(config.SERVICES.ANALYTICS, (path) => {
+    if (path.startsWith('/analytics/rapports')) {
+      return path.replace('/analytics/rapports', '/api/rapports');
+    }
+    if (path.startsWith('/analytics/kpis')) {
+      return path.replace('/analytics/kpis', '/api/kpis');
+    }
+    if (path.startsWith('/analytics/dashboards')) {
+      return path.replace('/analytics/dashboards', '/api/dashboards');
+    }
+    if (path.startsWith('/analytics/widgets')) {
+      return path.replace('/analytics/widgets', '/api/widgets');
+    }
+    return path.replace('/analytics', '/api/analytics');
+  })
 );
 
 module.exports = router;

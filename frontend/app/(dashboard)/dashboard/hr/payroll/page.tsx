@@ -20,7 +20,7 @@ export default function PayrollPage() {
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [showPrint, setShowPrint] = useState(false);
 
-  const { data, isLoading, error } = usePayslips({ pageSize: 100, search: searchTerm });
+  const { data, isLoading, error } = usePayslips({ pageSize: 100, query: searchTerm });
   const deleteMutation = useDeletePayslip();
 
   const handlePrint = (payslip: any) => {
@@ -146,7 +146,7 @@ export default function PayrollPage() {
                 </tr>
               </thead>
               <tbody>
-                {data?.data?.data?.map((payslip: any) => (
+                {data?.data?.map((payslip: any) => (
                   <tr
                     key={payslip.id}
                     className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -222,7 +222,7 @@ export default function PayrollPage() {
               </tbody>
             </table>
 
-            {data?.data?.data?.length === 0 && (
+            {data?.data?.length === 0 && (
               <div className="text-center py-8 text-gray-500">Aucun bulletin trouvé</div>
             )}
           </div>
@@ -230,7 +230,7 @@ export default function PayrollPage() {
 
         {data?.data && (
           <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            Total: {data.data.total} bulletin(s)
+            Total: {data.pagination?.totalItems || data.data.length} bulletin(s)
           </div>
         )}
       </Card>

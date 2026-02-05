@@ -1,18 +1,22 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import customersService, { Prospect } from '@/shared/api/services/customers';
+import customersService from '@/shared/api/services/customers';
+import type { Prospect, ProspectStage } from '@/shared/api/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 
-const PROSPECT_STAGES = [
-  { id: 'NEW', label: 'Nouveau', color: 'bg-gray-100 text-gray-800' },
-  { id: 'CONTACTED', label: 'Contacté', color: 'bg-blue-100 text-blue-800' },
-  { id: 'QUALIFIED', label: 'Qualifié', color: 'bg-purple-100 text-purple-800' },
-  { id: 'NEGOTIATION', label: 'Négociation', color: 'bg-orange-100 text-orange-800' },
+const PROSPECT_STAGES: Array<{ id: ProspectStage; label: string; color: string }> = [
+  { id: 'preparation', label: 'Preparation', color: 'bg-gray-100 text-gray-800' },
+  { id: 'research', label: 'Recherche', color: 'bg-blue-100 text-blue-800' },
+  { id: 'contact', label: 'Contact', color: 'bg-purple-100 text-purple-800' },
+  { id: 'discovery', label: 'Decouverte', color: 'bg-indigo-100 text-indigo-800' },
+  { id: 'proposal', label: 'Proposition', color: 'bg-orange-100 text-orange-800' },
+  { id: 'won', label: 'Gagne', color: 'bg-green-100 text-green-800' },
+  { id: 'lost', label: 'Perdu', color: 'bg-red-100 text-red-800' },
 ];
 
 interface ProspectsListProps {
@@ -53,15 +57,12 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
     );
   }
 
-  const prospects = data?.data || [];
+  const prospects = (data?.data || []) as Prospect[];
 
-  // Group prospects by stage
   const prospectsByStage = PROSPECT_STAGES.reduce((acc, stage) => {
-    acc[stage.id] = prospects.filter(
-      (p) => p.prospectStatus === stage.id || (!p.prospectStatus && stage.id === 'NEW')
-    );
+    acc[stage.id] = prospects.filter((p: Prospect) => p.stage === stage.id);
     return acc;
-  }, {} as Record<string, Prospect[]>);
+  }, {} as Record<ProspectStage, Prospect[]>);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -84,27 +85,25 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
                     <h4 className="font-medium text-sm text-gray-900 dark:text-white">
                       {prospect.companyName}
                     </h4>
-                    
+
                     <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                      <p>
-                        {prospect.contactFirstName} {prospect.contactLastName}
-                      </p>
+                      <p>{prospect.contactName}</p>
                       {prospect.email && <p>{prospect.email}</p>}
-                      {prospect.phoneNumber && <p>{prospect.phoneNumber}</p>}
+                      {prospect.phone && <p>{prospect.phone}</p>}
                     </div>
 
-                    {prospect.expectedRevenue && (
+                    {prospect.potentialValue && (
                       <div className="text-xs font-semibold text-green-600">
                         {new Intl.NumberFormat('fr-FR', {
                           style: 'currency',
                           currency: 'EUR',
-                        }).format(prospect.expectedRevenue)}
+                        }).format(prospect.potentialValue)}
                       </div>
                     )}
 
-                    {prospect.probability && (
+                    {prospect.closingProbability && (
                       <div className="text-xs text-gray-500">
-                        Probabilité: {prospect.probability}%
+                        Probabilite: {prospect.closingProbability}%
                       </div>
                     )}
 
@@ -114,7 +113,7 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
                       </Badge>
                     )}
 
-                    {stage.id === 'NEGOTIATION' && (
+                    {stage.id === 'won' && (
                       <Button
                         size="sm"
                         className="w-full mt-2"

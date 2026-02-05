@@ -171,15 +171,20 @@ export interface Address {
  */
 export interface Project {
   id: string;
+  projectNumber?: string;
   name: string;
   description?: string;
   customerId: string;
   customer?: Customer;
+  clientName?: string;
   status: ProjectStatus;
   startDate: string;
   endDate?: string;
   budget?: number;
+  spent?: number;
+  completion?: number;
   currency: string;
+  priority?: string;
   managerId: string;
   manager?: User;
   createdAt: string;

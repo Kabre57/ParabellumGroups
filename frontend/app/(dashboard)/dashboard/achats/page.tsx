@@ -2,21 +2,23 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { procurementService } from '@/services/procurement';
+import type { ProcurementStats, PurchaseOrder, PurchaseOrderStatus } from '@/services/procurement';
 
-interface ProcurementStats {
-  ordersThisMonth: number;
-  pendingOrders: number;
-  budgetRemaining: number;
-}
+const statusLabels: Record<PurchaseOrderStatus, string> = {
+  BROUILLON: 'Brouillon',
+  ENVOYE: 'Envoyé',
+  CONFIRME: 'Confirmé',
+  LIVRE: 'Livré',
+  ANNULE: 'Annulé',
+};
 
-interface RecentOrder {
-  id: string;
-  number: string;
-  supplier: string;
-  date: string;
-  status: string;
-  amount: number;
-}
+const statusColors: Record<PurchaseOrderStatus, string> = {
+  BROUILLON: 'bg-yellow-100 text-yellow-800',
+  ENVOYE: 'bg-blue-100 text-blue-800',
+  CONFIRME: 'bg-purple-100 text-purple-800',
+  LIVRE: 'bg-green-100 text-green-800',
+  ANNULE: 'bg-red-100 text-red-800',
+};
 
 export default function ProcurementOverviewPage() {
   const { data: stats, isLoading: statsLoading } = useQuery<ProcurementStats>({
@@ -24,7 +26,7 @@ export default function ProcurementOverviewPage() {
     queryFn: () => procurementService.getStats(),
   });
 
-  const { data: recentOrders = [], isLoading: ordersLoading } = useQuery<RecentOrder[]>({
+  const { data: recentOrders = [], isLoading: ordersLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['recent-orders'],
     queryFn: () => procurementService.getRecentOrders({ limit: 10 }),
   });
@@ -126,11 +128,11 @@ export default function ProcurementOverviewPage() {
                 {recentOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.number}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{order.supplier}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{order.supplier || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{new Date(order.date).toLocaleDateString()}</td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {order.status}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
+                        {statusLabels[order.status] || order.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.amount.toLocaleString()} F</td>

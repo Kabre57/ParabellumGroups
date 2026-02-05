@@ -1,0 +1,33 @@
+services:
+  commercial-service:
+    build: .
+    container_name: commercial-service
+    ports:
+      - "4004:4004"
+    environment:
+      - PORT=4004
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025
+      - DATABASE_URL=postgresql://parabellum:parabellum2025@db:5432/parabellum_commercial?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: commercial-service-db
+    environment:
+      POSTGRES_USER: parabellum
+      POSTGRES_PASSWORD: parabellum2025
+      POSTGRES_DB: parabellum_commercial
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parabellum -d parabellum_commercial"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - commercial-service_db_data:/var/lib/postgresql/data
+
+volumes:
+  commercial-service_db_data:

@@ -327,7 +327,7 @@ model AdresseClient {
   codePostal    String
   ville         String
   region        String?
-  pays          String        @default("cote d\'ivoire")
+  pays          String        @default("côte d'ivoire")
   isPrincipal   Boolean       @default(false)
   coordonneesGps String?      // "lat,lng"
   informationsAcces String?
@@ -365,8 +365,8 @@ model Contrat {
   // Financier
   montantHT       Decimal         @db.Decimal(12, 2)
   montantTTC      Decimal         @db.Decimal(12, 2)
-  devise          String          @default("EUR")
-  tauxTVA         Decimal         @db.Decimal(5, 2) @default(20.00)
+  devise          String          @default("XOF")
+  tauxTVA         Decimal         @db.Decimal(5, 2) @default(18.00)
   periodicitePaiement String?     // "MENSUEL", "TRIMESTRIEL", "ANNUEL"
   jourPaiement    Int?            // Jour du mois (1-31)
   

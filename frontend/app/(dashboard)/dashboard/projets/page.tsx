@@ -3,23 +3,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { projectsService } from '@/services/projects';
-
-type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
-
-interface Project {
-  id: string;
-  number: string;
-  name: string;
-  clientName: string;
-  startDate: string;
-  endDate: string;
-  budget: number;
-  status: ProjectStatus;
-  completion: number;
-}
+import type { ApiResponse, PaginatedResponse, Project, ProjectStatus } from '@/shared/api/types';
 
 const statusColors: Record<ProjectStatus, string> = {
-  DRAFT: 'bg-gray-200 text-gray-800',
+  PLANNING: 'bg-gray-200 text-gray-800',
   ACTIVE: 'bg-blue-200 text-blue-800',
   ON_HOLD: 'bg-yellow-200 text-yellow-800',
   COMPLETED: 'bg-green-200 text-green-800',
@@ -27,9 +14,9 @@ const statusColors: Record<ProjectStatus, string> = {
 };
 
 const statusLabels: Record<ProjectStatus, string> = {
-  DRAFT: 'Brouillon',
-  ACTIVE: 'Actif',
-  ON_HOLD: 'En pause',
+  PLANNING: 'Planifié',
+  ACTIVE: 'En cours',
+  ON_HOLD: 'Suspendu',
   COMPLETED: 'Terminé',
   CANCELLED: 'Annulé',
 };
@@ -38,22 +25,28 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
   const [clientFilter, setClientFilter] = useState('');
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery<ApiResponse<PaginatedResponse<Project>>>({
     queryKey: ['projects', statusFilter, clientFilter],
-    queryFn: () => projectsService.getAll({ status: statusFilter !== 'ALL' ? statusFilter : undefined, client: clientFilter || undefined }),
+    queryFn: () =>
+      projectsService.getProjects({
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      }),
   });
 
-  const filteredProjects = projects.filter((project: Project) => {
+  const projects = response?.data.data ?? [];
+
+  const filteredProjects = projects.filter((project) => {
+    const clientLabel = (project.clientName || project.customer?.name || project.customerId || '').toLowerCase();
     const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
-    const matchesClient = !clientFilter || project.clientName.toLowerCase().includes(clientFilter.toLowerCase());
+    const matchesClient = !clientFilter || clientLabel.includes(clientFilter.toLowerCase());
     return matchesStatus && matchesClient;
   });
 
   const stats = {
     total: projects.length,
-    active: projects.filter((p: Project) => p.status === 'ACTIVE').length,
-    completed: projects.filter((p: Project) => p.status === 'COMPLETED').length,
-    totalBudget: projects.reduce((sum: number, p: Project) => sum + p.budget, 0),
+    active: projects.filter((p) => p.status === ProjectStatus.ACTIVE).length,
+    completed: projects.filter((p) => p.status === ProjectStatus.COMPLETED).length,
+    totalBudget: projects.reduce((sum, p) => sum + (p.budget || 0), 0),
   };
 
   return (
@@ -94,9 +87,9 @@ export default function ProjectsPage() {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="ALL">Tous</option>
-              <option value="DRAFT">Brouillon</option>
-              <option value="ACTIVE">Actif</option>
-              <option value="ON_HOLD">En pause</option>
+              <option value="PLANNING">Planifié</option>
+              <option value="ACTIVE">En cours</option>
+              <option value="ON_HOLD">Suspendu</option>
               <option value="COMPLETED">Terminé</option>
               <option value="CANCELLED">Annulé</option>
             </select>
@@ -131,41 +124,50 @@ export default function ProjectsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredProjects.map((project: Project) => (
-                  <tr key={project.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{project.number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{project.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{project.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(project.startDate).toLocaleDateString()} - {new Date(project.endDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{project.budget.toLocaleString()} F</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[project.status]}`}>
-                        {statusLabels[project.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${project.completion}%` }}
-                          ></div>
+                {filteredProjects.map((project) => {
+                  const projectNumber = project.projectNumber || project.id.slice(0, 8);
+                  const clientLabel = project.clientName || project.customer?.name || project.customerId || '—';
+                  const startDateLabel = project.startDate ? new Date(project.startDate).toLocaleDateString() : '—';
+                  const endDateLabel = project.endDate ? new Date(project.endDate).toLocaleDateString() : '—';
+                  const budgetValue = project.budget ?? 0;
+                  const completion = project.completion ?? 0;
+
+                  return (
+                    <tr key={project.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{projectNumber}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{project.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{clientLabel}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {startDateLabel} - {endDateLabel}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{budgetValue.toLocaleString()} F</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[project.status]}`}>
+                          {statusLabels[project.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: `${completion}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-600 w-12">{completion}%</span>
                         </div>
-                        <span className="text-sm text-gray-600 w-12">{project.completion}%</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <a
-                        href={`/dashboard/projets/${project.id}`}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Voir
-                      </a>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <a
+                          href={`/dashboard/projets/${project.id}`}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          Voir
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {filteredProjects.length === 0 && (

@@ -3,45 +3,29 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { procurementService } from '@/services/procurement';
-
-interface StockItem {
-  id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  threshold: number;
-  lastRestocked: string;
-  location: string;
-}
-
-interface StockMovement {
-  id: string;
-  date: string;
-  item: string;
-  type: 'IN' | 'OUT';
-  quantity: number;
-  user: string;
-  reference: string;
-}
+import type { StockItem, StockMovement } from '@/services/procurement';
 
 export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'movements'>('items');
 
-  const { data: stockItems = [], isLoading: itemsLoading } = useQuery({
+  const { data: stockItems = [], isLoading: itemsLoading } = useQuery<StockItem[]>({
     queryKey: ['stock-items', categoryFilter],
-    queryFn: () => procurementService.getStockItems({ category: categoryFilter || undefined }),
+    queryFn: () => procurementService.getStockItems(),
   });
 
-  const { data: movements = [], isLoading: movementsLoading } = useQuery({
+  const { data: movements = [], isLoading: movementsLoading } = useQuery<StockMovement[]>({
     queryKey: ['stock-movements'],
-    queryFn: () => procurementService.getStockMovements({ limit: 50 }),
+    queryFn: () => procurementService.getStockMovements(),
     enabled: activeTab === 'movements',
   });
 
-  const filteredItems = stockItems.filter((item: StockItem) => {
+  const normalizedCategory = categoryFilter.trim().toLowerCase();
+  const filteredItems = stockItems.filter((item) => {
+    if (normalizedCategory && !item.category.toLowerCase().includes(normalizedCategory)) {
+      return false;
+    }
     if (showLowStock) {
       return item.quantity <= item.threshold;
     }
@@ -62,6 +46,10 @@ export default function StockPage() {
         <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           Ajouter un article
         </button>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+        Le module stock n'est pas encore connect? au service procurement. Donn?es affich?es a titre indicatif.
       </div>
 
       <div className="grid grid-cols-3 gap-4">

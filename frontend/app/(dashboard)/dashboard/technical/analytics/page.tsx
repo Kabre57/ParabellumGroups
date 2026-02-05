@@ -2,9 +2,8 @@
 
 import React from 'react';
 import { useMissions, useInterventions, useTechniciens, useMaterielAlertes } from '@/hooks/useTechnical';
-import { Mission, Intervention, Technicien, Materiel } from '@/shared/api/services/technical';
+import { Mission, Intervention, Technicien } from '@/shared/api/services/technical';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   BarChart,
   Bar,
@@ -20,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Wrench, Users, ClipboardList, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { Wrench, Users, ClipboardList, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -76,8 +75,19 @@ export default function TechnicalAnalyticsPage() {
   }, {});
 
   const techStatusData = Object.entries(techniciensByStatus).map(([name, value]) => ({
-    name: name === 'AVAILABLE' ? 'Disponible' : name === 'BUSY' ? 'Occupé' : name === 'ON_LEAVE' ? 'En congé' : 'Inactif',
-    value,
+    name:
+      name == 'AVAILABLE'
+        ? 'Disponible'
+        : name == 'ON_MISSION'
+        ? 'En mission'
+        : name == 'ON_LEAVE'
+        ? 'En conge'
+        : name == 'SICK'
+        ? 'Malade'
+        : name == 'TRAINING'
+        ? 'Formation'
+        : 'Inconnu',
+    value: Number(value),
   }));
 
   const interventionsByMonth = interventions.reduce((acc: any, intervention: Intervention) => {

@@ -1,0 +1,11 @@
+services:
+  api-gateway:
+    build: .
+    container_name: api-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025

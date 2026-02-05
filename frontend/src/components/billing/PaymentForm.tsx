@@ -12,10 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 
 const paymentSchema = z.object({
-  invoice_num: z.string().optional(),
-  amount: z.number().min(0.01, 'Le montant doit être supérieur à 0'),
-  payment_date: z.string().min(1, 'La date de paiement est requise'),
-  method: z.string().min(1, 'La méthode de paiement est requise'),
+  invoiceId: z.string().optional(),
+  amount: z.number().min(0.01, 'Le montant doit etre superieur a 0'),
+  paymentDate: z.string().min(1, 'La date de paiement est requise'),
+  method: z.string().min(1, 'La methode de paiement est requise'),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -24,7 +24,8 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 
 interface PaymentFormProps {
   payment?: any;
-  invoiceNum?: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
   remainingAmount?: number;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -32,7 +33,8 @@ interface PaymentFormProps {
 
 export default function PaymentForm({
   payment,
-  invoiceNum,
+  invoiceId,
+  invoiceNumber,
   remainingAmount,
   onSuccess,
   onCancel,
@@ -43,12 +45,12 @@ export default function PaymentForm({
   const { data: invoices } = useQuery({
     queryKey: ['unpaidInvoices'],
     queryFn: async () => {
-      const data = await billingService.getInvoices({ 
-        status: ['SENT', 'OVERDUE', 'PARTIALLY_PAID'] 
+      const data = await billingService.getInvoices({
+        status: ['SENT', 'OVERDUE', 'PARTIALLY_PAID'],
       });
       return data;
     },
-    enabled: !invoiceNum, // Ne charger que si pas de facture pré-sélectionnée
+    enabled: !invoiceId,
   });
 
   const {
@@ -61,17 +63,17 @@ export default function PaymentForm({
     resolver: zodResolver(paymentSchema),
     defaultValues: payment
       ? {
-          invoice_num: payment.invoice_num,
+          invoiceId: payment.invoiceId || payment.invoice_id || '',
           amount: payment.amount,
-          payment_date: payment.payment_date,
+          paymentDate: payment.payment_date || payment.date,
           method: payment.method,
           reference: payment.reference || '',
           notes: payment.notes || '',
         }
       : {
-          invoice_num: invoiceNum || '',
+          invoiceId: invoiceId || '',
           amount: remainingAmount || 0,
-          payment_date: new Date().toISOString().split('T')[0],
+          paymentDate: new Date().toISOString().split('T')[0],
           method: 'BANK_TRANSFER',
           reference: '',
           notes: '',
@@ -79,56 +81,40 @@ export default function PaymentForm({
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const payment = await billingService.createPayment(data);
-      
-      // Si une facture est sélectionnée, allouer automatiquement le paiement
-      if (data.invoice_num) {
-        await billingService.allocatePayment(
-          payment.payment_id,
-          data.invoice_num,
-          data.amount
-        );
-      }
-      
-      return payment;
+    mutationFn: async (data: PaymentFormData) => {
+      return billingService.createPayment({
+        invoiceId: data.invoiceId,
+        amount: data.amount,
+        payment_date: data.paymentDate,
+        method: data.method,
+        reference: data.reference,
+        notes: data.notes,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      if (invoiceNum) {
-        queryClient.invalidateQueries({ queryKey: ['invoice', invoiceNum] });
-        queryClient.invalidateQueries({ queryKey: ['invoicePayments', invoiceNum] });
+      if (invoiceId) {
+        queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+        queryClient.invalidateQueries({ queryKey: ['invoicePayments', invoiceId] });
       }
       onSuccess?.();
     },
   });
 
-  const selectedInvoiceNum = watch('invoice_num');
+  const selectedInvoiceId = watch('invoiceId');
 
-  // Mettre à jour le montant automatiquement quand une facture est sélectionnée
   useEffect(() => {
-    if (selectedInvoiceNum && invoices) {
-      const invoice = invoices.find((inv) => inv.invoice_num === selectedInvoiceNum);
+    if (selectedInvoiceId && invoices) {
+      const invoice = invoices.find((inv) => inv.id === selectedInvoiceId);
       if (invoice) {
-        // Calculer le montant restant (total - paiements déjà effectués)
-        // Pour l'instant, on utilise le total de la facture
-        setValue('amount', invoice.total_ttc);
+        setValue('amount', invoice.totalTTC || invoice.total_ttc || 0);
       }
     }
-  }, [selectedInvoiceNum, invoices, setValue]);
+  }, [selectedInvoiceId, invoices, setValue]);
 
   const onSubmit = (data: PaymentFormData) => {
-    const paymentData = {
-      invoice_num: data.invoice_num,
-      amount: data.amount,
-      payment_date: data.payment_date,
-      method: data.method,
-      reference: data.reference,
-      notes: data.notes,
-    };
-
-    createMutation.mutate(paymentData);
+    createMutation.mutate(data);
   };
 
   const isLoading = createMutation.isPending;
@@ -145,32 +131,32 @@ export default function PaymentForm({
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Informations du paiement</h3>
         <div className="grid grid-cols-1 gap-4">
-          {!invoiceNum && (
+          {!invoiceId && (
             <div>
-              <Label htmlFor="invoice_num">Facture (optionnel)</Label>
+              <Label htmlFor="invoiceId">Facture (optionnel)</Label>
               <select
-                id="invoice_num"
-                {...register('invoice_num')}
+                id="invoiceId"
+                {...register('invoiceId')}
                 className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
               >
-                <option value="">Paiement non alloué</option>
+                <option value="">Paiement non alloue</option>
                 {invoices?.map((invoice) => (
-                  <option key={invoice.invoice_num} value={invoice.invoice_num}>
-                    INV-{invoice.invoice_num} - {formatCurrency(invoice.total_ttc)} - Client #{invoice.customer_id}
+                  <option key={invoice.id} value={invoice.id}>
+                    {invoice.invoiceNumber || invoice.invoice_number} - {formatCurrency(invoice.totalTTC || invoice.total_ttc || 0)}
                   </option>
                 ))}
               </select>
               <p className="text-sm text-gray-500 mt-1">
-                Sélectionnez une facture pour allouer automatiquement ce paiement
+                Selectionnez une facture pour allouer automatiquement ce paiement
               </p>
             </div>
           )}
 
-          {invoiceNum && (
+          {invoiceId && (
             <div>
               <Label>Facture</Label>
               <div className="mt-1 p-3 border rounded-md bg-gray-50 dark:bg-gray-800">
-                <p className="font-medium">INV-{invoiceNum}</p>
+                <p className="font-medium">{invoiceNumber || invoiceId}</p>
                 {remainingAmount !== undefined && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     Montant restant: {formatCurrency(remainingAmount)}
@@ -196,28 +182,23 @@ export default function PaymentForm({
           </div>
 
           <div>
-            <Label htmlFor="payment_date">Date de paiement *</Label>
-            <Input
-              id="payment_date"
-              type="date"
-              {...register('payment_date')}
-              className="mt-1"
-            />
-            {errors.payment_date && (
-              <p className="text-sm text-red-500 mt-1">{errors.payment_date.message}</p>
+            <Label htmlFor="paymentDate">Date de paiement *</Label>
+            <Input id="paymentDate" type="date" {...register('paymentDate')} className="mt-1" />
+            {errors.paymentDate && (
+              <p className="text-sm text-red-500 mt-1">{errors.paymentDate.message}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="method">Méthode de paiement *</Label>
+            <Label htmlFor="method">Methode de paiement *</Label>
             <select
               id="method"
               {...register('method')}
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
               <option value="BANK_TRANSFER">Virement bancaire</option>
-              <option value="CASH">Espèces</option>
-              <option value="CHECK">Chèque</option>
+              <option value="CASH">Especes</option>
+              <option value="CHECK">Cheque</option>
               <option value="CREDIT_CARD">Carte bancaire</option>
             </select>
             {errors.method && (
@@ -226,15 +207,15 @@ export default function PaymentForm({
           </div>
 
           <div>
-            <Label htmlFor="reference">Référence</Label>
+            <Label htmlFor="reference">Reference</Label>
             <Input
               id="reference"
               {...register('reference')}
-              placeholder="Numéro de transaction, chèque, etc."
+              placeholder="Numero de transaction, cheque, etc."
               className="mt-1"
             />
             <p className="text-sm text-gray-500 mt-1">
-              Numéro de transaction, référence de virement, numéro de chèque, etc.
+              Numero de transaction, reference de virement, numero de cheque, etc.
             </p>
           </div>
 
@@ -258,9 +239,10 @@ export default function PaymentForm({
           </Button>
         )}
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Enregistrement...' : 'Enregistrer le paiement'}
+          {isLoading ? 'Enregistrement...' : isEditing ? 'Mettre a jour' : 'Enregistrer le paiement'}
         </Button>
       </div>
     </form>
   );
 }
+

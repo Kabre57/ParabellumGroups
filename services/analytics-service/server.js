@@ -35,7 +35,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 4013;
+const PORT = process.env.PORT || 4011;
 
 app.listen(PORT, () => {
   console.log(`Analytics Service démarré sur le port ${PORT}`);

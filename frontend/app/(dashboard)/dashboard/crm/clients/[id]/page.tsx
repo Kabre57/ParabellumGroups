@@ -36,7 +36,7 @@ export default function CustomerDetailPage() {
     queryKey: ['customer-interactions', customerId],
     queryFn: async () => {
       const response = await customersService.getInteractions({ clientId: customerId });
-      return response.data;
+      return response;
     },
     enabled: !!customerId,
   });

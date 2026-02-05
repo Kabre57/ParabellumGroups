@@ -47,6 +47,22 @@ export function FinancialDashboard() {
 
   // Données RÉELLES
   const realData = dashboardData.data;
+  const revenueVariation = realData.revenus?.variation ?? 0;
+  const trendData = (() => {
+    if (Array.isArray(realData.revenue_trend) && realData.revenue_trend.length > 0) {
+      return {
+        labels: realData.revenue_trend.map((_, index) => `M${index + 1}`),
+        data: realData.revenue_trend,
+      };
+    }
+    if (Array.isArray(realData.evolutionTemporelle) && realData.evolutionTemporelle.length > 0) {
+      return {
+        labels: realData.evolutionTemporelle.map((item) => item.date || ''),
+        data: realData.evolutionTemporelle.map((item) => item.valeur ?? item.value ?? 0),
+      };
+    }
+    return null;
+  })();
   
   return (
     <div className="space-y-6">
@@ -79,14 +95,14 @@ export function FinancialDashboard() {
                   }).format(realData.revenus?.total || 0)}
                 </p>
                 <div className={`flex items-center gap-1 mt-1 text-sm ${
-                  realData.revenus?.variation > 0 
-                    ? 'text-green-600' 
+                  revenueVariation > 0
+                    ? 'text-green-600'
                     : 'text-red-600'
                 }`}>
                   <TrendingUp className={`h-4 w-4 ${
-                    realData.revenus?.variation < 0 ? 'transform rotate-180' : ''
+                    revenueVariation < 0 ? 'transform rotate-180' : ''
                   }`} />
-                  <span>{realData.revenus?.variation?.toFixed(1)}%</span>
+                  <span>{revenueVariation.toFixed(1)}%</span>
                 </div>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -100,7 +116,7 @@ export function FinancialDashboard() {
       </div>
 
       {/* Graphique avec données RÉELLES */}
-      {realData.evolutionTemporelle && realData.evolutionTemporelle.length > 0 && (
+      {trendData && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -110,8 +126,8 @@ export function FinancialDashboard() {
           </CardHeader>
           <CardContent>
             <LineChart
-              data={realData.evolutionTemporelle.map(item => item.value || 0)}
-              labels={realData.evolutionTemporelle.map(item => item.date || '')}
+              data={trendData.data}
+              labels={trendData.labels}
               label="CA (FCFA)"
               color="rgb(34, 197, 94)"
               backgroundColor="rgba(34, 197, 94, 0.1)"

@@ -7,7 +7,7 @@ const { authenticateUser } = require('./middleware/auth');
 const prospectRoutes = require('./routes/prospect.routes');
 
 const app = express();
-const PORT = process.env.PORT || 3004;
+const PORT = process.env.PORT || 4004;
 
 app.use(helmet());
 app.use(cors());

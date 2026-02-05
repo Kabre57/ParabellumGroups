@@ -27,8 +27,8 @@ export default function HRAnalyticsPage() {
   const { data: contractsData } = useContracts({ pageSize: 1000 });
   const { data: payslipsData } = usePayslips({ pageSize: 1000 });
 
-  const contracts = contractsData?.data?.data || [];
-  const payslips = payslipsData?.data?.data || [];
+  const contracts = contractsData?.data || [];
+  const payslips = payslipsData?.data || [];
 
   // Stats globales
   const stats = {

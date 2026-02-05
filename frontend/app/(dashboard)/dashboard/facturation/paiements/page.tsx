@@ -130,24 +130,24 @@ export default function PaiementsPage() {
             </TableHeader>
             <TableBody>
               {payments.map((payment) => (
-                <TableRow key={payment.payment_id}>
+                <TableRow key={payment.id || payment.payment_id}>
                   <TableCell className="font-medium">
-                    PAY-{payment.payment_id}
+                    PAY-{payment.id || payment.payment_id}
                   </TableCell>
                   <TableCell>
-                    {payment.invoice_num ? (
+                    {payment.invoiceId ? (
                       <Button
                         variant="link"
                         className="p-0 h-auto"
-                        onClick={() => router.push(`/dashboard/facturation/factures/${payment.invoice_num}`)}
+                        onClick={() => router.push(`/dashboard/facturation/factures/${payment.invoiceId}`)}
                       >
-                        INV-{payment.invoice_num}
+                        {payment.invoiceNumber || payment.invoice_num || payment.invoiceId}
                       </Button>
                     ) : (
                       '-'
                     )}
                   </TableCell>
-                  <TableCell>{formatDate(payment.payment_date)}</TableCell>
+                  <TableCell>{formatDate(payment.payment_date || payment.datePaiement)}</TableCell>
                   <TableCell>{getMethodBadge(payment.method)}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell className="text-right font-medium">

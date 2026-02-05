@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -15,10 +15,11 @@ interface RapportInterventionViewProps {
 export default function RapportInterventionView({ rapportId, onClose }: RapportInterventionViewProps) {
   const { data: rapport, isLoading, error } = useQuery({
     queryKey: ['rapport', rapportId],
-    queryFn: () => technicalService.getRapport(rapportId),
+    queryFn: () => technicalService.getRapport(rapportId) as Promise<RapportIntervention>,
   });
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
@@ -29,7 +30,6 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
   };
 
   const handleDownloadPDF = () => {
-    // Cette fonction sera implémentée côté backend
     window.open(`/api/technical/rapports/${rapportId}/pdf`, '_blank');
   };
 
@@ -56,22 +56,23 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
     );
   }
 
+  const createdAt = rapport.createdAt || rapport.dateCreation;
+  const updatedAt = rapport.updatedAt || rapport.dateModification || createdAt;
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
+      {/* En-tete */}
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Rapport d'intervention
             </h2>
-            <p className="text-sm text-gray-500">
-              Créé le {formatDate(rapport.createdAt)}
-            </p>
+            <p className="text-sm text-gray-500">Cree le {formatDate(createdAt)}</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleDownloadPDF}>
-              Télécharger PDF
+              Telecharger PDF
             </Button>
             {onClose && (
               <Button variant="outline" onClick={onClose}>
@@ -106,22 +107,19 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
             <div>
               <p className="text-sm text-gray-500">Date d'intervention</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {new Date(
-                  rapport.intervention.scheduledDate || rapport.intervention.date
-                ).toLocaleDateString('fr-FR')}
+                {formatDate(rapport.intervention.dateDebut || rapport.intervention.scheduledDate || rapport.intervention.date)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Horaires</p>
               <p className="font-medium text-gray-900 dark:text-white">
                 {rapport.intervention.startTime?.substring(0, 5)}
-                {rapport.intervention.endTime &&
-                  ` - ${rapport.intervention.endTime.substring(0, 5)}`}
+                {rapport.intervention.endTime && ` - ${rapport.intervention.endTime.substring(0, 5)}`}
               </p>
             </div>
             {rapport.intervention.estimatedDuration && (
               <div>
-                <p className="text-sm text-gray-500">Durée estimée</p>
+                <p className="text-sm text-gray-500">Duree estimee</p>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {rapport.intervention.estimatedDuration}h
                 </p>
@@ -129,7 +127,7 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
             )}
             {rapport.intervention.actualDuration && (
               <div>
-                <p className="text-sm text-gray-500">Durée réelle</p>
+                <p className="text-sm text-gray-500">Duree reelle</p>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {rapport.intervention.actualDuration}h
                 </p>
@@ -139,23 +137,23 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
         </Card>
       )}
 
-      {/* Travaux effectués */}
+      {/* Travaux effectues */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          Travaux effectués
+          Travaux effectues
         </h3>
         <div className="prose dark:prose-invert max-w-none">
           <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-            {rapport.workDone}
+            {rapport.workDone || rapport.contenu}
           </p>
         </div>
       </Card>
 
-      {/* Problèmes rencontrés */}
+      {/* Problemes rencontres */}
       {rapport.issuesFound && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-            Problèmes rencontrés
+            Problemes rencontres
           </h3>
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
@@ -214,9 +212,9 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
             <p className="font-mono text-gray-900 dark:text-white">{rapport.id}</p>
           </div>
           <div>
-            <p className="text-gray-500">Dernière modification</p>
+            <p className="text-gray-500">Derniere modification</p>
             <p className="text-gray-900 dark:text-white">
-              {formatDate(rapport.updatedAt || rapport.createdAt)}
+              {formatDate(updatedAt)}
             </p>
           </div>
         </div>

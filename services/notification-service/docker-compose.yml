@@ -1,0 +1,33 @@
+services:
+  notification-service:
+    build: .
+    container_name: notification-service
+    ports:
+      - "40102:40102"
+    environment:
+      - PORT=40102
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025
+      - DATABASE_URL=postgresql://parabellum:parabellum2025@db:5432/delices_db?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: notification-service-db
+    environment:
+      POSTGRES_USER: parabellum
+      POSTGRES_PASSWORD: parabellum2025
+      POSTGRES_DB: delices_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parabellum -d delices_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - notification-service_db_data:/var/lib/postgresql/data
+
+volumes:
+  notification-service_db_data:

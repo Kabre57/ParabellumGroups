@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,8 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
 
 const rapportSchema = z.object({
-  interventionId: z.string().min(1, 'L\'intervention est requise'),
-  workDone: z.string().min(10, 'Veuillez décrire les travaux effectués (min. 10 caractères)'),
+  interventionId: z.string().min(1, "L'intervention est requise"),
+  workDone: z.string().min(10, 'Veuillez decrire les travaux effectues (min. 10 caracteres)'),
   issuesFound: z.string().optional(),
   recommendations: z.string().optional(),
 });
@@ -37,7 +37,6 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     handleSubmit,
     formState: { errors },
     reset,
-    watch,
   } = useForm<RapportFormData>({
     resolver: zodResolver(rapportSchema),
     defaultValues: {
@@ -48,9 +47,13 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     },
   });
 
-  const { data: interventionsData } = useQuery({
+  const { data: interventionsData = [] } = useQuery({
     queryKey: ['interventions-for-rapport'],
-    queryFn: () => technicalService.getInterventions({ status: 'COMPLETED', pageSize: 100 }),
+    queryFn: () =>
+      technicalService.getInterventions({
+        filters: { status: 'TERMINEE' },
+        pageSize: 100,
+      }),
   });
 
   const createMutation = useMutation({
@@ -89,22 +92,20 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     if (!files || files.length === 0) return;
 
     if (!rapportId) {
-      alert('Veuillez d\'abord créer le rapport avant d\'uploader des photos');
+      alert("Veuillez d'abord creer le rapport avant d'uploader des photos");
       return;
     }
 
     setIsUploading(true);
 
-    for (let i = 0; i < files.length; i++) {
+    for (let i = 0; i < files.length; i += 1) {
       const file = files[i];
-      
-      // Vérification du type de fichier
+
       if (!file.type.startsWith('image/')) {
         alert(`Le fichier ${file.name} n'est pas une image valide`);
         continue;
       }
 
-      // Vérification de la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert(`Le fichier ${file.name} est trop volumineux (max 5MB)`);
         continue;
@@ -135,7 +136,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
 
       {createMutation.isError && (
         <Alert className="mb-4 bg-red-50 border-red-200 text-red-800">
-          Une erreur est survenue lors de la création du rapport
+          Une erreur est survenue lors de la creation du rapport
         </Alert>
       )}
 
@@ -147,7 +148,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
 
       {createMutation.isSuccess && !rapportId && (
         <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
-          Rapport créé avec succès
+          Rapport cree avec succes
         </Alert>
       )}
 
@@ -163,15 +164,15 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
             disabled={!!rapportId}
             className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm mt-1 disabled:opacity-50"
           >
-            <option value="">Sélectionner une intervention</option>
-            {interventionsData?.data?.map((intervention) => (
+            <option value="">Selectionner une intervention</option>
+            {interventionsData.map((intervention: any) => (
               <option key={intervention.id} value={intervention.id}>
                 {intervention.mission?.title || intervention.missionNum} -{' '}
                 {intervention.technician
                   ? `${intervention.technician.firstName} ${intervention.technician.lastName}`
                   : ''}
                 {' - '}
-                {new Date(intervention.scheduledDate || intervention.date).toLocaleDateString('fr-FR')}
+                {new Date(intervention.dateDebut || intervention.scheduledDate || intervention.date).toLocaleDateString('fr-FR')}
               </option>
             ))}
           </select>
@@ -180,17 +181,17 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
           )}
         </div>
 
-        {/* Travaux effectués */}
+        {/* Travaux effectues */}
         <div>
           <Label htmlFor="workDone">
-            Travaux effectués <span className="text-red-500">*</span>
+            Travaux effectues <span className="text-red-500">*</span>
           </Label>
           <Textarea
             id="workDone"
             rows={6}
             {...register('workDone')}
             disabled={!!rapportId}
-            placeholder="Décrivez en détail les travaux réalisés..."
+            placeholder="Decrivez en detail les travaux realises..."
             className="mt-1"
           />
           {errors.workDone && (
@@ -198,15 +199,15 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
           )}
         </div>
 
-        {/* Problèmes rencontrés */}
+        {/* Problemes rencontres */}
         <div>
-          <Label htmlFor="issuesFound">Problèmes rencontrés</Label>
+          <Label htmlFor="issuesFound">Problemes rencontres</Label>
           <Textarea
             id="issuesFound"
             rows={4}
             {...register('issuesFound')}
             disabled={!!rapportId}
-            placeholder="Listez les problèmes ou anomalies constatés..."
+            placeholder="Listez les problemes ou anomalies constates..."
             className="mt-1"
           />
           {errors.issuesFound && (
@@ -245,11 +246,11 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               <p className="mt-1 text-sm text-gray-500">
-                Formats acceptés: JPG, PNG, GIF. Taille max: 5MB par fichier.
+                Formats acceptes: JPG, PNG, GIF. Taille max: 5MB par fichier.
               </p>
             </div>
 
-            {/* Liste des photos uploadées */}
+            {/* Liste des photos uploadees */}
             {uploadedPhotos.length > 0 && (
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {uploadedPhotos.map((photo, index) => (
@@ -264,7 +265,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
                       onClick={() => handleRemovePhoto(index)}
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      ✕
+                      x
                     </button>
                     <p className="mt-1 text-xs text-gray-500 truncate">{photo.name}</p>
                   </div>
@@ -287,7 +288,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
                 disabled={createMutation.isPending}
                 className="flex-1"
               >
-                {createMutation.isPending ? 'Création...' : 'Créer le rapport'}
+                {createMutation.isPending ? 'Creation...' : 'Creer le rapport'}
               </Button>
               {onCancel && (
                 <Button type="button" variant="outline" onClick={onCancel}>
@@ -306,7 +307,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
       {rapportId && (
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            Rapport créé avec succès. Vous pouvez maintenant ajouter des photos.
+            Rapport cree avec succes. Vous pouvez maintenant ajouter des photos.
           </p>
         </div>
       )}

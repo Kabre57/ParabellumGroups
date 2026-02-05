@@ -82,6 +82,10 @@ export default function ReceptionsPage() {
         </button>
       </div>
 
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+        Les receptions ne sont pas encore connectees au service procurement. Donnees affichees a titre indicatif.
+      </div>
+
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm text-gray-600">Total Réceptions</div>

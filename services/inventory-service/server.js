@@ -11,7 +11,7 @@ const equipementRoutes = require('./routes/equipement.routes');
 const maintenanceRoutes = require('./routes/maintenance.routes');
 
 const app = express();
-const PORT = process.env.PORT || 4014;
+const PORT = process.env.PORT || 4005;
 
 // Middlewares de sécurité
 app.use(helmet());

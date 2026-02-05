@@ -1,0 +1,33 @@
+services:
+  inventory-service:
+    build: .
+    container_name: inventory-service
+    ports:
+      - "4005:4005"
+    environment:
+      - PORT=4005
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025
+      - DATABASE_URL=postgresql://parabellum:parabellum2025@db:5432/parabellum_inventory?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: inventory-service-db
+    environment:
+      POSTGRES_USER: parabellum
+      POSTGRES_PASSWORD: parabellum2025
+      POSTGRES_DB: parabellum_inventory
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parabellum -d parabellum_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - inventory-service_db_data:/var/lib/postgresql/data
+
+volumes:
+  inventory-service_db_data:

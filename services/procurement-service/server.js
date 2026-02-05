@@ -11,7 +11,7 @@ const bonCommandeRoutes = require('./routes/bonCommande.routes');
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 4009;
+const PORT = process.env.PORT || 4007;
 
 // Configure Winston logger
 const logger = winston.createLogger({

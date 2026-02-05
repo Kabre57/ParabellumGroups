@@ -3,42 +3,31 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { procurementService } from '@/services/procurement';
+import type { PurchaseOrder, PurchaseOrderStatus } from '@/services/procurement';
 
-type OrderStatus = 'PENDING' | 'APPROVED' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
-
-interface PurchaseOrder {
-  id: string;
-  number: string;
-  supplier: string;
-  date: string;
-  status: OrderStatus;
-  amount: number;
-  items: number;
-}
-
-const statusColors: Record<OrderStatus, string> = {
-  PENDING: 'bg-yellow-200 text-yellow-800',
-  APPROVED: 'bg-blue-200 text-blue-800',
-  ORDERED: 'bg-purple-200 text-purple-800',
-  RECEIVED: 'bg-green-200 text-green-800',
-  CANCELLED: 'bg-red-200 text-red-800',
+const statusColors: Record<PurchaseOrderStatus, string> = {
+  BROUILLON: 'bg-yellow-200 text-yellow-800',
+  ENVOYE: 'bg-blue-200 text-blue-800',
+  CONFIRME: 'bg-purple-200 text-purple-800',
+  LIVRE: 'bg-green-200 text-green-800',
+  ANNULE: 'bg-red-200 text-red-800',
 };
 
-const statusLabels: Record<OrderStatus, string> = {
-  PENDING: 'En attente',
-  APPROVED: 'Approuvée',
-  ORDERED: 'Commandée',
-  RECEIVED: 'Reçue',
-  CANCELLED: 'Annulée',
+const statusLabels: Record<PurchaseOrderStatus, string> = {
+  BROUILLON: 'Brouillon',
+  ENVOYE: 'Envoyé',
+  CONFIRME: 'Confirmé',
+  LIVRE: 'Livré',
+  ANNULE: 'Annulé',
 };
 
 export default function PurchaseOrdersPage() {
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState('');
 
   const { data: orders = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['purchase-orders', statusFilter, supplierFilter],
-    queryFn: () => procurementService.getOrders({ 
+    queryFn: () => procurementService.getOrders({
       status: statusFilter !== 'ALL' ? statusFilter : undefined,
       supplier: supplierFilter || undefined,
     }),
@@ -46,14 +35,15 @@ export default function PurchaseOrdersPage() {
 
   const filteredOrders = orders.filter((order: PurchaseOrder) => {
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
-    const matchesSupplier = !supplierFilter || order.supplier.toLowerCase().includes(supplierFilter.toLowerCase());
+    const supplierName = order.supplier || '';
+    const matchesSupplier = !supplierFilter || supplierName.toLowerCase().includes(supplierFilter.toLowerCase());
     return matchesStatus && matchesSupplier;
   });
 
   const stats = {
     total: orders.length,
-    pending: orders.filter((o: PurchaseOrder) => o.status === 'PENDING').length,
-    approved: orders.filter((o: PurchaseOrder) => o.status === 'APPROVED').length,
+    pending: orders.filter((o: PurchaseOrder) => o.status === 'BROUILLON' || o.status === 'ENVOYE').length,
+    confirmed: orders.filter((o: PurchaseOrder) => o.status === 'CONFIRME').length,
     totalAmount: orders.reduce((sum: number, o: PurchaseOrder) => sum + o.amount, 0),
   };
 
@@ -81,8 +71,8 @@ export default function PurchaseOrdersPage() {
           <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Approuvées</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.approved}</div>
+          <div className="text-sm text-gray-600">Confirm?es</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.confirmed}</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm text-gray-600">Montant total</div>
@@ -96,15 +86,15 @@ export default function PurchaseOrdersPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'ALL')}
+            onChange={(e) => setStatusFilter(e.target.value as PurchaseOrderStatus | 'ALL')}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="ALL">Tous</option>
-              <option value="PENDING">En attente</option>
-              <option value="APPROVED">Approuvée</option>
-              <option value="ORDERED">Commandée</option>
-              <option value="RECEIVED">Reçue</option>
-              <option value="CANCELLED">Annulée</option>
+              <option value="BROUILLON">Brouillon</option>
+              <option value="ENVOYE">Envoy?</option>
+              <option value="CONFIRME">Confirm?</option>
+              <option value="LIVRE">Livr?</option>
+              <option value="ANNULE">Annul?</option>
             </select>
           </div>
           <div className="flex-1">

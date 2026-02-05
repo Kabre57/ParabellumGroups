@@ -1,0 +1,45 @@
+services:
+  procurement-service:
+    build: .
+    container_name: procurement-service
+    ports:
+      - "4007:4007"
+    environment:
+      - PORT=4007
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025
+      - DATABASE_URL=postgresql://parabellum:parabellum2025@db:5432/parabellum_procurement?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: procurement-service-db
+    environment:
+      POSTGRES_USER: parabellum
+      POSTGRES_PASSWORD: parabellum2025
+      POSTGRES_DB: parabellum_procurement
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parabellum -d parabellum_procurement"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - procurement-service_db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    container_name: procurement-service-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  procurement-service_db_data:

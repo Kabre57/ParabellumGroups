@@ -73,8 +73,10 @@ export default function FacturationPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR');
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
   };
 
   return (
@@ -233,20 +235,20 @@ export default function FacturationPage() {
             </TableHeader>
             <TableBody>
               {invoices.map((invoice) => (
-                <TableRow key={invoice.invoice_num}>
+                <TableRow key={invoice.id}>
                   <TableCell className="font-medium">
-                    INV-{invoice.invoice_num}
+                    {invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}
                   </TableCell>
-                  <TableCell>Client #{invoice.customer_id}</TableCell>
-                  <TableCell>{formatDate(invoice.issue_date)}</TableCell>
-                  <TableCell>{formatDate(invoice.due_date)}</TableCell>
-                  <TableCell>{formatCurrency(invoice.total_ttc)}</TableCell>
+                  <TableCell>{invoice.customer?.name || invoice.customerId || invoice.customer_id || 'Client'}</TableCell>
+                  <TableCell>{formatDate(invoice.issueDate || invoice.issue_date || invoice.date)}</TableCell>
+                  <TableCell>{formatDate(invoice.dueDate || invoice.due_date)}</TableCell>
+                  <TableCell>{formatCurrency(invoice.totalTTC || invoice.total_ttc || 0)}</TableCell>
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => router.push(`/dashboard/facturation/factures/${invoice.invoice_num}`)}
+                      onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}`)}
                     >
                       Voir
                     </Button>

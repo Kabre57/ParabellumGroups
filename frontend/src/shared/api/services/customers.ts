@@ -1,4 +1,6 @@
 import { crmService } from './crm';
+import { commercialService } from './commercial';
+import type { Prospect } from '../types';
 
 /**
  * @deprecated Utilisez crmService à la place. 
@@ -17,7 +19,14 @@ export const customersService = {
   getTypeClients: () => crmService.getTypeClients(),
   getSecteurs: () => crmService.getSecteurs(),
   getInteractions: (params: { clientId: string }) => crmService.getInteractions(params),
+  // Prospects (commercial service)
+  getProspects: (params?: any) => commercialService.getProspects(params),
+  getProspect: (id: string) => commercialService.getProspectById(id),
+  convertProspect: (id: string, data?: any) => commercialService.convertProspect(id, data),
+  getProspectStats: (filters?: any) => commercialService.getStats(filters),
 };
 
 export type { Client, Contact, Address, TypeClient, SecteurActivite, Interaction } from './crm';
+export type ClientData = Partial<import('./crm').Client>;
+export type { Prospect };
 export default customersService;

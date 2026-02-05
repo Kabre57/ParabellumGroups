@@ -43,7 +43,7 @@ export default function CustomersPage() {
         query: searchQuery,
         status: statusFilter === 'all' ? undefined : statusFilter,
       });
-      return response.data;
+      return response;
     },
   });
 
@@ -65,7 +65,7 @@ export default function CustomersPage() {
   };
 
   const clients = data?.data || [];
-  const pagination = data?.pagination;
+  const pagination = data?.meta?.pagination;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -195,7 +195,7 @@ export default function CustomersPage() {
             {pagination && pagination.totalPages > 1 && (
               <div className="flex justify-between items-center p-4 border-t">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {pagination.currentPage} sur {pagination.totalPages} ({pagination.totalItems} clients)
+                  Page {pagination.page} sur {pagination.totalPages} ({pagination.total} clients)
                 </div>
                 <div className="flex gap-2">
                   <Button

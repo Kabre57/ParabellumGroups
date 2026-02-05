@@ -25,7 +25,7 @@ Vérifiez et modifiez le fichier `.env` avec vos paramètres:
 NODE_ENV=development
 PORT=4001
 DATABASE_URL=postgresql://postgres:password@localhost:5432/parabellum_auth
-JWT_SECRET=votre-secret-jwt-ultra-securise
+JWT_SECRET=416500b0f18082fb66834e3a45d550cfc154218b718d8fdb91185168c873682c2bfb9a4c6bf69e5b6060bc5b22366f54fedfd5a3da38065246d0093c19ea861b
 JWT_EXPIRES_IN=7d
 REFRESH_TOKEN_EXPIRES_IN=30d
 ```

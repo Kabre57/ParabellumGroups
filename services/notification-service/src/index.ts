@@ -6,7 +6,7 @@ import notificationRoutes from './routes/notification.routes'
 dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 3007
+const PORT = process.env.PORT || 4012
 
 app.use(cors())
 app.use(express.json())

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,20 +13,20 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 
 interface MaterielSortieProps {
-  missionNum: string;
+  interventionId: string;
   onSuccess?: () => void;
 }
 
-export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortieProps) {
+export default function MaterielSortie({ interventionId, onSuccess }: MaterielSortieProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     materielId: '',
     quantity: 1,
-    technicianId: '',
+    technicienId: '',
     notes: '',
   });
 
-  const { data: materielData, isLoading } = useQuery({
+  const { data: materielData = [], isLoading } = useQuery({
     queryKey: ['materiel'],
     queryFn: async () => {
       return await technicalService.getMateriel({ pageSize: 100 });
@@ -37,18 +37,18 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
     mutationFn: (data: SortirMaterielRequest) => technicalService.sortirMateriel(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materiel'] });
-      queryClient.invalidateQueries({ queryKey: ['mission', missionNum] });
+      queryClient.invalidateQueries({ queryKey: ['intervention', interventionId] });
       setFormData({
         materielId: '',
         quantity: 1,
-        technicianId: '',
+        technicienId: '',
         notes: '',
       });
       if (onSuccess) onSuccess();
     },
   });
 
-  const selectedMateriel = materielData?.data.find(
+  const selectedMateriel = materielData.find(
     (m: Materiel) => m.id === formData.materielId
   );
 
@@ -61,9 +61,9 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
 
     const payload: SortirMaterielRequest = {
       materielId: formData.materielId,
-      missionNum,
-      quantity: formData.quantity,
-      technicianId: formData.technicianId || undefined,
+      interventionId,
+      quantite: formData.quantity,
+      technicienId: formData.technicienId || undefined,
       notes: formData.notes || undefined,
     };
 
@@ -73,7 +73,7 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
   const isQuantityValid =
     selectedMateriel &&
     formData.quantity > 0 &&
-    formData.quantity <= selectedMateriel.availableQuantity;
+    formData.quantity <= (selectedMateriel.availableQuantity ?? selectedMateriel.quantiteDisponible ?? 0);
 
   if (isLoading) {
     return (
@@ -88,26 +88,26 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
   return (
     <Card className="p-6">
       <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-        Sortie de matériel
+        Sortie de materiel
       </h2>
 
       {sortirMutation.isError && (
         <Alert className="mb-4 bg-red-50 border-red-200 text-red-800">
-          Une erreur est survenue lors de la sortie du matériel
+          Une erreur est survenue lors de la sortie du materiel
         </Alert>
       )}
 
       {sortirMutation.isSuccess && (
         <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
-          Matériel sorti avec succès. Le stock a été mis à jour automatiquement.
+          Materiel sorti avec succes. Le stock a ete mis a jour automatiquement.
         </Alert>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Sélection du matériel */}
+        {/* Selection du materiel */}
         <div>
           <Label htmlFor="materielId">
-            Matériel <span className="text-red-500">*</span>
+            Materiel <span className="text-red-500">*</span>
           </Label>
           <select
             id="materielId"
@@ -118,55 +118,55 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
             className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm"
             required
           >
-            <option value="">Sélectionner un matériel</option>
-            {materielData?.data?.map((materiel: Materiel) => (
+            <option value="">Selectionner un materiel</option>
+            {materielData.map((materiel: Materiel) => (
               <option
                 key={materiel.id}
                 value={materiel.id}
-                disabled={materiel.availableQuantity === 0}
+                disabled={(materiel.availableQuantity ?? 0) === 0}
               >
-                {materiel.name} - {materiel.reference} (
-                {materiel.availableQuantity} {materiel.unit} disponible
-                {materiel.availableQuantity > 1 ? 's' : ''})
+                {materiel.name || materiel.nom} - {materiel.reference} (
+                {materiel.availableQuantity ?? materiel.quantiteDisponible ?? 0} {materiel.unit || 'u'} disponible
+                {(materiel.availableQuantity ?? 0) > 1 ? 's' : ''})
               </option>
             ))}
           </select>
         </div>
 
-        {/* Informations sur le matériel sélectionné */}
+        {/* Informations sur le materiel selectionne */}
         {selectedMateriel && (
           <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-gray-600 dark:text-gray-400">Catégorie</p>
+                <p className="text-gray-600 dark:text-gray-400">Categorie</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedMateriel.category}
+                  {selectedMateriel.category || selectedMateriel.categorie}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Stock total</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedMateriel.quantity} {selectedMateriel.unit}
+                  {selectedMateriel.quantity ?? selectedMateriel.quantiteTotale ?? 0} {selectedMateriel.unit || 'u'}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Disponible</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedMateriel.availableQuantity} {selectedMateriel.unit}
+                  {selectedMateriel.availableQuantity ?? selectedMateriel.quantiteDisponible ?? 0} {selectedMateriel.unit || 'u'}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Statut</p>
-                <Badge variant="success">{selectedMateriel.status}</Badge>
+                <Badge variant="success">{selectedMateriel.status || selectedMateriel.statut}</Badge>
               </div>
             </div>
           </div>
         )}
 
-        {/* Quantité */}
+        {/* Quantite */}
         <div>
           <Label htmlFor="quantity">
-            Quantité <span className="text-red-500">*</span>
+            Quantite <span className="text-red-500">*</span>
           </Label>
           <Input
             id="quantity"
@@ -175,30 +175,30 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
             max={selectedMateriel?.availableQuantity || 999}
             value={formData.quantity}
             onChange={(e) =>
-              setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
+              setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 1 })
             }
             required
             disabled={!formData.materielId}
           />
           {selectedMateriel && !isQuantityValid && formData.quantity > 0 && (
             <p className="mt-1 text-sm text-red-600">
-              Quantité non disponible (max: {selectedMateriel.availableQuantity})
+              Quantite non disponible (max: {selectedMateriel.availableQuantity ?? 0})
             </p>
           )}
         </div>
 
         {/* Technicien */}
         <div>
-          <Label htmlFor="technicianId">Technicien (optionnel)</Label>
+          <Label htmlFor="technicienId">Technicien (optionnel)</Label>
           <Input
-            id="technicianId"
+            id="technicienId"
             type="text"
             placeholder="ID du technicien"
-            value={formData.technicianId}
-            onChange={(e) => setFormData({ ...formData, technicianId: e.target.value })}
+            value={formData.technicienId}
+            onChange={(e) => setFormData({ ...formData, technicienId: e.target.value })}
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Identifiant du technicien qui récupère le matériel
+            Identifiant du technicien qui recupere le materiel
           </p>
         </div>
 
@@ -208,7 +208,7 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
           <Textarea
             id="notes"
             rows={3}
-            placeholder="Informations complémentaires sur la sortie..."
+            placeholder="Informations complementaires sur la sortie..."
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           />
@@ -234,20 +234,20 @@ export default function MaterielSortie({ missionNum, onSuccess }: MaterielSortie
               setFormData({
                 materielId: '',
                 quantity: 1,
-                technicianId: '',
+                technicienId: '',
                 notes: '',
               })
             }
           >
-            Réinitialiser
+            Reinitialiser
           </Button>
         </div>
       </form>
 
-      {/* Info mise à jour automatique */}
+      {/* Info mise a jour automatique */}
       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
         <p className="text-sm text-blue-800 dark:text-blue-200">
-          Le stock disponible sera automatiquement mis à jour lors de la validation
+          Le stock disponible sera automatiquement mis a jour lors de la validation
           de la sortie.
         </p>
       </div>

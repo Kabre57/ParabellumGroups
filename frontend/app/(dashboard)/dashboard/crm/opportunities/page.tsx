@@ -24,13 +24,13 @@ export default function OpportunitiesPage() {
     queryKey: ['opportunities', page],
     queryFn: async () => {
       const response = await crmService.getOpportunites({ page, limit: 10 });
-      return response.data;
+      return response;
     },
   });
 
   const opportunities = data?.data || [];
-  const pagination = data?.pagination;
-  const pipelineValue = (data as any)?.pipelineValue || 0;
+  const pagination = data?.meta?.pagination;
+  const pipelineValue = data?.meta?.pipelineValue || 0;
 
   const getEtapeBadge = (etape: string) => {
     const stages: Record<string, string> = {
@@ -70,7 +70,7 @@ export default function OpportunitiesPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pagination?.totalItems || 0}</div>
+            <div className="text-2xl font-bold">{pagination?.total || 0}</div>
           </CardContent>
         </Card>
         <Card>

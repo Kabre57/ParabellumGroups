@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -6,18 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
+import { Technicien } from '@/shared/api/services/technical';
+import { useSpecialites } from '@/hooks/useTechnical';
 
-interface Technicien {
-  id?: number;
+interface TechnicienFormValues {
   nom: string;
   prenom: string;
   email: string;
   telephone: string;
-  specialiteId: number;
+  specialiteId: string;
   competences?: string;
   certifications?: string;
   tauxHoraire?: number;
-  statut: 'DISPONIBLE' | 'OCCUPE' | 'EN_CONGE' | 'INACTIF';
+  status: Technicien['status'];
 }
 
 interface TechnicienFormProps {
@@ -27,20 +28,68 @@ interface TechnicienFormProps {
   isLoading?: boolean;
 }
 
+const statusOptions: Array<{ value: Technicien['status']; label: string }> = [
+  { value: 'AVAILABLE', label: 'Disponible' },
+  { value: 'ON_MISSION', label: 'En mission' },
+  { value: 'ON_LEAVE', label: 'En conge' },
+  { value: 'SICK', label: 'Malade' },
+  { value: 'TRAINING', label: 'Formation' },
+];
+
 export function TechnicienForm({ item, onSubmit, onClose, isLoading }: TechnicienFormProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<Partial<Technicien>>({
-    defaultValues: item || {
-      nom: '',
-      prenom: '',
-      email: '',
-      telephone: '',
-      specialiteId: 0,
-      competences: '',
-      certifications: '',
-      tauxHoraire: 0,
-      statut: 'DISPONIBLE',
-    },
+  const { data: specialites = [] } = useSpecialites();
+
+  const defaultValues: TechnicienFormValues = item
+    ? {
+        nom: item.nom || '',
+        prenom: item.prenom || '',
+        email: item.email || '',
+        telephone: item.telephone || '',
+        specialiteId: item.specialiteId || '',
+        competences: item.competences?.join(', ') || '',
+        certifications: item.certifications?.join(', ') || '',
+        tauxHoraire: item.tauxHoraire,
+        status: item.status || 'AVAILABLE',
+      }
+    : {
+        nom: '',
+        prenom: '',
+        email: '',
+        telephone: '',
+        specialiteId: '',
+        competences: '',
+        certifications: '',
+        tauxHoraire: 0,
+        status: 'AVAILABLE',
+      };
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<TechnicienFormValues>({
+    defaultValues,
   });
+
+  const handleFormSubmit = (values: TechnicienFormValues) => {
+    const payload: Partial<Technicien> = {
+      nom: values.nom,
+      prenom: values.prenom,
+      email: values.email,
+      telephone: values.telephone,
+      specialiteId: values.specialiteId,
+      tauxHoraire: values.tauxHoraire,
+      status: values.status,
+      competences: values.competences
+        ? values.competences.split(',').map((item) => item.trim()).filter(Boolean)
+        : [],
+      certifications: values.certifications
+        ? values.certifications.split(',').map((item) => item.trim()).filter(Boolean)
+        : [],
+    };
+
+    onSubmit(payload);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -54,7 +103,7 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nom */}
             <div>
@@ -69,12 +118,12 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               )}
             </div>
 
-            {/* Prénom */}
+            {/* Prenom */}
             <div>
-              <Label htmlFor="prenom">Prénom *</Label>
+              <Label htmlFor="prenom">Prenom *</Label>
               <Input
                 id="prenom"
-                {...register('prenom', { required: 'Le prénom est obligatoire' })}
+                {...register('prenom', { required: 'Le prenom est obligatoire' })}
                 placeholder="Jean"
               />
               {errors.prenom && (
@@ -88,8 +137,8 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               <Input
                 id="email"
                 type="email"
-                {...register('email', { 
-                  required: 'L\'email est obligatoire',
+                {...register('email', {
+                  required: "L'email est obligatoire",
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                     message: 'Email invalide',
@@ -102,12 +151,12 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               )}
             </div>
 
-            {/* Téléphone */}
+            {/* Telephone */}
             <div>
-              <Label htmlFor="telephone">Téléphone *</Label>
+              <Label htmlFor="telephone">Telephone *</Label>
               <Input
                 id="telephone"
-                {...register('telephone', { required: 'Le téléphone est obligatoire' })}
+                {...register('telephone', { required: 'Le telephone est obligatoire' })}
                 placeholder="06 12 34 56 78"
               />
               {errors.telephone && (
@@ -115,19 +164,22 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               )}
             </div>
 
-            {/* Spécialité ID */}
+            {/* Specialite */}
             <div>
-              <Label htmlFor="specialiteId">Spécialité *</Label>
+              <Label htmlFor="specialiteId">Specialite *</Label>
               <select
                 id="specialiteId"
-                {...register('specialiteId', { 
-                  required: 'La spécialité est obligatoire',
-                  valueAsNumber: true,
+                {...register('specialiteId', {
+                  required: 'La specialite est obligatoire',
                 })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
               >
-                <option value={0}>Sélectionner une spécialité</option>
-                {/* TODO: Populate with actual specialites */}
+                <option value="">Selectionner une specialite</option>
+                {specialites.map((specialite: any) => (
+                  <option key={specialite.id} value={specialite.id}>
+                    {specialite.nom}
+                  </option>
+                ))}
               </select>
               {errors.specialiteId && (
                 <p className="text-sm text-red-600 mt-1">{errors.specialiteId.message}</p>
@@ -136,7 +188,7 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
 
             {/* Taux Horaire */}
             <div>
-              <Label htmlFor="tauxHoraire">Taux horaire (F/h)</Label>
+              <Label htmlFor="tauxHoraire">Taux horaire</Label>
               <Input
                 id="tauxHoraire"
                 type="number"
@@ -148,45 +200,46 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               />
             </div>
 
-            {/* Compétences */}
+            {/* Competences */}
             <div className="md:col-span-2">
-              <Label htmlFor="competences">Compétences (JSON)</Label>
+              <Label htmlFor="competences">Competences (separees par des virgules)</Label>
               <textarea
                 id="competences"
                 {...register('competences')}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
                 rows={3}
-                placeholder='["Developpement web", "Réseaux informatiques"]'
+                placeholder="Developpement web, Reseaux informatiques"
               />
             </div>
 
             {/* Certifications */}
             <div className="md:col-span-2">
-              <Label htmlFor="certifications">Certifications (JSON)</Label>
+              <Label htmlFor="certifications">Certifications (separees par des virgules)</Label>
               <textarea
                 id="certifications"
                 {...register('certifications')}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
                 rows={3}
-                placeholder='["Habilitation électrique B2V", "Certification ISO 9001"]'
+                placeholder="Habilitation electrique B2V, Certification ISO 9001"
               />
             </div>
 
             {/* Statut */}
             <div>
-              <Label htmlFor="statut">Statut *</Label>
+              <Label htmlFor="status">Statut *</Label>
               <select
-                id="statut"
-                {...register('statut', { required: 'Le statut est obligatoire' })}
+                id="status"
+                {...register('status', { required: 'Le statut est obligatoire' })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
               >
-                <option value="DISPONIBLE">Disponible</option>
-                <option value="OCCUPE">Occupé</option>
-                <option value="EN_CONGE">En congé</option>
-                <option value="INACTIF">Inactif</option>
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
-              {errors.statut && (
-                <p className="text-sm text-red-600 mt-1">{errors.statut.message}</p>
+              {errors.status && (
+                <p className="text-sm text-red-600 mt-1">{errors.status.message}</p>
               )}
             </div>
           </div>
@@ -196,7 +249,7 @@ export function TechnicienForm({ item, onSubmit, onClose, isLoading }: Technicie
               Annuler
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Enregistrement...' : (item ? 'Mettre à jour' : 'Créer')}
+              {isLoading ? 'Enregistrement...' : item ? 'Mettre a jour' : 'Creer'}
             </Button>
           </div>
         </form>

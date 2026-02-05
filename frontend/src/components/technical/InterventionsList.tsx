@@ -1,28 +1,27 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { technicalService, InterventionDetailed } from '@/shared/api/services/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
-import { Dialog } from '@/components/ui/dialog';
-import InterventionForm from './InterventionForm';
+import { InterventionForm } from './InterventionForm';
 
 const statusColors = {
-  SCHEDULED: 'bg-blue-100 text-blue-800',
-  IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  PLANIFIEE: 'bg-blue-100 text-blue-800',
+  EN_COURS: 'bg-yellow-100 text-yellow-800',
+  TERMINEE: 'bg-green-100 text-green-800',
+  ANNULEE: 'bg-red-100 text-red-800',
 };
 
 const statusLabels = {
-  SCHEDULED: 'Planifiée',
-  IN_PROGRESS: 'En cours',
-  COMPLETED: 'Terminée',
-  CANCELLED: 'Annulée',
+  PLANIFIEE: 'Planifiee',
+  EN_COURS: 'En cours',
+  TERMINEE: 'Terminee',
+  ANNULEE: 'Annulee',
 };
 
 export default function InterventionsList() {
@@ -32,21 +31,30 @@ export default function InterventionsList() {
   const [dateToFilter, setDateToFilter] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const queryClient = useQueryClient();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['interventions', statusFilter, technicianFilter, dateFromFilter, dateToFilter],
     queryFn: () =>
       technicalService.getInterventions({
-        status: statusFilter || undefined,
-        technicianId: technicianFilter || undefined,
-        dateFrom: dateFromFilter || undefined,
-        dateTo: dateToFilter || undefined,
+        filters: {
+          status: statusFilter || undefined,
+        },
         pageSize: 100,
       }),
   });
 
   const { data: techniciansData } = useQuery({
     queryKey: ['technicians'],
-    queryFn: () => technicalService.getTechnicians({ pageSize: 100 }),
+    queryFn: () => technicalService.getTechniciens({ pageSize: 100 }),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: Partial<InterventionDetailed>) => technicalService.createIntervention(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interventions'] });
+      setIsDialogOpen(false);
+    },
   });
 
   const formatDate = (dateString: string) => {
@@ -57,13 +65,36 @@ export default function InterventionsList() {
     });
   };
 
-  const formatTime = (timeString: string) => {
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '';
     return timeString.substring(0, 5);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
   };
+
+  const interventions = data ?? [];
+  const technicians = techniciansData ?? [];
+
+  const filteredInterventions = interventions.filter((intervention) => {
+    const dateValue = intervention.dateDebut || intervention.scheduledDate || intervention.date;
+    const matchesTechnician =
+      !technicianFilter ||
+      intervention.technician?.id === technicianFilter ||
+      intervention.techniciens?.some(
+        (t) => t.technicienId === technicianFilter || t.technicien?.id === technicianFilter
+      );
+
+    const fromDate = dateFromFilter ? new Date(dateFromFilter) : null;
+    const toDate = dateToFilter ? new Date(dateToFilter) : null;
+    if (toDate) toDate.setHours(23, 59, 59, 999);
+
+    const matchesFrom = !fromDate || (dateValue ? new Date(dateValue) >= fromDate : false);
+    const matchesTo = !toDate || (dateValue ? new Date(dateValue) <= toDate : false);
+
+    return matchesTechnician && matchesFrom && matchesTo;
+  });
 
   if (isLoading) {
     return (
@@ -107,10 +138,10 @@ export default function InterventionsList() {
               className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm"
             >
               <option value="">Tous les statuts</option>
-              <option value="SCHEDULED">Planifiée</option>
-              <option value="IN_PROGRESS">En cours</option>
-              <option value="COMPLETED">Terminée</option>
-              <option value="CANCELLED">Annulée</option>
+              <option value="PLANIFIEE">Planifiee</option>
+              <option value="EN_COURS">En cours</option>
+              <option value="TERMINEE">Terminee</option>
+              <option value="ANNULEE">Annulee</option>
             </select>
           </div>
 
@@ -124,7 +155,7 @@ export default function InterventionsList() {
               className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm"
             >
               <option value="">Tous les techniciens</option>
-              {techniciansData?.data?.map((tech) => (
+              {technicians.map((tech) => (
                 <option key={tech.id} value={tech.id}>
                   {tech.firstName} {tech.lastName}
                 </option>
@@ -134,7 +165,7 @@ export default function InterventionsList() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date début
+              Date debut
             </label>
             <Input
               type="date"
@@ -173,7 +204,7 @@ export default function InterventionsList() {
                   Mission
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
-                  Durée
+                  Duree
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">
                   Statut
@@ -181,78 +212,84 @@ export default function InterventionsList() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((intervention) => (
-                <tr
-                  key={intervention.id}
-                  className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
-                >
-                  <td className="py-3 px-4">
-                    <span className="text-gray-900 dark:text-white">
-                      {formatDate(intervention.scheduledDate || intervention.date)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {formatTime(intervention.startTime)}
-                      {intervention.endTime && ` - ${formatTime(intervention.endTime)}`}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-gray-900 dark:text-white">
-                      {intervention.technician
-                        ? `${intervention.technician.firstName} ${intervention.technician.lastName}`
-                        : '-'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
-                      {intervention.mission?.title || intervention.missionNum}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {intervention.estimatedDuration
-                        ? `${intervention.estimatedDuration}h (estimé)`
-                        : intervention.actualDuration
-                        ? `${intervention.actualDuration}h`
-                        : '-'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge
-                      className={
-                        statusColors[intervention.status as keyof typeof statusColors] ||
-                        'bg-gray-100 text-gray-800'
-                      }
-                    >
-                      {statusLabels[intervention.status as keyof typeof statusLabels] ||
-                        intervention.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
+              {filteredInterventions.map((intervention) => {
+                const dateValue = intervention.dateDebut || intervention.scheduledDate || intervention.date;
+                const technicianLabel = intervention.technician
+                  ? `${intervention.technician.firstName} ${intervention.technician.lastName}`
+                  : intervention.techniciens?.[0]?.technicien
+                  ? `${intervention.techniciens[0].technicien?.firstName ?? ''} ${intervention.techniciens[0].technicien?.lastName ?? ''}`.trim()
+                  : '-';
+
+                return (
+                  <tr
+                    key={intervention.id}
+                    className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900"
+                  >
+                    <td className="py-3 px-4">
+                      <span className="text-gray-900 dark:text-white">
+                        {dateValue ? formatDate(dateValue) : '-'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {formatTime(intervention.startTime)}
+                        {intervention.endTime && ` - ${formatTime(intervention.endTime)}`}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-gray-900 dark:text-white">
+                        {technicianLabel || '-'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
+                        {intervention.mission?.title || intervention.missionNum}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {intervention.estimatedDuration
+                          ? `${intervention.estimatedDuration}h (estime)`
+                          : intervention.actualDuration
+                          ? `${intervention.actualDuration}h`
+                          : '-'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge
+                        className={
+                          statusColors[intervention.status as keyof typeof statusColors] ||
+                          'bg-gray-100 text-gray-800'
+                        }
+                      >
+                        {statusLabels[intervention.status as keyof typeof statusLabels] || intervention.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
-          {data?.data?.length === 0 && (
+          {filteredInterventions.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              Aucune intervention trouvée
+              Aucune intervention trouvee
             </div>
           )}
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          Total: {data?.data?.length || 0} intervention(s)
+          Total: {filteredInterventions.length} intervention(s)
         </div>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-950 rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <InterventionForm onSuccess={handleCloseDialog} onCancel={handleCloseDialog} />
-          </div>
-        </div>
-      </Dialog>
+      {isDialogOpen && (
+        <InterventionForm
+          onSubmit={(payload) => createMutation.mutate(payload)}
+          onClose={handleCloseDialog}
+          isLoading={createMutation.isPending}
+        />
+      )}
     </div>
   );
 }

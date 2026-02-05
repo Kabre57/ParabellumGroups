@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useMateriel, useDeleteMateriel, useCreateMateriel, useUpdateMateriel } from '@/hooks/useTechnical';
@@ -23,16 +23,16 @@ export default function EquipmentPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedMateriel, setSelectedMateriel] = useState<Materiel | undefined>();
 
-  const { data: materiel = [], isLoading } = useMateriel({ 
-    search: searchQuery,
-    status: statusFilter || undefined 
+  const { data: materiel = [], isLoading } = useMateriel({
+    query: searchQuery,
+    pageSize: 100,
   });
   const deleteMutation = useDeleteMateriel();
   const createMutation = useCreateMateriel();
   const updateMutation = useUpdateMateriel();
 
   const handleDelete = (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce matériel ?')) {
+    if (confirm('Etes-vous sur de vouloir supprimer ce materiel ?')) {
       deleteMutation.mutate(id);
     }
   };
@@ -64,6 +64,10 @@ export default function EquipmentPage() {
     }
   };
 
+  const filteredMateriel = statusFilter
+    ? materiel.filter((item) => (item.statut || item.status) === statusFilter)
+    : materiel;
+
   const getStatusBadge = (status: string) => {
     const badge = statusColors[status] || statusColors.DISPONIBLE;
     const Icon = badge.icon;
@@ -76,29 +80,30 @@ export default function EquipmentPage() {
   };
 
   const isStockAlert = (item: Materiel) => {
-    return item.quantiteDisponible <= item.seuilAlerte;
+    const available = item.availableQuantity ?? item.quantiteDisponible ?? item.quantiteStock ?? 0;
+    return available <= item.seuilAlerte;
   };
 
   // Calcul des stats
   const stats = {
-    total: materiel.length,
-    disponible: materiel.filter(m => m.statut === 'DISPONIBLE').length,
-    enMaintenance: materiel.filter(m => m.statut === 'EN_MAINTENANCE').length,
-    alertes: materiel.filter(m => isStockAlert(m)).length,
+    total: filteredMateriel.length,
+    disponible: filteredMateriel.filter(m => (m.statut || m.status) === 'DISPONIBLE').length,
+    enMaintenance: filteredMateriel.filter(m => (m.statut || m.status) === 'EN_MAINTENANCE').length,
+    alertes: filteredMateriel.filter(m => isStockAlert(m)).length,
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Parc Matériel</h1>
+          <h1 className="text-3xl font-bold">Parc Materiel</h1>
           <p className="text-muted-foreground mt-2">
-            Gestion du matériel technique et équipements
+            Gestion du materiel technique et equipements
           </p>
         </div>
         <Button className="flex items-center gap-2" onClick={handleCreate}>
           <Plus className="h-4 w-4" />
-          Nouveau Matériel
+          Nouveau Materiel
         </Button>
       </div>
 
@@ -107,7 +112,7 @@ export default function EquipmentPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Équipements</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Equipements</p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
             <Package className="h-8 w-8 text-blue-500" />
@@ -150,7 +155,7 @@ export default function EquipmentPage() {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un équipement..."
+              placeholder="Rechercher un equipement..."
               className="pl-10"
             />
           </div>
@@ -172,18 +177,18 @@ export default function EquipmentPage() {
       <Card className="p-6">
         {isLoading ? (
           <div className="text-center py-8">Chargement...</div>
-        ) : materiel.length === 0 ? (
+        ) : filteredMateriel.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            Aucun matériel trouvé
+            Aucun materiel trouve
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Référence</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Reference</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Nom</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Catégorie</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Categorie</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Statut</th>
                   <th className="text-center py-3 px-4 font-semibold text-sm">Stock</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Emplacement</th>
@@ -192,67 +197,73 @@ export default function EquipmentPage() {
                 </tr>
               </thead>
               <tbody>
-                {materiel.map((item) => (
-                  <tr 
-                    key={item.id} 
-                    className={`border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
-                      isStockAlert(item) ? 'bg-red-50 dark:bg-red-950/20' : ''
-                    }`}
-                  >
-                    <td className="py-3 px-4">
-                      <code className="px-2 py-1 bg-bFue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-xs font-mono">
-                        {item.reference}
-                      </code>
-                    </td>
-                    <td className="py-3 px-4 font-medium">{item.nom}</td>
-                    <td className="py-3 px-4">
-                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                        {item.categorie}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">{getStatusBadge(item.statut)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className={`font-semibold ${isStockAlert(item) ? 'text-red-600' : ''}`}>
-                          {item.quantiteDisponible}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          / {item.quantiteTotale}
-                        </span>
-                        {isStockAlert(item) && (
-                          <span className="text-xs text-red-600 flex items-center gap-1 mt-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Alerte
+                {filteredMateriel.map((item) => {
+                  const available = item.availableQuantity ?? item.quantiteDisponible ?? 0;
+                  const total = item.quantity ?? item.quantiteTotale ?? item.quantiteStock ?? 0;
+                  const statusValue = item.statut || item.status || 'DISPONIBLE';
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                        isStockAlert(item) ? 'bg-red-50 dark:bg-red-950/20' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-4">
+                        <code className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-xs font-mono">
+                          {item.reference}
+                        </code>
+                      </td>
+                      <td className="py-3 px-4 font-medium">{item.nom || item.name}</td>
+                      <td className="py-3 px-4">
+                        <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                          {item.categorie || item.category}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">{getStatusBadge(statusValue)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`font-semibold ${isStockAlert(item) ? 'text-red-600' : ''}`}>
+                            {available}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                      {item.emplacement || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right font-semibold">
-                      {item.prixUnitaire?.toFixed(2)}€
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2 justify-center">
-                        <Button size="sm" variant="outline" title="Modifier" onClick={() => handleEdit(item)}>
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Imprimer">
-                          <Printer className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleDelete(item.id)}
-                          title="Supprimer"
-                        >
-                          <Trash2 className="h-3 w-3 text-red-600" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <span className="text-xs text-gray-500">/ {total}</span>
+                          {isStockAlert(item) && (
+                            <span className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Alerte
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                        {item.emplacement || item.emplacementStock || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold">
+                        {item.prixUnitaire !== undefined && item.prixUnitaire !== null
+                          ? item.prixUnitaire.toFixed(2)
+                          : '-'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" variant="outline" title="Modifier" onClick={() => handleEdit(item)}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="outline" title="Imprimer">
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(item.id)}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-3 w-3 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

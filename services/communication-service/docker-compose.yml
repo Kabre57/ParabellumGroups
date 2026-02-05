@@ -1,0 +1,33 @@
+services:
+  communication-service:
+    build: .
+    container_name: communication-service
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+      - NODE_ENV=development
+      - DB_USER=parabellum
+      - DB_PASSWORD=parabellum2025
+      - DATABASE_URL=postgresql://parabellum:parabellum2025@db:5432/parabellum_communication?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: communication-service-db
+    environment:
+      POSTGRES_USER: parabellum
+      POSTGRES_PASSWORD: parabellum2025
+      POSTGRES_DB: parabellum_communication
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parabellum -d parabellum_communication"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - communication-service_db_data:/var/lib/postgresql/data
+
+volumes:
+  communication-service_db_data:

@@ -1,4 +1,5 @@
 const winston = require('winston');
+
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -12,7 +13,7 @@ const logger = winston.createLogger({
 
 /**
  * Authentication middleware - checks for X-User-Id header
- * In production, this should be replaced with JWT or OAuth2
+ * Format compatible avec ton frontend existant
  */
 const authMiddleware = (req, res, next) => {
   const userId = req.headers['x-user-id'];
@@ -20,41 +21,34 @@ const authMiddleware = (req, res, next) => {
 
   if (!userId) {
     logger.warn('Tentative d\'accès non authentifiée', {
-      path: req.path,
-      method: req.method,
-      ip: req.ip
+      context: {
+        path: req.path,
+        method: req.method,
+        ip: req.ip
+      }
     });
     
-    return res.status(401).json({ 
-      error: 'Non autorisé',
-      message: 'Header X-User-Id requis pour l\'authentification',
-      code: 'AUTH_REQUIRED'
+    // RETOUR COMPATIBLE avec ton frontend
+    return res.status(401).json({
+      success: false,
+      error: 'Non authentifié - ID utilisateur manquant'
     });
   }
 
-  // Validate UUID format if provided
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(userId)) {
-    return res.status(400).json({
-      error: 'Format invalide',
-      message: 'X-User-Id doit être au format UUID',
-      code: 'INVALID_USER_ID'
-    });
-  }
-
-  // Attach user information to request
+  // Attach user information to request (même format que l'ancien)
   req.user = {
     id: userId,
-    role: userRole,
-    ip: req.ip
+    role: userRole
   };
 
-  // Log authenticated request
+  // Log propre
   logger.info('Requête authentifiée', {
-    userId,
-    role: userRole,
-    path: req.path,
-    method: req.method
+    context: {
+      userId,
+      role: userRole,
+      path: req.path,
+      method: req.method
+    }
   });
 
   next();
@@ -68,25 +62,25 @@ const authorize = (allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
-        error: 'Non authentifié',
-        message: 'Authentification requise',
-        code: 'AUTH_REQUIRED'
+        success: false,
+        error: 'Non authentifié - Authentification requise'
       });
     }
 
     if (!allowedRoles.includes(req.user.role)) {
       logger.warn('Tentative d\'accès non autorisé', {
-        userId: req.user.id,
-        userRole: req.user.role,
-        requiredRoles: allowedRoles,
-        path: req.path,
-        method: req.method
+        context: {
+          userId: req.user.id,
+          userRole: req.user.role,
+          requiredRoles: allowedRoles,
+          path: req.path,
+          method: req.method
+        }
       });
 
       return res.status(403).json({
-        error: 'Accès interdit',
-        message: 'Vous n\'avez pas les permissions nécessaires',
-        code: 'FORBIDDEN'
+        success: false,
+        error: 'Accès interdit - Permissions insuffisantes'
       });
     }
 
@@ -112,13 +106,16 @@ const logRequests = (req, res, next) => {
   
   res.on('finish', () => {
     const duration = Date.now() - start;
+    
     logger.info('Requête traitée', {
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      userId: req.headers['x-user-id'] || 'anonymous',
-      userAgent: req.get('user-agent')
+      context: {
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        durationMs: duration,
+        userId: req.headers['x-user-id'] || 'anonymous',
+        userAgent: req.get('user-agent')
+      }
     });
   });
 

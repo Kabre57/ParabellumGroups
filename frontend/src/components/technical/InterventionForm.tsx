@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -6,17 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
-
-interface Intervention {
-  id?: number;
-  missionId: number;
-  titre: string;
-  description?: string;
-  dateDebut: string;
-  heureDebut: string;
-  dureeEstimee?: number;
-  resultats?: string;
-}
+import { useMissions } from '@/hooks/useTechnical';
+import { Intervention } from '@/shared/api/services/technical';
 
 interface InterventionFormProps {
   item?: Intervention;
@@ -26,13 +17,26 @@ interface InterventionFormProps {
 }
 
 export function InterventionForm({ item, onSubmit, onClose, isLoading }: InterventionFormProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<Partial<Intervention>>({
+  const { data: missions = [] } = useMissions({ pageSize: 100 });
+
+  const defaultDateDebut = item?.dateDebut
+    ? new Date(item.dateDebut).toISOString().slice(0, 16)
+    : '';
+  const defaultDateFin = item?.dateFin
+    ? new Date(item.dateFin).toISOString().slice(0, 16)
+    : '';
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Partial<Intervention>>({
     defaultValues: item || {
-      missionId: 0,
+      missionId: '',
       titre: '',
       description: '',
-      dateDebut: '',
-      heureDebut: '',
+      dateDebut: defaultDateDebut,
+      dateFin: defaultDateFin,
       dureeEstimee: 0,
       resultats: '',
     },
@@ -57,14 +61,17 @@ export function InterventionForm({ item, onSubmit, onClose, isLoading }: Interve
               <Label htmlFor="missionId">Mission *</Label>
               <select
                 id="missionId"
-                {...register('missionId', { 
+                {...register('missionId', {
                   required: 'La mission est obligatoire',
-                  valueAsNumber: true,
                 })}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
               >
-                <option value={0}>Sélectionner une mission</option>
-                {/* TODO: Populate with actual missions */}
+                <option value="">Selectionner une mission</option>
+                {missions.map((mission: any) => (
+                  <option key={mission.id} value={mission.id}>
+                    {mission.numeroMission} - {mission.titre}
+                  </option>
+                ))}
               </select>
               {errors.missionId && (
                 <p className="text-sm text-red-600 mt-1">{errors.missionId.message}</p>
@@ -77,7 +84,7 @@ export function InterventionForm({ item, onSubmit, onClose, isLoading }: Interve
               <Input
                 id="titre"
                 {...register('titre', { required: 'Le titre est obligatoire' })}
-                placeholder="Intervention maintenance préventive"
+                placeholder="Intervention maintenance preventive"
               />
               {errors.titre && (
                 <p className="text-sm text-red-600 mt-1">{errors.titre.message}</p>
@@ -92,39 +99,32 @@ export function InterventionForm({ item, onSubmit, onClose, isLoading }: Interve
                 {...register('description')}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
                 rows={3}
-                placeholder="Description détaillée de l'intervention..."
+                placeholder="Description detaillee de l'intervention..."
               />
             </div>
 
-            {/* Date Début */}
+            {/* Date Debut */}
             <div>
-              <Label htmlFor="dateDebut">Date de début *</Label>
+              <Label htmlFor="dateDebut">Date et heure de debut *</Label>
               <Input
                 id="dateDebut"
-                type="date"
-                {...register('dateDebut', { required: 'La date de début est obligatoire' })}
+                type="datetime-local"
+                {...register('dateDebut', { required: 'La date de debut est obligatoire' })}
               />
               {errors.dateDebut && (
                 <p className="text-sm text-red-600 mt-1">{errors.dateDebut.message}</p>
               )}
             </div>
 
-            {/* Heure Début */}
+            {/* Date Fin */}
             <div>
-              <Label htmlFor="heureDebut">Heure de début *</Label>
-              <Input
-                id="heureDebut"
-                type="time"
-                {...register('heureDebut', { required: 'L\'heure de début est obligatoire' })}
-              />
-              {errors.heureDebut && (
-                <p className="text-sm text-red-600 mt-1">{errors.heureDebut.message}</p>
-              )}
+              <Label htmlFor="dateFin">Date et heure de fin</Label>
+              <Input id="dateFin" type="datetime-local" {...register('dateFin')} />
             </div>
 
-            {/* Durée Estimée */}
+            {/* Duree Estimee */}
             <div>
-              <Label htmlFor="dureeEstimee">Durée estimée (heures)</Label>
+              <Label htmlFor="dureeEstimee">Duree estimee (heures)</Label>
               <Input
                 id="dureeEstimee"
                 type="number"
@@ -136,15 +136,15 @@ export function InterventionForm({ item, onSubmit, onClose, isLoading }: Interve
               />
             </div>
 
-            {/* Résultats */}
+            {/* Resultats */}
             <div className="md:col-span-2">
-              <Label htmlFor="resultats">Résultats</Label>
+              <Label htmlFor="resultats">Resultats</Label>
               <textarea
                 id="resultats"
                 {...register('resultats')}
                 className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
                 rows={4}
-                placeholder="Compte-rendu des résultats de l'intervention..."
+                placeholder="Compte-rendu des resultats de l'intervention..."
               />
             </div>
           </div>
@@ -154,7 +154,7 @@ export function InterventionForm({ item, onSubmit, onClose, isLoading }: Interve
               Annuler
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Enregistrement...' : (item ? 'Mettre à jour' : 'Créer')}
+              {isLoading ? 'Enregistrement...' : item ? 'Mettre a jour' : 'Creer'}
             </Button>
           </div>
         </form>
