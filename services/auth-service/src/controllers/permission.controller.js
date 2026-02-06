@@ -16,21 +16,9 @@ const getAllPermissions = async (req, res) => {
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
 
-    // Group by category
-    const groupedPermissions = permissions.reduce((acc, perm) => {
-      if (!acc[perm.category]) {
-        acc[perm.category] = [];
-      }
-      acc[perm.category].push(perm);
-      return acc;
-    }, {});
-
     return res.status(200).json({
       success: true,
-      data: {
-        permissions,
-        grouped: groupedPermissions,
-      },
+      data: permissions,
     });
   } catch (error) {
     console.error('Get all permissions error:', error);
@@ -308,8 +296,27 @@ const getRolePermissions = async (req, res) => {
   try {
     const { role } = req.params;
 
+    const roleId = parseInt(role);
+    const isId = !isNaN(roleId);
+
+    let whereClause;
+    if (isId) {
+      whereClause = { roleId };
+    } else {
+      const roleRecord = await prisma.role.findUnique({
+        where: { code: role }
+      });
+      if (!roleRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found'
+        });
+      }
+      whereClause = { roleId: roleRecord.id };
+    }
+
     const rolePermissions = await prisma.rolePermission.findMany({
-      where: { role },
+      where: whereClause,
       include: {
         permission: true,
       },

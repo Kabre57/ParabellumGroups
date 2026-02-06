@@ -1,1 +1,2 @@
-export * from '@/shared/api/services/procurement';
+export * from '@/shared/api/procurement';
+export { procurementService } from '@/shared/api/procurement';

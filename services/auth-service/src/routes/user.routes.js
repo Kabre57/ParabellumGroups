@@ -87,10 +87,10 @@ router.post(
       .withMessage('Last name is required')
       .isLength({ max: 100 })
       .withMessage('Last name must not exceed 100 characters'),
-    body('role')
+    body('roleId')
       .optional()
-      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
-      .withMessage('Invalid role'),
+      .isInt({ min: 1 })
+      .withMessage('Role ID must be a positive integer'),
     body('serviceId')
       .optional()
       .isInt({ min: 1 })
@@ -142,14 +142,18 @@ router.put(
       .withMessage('Last name cannot be empty')
       .isLength({ max: 100 })
       .withMessage('Last name must not exceed 100 characters'),
-    body('role')
+    body('roleId')
       .optional()
-      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
-      .withMessage('Invalid role'),
+      .isInt({ min: 1 })
+      .withMessage('Role ID must be a positive integer'),
     body('serviceId')
       .optional()
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
+    body('isActive')
+      .optional()
+      .isBoolean()
+      .withMessage('isActive must be a boolean'),
     body('phone')
       .optional()
       .trim()
@@ -209,8 +213,13 @@ router.put(
   checkRole('ADMIN'),
   [
     body('permissions')
+      .optional()
       .isArray()
       .withMessage('Permissions must be an array'),
+    body('permissionIds')
+      .optional()
+      .isArray()
+      .withMessage('PermissionIds must be an array'),
   ],
   updateUserPermissions
 );

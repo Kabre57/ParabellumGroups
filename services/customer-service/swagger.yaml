@@ -2707,7 +2707,7 @@ components:
           type: string
         pays:
           type: string
-          default: cote d\'ivoire
+          default: ""
         isPrincipal:
           type: boolean
           default: false

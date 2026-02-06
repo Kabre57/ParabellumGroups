@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { useInterventions, useDeleteIntervention, useCompleteIntervention } from '@/hooks/useTechnical';
-import { Intervention, technicalService } from '@/shared/api/services/technical';
+import { Intervention, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Eye, Edit, Trash2, CheckCircle, Clock, FileText, Printer, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { CreateInterventionModal } from '@/components/technical/CreateInterventionModal';
-import RapportPrint from '@/components/PrintComponents/RapportPrint';
+import RapportPrint from '@/components/printComponents/RapportPrint';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',

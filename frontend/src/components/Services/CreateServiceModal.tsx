@@ -1,19 +1,19 @@
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Building2, Eye, EyeOff } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { adminServicesService, adminUsersService } from '@/shared/api/admin';
 
 const createServiceSchema = z.object({
-  name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  code: z.string().max(10, 'Le code ne peut pas dépasser 10 caractères').optional(),
-  description: z.string().max(500, 'La description ne peut pas dépasser 500 caractères').optional(),
+  name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
+  code: z.string().max(50, 'Le code ne peut pas depasser 50 caracteres').min(1, 'Le code est requis'),
+  description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
   parentId: z.string().optional(),
   managerId: z.string().optional(),
-  isActive: z.boolean().default(true),
 });
 
 type CreateServiceForm = z.infer<typeof createServiceSchema>;
@@ -22,58 +22,52 @@ interface CreateServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  services?: Array<{ id: number; name: string }>;
-  users?: Array<{ id: number; firstName: string; lastName: string; email: string }>;
 }
 
 export function CreateServiceModal({ 
   isOpen, 
   onClose, 
-  onSuccess,
-  services = [],
-  users = []
+  onSuccess
 }: CreateServiceModalProps) {
+  const { data: servicesData } = useQuery({
+    queryKey: ['admin-services-list'],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: isOpen,
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users-list'],
+    queryFn: () => adminUsersService.getUsers({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const services = servicesData?.data || [];
+  const users = usersData?.data || [];
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-    watch,
   } = useForm<CreateServiceForm>({
     resolver: zodResolver(createServiceSchema),
-    defaultValues: {
-      isActive: true,
-    },
   });
 
   const onSubmit = async (data: CreateServiceForm) => {
     try {
-      // TODO: Remplacer par l'appel API réel
-      // const response = await fetch('/api/v1/services', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify({
-      //     ...data,
-      //     parentId: data.parentId ? parseInt(data.parentId) : null,
-      //     managerId: data.managerId ? parseInt(data.managerId) : null,
-      //   }),
-      // });
-      //
-      // if (!response.ok) {
-      //   throw new Error('Erreur lors de la création du service');
-      // }
-
-      // Simulation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await adminServicesService.createService({
+        name: data.name,
+        code: data.code,
+        description: data.description,
+        parentId: data.parentId ? parseInt(data.parentId) : undefined,
+        managerId: data.managerId ? parseInt(data.managerId) : undefined,
+      });
       
-      toast.success('Service créé avec succès');
+      toast.success('Service cree avec succes');
       reset();
       onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de la création du service');
+      toast.error(error.message || 'Erreur lors de la creation du service');
     }
   };
 
@@ -82,22 +76,19 @@ export function CreateServiceModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Overlay */}
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
         />
 
-        {/* Modal */}
         <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                 <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Créer un Service
+                Creer un Service
               </h2>
             </div>
             <button
@@ -108,9 +99,7 @@ export function CreateServiceModal({
             </button>
           </div>
 
-          {/* Body */}
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-            {/* Name & Code */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -131,12 +120,12 @@ export function CreateServiceModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Code
+                  Code *
                 </label>
                 <input
                   {...register('code')}
                   type="text"
-                  maxLength={10}
+                  maxLength={50}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white uppercase"
                   placeholder="COMM"
                 />
@@ -148,7 +137,6 @@ export function CreateServiceModal({
               </div>
             </div>
 
-            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
@@ -167,7 +155,6 @@ export function CreateServiceModal({
               )}
             </div>
 
-            {/* Parent Service & Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -204,34 +191,20 @@ export function CreateServiceModal({
               </div>
             </div>
 
-            {/* Active Status */}
-            <div className="flex items-center space-x-3">
-              <input
-                {...register('isActive')}
-                type="checkbox"
-                id="isActive"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Service actif
-              </label>
-            </div>
-
-            {/* Footer */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Création...' : 'Créer le service'}
+                {isSubmitting ? 'Creation...' : 'Creer le service'}
               </button>
             </div>
           </form>

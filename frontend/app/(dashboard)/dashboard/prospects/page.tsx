@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import customersService from '@/shared/api/services/customers';
+import { commercialService } from '@/shared/api/commercial';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -20,7 +20,7 @@ export default function ProspectsPage() {
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['prospect-stats'],
     queryFn: async () => {
-      const response = await customersService.getProspectStats();
+      const response = await commercialService.getProspectStats();
       return response.data;
     },
   });

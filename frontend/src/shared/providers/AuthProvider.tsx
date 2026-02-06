@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '@/shared/api/services/auth';
-import { User } from '@/shared/api/types';
+import { authService } from '@/shared/api/auth';
+import { User } from '@/shared/api/shared/types';
 import Cookies from 'js-cookie';
 
 interface AuthContextType {

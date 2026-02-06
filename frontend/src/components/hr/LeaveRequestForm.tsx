@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import hrService, { CreateLeaveRequest } from '@/shared/api/services/hr';
+import { hrService, CreateLeaveRequest } from '@/shared/api/hr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analyticsService } from '@/shared/api/services/analytics';
+import { analyticsService } from '@/shared/api/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { LineChart } from '@/components/charts/LineChart';
@@ -34,34 +34,35 @@ export function TechnicalDashboard() {
     );
   }
 
-  // Mock data for demonstration
+  // Real data from API
+  const dashboardData = data?.data;
   const missionStats = {
-    total: data?.total_missions || 247,
-    ongoing: data?.ongoing_missions || 34,
-    completed: data?.completed_missions || 198,
-    planned: data?.planned_missions || 15,
+    total: dashboardData?.total_missions || 247,
+    ongoing: dashboardData?.ongoing_missions || 34,
+    completed: dashboardData?.completed_missions || 198,
+    planned: dashboardData?.planned_missions || 15,
   };
 
-  const missionsPerMonth = data?.missions_per_month || [
+  const missionsPerMonth = dashboardData?.missions_per_month || [
     18, 22, 19, 25, 28, 31, 29, 26, 32, 35, 30, 28
   ];
   const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
   const technicianStats = {
-    total: data?.total_technicians || 42,
-    available: data?.available_technicians || 8,
-    onMission: data?.on_mission_technicians || 34,
-    utilizationRate: data?.utilization_rate || 81,
+    total: dashboardData?.total_technicians || 42,
+    available: dashboardData?.available_technicians || 8,
+    onMission: dashboardData?.on_mission_technicians || 34,
+    utilizationRate: dashboardData?.utilization_rate || 81,
   };
 
   const equipmentStats = {
-    totalStock: data?.total_equipment || 1250,
-    lowStock: data?.low_stock_items || 15,
-    outOfStock: data?.out_of_stock_items || 3,
-    needsMaintenance: data?.maintenance_needed || 8,
+    totalStock: dashboardData?.total_equipment || 1250,
+    lowStock: dashboardData?.low_stock_items || 15,
+    outOfStock: dashboardData?.out_of_stock_items || 3,
+    needsMaintenance: dashboardData?.maintenance_needed || 8,
   };
 
-  const upcomingMissions = data?.upcoming_missions || [
+  const upcomingMissions = dashboardData?.upcoming_missions || [
     { client: 'TechCorp SA', type: 'Installation', date: '2026-01-22', technician: 'J. Dupont' },
     { client: 'Services Plus', type: 'Maintenance', date: '2026-01-23', technician: 'M. Martin' },
     { client: 'Digital Solutions', type: 'Réparation', date: '2026-01-24', technician: 'L. Bernard' },

@@ -166,7 +166,21 @@ const createResilientProxy = (serviceName, target, pathRewrite = {}) => {
   };
 };
 
-const rewriteAuthPath = (path) => path.replace(/^\/auth/, '/api/auth');
+const rewriteAuthPath = (path) => {
+  if (path.startsWith('/auth/users')) {
+    return path.replace('/auth/users', '/api/users');
+  }
+  if (path.startsWith('/auth/roles')) {
+    return path.replace('/auth/roles', '/api/roles');
+  }
+  if (path.startsWith('/auth/services')) {
+    return path.replace('/auth/services', '/api/services');
+  }
+  if (path.startsWith('/auth/permissions')) {
+    return path.replace('/auth/permissions', '/api/permissions');
+  }
+  return path.replace(/^\/auth/, '/api/auth');
+};
 
 const rewriteTechnicalPath = (path) => path.replace(/^\/technical/, '/api');
 
@@ -432,6 +446,30 @@ router.use('/analytics',
     }
     return path.replace('/analytics', '/api/analytics');
   })
+);
+
+router.use('/roles',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, { '^/roles': '/api/roles' })
+);
+
+router.use('/users',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, { '^/users': '/api/users' })
+);
+
+router.use('/services',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, { '^/services': '/api/services' })
+);
+
+router.use('/permissions',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, { '^/permissions': '/api/permissions' })
 );
 
 module.exports = router;

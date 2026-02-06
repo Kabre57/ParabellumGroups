@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { adminServicesService, adminUsersService, type Service } from '@/shared/api/admin';
 
 const editServiceSchema = z.object({
-  name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  code: z.string().max(10, 'Le code ne peut pas dépasser 10 caractères').optional(),
-  description: z.string().max(500, 'La description ne peut pas dépasser 500 caractères').optional(),
+  name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
+  description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
   parentId: z.string().optional(),
   managerId: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -18,33 +19,36 @@ const editServiceSchema = z.object({
 
 type EditServiceForm = z.infer<typeof editServiceSchema>;
 
-interface Service {
-  id: number;
-  name: string;
-  code?: string;
-  description?: string;
-  parentId?: number;
-  managerId?: number;
-  isActive: boolean;
-}
-
 interface EditServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   service: Service | null;
-  services?: Array<{ id: number; name: string }>;
-  users?: Array<{ id: number; firstName: string; lastName: string; email: string }>;
 }
 
 export function EditServiceModal({ 
   isOpen, 
   onClose, 
   onSuccess,
-  service,
-  services = [],
-  users = []
+  service
 }: EditServiceModalProps) {
+  const { data: servicesData } = useQuery({
+    queryKey: ['admin-services-list'],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: isOpen,
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users-list'],
+    queryFn: () => adminUsersService.getUsers({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const services = servicesData?.data || [];
+  const users = usersData?.data || [];
+
+  const availableParentServices = services.filter(s => s.id !== service?.id);
+
   const {
     register,
     handleSubmit,
@@ -58,7 +62,6 @@ export function EditServiceModal({
     if (service) {
       reset({
         name: service.name,
-        code: service.code || '',
         description: service.description || '',
         parentId: service.parentId?.toString() || '',
         managerId: service.managerId?.toString() || '',
@@ -71,28 +74,15 @@ export function EditServiceModal({
     if (!service) return;
 
     try {
-      // TODO: Remplacer par l'appel API réel
-      // const response = await fetch(`/api/v1/services/${service.id}`, {
-      //   method: 'PUT',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify({
-      //     ...data,
-      //     parentId: data.parentId ? parseInt(data.parentId) : null,
-      //     managerId: data.managerId ? parseInt(data.managerId) : null,
-      //   }),
-      // });
-      //
-      // if (!response.ok) {
-      //   throw new Error('Erreur lors de la modification du service');
-      // }
-
-      // Simulation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await adminServicesService.updateService(service.id, {
+        name: data.name,
+        description: data.description,
+        parentId: data.parentId ? parseInt(data.parentId) : null,
+        managerId: data.managerId ? parseInt(data.managerId) : null,
+        isActive: data.isActive,
+      });
       
-      toast.success('Service modifié avec succès');
+      toast.success('Service modifie avec succes');
       reset();
       onSuccess();
     } catch (error: any) {
@@ -102,21 +92,15 @@ export function EditServiceModal({
 
   if (!isOpen || !service) return null;
 
-  // Filtrer les services pour ne pas permettre un service de se sélectionner comme parent
-  const availableParentServices = services.filter(s => s.id !== service.id);
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Overlay */}
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
         />
 
-        {/* Modal */}
         <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -134,9 +118,7 @@ export function EditServiceModal({
             </button>
           </div>
 
-          {/* Body */}
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-            {/* Name & Code */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -160,21 +142,15 @@ export function EditServiceModal({
                   Code
                 </label>
                 <input
-                  {...register('code')}
                   type="text"
-                  maxLength={10}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white uppercase"
-                  placeholder="COMM"
+                  disabled
+                  value={service.code || ''}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 dark:text-gray-300 uppercase cursor-not-allowed"
                 />
-                {errors.code && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.code.message}
-                  </p>
-                )}
+                <p className="mt-1 text-xs text-gray-500">Le code ne peut pas etre modifie</p>
               </div>
             </div>
 
-            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
@@ -193,7 +169,6 @@ export function EditServiceModal({
               )}
             </div>
 
-            {/* Parent Service & Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -230,7 +205,6 @@ export function EditServiceModal({
               </div>
             </div>
 
-            {/* Active Status */}
             <div className="flex items-center space-x-3">
               <input
                 {...register('isActive')}
@@ -243,21 +217,20 @@ export function EditServiceModal({
               </label>
             </div>
 
-            {/* Footer */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Modification...' : 'Modifier le service'}
+                {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </form>

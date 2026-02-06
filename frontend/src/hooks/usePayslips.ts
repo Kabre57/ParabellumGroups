@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { hrService, Payroll, CreatePayrollRequest } from '@/shared/api/services/hr';
+import { hrService, Payroll, CreatePayrollRequest } from '@/shared/api/hr';
 import { SearchParams } from '@/shared/api/types';
 
 export function usePayslips(params?: SearchParams) {

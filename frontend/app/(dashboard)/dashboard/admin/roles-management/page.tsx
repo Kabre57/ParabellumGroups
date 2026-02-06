@@ -13,7 +13,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreateRoleModal } from '@/components/Roles/CreateRoleModal';
+import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
 import { apiClient } from '@/lib/api-client';
 
 interface Role {

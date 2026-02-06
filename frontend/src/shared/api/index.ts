@@ -1,0 +1,12 @@
+export * from './auth';
+export * from './crm';
+export * from './billing';
+export * from './hr';
+export * from './technical';
+export * from './projects';
+export * from './procurement';
+export * from './commercial';
+export * from './analytics';
+export * from './customers';
+export * from './shared/types';
+export { apiClient } from './shared/client';

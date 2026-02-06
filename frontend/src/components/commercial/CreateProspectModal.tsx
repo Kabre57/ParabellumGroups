@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
-import { commercialService } from '@/shared/api/services/commercial';
+import { commercialService } from '@/shared/api/commercial';
 import type { CreateProspectRequest, ProspectStage, ProspectPriority } from '@/shared/api/types';
 
 interface CreateProspectModalProps {
@@ -43,7 +43,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
     address: '',
     city: '',
     postalCode: '',
-    country: 'cote d\'ivoire',
+    country: "Côte d'Ivoire",
     stage: 'preparation',
     priority: 'C',
     source: '',
@@ -84,7 +84,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
       address: '',
       city: '',
       postalCode: '',
-      country: 'cote d\'ivoire',
+      country: "Côte d'Ivoire",
       stage: 'preparation',
       priority: 'C',
       source: '',

@@ -1,0 +1,275 @@
+services:
+  # ==================== INFRASTRUCTURE ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: parabellum-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_MULTIPLE_DATABASES: >
+        parabellum_auth,
+        parabellum_communication,
+        parabellum_technical,
+        parabellum_commercial,
+        parabellum_inventory,
+        parabellum_projects,
+        parabellum_procurement,
+        parabellum_customers,
+        parabellum_hr,
+        parabellum_billing,
+        parabellum_Analytics,
+        delices_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: parabellum-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build: ./frontend
+    container_name: parabellum-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://api-gateway:3001
+    depends_on:
+      - api-gateway
+
+  # ==================== API GATEWAY ====================
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: api-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - JWT_SECRET=parabellum-secure-jwt-secret-2026
+      # URLs des services (utilise les noms Docker)
+      - AUTH_SERVICE_URL=http://auth-service:4001
+      - COMMUNICATION_SERVICE_URL=http://communication-service:4002
+      - TECHNICAL_SERVICE_URL=http://technical-service:4003
+      - COMMERCIAL_SERVICE_URL=http://commercial-service:4004
+      - INVENTORY_SERVICE_URL=http://inventory-service:4005
+      - PROJECTS_SERVICE_URL=http://project-service:4006
+      - PROCUREMENT_SERVICE_URL=http://procurement-service:4007
+      - CUSTOMERS_SERVICE_URL=http://customer-service:4008
+      - HR_SERVICE_URL=http://hr-service:4009
+      - BILLING_SERVICE_URL=http://billing-service:4010
+      - ANALYTICS_SERVICE_URL=http://analytics-service:4011
+      - NOTIFICATIONS_SERVICE_URL=http://notification-service:40102
+    depends_on:
+      - auth-service
+      - communication-service
+      - technical-service
+      - commercial-service
+      - inventory-service
+      - project-service
+      - procurement-service
+      - customer-service
+      - hr-service
+      - billing-service
+      - analytics-service
+      - notification-service
+
+  # ==================== MICROSERVICES ====================
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - NODE_ENV=development
+      - JWT_SECRET=parabellum-secure-jwt-secret-2026
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_auth?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  communication-service:
+    build: ./services/communication-service
+    container_name: communication-service
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_communication?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  technical-service:
+    build: ./services/technical-service
+    container_name: technical-service
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_technical?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  commercial-service:
+    build: ./services/commercial-service
+    container_name: commercial-service
+    ports:
+      - "4004:4004"
+    environment:
+      - PORT=4004
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_commercial?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  inventory-service:
+    build: ./services/inventory-service
+    container_name: inventory-service
+    ports:
+      - "4005:4005"
+    environment:
+      - PORT=4005
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_inventory?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  project-service:
+    build: ./services/project-service
+    container_name: project-service
+    ports:
+      - "4006:4006"
+    environment:
+      - PORT=4006
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_projects?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  procurement-service:
+    build: ./services/procurement-service
+    container_name: procurement-service
+    ports:
+      - "4007:4007"
+    environment:
+      - PORT=4007
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_procurement?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  customer-service:
+    build: ./services/customer-service
+    container_name: customer-service
+    ports:
+      - "4008:4008"
+    environment:
+      - PORT=4008
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_customers?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  hr-service:
+    build: ./services/hr-service
+    container_name: hr-service
+    ports:
+      - "4009:4009"
+    environment:
+      - PORT=4009
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_hr?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  billing-service:
+    build: ./services/billing-service
+    container_name: billing-service
+    ports:
+      - "4010:4010"
+    environment:
+      - PORT=4010
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_billing?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: analytics-service
+    ports:
+      - "4011:4011"
+    environment:
+      - PORT=4011
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_Analytics?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    ports:
+      - "40102:40102"
+    environment:
+      - PORT=40102
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/delices_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

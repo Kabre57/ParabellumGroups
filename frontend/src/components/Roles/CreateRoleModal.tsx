@@ -5,16 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
+import { adminRolesService } from '@/shared/api/admin';
 
 const createRoleSchema = z.object({
-  name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
+  name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
   code: z.string()
-    .min(2, 'Le code doit contenir au moins 2 caractères')
-    .max(50, 'Le code ne peut pas dépasser 50 caractères')
+    .min(2, 'Le code doit contenir au moins 2 caracteres')
+    .max(50, 'Le code ne peut pas depasser 50 caracteres')
     .regex(/^[A-Z_]+$/, 'Le code doit contenir uniquement des majuscules et underscores'),
-  description: z.string().max(500, 'La description ne peut pas dépasser 500 caractères').optional(),
-  isActive: z.boolean().default(true),
+  description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
 });
 
 type CreateRoleForm = z.infer<typeof createRoleSchema>;
@@ -31,36 +30,35 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-    watch,
   } = useForm<CreateRoleForm>({
     resolver: zodResolver(createRoleSchema),
-    defaultValues: {
-      isActive: true,
-    },
   });
 
-  // Auto-generate code from name
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     const code = name
       .toUpperCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove accents
-      .replace(/[^A-Z\s]/g, '') // Keep only letters and spaces
-      .replace(/\s+/g, '_'); // Replace spaces with underscores
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z\s]/g, '')
+      .replace(/\s+/g, '_');
     
     return code;
   };
 
   const onSubmit = async (data: CreateRoleForm) => {
     try {
-      await apiClient.createRole(data);
+      await adminRolesService.createRole({
+        name: data.name,
+        code: data.code,
+        description: data.description,
+      });
       
-      toast.success('Rôle créé avec succès');
+      toast.success('Role cree avec succes');
       reset();
       onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de la création du rôle');
+      toast.error(error.message || 'Erreur lors de la creation du role');
     }
   };
 
@@ -69,22 +67,19 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Overlay */}
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
         />
 
-        {/* Modal */}
         <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                 <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Créer un Rôle
+                Creer un Role
               </h2>
             </div>
             <button
@@ -95,13 +90,11 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
             </button>
           </div>
 
-          {/* Body */}
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-            {/* Name & Code */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom du rôle *
+                  Nom du role *
                 </label>
                 <input
                   {...register('name', {
@@ -145,7 +138,6 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
               </div>
             </div>
 
-            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
@@ -155,7 +147,7 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
                 rows={3}
                 maxLength={500}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Description du rôle et de ses responsabilités..."
+                placeholder="Description du role et de ses responsabilites..."
               />
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -164,20 +156,6 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
               )}
             </div>
 
-            {/* Active Status */}
-            <div className="flex items-center space-x-3">
-              <input
-                {...register('isActive')}
-                type="checkbox"
-                id="isActive"
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Rôle actif
-              </label>
-            </div>
-
-            {/* Footer */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
@@ -191,7 +169,7 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
                 disabled={isSubmitting}
                 className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Création...' : 'Créer le rôle'}
+                {isSubmitting ? 'Creation...' : 'Creer le role'}
               </button>
             </div>
           </form>

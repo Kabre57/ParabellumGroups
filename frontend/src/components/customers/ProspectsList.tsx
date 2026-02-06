@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import customersService from '@/shared/api/services/customers';
+import { commercialService } from '@/shared/api/commercial';
 import type { Prospect, ProspectStage } from '@/shared/api/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,13 +29,13 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
   const { data, isLoading } = useQuery({
     queryKey: ['prospects'],
     queryFn: async () => {
-      const response = await customersService.getProspects();
+      const response = await commercialService.getProspects();
       return response.data;
     },
   });
 
   const convertMutation = useMutation({
-    mutationFn: (id: string) => customersService.convertProspect(id),
+    mutationFn: (id: string) => commercialService.convertProspect(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });

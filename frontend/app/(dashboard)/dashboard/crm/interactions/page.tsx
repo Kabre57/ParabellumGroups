@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import customersService from '@/shared/api/services/customers';
+import { crmService } from '@/shared/api/crm';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
@@ -24,7 +24,7 @@ export default function InteractionsHistoryPage() {
     queryFn: async () => {
       // Note: customersService.getInteractions needs to support getting all if clientId is omitted
       // For now we use it as is, assuming the backend supports it or we'll fix the service
-      const response = await customersService.getInteractions({ clientId: '' });
+      const response = await crmService.getInteractions({ clientId: '' });
       return response;
     },
   });

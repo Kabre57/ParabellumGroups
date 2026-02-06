@@ -8,7 +8,6 @@ const getUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Récupérer l'utilisateur avec ses permissions personnelles et de rôle
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
       include: {
@@ -16,43 +15,55 @@ const getUserPermissions = async (req, res) => {
           include: {
             permission: true
           }
-        }
+        },
+        role: true
       }
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Utilisateur non trouvé'
+        message: 'Utilisateur non trouve'
       });
     }
 
-    // Récupérer les permissions du rôle
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: { role: user.role },
-      include: {
-        permission: true
-      }
-    });
+    let rolePermissions = [];
+    if (user.roleId) {
+      rolePermissions = await prisma.rolePermission.findMany({
+        where: { roleId: user.roleId },
+        include: {
+          permission: true
+        }
+      });
+    }
 
-    // Combiner les permissions (priorité aux permissions utilisateur)
     const permissionsMap = new Map();
 
-    // D'abord les permissions du rôle
     rolePermissions.forEach(rp => {
-      permissionsMap.set(rp.permission.name, {
-        ...rp.permission,
+      permissionsMap.set(rp.permissionId, {
+        id: rp.id,
+        permissionId: rp.permissionId,
+        permission: rp.permission,
         source: 'role',
-        granted: true
+        canView: rp.canView,
+        canCreate: rp.canCreate,
+        canEdit: rp.canEdit,
+        canDelete: rp.canDelete,
+        canApprove: rp.canApprove
       });
     });
 
-    // Ensuite les permissions utilisateur (peuvent surcharger)
     user.userPermissions.forEach(up => {
-      permissionsMap.set(up.permission.name, {
-        ...up.permission,
+      permissionsMap.set(up.permissionId, {
+        id: up.id,
+        permissionId: up.permissionId,
+        permission: up.permission,
         source: 'user',
-        granted: up.granted
+        canView: up.canView,
+        canCreate: up.canCreate,
+        canEdit: up.canEdit,
+        canDelete: up.canDelete,
+        canApprove: up.canApprove
       });
     });
 
@@ -60,22 +71,13 @@ const getUserPermissions = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: {
-        userId: user.id,
-        role: user.role,
-        permissions,
-        stats: {
-          total: permissions.length,
-          fromRole: rolePermissions.length,
-          fromUser: user.userPermissions.length
-        }
-      }
+      data: permissions
     });
   } catch (error) {
     console.error('Get user permissions error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des permissions',
+      message: 'Erreur lors de la recuperation des permissions',
       errors: error.message
     });
   }
@@ -88,16 +90,18 @@ const getUserPermissions = async (req, res) => {
 const updateUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { permissions } = req.body; // Array of permission names
+    const { permissions, permissionIds } = req.body;
 
-    if (!Array.isArray(permissions)) {
+    const hasPermissions = Array.isArray(permissions);
+    const hasPermissionIds = Array.isArray(permissionIds);
+
+    if (!hasPermissions && !hasPermissionIds) {
       return res.status(400).json({
         success: false,
-        message: 'Le champ permissions doit être un tableau'
+        message: 'Le champ permissions ou permissionIds doit etre un tableau'
       });
     }
 
-    // Vérifier que l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) }
     });
@@ -105,23 +109,29 @@ const updateUserPermissions = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Utilisateur non trouvé'
+        message: 'Utilisateur non trouve'
       });
     }
 
-    // Récupérer toutes les permissions valides
-    const validPermissions = await prisma.permission.findMany({
-      where: {
-        name: { in: permissions }
-      }
-    });
+    let validPermissions;
+    if (hasPermissionIds) {
+      validPermissions = await prisma.permission.findMany({
+        where: {
+          id: { in: permissionIds.map(id => parseInt(id)) }
+        }
+      });
+    } else {
+      validPermissions = await prisma.permission.findMany({
+        where: {
+          name: { in: permissions }
+        }
+      });
+    }
 
-    // Supprimer les anciennes permissions utilisateur
     await prisma.userPermission.deleteMany({
       where: { userId: parseInt(userId) }
     });
 
-    // Créer les nouvelles permissions
     const userPermissions = await prisma.userPermission.createMany({
       data: validPermissions.map(p => ({
         userId: parseInt(userId),
@@ -130,15 +140,14 @@ const updateUserPermissions = async (req, res) => {
       }))
     });
 
-    // Log audit
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
         action: 'USER_PERMISSIONS_UPDATED',
         entityType: 'UserPermission',
         entityId: userId,
-        details: `Permissions mises à jour pour ${user.firstName} ${user.lastName}`,
-        newValue: JSON.stringify({ permissions }),
+        details: `Permissions mises a jour pour ${user.firstName} ${user.lastName}`,
+        newValue: JSON.stringify({ permissionIds: validPermissions.map(p => p.id) }),
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }
@@ -146,7 +155,7 @@ const updateUserPermissions = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Permissions mises à jour avec succès',
+      message: 'Permissions mises a jour avec succes',
       data: {
         userId: parseInt(userId),
         permissionsCount: userPermissions.count
@@ -156,7 +165,7 @@ const updateUserPermissions = async (req, res) => {
     console.error('Update user permissions error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour des permissions',
+      message: 'Erreur lors de la mise a jour des permissions',
       errors: error.message
     });
   }
@@ -249,30 +258,22 @@ const checkUserPermission = async (req, res) => {
 const getPermissionCategories = async (req, res) => {
   try {
     const permissions = await prisma.permission.findMany({
-      orderBy: [{ category: 'asc' }, { name: 'asc' }]
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' }
     });
 
-    // Grouper par catégorie
-    const categories = permissions.reduce((acc, perm) => {
-      if (!acc[perm.category]) {
-        acc[perm.category] = {
-          name: perm.category,
-          permissions: []
-        };
-      }
-      acc[perm.category].permissions.push(perm);
-      return acc;
-    }, {});
+    const categories = permissions.map(p => p.category);
 
     return res.status(200).json({
       success: true,
-      data: Object.values(categories)
+      data: categories
     });
   } catch (error) {
     console.error('Get permission categories error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des catégories',
+      message: 'Erreur lors de la recuperation des categories',
       errors: error.message
     });
   }

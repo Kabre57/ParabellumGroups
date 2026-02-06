@@ -1019,3 +1019,110 @@ exports.updateTarget = async (req, res) => {
     });
   }
 };
+
+exports.getNotes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type } = req.query;
+    
+    const where = { prospectId: id };
+    if (type) {
+      where.type = type.toUpperCase();
+    }
+    
+    const notes = await prisma.noteProspect.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json({
+      success: true,
+      data: notes
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des notes:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des notes',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.addNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const note = await prisma.noteProspect.create({
+      data: {
+        prospectId: id,
+        ...req.body,
+        createdById: req.user.id
+      }
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: note,
+      message: 'Note ajoutée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout de la note:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de l\'ajout de la note',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.getTemplates = async (req, res) => {
+  try {
+    const { type, isActive } = req.query;
+    
+    const where = {};
+    if (type) where.type = type.toUpperCase();
+    if (isActive !== undefined) where.isActive = isActive === 'true';
+    
+    const templates = await prisma.emailTemplate.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json({
+      success: true,
+      data: templates
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des templates:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des templates',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.createTemplate = async (req, res) => {
+  try {
+    const template = await prisma.emailTemplate.create({
+      data: {
+        ...req.body,
+        createdById: req.user.id
+      }
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: template,
+      message: 'Template créé avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création du template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la création du template',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

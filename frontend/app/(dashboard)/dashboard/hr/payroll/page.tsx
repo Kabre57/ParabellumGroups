@@ -5,7 +5,7 @@ import { usePayslips, useDeletePayslip } from '@/hooks/usePayslips';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PayslipPrint from '@/components/PrintComponents/PayslipPrint';
+import PayslipPrint from '@/components/printComponents/PayslipPrint';
 import { Plus, Printer, Edit, Trash2, Search, FileText } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {

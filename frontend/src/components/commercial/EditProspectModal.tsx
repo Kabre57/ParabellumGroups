@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
-import { commercialService } from '@/shared/api/services/commercial';
+import { commercialService } from '@/shared/api/commercial';
 import type { Prospect, UpdateProspectRequest, ProspectStage, ProspectPriority } from '@/shared/api/types';
 
 interface EditProspectModalProps {

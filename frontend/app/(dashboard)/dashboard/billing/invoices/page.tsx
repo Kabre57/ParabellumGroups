@@ -5,7 +5,7 @@ import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import InvoicePrint from '@/components/PrintComponents/InvoicePrint';
+import InvoicePrint from '@/components/printComponents/InvoicePrint';
 import { Plus, Printer, Edit, Trash2, Search, AlertCircle } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {

@@ -119,7 +119,7 @@ exports.create = async (req, res) => {
         codePostal,
         ville,
         region,
-        pays: pays || 'cote d\'ivoire',
+        pays: pays || '""',
         isPrincipal: isPrincipal || false,
         coordonneesGps,
         informationsAcces

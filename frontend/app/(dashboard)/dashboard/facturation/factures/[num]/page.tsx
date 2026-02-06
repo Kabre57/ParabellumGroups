@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, useParams } from 'next/navigation';
-import { billingService } from '@/shared/api/services/billing';
-import type { InvoiceItem } from '@/shared/api/services/billing';
+import { billingService } from '@/shared/api/billing';
+import type { InvoiceItem } from '@/shared/api/billing';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

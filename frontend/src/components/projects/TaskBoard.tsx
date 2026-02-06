@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { projectsService, Task } from '@/services/projects';
+import { projectsService, Task } from '@/shared/api/projects';
 import type { ApiResponse, PaginatedResponse } from '@/shared/api/types';
 
 type TaskStatus = Task['status'];

@@ -24,7 +24,7 @@ import {
   StickyNote
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { commercialService } from '@/shared/api/services/commercial';
+import { commercialService } from '@/shared/api/commercial';
 import type { Prospect, ProspectStage, ProspectionStats } from '@/shared/api/types';
 import CreateProspectModal from '@/components/commercial/CreateProspectModal';
 import EditProspectModal from '@/components/commercial/EditProspectModal';

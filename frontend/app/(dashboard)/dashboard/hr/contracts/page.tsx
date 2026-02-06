@@ -5,7 +5,7 @@ import { useContracts, useDeleteContract } from '@/hooks/useContracts';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ContractPrint from '@/components/PrintComponents/ContractPrint';
+import ContractPrint from '@/components/printComponents/ContractPrint';
 import { Plus, Printer, Edit, Trash2, Search } from 'lucide-react';
 
 const contractTypeLabels: Record<string, string> = {

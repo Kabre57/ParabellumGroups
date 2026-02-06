@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { hrService, Contract, CreateContractRequest } from '@/shared/api/services/hr';
+import { hrService, Contract, CreateContractRequest } from '@/shared/api/hr';
 import { SearchParams } from '@/shared/api/types';
 
 export function useContracts(params?: SearchParams) {

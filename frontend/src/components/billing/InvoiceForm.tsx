@@ -5,8 +5,8 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { billingService } from '@/shared/api/services/billing';
-import customersService from '@/shared/api/services/customers';
+import { billingService } from '@/shared/api/billing';
+import { crmService } from '@/shared/api/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +43,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
   const { data: customers } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
-      const response = await customersService.getCustomers({ pageSize: 100 });
+      const response = await crmService.getCustomers({ pageSize: 100 });
       return response.data;
     },
   });

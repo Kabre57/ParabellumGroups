@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import customersService from '@/shared/api/services/customers';
-import { Client } from '@/shared/api/services/customers';
+import { crmService } from '@/shared/api/crm';
+import { Client } from '@/shared/api/crm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,7 @@ export default function CustomersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['customers', page, searchQuery, statusFilter],
     queryFn: async () => {
-      const response = await customersService.getCustomers({
+      const response = await crmService.getClients({
         page,
         pageSize: 10,
         query: searchQuery,
@@ -48,7 +48,7 @@ export default function CustomersPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => customersService.deleteCustomer(id),
+    mutationFn: (id: string) => crmService.deleteClient(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
     },

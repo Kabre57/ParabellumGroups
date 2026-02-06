@@ -95,7 +95,7 @@ model Prospect {
   postalCode        String?
   city              String?
   region            String?
-  country           String              @default("cote d\'ivoire")
+  country           String              @default("Côte d'Ivoire")
   
   // ===== INFORMATIONS ENTREPRISE =====
   website           String?
@@ -149,6 +149,9 @@ model Prospect {
   notesRel          NoteProspect[]
   competitors       CompetitorProspect[]
   history           ProspectHistory[]
+  campaigns         CampaignProspect[]
+  sequenceAssignments SequenceAssignment[]
+  syncCRM           SyncCRM[]
   
   // ===== METADONNEES =====
   createdAt         DateTime            @default(now())
@@ -190,7 +193,8 @@ model ProspectActivity {
   
   // Relations
   prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  nextActivity      ProspectActivity?   @relation("ActivityFollowUp")
+  nextActivityId    String?             @unique
+  nextActivity      ProspectActivity?   @relation("ActivityFollowUp", fields: [nextActivityId], references: [id])
   previousActivity  ProspectActivity?   @relation("ActivityFollowUp")
   documents         DocumentProspect[]
   
@@ -516,6 +520,7 @@ model SequenceStep {
   
   // Relations
   sequence          ProspectionSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  activities        SequenceActivity[]
   
   // Métadonnées
   isActive          Boolean             @default(true)
@@ -546,8 +551,8 @@ model SequenceAssignment {
   
   // Relations
   sequence          ProspectionSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
-  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
   activities        SequenceActivity[]
+  prospect          Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
   
   // Métadonnées
   assignedById      String

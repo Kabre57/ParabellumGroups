@@ -342,7 +342,7 @@ async function main() {
         ligne1: '12 Rue de la Technologie',
         codePostal: '75015',
         ville: 'Paris',
-        pays: 'cote d\'ivoire',
+        pays: '""',
         isPrincipal: true
       }
     }),
@@ -354,7 +354,7 @@ async function main() {
         ligne1: '12 Rue de la Technologie',
         codePostal: '75015',
         ville: 'Paris',
-        pays: 'cote d\'ivoire',
+        pays: '""',
         isPrincipal: false
       }
     }),
@@ -366,7 +366,7 @@ async function main() {
         ligne1: '45 Avenue des Champs-Élysées',
         codePostal: '75008',
         ville: 'Paris',
-        pays: 'cote d\'ivoire',
+        pays: '""',
         isPrincipal: true
       }
     })

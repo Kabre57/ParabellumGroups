@@ -6,16 +6,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, User, Mail, Lock, Shield, Building2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
 import { useQuery } from '@tanstack/react-query';
+import { adminUsersService, adminRolesService, adminServicesService } from '@/shared/api/admin/admin.service';
 
 const createUserSchema = z.object({
   email: z.string().email('Email invalide'),
-  firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
-  lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
+  firstName: z.string().min(2, 'Le prenom doit contenir au moins 2 caracteres'),
+  lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
+  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caracteres'),
   confirmPassword: z.string(),
-  role: z.string().min(1, 'Le rôle est requis'),
+  roleId: z.string().min(1, 'Le role est requis'),
   serviceId: z.string().optional(),
   isActive: z.boolean().default(true)
 }).refine((data) => data.password === data.confirmPassword, {
@@ -31,26 +31,23 @@ interface CreateUserModalProps {
   onSuccess?: () => void;
 }
 
-const roleOptions = [
-  { value: 'ADMIN', label: 'Administrateur', description: 'Accès complet au système' },
-  { value: 'GENERAL_DIRECTOR', label: 'Directeur Général', description: 'Supervision globale' },
-  { value: 'SERVICE_MANAGER', label: 'Responsable de Service', description: 'Gestion d\'un service' },
-  { value: 'ACCOUNTANT', label: 'Comptable', description: 'Gestion financière' },
-  { value: 'PURCHASING_MANAGER', label: 'Responsable Achat', description: 'Gestion des achats' },
-  { value: 'EMPLOYEE', label: 'Employé', description: 'Accès de base' },
-];
-
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
-  // Charger la liste des services
-  const { data: servicesData } = useQuery({
-    queryKey: ['services'],
-    queryFn: () => apiClient.getServices(),
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ['admin-roles-modal'],
+    queryFn: () => adminRolesService.getRoles(),
     enabled: isOpen,
   });
 
+  const { data: servicesData, isLoading: servicesLoading } = useQuery({
+    queryKey: ['admin-services-modal'],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: isOpen,
+  });
+
+  const roles = rolesData?.data || [];
   const services = servicesData?.data || [];
 
   const {
@@ -66,30 +63,29 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
     }
   });
 
-  const selectedRole = watch('role');
-  const requiresService = ['SERVICE_MANAGER', 'PURCHASING_MANAGER'].includes(selectedRole);
+  const selectedRoleId = watch('roleId');
+  const selectedRole = roles.find((r: any) => r.id === parseInt(selectedRoleId));
+  const requiresService = selectedRole && ['SERVICE_MANAGER', 'PURCHASING_MANAGER', 'TECHNICIAN', 'COMMERCIAL'].includes(selectedRole.code);
 
   const onSubmit = async (data: CreateUserFormData) => {
     try {
-      const userData = {
+      await adminUsersService.createUser({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: data.role,
+        roleId: parseInt(data.roleId),
         serviceId: data.serviceId ? parseInt(data.serviceId) : undefined,
         isActive: data.isActive,
-      };
-
-      await apiClient.createUser(userData);
+      });
       
-      toast.success('Utilisateur créé avec succès');
+      toast.success('Utilisateur cree avec succes');
       reset();
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      console.error('Erreur création utilisateur:', error);
-      toast.error(error?.message || 'Erreur lors de la création de l\'utilisateur');
+      console.error('Erreur creation utilisateur:', error);
+      toast.error(error?.message || 'Erreur lors de la creation de l\'utilisateur');
     }
   };
 
@@ -101,7 +97,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
             <User className="h-5 w-5 mr-2 text-blue-600" />
-            Créer un Nouvel Utilisateur
+            Creer un Nouvel Utilisateur
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" type="button">
             <X className="h-6 w-6" />
@@ -109,7 +105,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
-          {/* Informations personnelles */}
           <div>
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
               <User className="h-4 w-4 mr-2" />
@@ -118,7 +113,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Prénom *
+                  Prenom *
                 </label>
                 <input
                   {...register('firstName')}
@@ -147,7 +142,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Adresse Email *
@@ -166,11 +160,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             )}
           </div>
 
-          {/* Mots de passe */}
           <div>
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
               <Lock className="h-4 w-4 mr-2" />
-              Sécurité
+              Securite
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -183,7 +176,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
                     className="pl-10 pr-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="••••••••"
+                    placeholder="********"
                   />
                   <button
                     type="button"
@@ -207,7 +200,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                     {...register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
                     className="pl-10 pr-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="••••••••"
+                    placeholder="********"
                   />
                   <button
                     type="button"
@@ -224,63 +217,68 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Rôle et Service */}
           <div>
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
               <Shield className="h-4 w-4 mr-2" />
-              Rôle et Affectation
+              Role et Affectation
             </h4>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Rôle *
+                  Role *
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {roleOptions.map((role) => (
-                    <label
-                      key={role.value}
-                      className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
-                        watch('role') === role.value
-                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
-                      }`}
-                    >
-                      <input
-                        {...register('role')}
-                        type="radio"
-                        value={role.value}
-                        className="sr-only"
-                      />
-                      <div className="flex flex-1">
-                        <div className="flex flex-col">
-                          <span className={`block text-sm font-medium ${
-                            watch('role') === role.value
-                              ? 'text-blue-900 dark:text-blue-200'
-                              : 'text-gray-900 dark:text-white'
-                          }`}>
-                            {role.label}
-                          </span>
-                          <span className={`mt-1 flex items-center text-xs ${
-                            watch('role') === role.value
-                              ? 'text-blue-700 dark:text-blue-300'
-                              : 'text-gray-500 dark:text-gray-400'
-                          }`}>
-                            {role.description}
-                          </span>
+                {rolesLoading ? (
+                  <div className="text-sm text-gray-500">Chargement des roles...</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {roles.map((role: any) => (
+                      <label
+                        key={role.id}
+                        className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
+                          watch('roleId') === String(role.id)
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        <input
+                          {...register('roleId')}
+                          type="radio"
+                          value={String(role.id)}
+                          className="sr-only"
+                        />
+                        <div className="flex flex-1">
+                          <div className="flex flex-col">
+                            <span className={`block text-sm font-medium ${
+                              watch('roleId') === String(role.id)
+                                ? 'text-blue-900 dark:text-blue-200'
+                                : 'text-gray-900 dark:text-white'
+                            }`}>
+                              {role.name}
+                            </span>
+                            {role.description && (
+                              <span className={`mt-1 flex items-center text-xs ${
+                                watch('roleId') === String(role.id)
+                                  ? 'text-blue-700 dark:text-blue-300'
+                                  : 'text-gray-500 dark:text-gray-400'
+                              }`}>
+                                {role.description}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                {errors.role && (
-                  <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {errors.roleId && (
+                  <p className="mt-1 text-sm text-red-600">{errors.roleId.message}</p>
                 )}
               </div>
 
               {requiresService && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Service *
+                    Service
                   </label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -288,7 +286,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                       {...register('serviceId')}
                       className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      <option value="">Sélectionner un service</option>
+                      <option value="">Selectionner un service</option>
                       {services.map((service: any) => (
                         <option key={service.id} value={service.id}>
                           {service.name}
@@ -304,7 +302,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Statut */}
           <div className="flex items-center space-x-3">
             <input
               {...register('isActive')}
@@ -317,7 +314,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </label>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
@@ -329,16 +325,16 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || rolesLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Création...
+                  Creation...
                 </>
               ) : (
-                'Créer l\'utilisateur'
+                'Creer l\'utilisateur'
               )}
             </button>
           </div>

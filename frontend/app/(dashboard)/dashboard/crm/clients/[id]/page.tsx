@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useParams } from 'next/navigation';
-import customersService from '@/shared/api/services/customers';
+import { crmService } from '@/shared/api/crm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +27,7 @@ export default function CustomerDetailPage() {
   const { data: customer, isLoading } = useQuery({
     queryKey: ['customer', customerId],
     queryFn: async () => {
-      const response = await customersService.getCustomer(customerId);
+      const response = await crmService.getClient(customerId);
       return response.data;
     },
   });
@@ -35,14 +35,14 @@ export default function CustomerDetailPage() {
   const { data: interactionsData, isLoading: isLoadingInteractions } = useQuery({
     queryKey: ['customer-interactions', customerId],
     queryFn: async () => {
-      const response = await customersService.getInteractions({ clientId: customerId });
+      const response = await crmService.getInteractions({ clientId: customerId });
       return response;
     },
     enabled: !!customerId,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => customersService.deleteCustomer(customerId),
+    mutationFn: () => crmService.deleteClient(customerId),
     onSuccess: () => {
       router.push('/dashboard/clients');
     },

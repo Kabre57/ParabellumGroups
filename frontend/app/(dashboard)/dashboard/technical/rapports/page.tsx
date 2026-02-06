@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { technicalService } from '@/shared/api/services/technical';
+import { technicalService } from '@/shared/api/technical';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Eye, Calendar, X, FileText, AlertCircle, CheckCircle, Printer } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import RapportPrint from '@/components/PrintComponents/RapportPrint';
+import RapportPrint from '@/components/printComponents/RapportPrint';
 import { SearchParams } from '@/shared/api/types';
 
 export default function RapportsPage() {

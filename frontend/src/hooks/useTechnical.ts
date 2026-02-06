@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Mission, Intervention, Technicien, Materiel, Rapport, Specialite } from '@/shared/api/services/technical';
+import { technicalService, Mission, Intervention, Technicien, Materiel, Rapport, Specialite } from '@/shared/api/technical';
 import { SearchParams } from '@/shared/api/types';
 
 // === MISSIONS ===

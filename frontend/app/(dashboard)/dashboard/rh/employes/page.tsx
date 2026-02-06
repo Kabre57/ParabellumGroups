@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import hrService from '@/shared/api/services/hr';
-import { Employee } from '@/shared/api/services/hr';
+import { hrService, Employee } from '@/shared/api/hr';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

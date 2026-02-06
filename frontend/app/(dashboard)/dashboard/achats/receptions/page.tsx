@@ -30,14 +30,14 @@ const statusLabels: Record<ReceptionStatus, string> = {
 };
 
 const mockReceptions: Reception[] = [
-  { id: '1', number: 'REC-2026-001', supplier: 'Dell cote d\'ivoire', date: '2026-01-20', products: 12, quantity: 45, amount: 58495.55, status: 'pending' },
+  { id: '1', number: 'REC-2026-001', supplier: 'Dell ""', date: '2026-01-20', products: 12, quantity: 45, amount: 58495.55, status: 'pending' },
   { id: '2', number: 'REC-2026-002', supplier: 'Office Depot', date: '2026-01-19', products: 8, quantity: 96, amount: 5400.00, status: 'received' },
   { id: '3', number: 'REC-2026-003', supplier: 'Herman Miller', date: '2026-01-18', products: 5, quantity: 8, amount: 6800.00, status: 'checked' },
   { id: '4', number: 'REC-2026-004', supplier: 'Logitech', date: '2026-01-17', products: 15, quantity: 234, amount: 8967.34, status: 'checked' },
   { id: '5', number: 'REC-2026-005', supplier: 'Hamelin', date: '2026-01-16', products: 45, quantity: 1287, amount: 7078.50, status: 'checked' },
   { id: '6', number: 'REC-2026-006', supplier: 'BIC', date: '2026-01-15', products: 23, quantity: 535, amount: 6420.00, status: 'checked' },
-  { id: '7', number: 'REC-2026-007', supplier: 'HP cote d\'ivoire', date: '2026-01-21', products: 18, quantity: 67, amount: 32890.00, status: 'pending' },
-  { id: '8', number: 'REC-2026-008', supplier: 'Dell cote d\'ivoire', date: '2026-01-14', products: 9, quantity: 23, amount: 8050.00, status: 'received' },
+  { id: '7', number: 'REC-2026-007', supplier: 'HP ""', date: '2026-01-21', products: 18, quantity: 67, amount: 32890.00, status: 'pending' },
+  { id: '8', number: 'REC-2026-008', supplier: 'Dell ""', date: '2026-01-14', products: 9, quantity: 23, amount: 8050.00, status: 'received' },
 ];
 
 export default function ReceptionsPage() {

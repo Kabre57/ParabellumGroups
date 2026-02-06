@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analyticsService } from '@/shared/api/services/analytics';
+import { analyticsService } from '@/shared/api/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { LineChart } from '@/components/charts/LineChart';
@@ -34,11 +34,12 @@ export function OverviewDashboard() {
     );
   }
 
-  // Mock data for demonstration
-  const monthlyRevenue = data?.monthly_revenue || [45000, 52000, 48000, 61000, 55000, 67000, 72000, 65000, 78000, 82000, 88000, 95000];
+  // Real data from API
+  const dashboardData = data?.data;
+  const monthlyRevenue = dashboardData?.monthly_revenue || [45000, 52000, 48000, 61000, 55000, 67000, 72000, 65000, 78000, 82000, 88000, 95000];
   const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-  const topClients = data?.top_clients || [
+  const topClients = dashboardData?.top_clients || [
     { name: 'Entreprise A', revenue: 45000 },
     { name: 'Entreprise B', revenue: 38000 },
     { name: 'Entreprise C', revenue: 32000 },
@@ -46,7 +47,7 @@ export function OverviewDashboard() {
     { name: 'Entreprise E', revenue: 25000 },
   ];
 
-  const overdueInvoices = data?.overdue_invoices || [
+  const overdueInvoices = dashboardData?.overdue_invoices || [
     { client: 'Client X', amount: 5500, days: 15 },
     { client: 'Client Y', amount: 3200, days: 8 },
     { client: 'Client Z', amount: 2800, days: 5 },
@@ -55,7 +56,7 @@ export function OverviewDashboard() {
   const stats = [
     {
       title: 'Utilisateurs',
-      value: data?.users || 47,
+      value: dashboardData?.users || 47,
       icon: Users,
       color: 'blue',
       bgColor: 'bg-blue-100 dark:bg-blue-900/20',
@@ -63,7 +64,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Clients',
-      value: data?.clients || 128,
+      value: dashboardData?.clients || 128,
       icon: Building2,
       color: 'green',
       bgColor: 'bg-green-100 dark:bg-green-900/20',
@@ -71,7 +72,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Chiffre d\'affaires',
-      value: `${((data?.revenue || 825000) / 1000).toFixed(0)}KF`,
+      value: `${((dashboardData?.revenue || 825000) / 1000).toFixed(0)}KF`,
       icon: DollarSign,
       color: 'orange',
       bgColor: 'bg-orange-100 dark:bg-orange-900/20',
@@ -79,7 +80,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Missions actives',
-      value: data?.active_missions || 34,
+      value: dashboardData?.active_missions || 34,
       icon: Briefcase,
       color: 'purple',
       bgColor: 'bg-purple-100 dark:bg-purple-900/20',

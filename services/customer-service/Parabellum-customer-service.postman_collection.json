@@ -902,7 +902,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"typeAdresse\": \"SIEGE_SOCIAL\",\n  \"ligne1\": \"12 Rue de la Technologie\",\n  \"codePostal\": \"75015\",\n  \"ville\": \"Paris\",\n  \"pays\": \"cote d\'ivoire\",\n  \"isPrincipal\": true\n}",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"typeAdresse\": \"SIEGE_SOCIAL\",\n  \"ligne1\": \"12 Rue de la Technologie\",\n  \"codePostal\": \"75015\",\n  \"ville\": \"Paris\",\n  \"pays\": \"CIV\",\n  \"isPrincipal\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"

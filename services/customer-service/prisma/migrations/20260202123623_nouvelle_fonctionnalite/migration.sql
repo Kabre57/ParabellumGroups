@@ -194,7 +194,7 @@ CREATE TABLE "adresse_clients" (
     "codePostal" TEXT NOT NULL,
     "ville" TEXT NOT NULL,
     "region" TEXT,
-    "pays" TEXT NOT NULL DEFAULT 'cote d\'ivoire',
+    "pays" TEXT NOT NULL DEFAULT '""',
     "isPrincipal" BOOLEAN NOT NULL DEFAULT false,
     "coordonneesGps" TEXT,
     "informationsAcces" TEXT,

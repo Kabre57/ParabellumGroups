@@ -5,7 +5,7 @@ import { useQuotes, useDeleteQuote, useConvertQuoteToInvoice } from '@/hooks/use
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import QuotePrint from '@/components/PrintComponents/QuotePrint';
+import QuotePrint from '@/components/printComponents/QuotePrint';
 import { Plus, Printer, Edit, Trash2, Search, FileCheck } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {

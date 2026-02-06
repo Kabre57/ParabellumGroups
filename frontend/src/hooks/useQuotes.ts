@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { billingService, Quote } from '@/shared/api/services/billing';
+import { billingService, Quote } from '@/shared/api/billing';
 
 export function useQuotes(params?: Record<string, any>) {
   return useQuery({

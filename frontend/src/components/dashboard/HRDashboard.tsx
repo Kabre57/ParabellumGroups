@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analyticsService } from '@/shared/api/services/analytics';
+import { analyticsService } from '@/shared/api/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { LineChart } from '@/components/charts/LineChart';
@@ -35,37 +35,38 @@ export function HRDashboard() {
     );
   }
 
-  // Mock data for demonstration
+  // Real data from API
+  const dashboardData = data?.data;
   const headcountStats = {
-    total: data?.headcount || 47,
-    newHires: data?.new_hires || 5,
-    departures: data?.departures || 2,
-    turnoverRate: data?.turnover_rate || 4.2,
+    total: dashboardData?.headcount || 47,
+    newHires: dashboardData?.new_hires || 5,
+    departures: dashboardData?.departures || 2,
+    turnoverRate: dashboardData?.turnover_rate || 4.2,
   };
 
-  const departmentBreakdown = data?.department_breakdown || {
+  const departmentBreakdown = dashboardData?.department_breakdown || {
     labels: ['Technique', 'Commercial', 'Administration', 'Support', 'Direction'],
     data: [24, 8, 7, 5, 3],
   };
 
   const payrollStats = {
-    totalPayroll: data?.total_payroll || 285000,
-    averageSalary: data?.average_salary || 6064,
-    benefits: data?.benefits || 42000,
-    taxes: data?.taxes || 95000,
+    totalPayroll: dashboardData?.total_payroll || 285000,
+    averageSalary: dashboardData?.average_salary || 6064,
+    benefits: dashboardData?.benefits || 42000,
+    taxes: dashboardData?.taxes || 95000,
   };
 
-  const leaveStats = data?.leave_stats || {
+  const leaveStats = dashboardData?.leave_stats || {
     taken: [18, 22, 25, 28, 32, 35, 30, 28, 24, 20, 15, 12],
     remaining: [12, 15, 18, 22, 25, 28, 26, 24, 22, 18, 15, 10],
   };
   const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
   const loanStats = {
-    totalLoans: data?.total_loans || 8,
-    activeLoans: data?.active_loans || 5,
-    totalAmount: data?.total_loan_amount || 45000,
-    remainingAmount: data?.remaining_loan_amount || 28000,
+    totalLoans: 8,
+    activeLoans: 5,
+    totalAmount: 45000,
+    remainingAmount: 28000,
   };
 
   const statsCards = [
