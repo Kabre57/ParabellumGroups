@@ -52,11 +52,11 @@ const registerLimiter = rateLimit({
 
 /**
  * Rate limiter pour le rafraîchissement des tokens
- * 10 rafraîchissements maximum toutes les 15 minutes
+ * 50 rafraîchissements maximum toutes les 15 minutes
  */
 const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   message: {
     success: false,
     error: 'Trop de rafraîchissements de token. Veuillez réessayer plus tard.'

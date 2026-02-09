@@ -46,14 +46,14 @@ export default function RolesPermissionsPage() {
     queryFn: () => adminRolesService.getRoles(true),
   });
 
-  const roles = rolesData?.data || [];
+  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
 
   const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
     queryKey: ['admin-permissions'],
     queryFn: () => adminPermissionsService.getPermissions(),
   });
 
-  const allPermissions = permissionsData?.data || [];
+  const allPermissions = Array.isArray(permissionsData?.data) ? permissionsData.data : [];
 
   const { data: rolePermissionsData } = useQuery({
     queryKey: ['admin-role-permissions', selectedRoleId],
@@ -61,7 +61,7 @@ export default function RolesPermissionsPage() {
     enabled: !!selectedRoleId,
   });
 
-  const rolePermissions = rolePermissionsData?.data || [];
+  const rolePermissions = Array.isArray(rolePermissionsData?.data) ? rolePermissionsData.data : [];
 
   const deleteRoleMutation = useMutation({
     mutationFn: (roleId: number) => adminRolesService.deleteRole(roleId),

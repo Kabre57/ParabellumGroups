@@ -23,7 +23,7 @@ class AuthService {
   async login(email: string, password: string): Promise<LoginResponse> {
     const credentials: LoginRequest = { email, password };
     
-    const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.getAxiosInstance().post(
+    const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.post(
       `${this.basePath}/login`,
       credentials
     );
@@ -40,7 +40,7 @@ class AuthService {
    * Inscription d'un nouvel utilisateur
    */
   async register(userData: RegisterRequest): Promise<LoginResponse> {
-    const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.getAxiosInstance().post(
+    const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.post(
       `${this.basePath}/register`,
       userData
     );
@@ -59,7 +59,7 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       // Appel API pour invalider le token côté serveur
-      await apiClient.getAxiosInstance().post(`${this.basePath}/logout`);
+      await apiClient.post(`${this.basePath}/logout`);
     } catch (error) {
       // Continue même si l'appel API échoue
       console.error('Logout error:', error);
@@ -81,7 +81,7 @@ class AuthService {
 
     const request: RefreshTokenRequest = { refreshToken };
 
-    const response: AxiosResponse<ApiResponse<RefreshTokenResponse>> = await apiClient.getAxiosInstance().post(
+    const response: AxiosResponse<ApiResponse<RefreshTokenResponse>> = await apiClient.post(
       `${this.basePath}/refresh`,
       request
     );
@@ -99,7 +99,7 @@ class AuthService {
    * Récupération de l'utilisateur connecté
    */
   async getCurrentUser(): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await apiClient.getAxiosInstance().get(
+    const response: AxiosResponse<ApiResponse<User>> = await apiClient.get(
       `${this.basePath}/me`
     );
 
@@ -115,7 +115,7 @@ class AuthService {
    * Mise à jour du profil utilisateur
    */
   async updateProfile(data: UpdateProfileRequest): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await apiClient.getAxiosInstance().patch(
+    const response: AxiosResponse<ApiResponse<User>> = await apiClient.patch(
       `${this.basePath}/profile`,
       data
     );

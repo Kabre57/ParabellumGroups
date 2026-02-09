@@ -60,9 +60,9 @@ export default function ServicesManagementPage() {
     setShowEditModal(false);
   };
 
-  const services = servicesData?.data || [];
+  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
   const filteredServices = services.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.name?.toLowerCase().includes(search.toLowerCase()) ||
     s.code?.toLowerCase().includes(search.toLowerCase())
   );
 

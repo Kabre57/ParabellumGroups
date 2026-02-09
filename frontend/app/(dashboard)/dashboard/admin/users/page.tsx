@@ -50,7 +50,7 @@ export default function UsersManagementPage() {
     queryFn: () => adminRolesService.getRoles(),
   });
 
-  const roles = rolesData?.data || [];
+  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
 
   const { data: usersData, isLoading, error } = useQuery({
     queryKey: ['admin-users', page, limit, search, roleFilter],
@@ -140,7 +140,7 @@ export default function UsersManagementPage() {
     });
   };
 
-  const users = usersData?.data || [];
+  const users = Array.isArray(usersData?.data) ? usersData.data : [];
   const pagination = usersData?.pagination;
 
   if (error) {

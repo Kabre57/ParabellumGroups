@@ -220,3 +220,55 @@ function generateTimeSeriesData(dateDebut, dateFin, groupBy) {
 
   return data;
 }
+
+exports.getOverview = async (req, res) => {
+  try {
+    const { period = '30d', startDate, endDate } = req.query;
+    
+    const now = new Date();
+    let dateDebut, dateFin;
+    
+    if (startDate && endDate) {
+      dateDebut = startDate;
+      dateFin = endDate;
+    } else {
+      dateFin = now.toISOString().split('T')[0];
+      const days = parseInt(period) || 30;
+      const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      dateDebut = start.toISOString().split('T')[0];
+    }
+    
+    const overview = {
+      periode: { dateDebut, dateFin },
+      revenue: 1250000,
+      expenses: 980000,
+      profit: 270000,
+      margin: 21.6,
+      active_missions: 12,
+      users: 145,
+      clients: 89,
+      monthly_revenue: [85000, 92000, 78000, 105000, 98000, 115000, 125000, 118000, 132000, 128000, 145000, 155000],
+      top_clients: [
+        { name: 'Acme Corp', revenue: 185000 },
+        { name: 'Tech Solutions', revenue: 142000 },
+        { name: 'Global Services', revenue: 98000 },
+        { name: 'Innova Labs', revenue: 76000 },
+        { name: 'Digital Plus', revenue: 54000 }
+      ],
+      overdue_invoices: [
+        { client: 'Retard SA', amount: 15000, days: 45 },
+        { client: 'Delay Corp', amount: 8500, days: 32 },
+        { client: 'Late Inc', amount: 12000, days: 28 }
+      ],
+      _source: 'analytics-service',
+      _timestamp: new Date().toISOString(),
+      _realData: false,
+      _fallback: false
+    };
+    
+    res.json({ success: true, data: overview });
+  } catch (error) {
+    console.error('Erreur recuperation overview:', error);
+    res.status(500).json({ success: false, error: 'Erreur lors de la recuperation des donnees overview' });
+  }
+};

@@ -44,8 +44,8 @@ export function EditServiceModal({
     enabled: isOpen,
   });
 
-  const services = servicesData?.data || [];
-  const users = usersData?.data || [];
+  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const users = Array.isArray(usersData?.data) ? usersData.data : [];
 
   const availableParentServices = services.filter(s => s.id !== service?.id);
 

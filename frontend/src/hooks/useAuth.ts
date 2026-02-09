@@ -1,3 +1,1 @@
-import { useAuth as useAuthContext } from '@/contexts/AuthContext';
-
-export const useAuth = useAuthContext;
+export { useAuth } from '@/shared/providers/AuthProvider';

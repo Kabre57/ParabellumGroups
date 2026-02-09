@@ -26,16 +26,14 @@ const router = express.Router();
 /**
  * Crée un middleware proxy avec configuration de base
  */
-const createProxy = (target, pathRewrite = {}) => {
-  return createProxyMiddleware({
+const createProxy = (target, pathRewriteConfig = {}) => {
+  const proxyConfig = {
     target,
     changeOrigin: true,
-    pathRewrite,
     timeout: 30000,
     proxyTimeout: 30000,
     onProxyReq: (proxyReq, req, res) => {
       if (req.user) {
-        // Support both 'id' and 'userId' from JWT payload
         const userId = req.user.id || req.user.userId;
         if (userId) {
           proxyReq.setHeader('X-User-Id', userId.toString());
@@ -58,7 +56,15 @@ const createProxy = (target, pathRewrite = {}) => {
         message: 'Erreur de communication avec le service'
       });
     }
-  });
+  };
+
+  if (typeof pathRewriteConfig === 'function') {
+    proxyConfig.pathRewrite = pathRewriteConfig;
+  } else if (pathRewriteConfig && Object.keys(pathRewriteConfig).length > 0) {
+    proxyConfig.pathRewrite = pathRewriteConfig;
+  }
+
+  return createProxyMiddleware(proxyConfig);
 };
 
 /**
@@ -167,22 +173,44 @@ const createResilientProxy = (serviceName, target, pathRewrite = {}) => {
 };
 
 const rewriteAuthPath = (path) => {
-  if (path.startsWith('/auth/users')) {
-    return path.replace('/auth/users', '/api/users');
+  if (path.startsWith('/api/auth/users') || path.startsWith('/auth/users')) {
+    return path.replace(/^\/?api?\/auth\/users/, '/api/users');
   }
-  if (path.startsWith('/auth/roles')) {
-    return path.replace('/auth/roles', '/api/roles');
+  if (path.startsWith('/api/auth/roles') || path.startsWith('/auth/roles')) {
+    return path.replace(/^\/?api?\/auth\/roles/, '/api/roles');
   }
-  if (path.startsWith('/auth/services')) {
-    return path.replace('/auth/services', '/api/services');
+  if (path.startsWith('/api/auth/services') || path.startsWith('/auth/services')) {
+    return path.replace(/^\/?api?\/auth\/services/, '/api/services');
   }
-  if (path.startsWith('/auth/permissions')) {
-    return path.replace('/auth/permissions', '/api/permissions');
+  if (path.startsWith('/api/auth/permissions') || path.startsWith('/auth/permissions')) {
+    return path.replace(/^\/?api?\/auth\/permissions/, '/api/permissions');
   }
-  return path.replace(/^\/auth/, '/api/auth');
+  return path.replace(/^\/?api?\/auth/, '/api/auth');
 };
 
-const rewriteTechnicalPath = (path) => path.replace(/^\/technical/, '/api');
+const rewriteTechnicalPath = (path) => {
+  const [pathname, query] = path.split('?');
+  let normalized = pathname;
+
+  if (normalized.startsWith('/api/')) {
+    normalized = normalized.slice(4);
+  }
+
+  if (normalized.startsWith('/technical')) {
+    normalized = normalized.slice('/technical'.length);
+  }
+
+  if (!normalized.startsWith('/')) {
+    normalized = `/${normalized}`;
+  }
+
+  if (normalized === '/') {
+    normalized = '';
+  }
+
+  const rewritten = `/api${normalized}`;
+  return query ? `${rewritten}?${query}` : rewritten;
+};
 
 const rewriteProjectsPath = (path) => {
   const tasksMatch = path.match(/^\/projects\/([^\/]+)\/tasks(\/[^?]*)?(\?.*)?$/);
@@ -261,7 +289,32 @@ const rewriteInventoryPath = (path) => path.replace(/^\/inventory/, '/api');
 
 const rewriteNotificationsPath = (path) => path.replace(/^\/notifications/, '/api/notifications');
 
-// Routes auth avec validation
+// Routes admin auth avec authentification (DOIVENT ETRE AVANT /auth generique)
+router.use('/auth/users',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
+);
+
+router.use('/auth/roles',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
+);
+
+router.use('/auth/services',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
+);
+
+router.use('/auth/permissions',
+  authenticateToken,
+  authServiceLimiter,
+  createProxy(config.SERVICES.AUTH, rewriteAuthPath)
+);
+
+// Routes auth avec validation (login, register, refresh - sans authentification)
 router.post('/auth/login', 
   authServiceLimiter,
   validateSchema(schemas.auth.login),
@@ -290,6 +343,43 @@ router.use('/technical',
   authenticateToken,
   technicalServiceLimiter,
   createProxy(config.SERVICES.TECHNICAL, rewriteTechnicalPath)
+);
+
+// Routes directes technical-service (pour compatibilite frontend)
+router.use('/techniciens',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/techniciens': '/api/techniciens' })
+);
+
+router.use('/missions',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/missions': '/api/missions' })
+);
+
+router.use('/interventions',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/interventions': '/api/interventions' })
+);
+
+router.use('/rapports',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/rapports': '/api/rapports' })
+);
+
+router.use('/specialites',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/specialites': '/api/specialites' })
+);
+
+router.use('/materiel',
+  authenticateToken,
+  technicalServiceLimiter,
+  createProxy(config.SERVICES.TECHNICAL, { '^/materiel': '/api/materiel' })
 );
 
 // MODIFICATION CRITIQUE ICI - Routes customers
@@ -432,19 +522,22 @@ router.use('/analytics',
   authenticateToken,
   analyticsServiceLimiter,
   createProxy(config.SERVICES.ANALYTICS, (path) => {
-    if (path.startsWith('/analytics/rapports')) {
-      return path.replace('/analytics/rapports', '/api/rapports');
+    if (path.includes('/analytics/rapports')) {
+      return path.replace(/.*\/analytics\/rapports/, '/api/rapports');
     }
-    if (path.startsWith('/analytics/kpis')) {
-      return path.replace('/analytics/kpis', '/api/kpis');
+    if (path.includes('/analytics/kpis')) {
+      return path.replace(/.*\/analytics\/kpis/, '/api/kpis');
     }
-    if (path.startsWith('/analytics/dashboards')) {
-      return path.replace('/analytics/dashboards', '/api/dashboards');
+    if (path.includes('/analytics/dashboards')) {
+      return path.replace(/.*\/analytics\/dashboards/, '/api/dashboards');
     }
-    if (path.startsWith('/analytics/widgets')) {
-      return path.replace('/analytics/widgets', '/api/widgets');
+    if (path.includes('/analytics/widgets')) {
+      return path.replace(/.*\/analytics\/widgets/, '/api/widgets');
     }
-    return path.replace('/analytics', '/api/analytics');
+    if (path.includes('/analytics/overview')) {
+      return path.replace(/.*\/analytics\/overview/, '/api/analytics/overview');
+    }
+    return path.replace(/.*\/analytics/, '/api/analytics');
   })
 );
 

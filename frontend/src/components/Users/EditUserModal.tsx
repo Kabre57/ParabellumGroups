@@ -62,8 +62,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     enabled: isOpen,
   });
 
-  const roles = rolesData?.data || [];
-  const services = servicesData?.data || [];
+  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
+  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
 
   const {
     register,

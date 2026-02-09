@@ -82,7 +82,8 @@ export default function RolesPage() {
   };
 
   const handleToggleStatus = (role: Role) => {
-    updateStatusMutation.mutate({ id: role.id, actif: !role.actif });
+    const currentStatus = role.actif ?? role.isActive ?? false;
+    updateStatusMutation.mutate({ id: role.id, actif: !currentStatus });
   };
 
   const handleDelete = (roleId: string) => {
@@ -142,10 +143,10 @@ export default function RolesPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data?.data.map((role) => (
+              {(data?.data || []).map((role) => (
                 <tr key={role.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{role.nom}</div>
+                    <div className="text-sm font-medium text-gray-900">{role.nom || role.name}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-600">{role.description || '-'}</div>
@@ -153,17 +154,17 @@ export default function RolesPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        role.actif
+                        (role.actif ?? role.isActive)
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {role.actif ? 'Actif' : 'Inactif'}
+                      {(role.actif ?? role.isActive) ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-600">
-                      {role.permissions?.length || 0} permission(s)
+                      {role.permissions?.length || role._count?.rolePermissions || 0} permission(s)
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -171,7 +172,7 @@ export default function RolesPage() {
                       onClick={() => handleToggleStatus(role)}
                       className="text-blue-600 hover:text-blue-900"
                     >
-                      {role.actif ? 'Désactiver' : 'Activer'}
+                      {(role.actif ?? role.isActive) ? 'Désactiver' : 'Activer'}
                     </button>
                     <button
                       onClick={() => handleDelete(role.id)}

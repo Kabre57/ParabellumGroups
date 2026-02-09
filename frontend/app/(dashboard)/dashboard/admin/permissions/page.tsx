@@ -9,14 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, Search, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminPermissionsService, adminRolesService, type Permission } from '@/shared/api/admin';
+import { CreatePermissionModal } from '@/components/permissions/CreatePermissionModal';
+import { EditPermissionModal } from '@/components/permissions/EditPermissionModal';
 
 export default function PermissionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newPermission, setNewPermission] = useState({ name: '', description: '', category: '' });
-  const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', category: '' });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -35,104 +36,55 @@ export default function PermissionsPage() {
     queryFn: () => adminPermissionsService.getPermissionCategories(),
   });
 
-  const createPermissionMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; category: string }) => 
-      adminPermissionsService.createPermission(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
-      toast.success('Permission creee avec succes');
-      setShowCreateForm(false);
-      setNewPermission({ name: '', description: '', category: '' });
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors de la creation');
-    }
-  });
-
   const deletePermissionMutation = useMutation({
     mutationFn: (id: number) => adminPermissionsService.deletePermission(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-permission-categories'] });
       toast.success('Permission supprimee');
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors de la suppression');
+      toast.error(error?.response?.data?.message || error?.message || 'Erreur lors de la suppression');
     }
   });
 
-  const updatePermissionMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { name?: string; description?: string; category?: string } }) =>
-      adminPermissionsService.updatePermission(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
-      toast.success('Permission mise a jour');
-      setEditingPermission(null);
-      setEditForm({ name: '', description: '', category: '' });
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors de la mise a jour');
-    }
-  });
-
-  const handleCreatePermission = () => {
-    if (!newPermission.name || !newPermission.category) {
-      toast.error('Nom et categorie requis');
-      return;
-    }
-    createPermissionMutation.mutate(newPermission);
-  };
-
-  const handleDeletePermission = (permission: Permission) => {
+  const handleDeletePermission = (permission: any) => {
     if (confirm(`Supprimer la permission "${permission.name}" ?`)) {
       deletePermissionMutation.mutate(permission.id);
     }
   };
 
   const handleEditPermission = (permission: Permission) => {
-    setEditingPermission(permission);
-    setEditForm({
-      name: permission.name,
-      description: permission.description || '',
-      category: permission.category
-    });
+    setSelectedPermission(permission);
+    setShowEditModal(true);
   };
 
-  const handleUpdatePermission = () => {
-    if (!editingPermission) return;
-    if (!editForm.name || !editForm.category) {
-      toast.error('Nom et categorie requis');
-      return;
-    }
-    updatePermissionMutation.mutate({
-      id: editingPermission.id,
-      data: editForm
-    });
+  const handleCreateSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-permission-categories'] });
+    setShowCreateModal(false);
   };
 
-  const handleCancelEdit = () => {
-    setEditingPermission(null);
-    setEditForm({ name: '', description: '', category: '' });
+  const handleEditSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-permissions'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-permission-categories'] });
+    setShowEditModal(false);
+    setSelectedPermission(null);
   };
 
-  const permissions = permissionsData?.data || [];
-  const roles = rolesData?.data || [];
-  const apiCategories = categoriesData?.data || [];
+  const permissions = Array.isArray(permissionsData?.data) ? permissionsData.data : [];
+  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
+  const apiCategories = Array.isArray(categoriesData?.data) ? categoriesData.data : [];
   
-  const categories = ['all', ...new Set([...apiCategories, ...permissions.map(p => p.category)])];
+  const categories = ['all', ...new Set([...apiCategories, ...permissions.map((p: any) => p.category)])];
 
-  const filteredPermissions = permissions.filter(permission => {
+  const filteredPermissions = permissions.filter((permission: any) => {
     const matchesSearch = permission.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         permission.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          permission.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || permission.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const groupedByCategory = filteredPermissions.reduce((acc, perm) => {
-    const cat = perm.category || 'Autre';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(perm);
-    return acc;
-  }, {} as Record<string, Permission[]>);
 
   if (error) {
     return (
@@ -152,98 +104,14 @@ export default function PermissionsPage() {
             Configuration des droits d'acces et permissions systeme
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="flex items-center gap-2">
+        <Button 
+          onClick={() => setShowCreateModal(true)} 
+          className="flex items-center gap-2"
+        >
           <Plus className="h-4 w-4" />
           Nouvelle Permission
         </Button>
       </div>
-
-      {showCreateForm && (
-        <Card className="p-4">
-          <h3 className="font-semibold mb-4">Creer une nouvelle permission</h3>
-          {editingPermission && (
-        <Card className="p-4 border-blue-200 bg-blue-50">
-          <h3 className="font-semibold mb-4">Modifier la permission: {editingPermission.name}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              placeholder="Nom de la permission"
-              value={editForm.name}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-            />
-            <Input
-              placeholder="Categorie"
-              value={editForm.category}
-              onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-            />
-            <Input
-              placeholder="Description (optionnel)"
-              value={editForm.description}
-              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-            />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button onClick={handleUpdatePermission} disabled={updatePermissionMutation.isPending}>
-              {updatePermissionMutation.isPending ? 'Mise a jour...' : 'Mettre a jour'}
-            </Button>
-            <Button variant="outline" onClick={handleCancelEdit}>Annuler</Button>
-          </div>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              placeholder="Nom de la permission"
-              value={newPermission.name}
-              onChange={(e) => setNewPermission({ ...newPermission, name: e.target.value })}
-            />
-            <Input
-              placeholder="Categorie"
-              value={newPermission.category}
-              onChange={(e) => setNewPermission({ ...newPermission, category: e.target.value })}
-            />
-            <Input
-              placeholder="Description (optionnel)"
-              value={newPermission.description}
-              onChange={(e) => setNewPermission({ ...newPermission, description: e.target.value })}
-            />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button onClick={handleCreatePermission} disabled={createPermissionMutation.isPending}>
-              {createPermissionMutation.isPending ? 'Creation...' : 'Creer'}
-            </Button>
-            <Button variant="outline" onClick={() => setShowCreateForm(false)}>Annuler</Button>
-          </div>
-        </Card>
-      )}
-
-      {editingPermission && (
-        <Card className="p-4 border-blue-200 bg-blue-50">
-          <h3 className="font-semibold mb-4">Modifier la permission: {editingPermission.name}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              placeholder="Nom de la permission"
-              value={editForm.name}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-            />
-            <Input
-              placeholder="Categorie"
-              value={editForm.category}
-              onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-            />
-            <Input
-              placeholder="Description (optionnel)"
-              value={editForm.description}
-              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-            />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button onClick={handleUpdatePermission} disabled={updatePermissionMutation.isPending}>
-              {updatePermissionMutation.isPending ? 'Mise a jour...' : 'Mettre a jour'}
-            </Button>
-            <Button variant="outline" onClick={handleCancelEdit}>Annuler</Button>
-          </div>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
@@ -289,7 +157,7 @@ export default function PermissionsPage() {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 border rounded-md"
+            className="px-4 py-2 border rounded-md bg-white text-sm"
           >
             <option value="all">Toutes les categories</option>
             {categories.filter(c => c !== 'all').map(category => (
@@ -299,7 +167,7 @@ export default function PermissionsPage() {
         </div>
       </Card>
 
-      <Card className="p-6">
+      <Card className="p-0 overflow-hidden">
         {permissionsLoading ? (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -314,58 +182,89 @@ export default function PermissionsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {Object.entries(groupedByCategory).map(([category, perms]) => (
-              <div key={category}>
-                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                  <Shield className="h-5 w-5 mr-2 text-purple-500" />
-                  {category}
-                  <Badge className="ml-2 bg-gray-100 text-gray-800">{perms.length}</Badge>
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 px-4 font-semibold text-sm">Permission</th>
-                        <th className="text-left py-2 px-4 font-semibold text-sm">Description</th>
-                        <th className="text-left py-2 px-4 font-semibold text-sm">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {perms.map((permission) => (
-                        <tr key={permission.id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium">{permission.name}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
-                            {permission.description || '-'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEditPermission(permission)}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Modifier"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeletePermission(permission)}
-                                className="text-red-600 hover:text-red-900"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 border-b text-gray-500">
+                  <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Permission</th>
+                  <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Code</th>
+                  <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Categorie</th>
+                  <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Description</th>
+                  <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Roles Autorises</th>
+                  <th className="text-center py-4 px-6 font-semibold text-xs uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPermissions.map((permission: any) => (
+                  <tr key={permission.id} className="border-b hover:bg-gray-50/50 transition-colors">
+                    <td className="py-4 px-6 font-medium text-sm">{permission.name}</td>
+                    <td className="py-4 px-6">
+                      <code className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">{permission.code || '-'}</code>
+                    </td>
+                    <td className="py-4 px-6">
+                      <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-100">
+                        {permission.category}
+                      </Badge>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-600 max-w-xs truncate">
+                      {permission.description || '-'}
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex flex-wrap gap-1">
+                        {permission.rolePermissions?.length > 0 ? (
+                          permission.rolePermissions.map((rp: any) => (
+                            <Badge key={rp.id} variant="secondary" className="text-[10px] bg-green-50 text-green-700">
+                              {rp.role?.name}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">Aucun</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleEditPermission(permission)}
+                          className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleDeletePermission(permission)}
+                          className="h-8 w-8 text-red-600 border-red-100 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
+
+      <CreatePermissionModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
+      />
+
+      <EditPermissionModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedPermission(null);
+        }}
+        onSuccess={handleEditSuccess}
+        permission={selectedPermission}
+      />
     </div>
   );
 }

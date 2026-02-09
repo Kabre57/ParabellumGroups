@@ -1,65 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { apiClient } from '@/shared/api/shared/client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-api.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
-
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken } = response.data;
-        localStorage.setItem('accessToken', accessToken);
-
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        }
-
-        return api(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
+// On réutilise l'instance du nouveau client pour assurer la cohérence
+export const api = apiClient.getAxiosInstance();
 
 export interface LoginRequest {
   email: string;
@@ -88,10 +31,18 @@ export interface User {
 
 export interface Role {
   id: string;
-  nom: string;
+  nom?: string;
+  name?: string;
+  code?: string;
   description?: string;
-  actif: boolean;
+  actif?: boolean;
+  isActive?: boolean;
+  isSystem?: boolean;
   permissions?: Permission[];
+  rolePermissions?: { permission: Permission }[];
+  _count?: { users: number; rolePermissions: number };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Permission {
@@ -118,6 +69,8 @@ export interface PaginatedResponse<T> {
   pages: number;
 }
 
+// Les méthodes ci-dessous sont conservées pour la compatibilité avec l'ancien code
+// mais elles utilisent désormais l'instance centralisée apiClient
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>('/auth/login', credentials);

@@ -3,7 +3,7 @@ require('dotenv').config();
 const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 3001,
-  JWT_SECRET: process.env.JWT_SECRET || 'default-secret-key',
+  JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',') 

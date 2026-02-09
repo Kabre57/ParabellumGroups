@@ -9,90 +9,84 @@ datasource db {
 }
 
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  code        String   @unique @db.VarChar(50)
-  description String?
-  isSystem    Boolean  @default(false) @map("is_system")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  users           User[]
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  code            String           @unique @db.VarChar(50)
+  description     String?
+  isSystem        Boolean          @default(false) @map("is_system")
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
   rolePermissions RolePermission[]
+  users           User[]
 
-  @@map("roles")
   @@index([isActive])
+  @@map("roles")
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  firstName    String    @map("first_name")
-  lastName     String    @map("last_name")
-  roleId       Int?      @map("role_id")
-  serviceId    Int?      @map("service_id")
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLogin    DateTime? @map("last_login")
-  preferences  String?
-  permissions  String?
-  avatarUrl    String?   @map("avatar_url")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  employeeNumber       String?   @unique @map("employee_number")
-  registrationNumber   String?   @unique @map("registration_number")
+  id                   Int              @id @default(autoincrement())
+  email                String           @unique
+  passwordHash         String           @map("password_hash")
+  firstName            String           @map("first_name")
+  lastName             String           @map("last_name")
+  serviceId            Int?             @map("service_id")
+  isActive             Boolean          @default(true) @map("is_active")
+  lastLogin            DateTime?        @map("last_login")
+  preferences          String?
+  permissions          String?
+  avatarUrl            String?          @map("avatar_url")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  employeeNumber       String?          @unique @map("employee_number")
+  registrationNumber   String?          @unique @map("registration_number")
   phone                String?
   address              String?
-  dateOfBirth          DateTime? @map("date_of_birth")
-  placeOfBirth         String?   @map("place_of_birth")
+  dateOfBirth          DateTime?        @map("date_of_birth")
+  placeOfBirth         String?          @map("place_of_birth")
   nationality          String?
-  socialSecurityNumber String?   @map("social_security_number")
-  cnpsNumber           String?   @map("cnps_number")
-  cnamNumber           String?   @map("cnam_number")
-  bankAccount          String?   @map("bank_account")
-  emergencyContact     String?   @map("emergency_contact")
+  socialSecurityNumber String?          @map("social_security_number")
+  cnpsNumber           String?          @map("cnps_number")
+  cnamNumber           String?          @map("cnam_number")
+  bankAccount          String?          @map("bank_account")
+  emergencyContact     String?          @map("emergency_contact")
   position             String?
   department           String?
-  category             String?   @map("professional_category")
-  level                String?   @map("professional_level")
+  category             String?          @map("professional_category")
+  level                String?          @map("professional_level")
   manager              String?
-  hireDate             DateTime? @map("hire_date")
+  hireDate             DateTime?        @map("hire_date")
+  roleId               Int?             @map("role_id")
+  auditLogs            AuditLog[]
+  refreshTokens        RefreshToken[]
+  managedServices      Service[]        @relation("ServiceManager")
+  user_permissions     UserPermission[]
+  role                 Role?            @relation(fields: [roleId], references: [id])
+  service              Service?         @relation(fields: [serviceId], references: [id])
 
-  // Relations
-  role            Role?             @relation(fields: [roleId], references: [id])
-  service         Service?          @relation(fields: [serviceId], references: [id])
-  managedServices Service[]         @relation("ServiceManager")
-  auditLogs       AuditLog[]
-  refreshTokens   RefreshToken[]
-  userPermissions UserPermission[]
-
-  @@map("users")
   @@index([roleId])
+  @@map("users")
 }
 
 model Service {
-  id             Int      @id @default(autoincrement())
-  name           String   @unique
-  code           String?  @unique @map("service_code") @db.VarChar(10)
-  description    String?
-  parentId       Int?     @map("parent_id")
-  managerId      Int?     @map("manager_id")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  managerId   Int?      @map("manager_id")
+  parentId    Int?      @map("parent_id")
+  code        String?   @unique @map("service_code") @db.VarChar(10)
+  manager     User?     @relation("ServiceManager", fields: [managerId], references: [id])
+  parent      Service?  @relation("ServiceHierarchy", fields: [parentId], references: [id])
+  children    Service[] @relation("ServiceHierarchy")
+  members     User[]
 
-  // Relations
-  parent         Service? @relation("ServiceHierarchy", fields: [parentId], references: [id])
-  children       Service[] @relation("ServiceHierarchy")
-  manager        User?    @relation("ServiceManager", fields: [managerId], references: [id])
-  members        User[]   // Pas besoin de @relation ici, c'est la relation inverse
-
-  @@map("services")
   @@index([parentId])
   @@index([managerId])
   @@index([isActive])
+  @@map("services")
 }
 
 model AuditLog {
@@ -106,27 +100,26 @@ model AuditLog {
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id])
 
-  user User? @relation(fields: [userId], references: [id])
   @@map("audit_logs")
 }
 
 model Permission {
-  id              Int              @id @default(autoincrement())
-  name            String           @unique
-  description     String?
-  category        String
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id               Int              @id @default(autoincrement())
+  name             String           @unique
+  description      String?
+  category         String
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  rolePermissions  RolePermission[]
+  user_permissions UserPermission[]
 
-  rolePermissions RolePermission[]
-  userPermissions UserPermission[]
   @@map("permissions")
 }
 
 model RolePermission {
   id           Int        @id @default(autoincrement())
-  roleId       Int        @map("role_id")
   permissionId Int        @map("permission_id")
   canView      Boolean    @default(false) @map("can_view")
   canCreate    Boolean    @default(false) @map("can_create")
@@ -135,28 +128,31 @@ model RolePermission {
   canApprove   Boolean    @default(false) @map("can_approve")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
-
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       Int        @map("role_id")
   permission   Permission @relation(fields: [permissionId], references: [id])
-  
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
   @@unique([roleId, permissionId])
   @@index([roleId])
   @@map("role_permissions")
 }
 
 model UserPermission {
-  id           Int        @id @default(autoincrement())
-  userId       Int        @map("user_id")
-  permissionId Int        @map("permission_id")
-  granted      Boolean    @default(true)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id            Int        @id @default(autoincrement())
+  user_id       Int
+  permission_id Int
+  created_at    DateTime   @default(now())
+  updated_at    DateTime
+  can_approve   Boolean    @default(false)
+  can_create    Boolean    @default(false)
+  can_delete    Boolean    @default(false)
+  can_edit      Boolean    @default(false)
+  can_view      Boolean    @default(false)
+  permissions   Permission @relation(fields: [permission_id], references: [id])
+  users         User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id])
-  
-  @@unique([userId, permissionId])
-  @@index([userId])
+  @@unique([user_id, permission_id])
+  @@index([user_id])
   @@map("user_permissions")
 }
 
@@ -168,12 +164,10 @@ model RefreshToken {
   isRevoked Boolean  @default(false) @map("is_revoked")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
-  
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
   @@index([expiresAt])
   @@index([isRevoked])

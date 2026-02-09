@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse } from './types';
+import Cookies from 'js-cookie';
 
 /**
  * Configuration du client API Axios
@@ -9,8 +10,12 @@ class ApiClient {
   private accessToken: string | null = null;
 
   constructor() {
+    // Utilisation de /api comme base URL par défaut pour le proxy ou le gateway
+    // Si NEXT_PUBLIC_API_GATEWAY_URL est défini, on l'utilise, sinon on utilise /api
+    const baseURL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || '/api';
+    
     this.instance = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3001/api',
+      baseURL: baseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -80,6 +85,7 @@ class ApiClient {
     if (!error.response) {
       // Erreur réseau
       throw {
+        success: false,
         message: 'Erreur de connexion au serveur',
         status: 0,
         data: null,
@@ -96,7 +102,12 @@ class ApiClient {
           try {
             await this.refreshAccessToken();
             // Retry la requête originale
-            return this.instance.request(error.config!);
+            const config = error.config!;
+            const token = this.getToken();
+            if (token && config.headers) {
+              config.headers.Authorization = `Bearer ${token}`;
+            }
+            return this.instance.request(config);
           } catch (refreshError) {
             this.handleUnauthorized();
             throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
@@ -105,6 +116,9 @@ class ApiClient {
           this.handleUnauthorized();
           throw this.formatError(401, 'Non autorisé');
         }
+
+      case 429:
+        throw this.formatError(429, 'Trop de requêtes, veuillez patienter');
 
       case 403:
         throw this.formatError(403, 'Accès refusé');
@@ -135,7 +149,8 @@ class ApiClient {
    */
   private shouldRetryWithRefresh(error: AxiosError): boolean {
     const config = error.config as any;
-    return !config?._retry && config?.url !== '/auth/refresh';
+    // Ne pas retry si c'est déjà un retry ou si c'est l'appel de refresh lui-même
+    return !config?._retry && !config?.url?.includes('/auth/refresh');
   }
 
   /**
@@ -150,13 +165,17 @@ class ApiClient {
       throw new Error('No refresh token available');
     }
 
+    // On utilise l'instance directement pour éviter l'intercepteur de réponse qui pourrait boucler
     const response = await this.instance.post('/auth/refresh', {
       refreshToken,
     }, {
       _retry: true,
     } as any);
 
-    const { accessToken } = response.data;
+    const accessToken = response.data?.data?.accessToken || response.data?.accessToken;
+    if (!accessToken) {
+      throw new Error('No access token in refresh response');
+    }
     this.setToken(accessToken);
   }
 
@@ -168,8 +187,9 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
-      // Redirection vers la page de login
-      if (window.location.pathname !== '/login') {
+      Cookies.remove('auth_token');
+      // Redirection vers la page de login si on n'y est pas déjà
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
       }
     }

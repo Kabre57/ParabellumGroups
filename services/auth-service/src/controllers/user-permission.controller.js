@@ -8,6 +8,7 @@ const getUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Récupérer l'utilisateur avec ses permissions et son rôle
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
       include: {
@@ -23,10 +24,11 @@ const getUserPermissions = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Utilisateur non trouve'
+        message: 'Utilisateur non trouvé'
       });
     }
 
+    // Récupérer les permissions du rôle
     let rolePermissions = [];
     if (user.roleId) {
       rolePermissions = await prisma.rolePermission.findMany({
@@ -37,8 +39,10 @@ const getUserPermissions = async (req, res) => {
       });
     }
 
+    // Fusionner permissions utilisateur et rôle
     const permissionsMap = new Map();
 
+    // Ajouter permissions du rôle
     rolePermissions.forEach(rp => {
       permissionsMap.set(rp.permissionId, {
         id: rp.id,
@@ -53,18 +57,33 @@ const getUserPermissions = async (req, res) => {
       });
     });
 
+    // Ajouter/surcharger avec permissions utilisateur
     user.userPermissions.forEach(up => {
-      permissionsMap.set(up.permissionId, {
-        id: up.id,
-        permissionId: up.permissionId,
-        permission: up.permission,
-        source: 'user',
-        canView: up.canView,
-        canCreate: up.canCreate,
-        canEdit: up.canEdit,
-        canDelete: up.canDelete,
-        canApprove: up.canApprove
-      });
+      const existing = permissionsMap.get(up.permissionId);
+      if (existing && existing.source === 'role') {
+        // Fusionner : les permissions utilisateur écrasent celles du rôle
+        permissionsMap.set(up.permissionId, {
+          ...existing,
+          source: 'mixed',
+          canView: up.canView !== undefined ? up.canView : existing.canView,
+          canCreate: up.canCreate !== undefined ? up.canCreate : existing.canCreate,
+          canEdit: up.canEdit !== undefined ? up.canEdit : existing.canEdit,
+          canDelete: up.canDelete !== undefined ? up.canDelete : existing.canDelete,
+          canApprove: up.canApprove !== undefined ? up.canApprove : existing.canApprove
+        });
+      } else {
+        permissionsMap.set(up.permissionId, {
+          id: up.id,
+          permissionId: up.permissionId,
+          permission: up.permission,
+          source: 'user',
+          canView: up.canView,
+          canCreate: up.canCreate,
+          canEdit: up.canEdit,
+          canDelete: up.canDelete,
+          canApprove: up.canApprove
+        });
+      }
     });
 
     const permissions = Array.from(permissionsMap.values());
@@ -77,7 +96,7 @@ const getUserPermissions = async (req, res) => {
     console.error('Get user permissions error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la recuperation des permissions',
+      message: 'Erreur lors de la récupération des permissions',
       errors: error.message
     });
   }
@@ -90,15 +109,12 @@ const getUserPermissions = async (req, res) => {
 const updateUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { permissions, permissionIds } = req.body;
+    const { permissions } = req.body;
 
-    const hasPermissions = Array.isArray(permissions);
-    const hasPermissionIds = Array.isArray(permissionIds);
-
-    if (!hasPermissions && !hasPermissionIds) {
+    if (!Array.isArray(permissions)) {
       return res.status(400).json({
         success: false,
-        message: 'Le champ permissions ou permissionIds doit etre un tableau'
+        message: 'Le champ permissions doit être un tableau'
       });
     }
 
@@ -109,45 +125,69 @@ const updateUserPermissions = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Utilisateur non trouve'
+        message: 'Utilisateur non trouvé'
       });
     }
 
-    let validPermissions;
-    if (hasPermissionIds) {
-      validPermissions = await prisma.permission.findMany({
-        where: {
-          id: { in: permissionIds.map(id => parseInt(id)) }
-        }
-      });
-    } else {
-      validPermissions = await prisma.permission.findMany({
-        where: {
-          name: { in: permissions }
-        }
-      });
-    }
-
+    // Supprimer toutes les permissions existantes
     await prisma.userPermission.deleteMany({
       where: { userId: parseInt(userId) }
     });
 
-    const userPermissions = await prisma.userPermission.createMany({
-      data: validPermissions.map(p => ({
-        userId: parseInt(userId),
-        permissionId: p.id,
-        granted: true
-      }))
-    });
+    // Créer les nouvelles permissions
+    const userPermissions = [];
+    for (const perm of permissions) {
+      const {
+        permissionId,
+        canView = false,
+        canCreate = false,
+        canEdit = false,
+        canDelete = false,
+        canApprove = false
+      } = perm;
+      
+      // Vérifier si la permission existe
+      const permission = await prisma.permission.findUnique({
+        where: { id: parseInt(permissionId) }
+      });
 
+      if (!permission) {
+        console.warn(`Permission ID ${permissionId} non trouvée, ignorée`);
+        continue;
+      }
+
+      const userPerm = await prisma.userPermission.create({
+        data: {
+          user_id: parseInt(userId),
+          permission_id: parseInt(permissionId),
+          can_view: canView,
+          can_create: canCreate,
+          can_edit: canEdit,
+          can_delete: canDelete,
+          can_approve: canApprove,
+          updated_at: new Date()
+        }
+      });
+
+      userPermissions.push(userPerm);
+    }
+
+    // Log audit
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
         action: 'USER_PERMISSIONS_UPDATED',
         entityType: 'UserPermission',
         entityId: userId,
-        details: `Permissions mises a jour pour ${user.firstName} ${user.lastName}`,
-        newValue: JSON.stringify({ permissionIds: validPermissions.map(p => p.id) }),
+        details: `Permissions mises à jour pour ${user.firstName} ${user.lastName}`,
+        newValue: JSON.stringify(permissions.map(p => ({
+          permissionId: p.permissionId,
+          canView: p.canView,
+          canCreate: p.canCreate,
+          canEdit: p.canEdit,
+          canDelete: p.canDelete,
+          canApprove: p.canApprove
+        }))),
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }
@@ -155,29 +195,37 @@ const updateUserPermissions = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Permissions mises a jour avec succes',
+      message: 'Permissions mises à jour avec succès',
       data: {
         userId: parseInt(userId),
-        permissionsCount: userPermissions.count
+        permissionsCount: userPermissions.length
       }
     });
   } catch (error) {
     console.error('Update user permissions error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise a jour des permissions',
+      message: 'Erreur lors de la mise à jour des permissions',
       errors: error.message
     });
   }
 };
 
 /**
- * Check if user has permission
- * GET /api/users/:userId/permissions/check/:permissionName
+ * Check if user has specific permission
+ * GET /api/users/:userId/permissions/check
  */
 const checkUserPermission = async (req, res) => {
   try {
-    const { userId, permissionName } = req.params;
+    const { userId } = req.params;
+    const { permissionName, action } = req.query;
+
+    if (!permissionName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le paramètre permissionName est requis'
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
@@ -186,7 +234,8 @@ const checkUserPermission = async (req, res) => {
           include: {
             permission: true
           }
-        }
+        },
+        role: true
       }
     });
 
@@ -209,36 +258,77 @@ const checkUserPermission = async (req, res) => {
       });
     }
 
+    let hasPermission = false;
+    let source = 'none';
+
     // Vérifier permission utilisateur
     const userPerm = user.userPermissions.find(
       up => up.permission.name === permissionName
     );
 
     if (userPerm) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          hasPermission: userPerm.granted,
-          source: 'user'
+      source = 'user';
+      switch (action) {
+        case 'view':
+          hasPermission = userPerm.canView;
+          break;
+        case 'create':
+          hasPermission = userPerm.canCreate;
+          break;
+        case 'edit':
+          hasPermission = userPerm.canEdit;
+          break;
+        case 'delete':
+          hasPermission = userPerm.canDelete;
+          break;
+        case 'approve':
+          hasPermission = userPerm.canApprove;
+          break;
+        default:
+          hasPermission = userPerm.canView || userPerm.canCreate || userPerm.canEdit || userPerm.canDelete || userPerm.canApprove;
+      }
+    } else if (user.roleId) {
+      // Vérifier permission du rôle
+      const rolePerm = await prisma.rolePermission.findUnique({
+        where: {
+          roleId_permissionId: {
+            roleId: user.roleId,
+            permissionId: permission.id
+          }
         }
       });
-    }
 
-    // Vérifier permission du rôle
-    const rolePerm = await prisma.rolePermission.findUnique({
-      where: {
-        role_permissionId: {
-          role: user.role,
-          permissionId: permission.id
+      if (rolePerm) {
+        source = 'role';
+        switch (action) {
+          case 'view':
+            hasPermission = rolePerm.canView;
+            break;
+          case 'create':
+            hasPermission = rolePerm.canCreate;
+            break;
+          case 'edit':
+            hasPermission = rolePerm.canEdit;
+            break;
+          case 'delete':
+            hasPermission = rolePerm.canDelete;
+            break;
+          case 'approve':
+            hasPermission = rolePerm.canApprove;
+            break;
+          default:
+            hasPermission = rolePerm.canView || rolePerm.canCreate || rolePerm.canEdit || rolePerm.canDelete || rolePerm.canApprove;
         }
       }
-    });
+    }
 
     return res.status(200).json({
       success: true,
       data: {
-        hasPermission: !!rolePerm,
-        source: rolePerm ? 'role' : 'none'
+        hasPermission,
+        source,
+        permissionName,
+        action
       }
     });
   } catch (error) {
@@ -273,7 +363,7 @@ const getPermissionCategories = async (req, res) => {
     console.error('Get permission categories error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la recuperation des categories',
+      message: 'Erreur lors de la récupération des catégories',
       errors: error.message
     });
   }

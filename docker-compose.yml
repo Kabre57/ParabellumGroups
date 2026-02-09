@@ -77,7 +77,7 @@ services:
       - HR_SERVICE_URL=http://hr-service:4009
       - BILLING_SERVICE_URL=http://billing-service:4010
       - ANALYTICS_SERVICE_URL=http://analytics-service:4011
-      - NOTIFICATIONS_SERVICE_URL=http://notification-service:40102
+      - NOTIFICATIONS_SERVICE_URL=http://notification-service:4012
     depends_on:
       - auth-service
       - communication-service
@@ -262,9 +262,9 @@ services:
     build: ./services/notification-service
     container_name: notification-service
     ports:
-      - "40102:40102"
+      - "4012:4012"
     environment:
-      - PORT=40102
+      - PORT=4012
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/delices_db?schema=public
     depends_on:

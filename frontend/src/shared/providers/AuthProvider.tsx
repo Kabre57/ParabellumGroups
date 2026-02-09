@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Vérifier si un token existe au chargement
-    const token = Cookies.get('auth_token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (token) {
       loadUser();
     } else {
@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
     } catch (error) {
       // Token invalide ou expiré
-      Cookies.remove('auth_token');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -45,18 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authService.login(email, password);
-    Cookies.set('auth_token', response.accessToken, { expires: 7 }); // 7 jours
     setUser(response.user);
   };
 
   const register = async (email: string, password: string, firstName: string, lastName: string) => {
     const response = await authService.register({ email, password, firstName, lastName });
-    Cookies.set('auth_token', response.accessToken, { expires: 7 });
     setUser(response.user);
   };
 
   const logout = () => {
-    Cookies.remove('auth_token');
+    authService.logout();
     setUser(null);
   };
 

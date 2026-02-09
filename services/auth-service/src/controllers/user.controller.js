@@ -12,6 +12,7 @@ const getAllUsers = async (req, res) => {
       page = 1,
       limit = 10,
       role,
+      roleId,
       serviceId,
       isActive,
       search,
@@ -24,8 +25,9 @@ const getAllUsers = async (req, res) => {
     // Build where clause
     const where = {};
 
-    if (role) {
-      // If role is a code string, find the role ID
+    if (roleId) {
+      where.roleId = parseInt(roleId);
+    } else if (role) {
       const roleRecord = await prisma.role.findUnique({
         where: { code: role },
       });
@@ -94,14 +96,12 @@ const getAllUsers = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: {
-        users,
-        pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          totalPages: Math.ceil(total / limitNum),
-        },
+      data: users,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {

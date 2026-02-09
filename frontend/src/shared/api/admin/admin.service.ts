@@ -180,15 +180,20 @@ interface ApiDetailResponse<T> {
 export const adminUsersService = {
   getUsers: async (filters?: UserFilters): Promise<ApiListResponse<AdminUser>> => {
     const params = new URLSearchParams();
-    if (filters?.search) params.append('search', filters.search);
+    
+    // Correction : utiliser roleId au lieu de role
     if (filters?.roleId) params.append('roleId', String(filters.roleId));
+    
+    if (filters?.search) params.append('search', filters.search);
     if (filters?.serviceId) params.append('serviceId', String(filters.serviceId));
     if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));
     
     const query = params.toString();
-    const response = await apiClient.get<ApiListResponse<AdminUser>>(`/auth/users${query ? `?${query}` : ''}`);
+    const response = await apiClient.get<ApiListResponse<AdminUser>>(
+      `/auth/users${query ? `?${query}` : ''}`
+    );
     return response.data;
   },
 
@@ -331,12 +336,12 @@ export const adminPermissionsService = {
     return response.data;
   },
 
-  createPermission: async (data: { name: string; description?: string; category: string }): Promise<ApiDetailResponse<Permission>> => {
+  createPermission: async (data: { name: string; code?: string; description?: string; category: string }): Promise<ApiDetailResponse<Permission>> => {
     const response = await apiClient.post<ApiDetailResponse<Permission>>('/auth/permissions', data);
     return response.data;
   },
 
-  updatePermission: async (id: number, data: { name?: string; description?: string; category?: string }): Promise<ApiDetailResponse<Permission>> => {
+  updatePermission: async (id: number, data: { name?: string; code?: string; description?: string; category?: string }): Promise<ApiDetailResponse<Permission>> => {
     const response = await apiClient.put<ApiDetailResponse<Permission>>(`/auth/permissions/${id}`, data);
     return response.data;
   },

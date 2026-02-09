@@ -295,14 +295,16 @@ const deletePermission = async (req, res) => {
 const getRolePermissions = async (req, res) => {
   try {
     const { role } = req.params;
-
+    
+    // Convertir en nombre si c'est un ID
     const roleId = parseInt(role);
     const isId = !isNaN(roleId);
 
     let whereClause;
     if (isId) {
-      whereClause = { roleId };
+      whereClause = { roleId };  // ← Utiliser roleId, pas role
     } else {
+      // Si c'est un code, trouver le rôle correspondant
       const roleRecord = await prisma.role.findUnique({
         where: { code: role }
       });
@@ -312,7 +314,7 @@ const getRolePermissions = async (req, res) => {
           message: 'Role not found'
         });
       }
-      whereClause = { roleId: roleRecord.id };
+      whereClause = { roleId: roleRecord.id };  // ← Utiliser roleId
     }
 
     const rolePermissions = await prisma.rolePermission.findMany({
@@ -354,6 +356,24 @@ const updateRolePermission = async (req, res) => {
     const { role, permissionId } = req.params;
     const { canView, canCreate, canEdit, canDelete, canApprove } = req.body;
 
+    // Convertir role en roleId
+    const roleIdNum = parseInt(role);
+    let roleId;
+    if (!isNaN(roleIdNum)) {
+      roleId = roleIdNum;
+    } else {
+      const roleRecord = await prisma.role.findUnique({
+        where: { code: role }
+      });
+      if (!roleRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found',
+        });
+      }
+      roleId = roleRecord.id;
+    }
+
     // Check if permission exists
     const permission = await prisma.permission.findUnique({
       where: { id: parseInt(permissionId) },
@@ -369,8 +389,8 @@ const updateRolePermission = async (req, res) => {
     // Upsert role permission
     const rolePermission = await prisma.rolePermission.upsert({
       where: {
-        role_permissionId: {
-          role,
+        roleId_permissionId: {
+          roleId,
           permissionId: parseInt(permissionId),
         },
       },
@@ -382,7 +402,7 @@ const updateRolePermission = async (req, res) => {
         canApprove: canApprove !== undefined ? canApprove : undefined,
       },
       create: {
-        role,
+        roleId,
         permissionId: parseInt(permissionId),
         canView: canView || false,
         canCreate: canCreate || false,
@@ -432,11 +452,29 @@ const deleteRolePermission = async (req, res) => {
   try {
     const { role, permissionId } = req.params;
 
+    // Convertir role en roleId
+    const roleIdNum = parseInt(role);
+    let roleId;
+    if (!isNaN(roleIdNum)) {
+      roleId = roleIdNum;
+    } else {
+      const roleRecord = await prisma.role.findUnique({
+        where: { code: role }
+      });
+      if (!roleRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Role not found',
+        });
+      }
+      roleId = roleRecord.id;
+    }
+
     // Check if role permission exists
     const rolePermission = await prisma.rolePermission.findUnique({
       where: {
-        role_permissionId: {
-          role,
+        roleId_permissionId: {
+          roleId,
           permissionId: parseInt(permissionId),
         },
       },
@@ -452,8 +490,8 @@ const deleteRolePermission = async (req, res) => {
     // Delete role permission
     await prisma.rolePermission.delete({
       where: {
-        role_permissionId: {
-          role,
+        roleId_permissionId: {
+          roleId,
           permissionId: parseInt(permissionId),
         },
       },

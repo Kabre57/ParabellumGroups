@@ -3,9 +3,9 @@ services:
     build: .
     container_name: notification-service
     ports:
-      - "40102:40102"
+      - "4012:4012"
     environment:
-      - PORT=40102
+      - PORT=4012
       - NODE_ENV=development
       - DB_USER=parabellum
       - DB_PASSWORD=parabellum2025
