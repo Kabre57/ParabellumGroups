@@ -174,9 +174,17 @@ class ApiClient {
 
     const accessToken = response.data?.data?.accessToken || response.data?.accessToken;
     if (!accessToken) {
+      console.error('[ApiClient] Refresh response:', response.data);
       throw new Error('No access token in refresh response');
     }
+    console.log('[ApiClient] Token refreshed successfully');
     this.setToken(accessToken);
+    
+    // Également mettre à jour le refreshToken si fourni
+    const newRefreshToken = response.data?.data?.refreshToken || response.data?.refreshToken;
+    if (newRefreshToken && typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    }
   }
 
   /**
