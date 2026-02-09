@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Users,
   FileText,
@@ -23,16 +24,26 @@ import { analyticsService } from '@/shared/api/analytics';
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState('30d');
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const { data: overviewData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-overview', dateRange],
     queryFn: () => analyticsService.getOverviewDashboard({ period: dateRange }),
     staleTime: 1000 * 60 * 5,
+    enabled: isAuthenticated,
   });
 
   const handleRefresh = () => {
     refetch();
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   const stats = overviewData?.data;
   
