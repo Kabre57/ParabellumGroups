@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -25,12 +25,18 @@ import { analyticsService } from '@/shared/api/analytics';
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState('30d');
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [hasToken, setHasToken] = useState(false);
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    setHasToken(!!token);
+  }, [isAuthenticated]);
 
   const { data: overviewData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-overview', dateRange],
     queryFn: () => analyticsService.getOverviewDashboard({ period: dateRange }),
     staleTime: 1000 * 60 * 5,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && hasToken,
   });
 
   const handleRefresh = () => {
