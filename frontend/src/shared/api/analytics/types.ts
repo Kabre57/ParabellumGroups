@@ -29,7 +29,12 @@ export interface OverviewDashboard {
     timestamp: string;
     user?: string;
   }>;
-  stock_alerts?: number;
+  stock_alerts?: Array<{
+    id: string | number;
+    name: string;
+    stockQuantity: number;
+    stockAlertThreshold: number;
+  }>;
   pending_reports?: number;
   new_clients_this_month?: number;
   pending_quotes?: number;

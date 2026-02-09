@@ -77,7 +77,7 @@ export default function DashboardPage() {
     },
     {
       title: 'Factures Impayees',
-      value: stats?.overdue_invoices || 0,
+      value: Array.isArray(stats?.overdue_invoices) ? stats.overdue_invoices.length : 0,
       format: 'number' as const,
       icon: Receipt,
       color: 'text-red-600',
@@ -104,7 +104,13 @@ export default function DashboardPage() {
     }
   ];
 
-  const recentActivities = stats?.recent_activities || [];
+  const recentActivities = (stats?.recent_activities || []).map(activity => ({
+    id: parseInt(activity.id),
+    type: activity.type,
+    message: activity.description,
+    time: new Date(activity.timestamp).toLocaleString('fr-FR'),
+    user: activity.user || 'Système'
+  }));
   const stockAlerts = stats?.stock_alerts || [];
 
   const lastRefresh = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
