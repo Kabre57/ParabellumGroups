@@ -6,14 +6,14 @@ const rateLimit = require('express-rate-limit');
  */
 const loginLimiter = rateLimit({
   windowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX) || 5,
+  max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX) || 100,
   message: {
     success: false,
     error: 'Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
   skipFailedRequests: false,
   validate: { trustProxy: false },
   handler: (req, res) => {
