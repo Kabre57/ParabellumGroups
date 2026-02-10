@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { CreditCard, Plus, Search, Calendar } from 'lucide-react';
+import { apiClient } from '@/shared/api/shared/client';
 
 interface Loan {
   id: string;
@@ -28,12 +29,8 @@ export default function PretsPage() {
   const { data: loans, isLoading } = useQuery<Loan[]>({
     queryKey: ['loans'],
     queryFn: async () => {
-      return [
-        { id: '1', employee: 'Jean Dupont', type: 'loan', amount: 5000, remainingAmount: 2500, monthlyDeduction: 500, startDate: '2025-06-01', endDate: '2026-05-31', status: 'active', reason: 'Achat véhicule' },
-        { id: '2', employee: 'Marie Martin', type: 'advance', amount: 1000, remainingAmount: 0, monthlyDeduction: 500, startDate: '2025-12-01', endDate: '2026-01-31', status: 'completed', reason: 'Avance sur salaire' },
-        { id: '3', employee: 'Pierre Durant', type: 'loan', amount: 3000, remainingAmount: 3000, monthlyDeduction: 300, startDate: '2026-02-01', endDate: '2026-11-30', status: 'pending', reason: 'Travaux logement' },
-        { id: '4', employee: 'Sophie Lambert', type: 'advance', amount: 800, remainingAmount: 400, monthlyDeduction: 400, startDate: '2026-01-01', endDate: '2026-02-28', status: 'active', reason: 'Urgence familiale' },
-      ];
+      const res = await apiClient.get('/hr/loans');
+      return res.data?.data || res.data || [];
     },
   });
 
