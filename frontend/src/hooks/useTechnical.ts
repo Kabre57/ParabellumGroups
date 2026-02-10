@@ -10,6 +10,7 @@ export function useMissions(params?: SearchParams) {
       const response = await technicalService.getMissions(params);
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 
@@ -113,6 +114,7 @@ export function useInterventions(params?: SearchParams) {
       const response = await technicalService.getInterventions(params as any);
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 
@@ -181,6 +183,7 @@ export function useTechniciens(params?: SearchParams) {
       const response = await technicalService.getTechniciens(params);
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 
@@ -200,6 +203,7 @@ export function useAvailableTechniciens(params?: SearchParams) {
       const techniciens = response.data ?? [];
       return techniciens.filter((t) => t.status === 'AVAILABLE');
     },
+    placeholderData: [],
   });
 }
 
@@ -271,6 +275,7 @@ export function useMateriel(params?: SearchParams) {
       const response = await technicalService.getMateriels(params as any);
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 
@@ -352,6 +357,7 @@ export function useRapports(params?: SearchParams) {
       const response = await technicalService.getRapports(params as any);
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 
@@ -422,6 +428,7 @@ export function useSpecialites() {
       const response = await technicalService.getSpecialites();
       return response.data ?? [];
     },
+    placeholderData: [],
   });
 }
 

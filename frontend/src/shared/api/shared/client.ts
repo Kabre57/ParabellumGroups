@@ -35,18 +35,13 @@ class ApiClient {
     this.instance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = this.getToken();
-        console.log('[ApiClient REQUEST] Token:', token ? `${token.substring(0, 20)}...` : 'NULL', 'URL:', config.url);
         if (token && config.headers) {
           // Use .set() method for Axios 1.x AxiosHeaders
           if (typeof config.headers.set === 'function') {
             config.headers.set('Authorization', `Bearer ${token}`);
-            console.log('[ApiClient REQUEST] Token attached via .set()');
           } else {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('[ApiClient REQUEST] Token attached via direct assignment');
           }
-        } else {
-          console.log('[ApiClient REQUEST] NO TOKEN ATTACHED');
         }
         return config;
       },
@@ -200,10 +195,8 @@ class ApiClient {
 
     const accessToken = response.data?.data?.accessToken || response.data?.accessToken;
     if (!accessToken) {
-      console.error('[ApiClient] Refresh response:', response.data);
       throw new Error('No access token in refresh response');
     }
-    console.log('[ApiClient] Token refreshed successfully');
     this.setToken(accessToken);
     
     // Également mettre à jour le refreshToken si fourni

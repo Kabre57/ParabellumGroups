@@ -1,9 +1,9 @@
 const cors = require('cors');
 const config = require('../utils/config');
 
-// Configuration simple de CORS
+// Configuration CORS avec support multi-origins
 const corsOptions = {
-  origin: 'http://localhost:3000', // Autorisez SEULEMENT le frontend
+  origin: config.ALLOWED_ORIGINS || ['http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role'],

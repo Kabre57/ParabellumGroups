@@ -64,7 +64,7 @@ services:
     environment:
       - PORT=3001
       - NODE_ENV=development
-      - JWT_SECRET=parabellum-secure-jwt-secret-2026
+      - JWT_SECRET=${JWT_SECRET}
       # URLs des services (utilise les noms Docker)
       - AUTH_SERVICE_URL=http://auth-service:4001
       - COMMUNICATION_SERVICE_URL=http://communication-service:4002
@@ -101,7 +101,7 @@ services:
     environment:
       - PORT=4001
       - NODE_ENV=development
-      - JWT_SECRET=parabellum-secure-jwt-secret-2026
+      - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_auth?schema=public
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -254,7 +254,7 @@ services:
       - PORT=4011
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_Analytics?schema=public
-      - JWT_SECRET=parabellum-secure-jwt-secret-2026
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
