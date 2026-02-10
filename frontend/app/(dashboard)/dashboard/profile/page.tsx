@@ -265,7 +265,7 @@ export default function ProfilePage() {
               <Calendar className="w-4 h-4 inline mr-2" />
               Date d'arrivée
             </label>
-            <p className="text-gray-900 font-medium">{formatDate(userData.joinedDate)}</p>
+            <p className="text-gray-900 font-medium">{formatDate(userData.createdAt || new Date().toISOString())}</p>
           </div>
         </div>
       </div>
