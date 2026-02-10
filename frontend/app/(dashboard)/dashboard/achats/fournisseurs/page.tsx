@@ -23,7 +23,7 @@ export default function SuppliersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<SupplierStatus | 'ALL'>('ALL');
 
-  const { data: suppliers = [], isLoading } = useQuery({
+  const { data: suppliersResponse, isLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getSuppliers>>>({
     queryKey: ['suppliers', searchTerm, statusFilter],
     queryFn: () =>
       procurementService.getSuppliers({
@@ -31,6 +31,8 @@ export default function SuppliersPage() {
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
       }),
   });
+
+  const suppliers = suppliersResponse?.data ?? [];
 
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch =
@@ -177,4 +179,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-

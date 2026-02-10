@@ -140,6 +140,12 @@ const login = async (req, res) => {
             name: true,
           },
         },
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -283,14 +289,32 @@ const refreshToken = async (req, res) => {
       });
     }
 
-    // Generate new access token
+    // Generate new access token and refresh token
     const accessToken = generateAccessToken(storedToken.user);
+    const newRefreshToken = generateRefreshToken(storedToken.user);
+
+    // Update refresh token in DB (revoke old, create new)
+    await prisma.refreshToken.update({
+      where: { token },
+      data: { isRevoked: true }
+    });
+
+    await prisma.refreshToken.create({
+      data: {
+        token: newRefreshToken,
+        userId: storedToken.user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      }
+    });
 
     return res.status(200).json({
       success: true,
       message: 'Token refreshed successfully',
       data: {
-        accessToken
+        accessToken,
+        refreshToken: newRefreshToken
       },
     });
   } catch (error) {

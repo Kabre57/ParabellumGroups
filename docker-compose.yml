@@ -254,6 +254,7 @@ services:
       - PORT=4011
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_Analytics?schema=public
+      - JWT_SECRET=parabellum-secure-jwt-secret-2026
     depends_on:
       postgres:
         condition: service_healthy

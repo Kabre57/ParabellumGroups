@@ -5,14 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '@/shared/api/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { LineChart } from '@/components/charts/LineChart';
-import { PieChart } from '@/components/charts/PieChart';
-import { Users, Building2, DollarSign, Calendar, Briefcase, TrendingUp } from 'lucide-react';
+import { Users, TrendingUp, DollarSign, Calendar, Briefcase } from 'lucide-react';
 
 export function HRDashboard() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard', 'hr'],
-    queryFn: () => analyticsService.getHRDashboard(),
+    queryFn: () => analyticsService.getHRStats(),
   });
 
   if (isLoading) {
@@ -23,7 +21,7 @@ export function HRDashboard() {
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -35,66 +33,37 @@ export function HRDashboard() {
     );
   }
 
-  // Real data from API
-  const dashboardData = data?.data;
-  const headcountStats = {
-    total: dashboardData?.headcount || 47,
-    newHires: dashboardData?.new_hires || 5,
-    departures: dashboardData?.departures || 2,
-    turnoverRate: dashboardData?.turnover_rate || 4.2,
-  };
-
-  const departmentBreakdown = dashboardData?.department_breakdown || {
-    labels: ['Technique', 'Commercial', 'Administration', 'Support', 'Direction'],
-    data: [24, 8, 7, 5, 3],
-  };
-
-  const payrollStats = {
-    totalPayroll: dashboardData?.total_payroll || 285000,
-    averageSalary: dashboardData?.average_salary || 6064,
-    benefits: dashboardData?.benefits || 42000,
-    taxes: dashboardData?.taxes || 95000,
-  };
-
-  const leaveStats = dashboardData?.leave_stats || {
-    taken: [18, 22, 25, 28, 32, 35, 30, 28, 24, 20, 15, 12],
-    remaining: [12, 15, 18, 22, 25, 28, 26, 24, 22, 18, 15, 10],
-  };
-  const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
-  const loanStats = {
-    totalLoans: 8,
-    activeLoans: 5,
-    totalAmount: 45000,
-    remainingAmount: 28000,
-  };
+  const headcount = data.effectifs;
+  const turnover = data.turnover;
+  const absences = data.absences;
+  const recrutement = data.recrutement;
+  const formations = data.formations;
 
   const statsCards = [
     {
       title: 'Effectif total',
-      value: headcountStats.total,
+      value: headcount?.total ?? 0,
       icon: Users,
       color: 'bg-blue-100 dark:bg-blue-900/20',
       iconColor: 'text-blue-600 dark:text-blue-400',
     },
     {
-      title: 'Nouvelles embauches',
-      value: headcountStats.newHires,
+      title: 'Turnover',
+      value: `${(turnover?.taux ?? 0).toFixed(1)}%`,
       icon: TrendingUp,
       color: 'bg-green-100 dark:bg-green-900/20',
       iconColor: 'text-green-600 dark:text-green-400',
     },
     {
-      title: 'Masse salariale',
-      value: `${(payrollStats.totalPayroll / 1000).toFixed(0)}KF`,
-      icon: DollarSign,
+      title: 'Absenteisme',
+      value: `${(absences?.tauxAbsenteisme ?? 0).toFixed(1)}%`,
+      icon: Calendar,
       color: 'bg-orange-100 dark:bg-orange-900/20',
       iconColor: 'text-orange-600 dark:text-orange-400',
     },
     {
-      title: 'Prêts en cours',
-      value: loanStats.activeLoans,
-      subValue: `${(loanStats.remainingAmount / 1000).toFixed(0)}KF`,
+      title: 'Postes ouverts',
+      value: recrutement?.postesOuverts ?? 0,
       icon: Briefcase,
       color: 'bg-purple-100 dark:bg-purple-900/20',
       iconColor: 'text-purple-600 dark:text-purple-400',
@@ -103,7 +72,6 @@ export function HRDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statsCards.map((stat) => {
           const Icon = stat.icon;
@@ -118,11 +86,6 @@ export function HRDashboard() {
                     <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                       {stat.value}
                     </p>
-                    {stat.subValue && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {stat.subValue}
-                      </p>
-                    )}
                   </div>
                   <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
                     <Icon className={`w-6 h-6 ${stat.iconColor}`} />
@@ -135,135 +98,37 @@ export function HRDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Department Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Répartition par département
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PieChart
-              data={departmentBreakdown.data}
-              labels={departmentBreakdown.labels}
-              height={280}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Payroll Details */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="w-5 h-5" />
-              Détail masse salariale
+              Formation & Budget
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Salaires bruts
-                </span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Nombre</span>
                 <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {payrollStats.totalPayroll.toLocaleString()} F
+                  {formations?.nombre ?? 0}
                 </span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Salaire moyen
-                </span>
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                  {payrollStats.averageSalary.toLocaleString()} F
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Avantages sociaux
-                </span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                  {payrollStats.benefits.toLocaleString()} F
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Heures</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">
+                  {formations?.heures ?? 0}
                 </span>
               </div>
               <div className="flex items-center justify-between py-3">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Charges patronales
-                </span>
-                <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                  {payrollStats.taxes.toLocaleString()} F
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Budget</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">
+                  {formations?.budget ?? 0}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Leave Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Congés sur l'année
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div style={{ height: 300 }}>
-            <LineChart
-              data={leaveStats.taken}
-              labels={months}
-              label="Jours pris"
-              color="rgb(251, 146, 60)"
-              backgroundColor="rgba(251, 146, 60, 0.1)"
-              fill={true}
-              height={300}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Loan Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Prêts employés</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                Total des prêts
-              </p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {loanStats.totalLoans}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                Actifs
-              </p>
-              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {loanStats.activeLoans}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                Montant total
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {loanStats.totalAmount.toLocaleString()} F
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                Restant dû
-              </p>
-              <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {loanStats.remainingAmount.toLocaleString()} F
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

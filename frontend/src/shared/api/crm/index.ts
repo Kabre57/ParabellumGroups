@@ -3,13 +3,12 @@ import { contactsService } from './contacts.service';
 import { contratsService } from './contrats.service';
 import { opportunitesService } from './opportunites.service';
 import { interactionsService } from './interactions.service';
+import { typeClientsService } from './type-clients.service';
+import { secteursService } from './secteurs.service';
+import { adressesService } from './adresses.service';
+import { documentsService } from './documents.service';
 
 export * from './types';
-export * from './clients.service';
-export * from './contacts.service';
-export * from './contrats.service';
-export * from './opportunites.service';
-export * from './interactions.service';
 
 export const crmService = {
   ...clientsService,
@@ -17,6 +16,10 @@ export const crmService = {
   ...contratsService,
   ...opportunitesService,
   ...interactionsService,
+  ...typeClientsService,
+  ...secteursService,
+  ...adressesService,
+  ...documentsService,
 };
 
 export default crmService;

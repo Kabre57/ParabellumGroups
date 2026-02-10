@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateMission } from '@/hooks/useTechnical';
-import { Mission } from '@/shared/api/services/technical';
+import { Mission } from '@/shared/api/technical';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';

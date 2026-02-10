@@ -4,9 +4,12 @@ import { SearchParams } from '@/shared/api/types';
 
 // === MISSIONS ===
 export function useMissions(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Mission[]>({
     queryKey: ['missions', params],
-    queryFn: () => technicalService.getMissions(params),
+    queryFn: async () => {
+      const response = await technicalService.getMissions(params);
+      return response.data ?? [];
+    },
   });
 }
 
@@ -21,7 +24,19 @@ export function useMission(id: string) {
 export function useMissionsStats() {
   return useQuery({
     queryKey: ['missions-stats'],
-    queryFn: () => technicalService.getMissionsStats(),
+    queryFn: async () => {
+      const response = await technicalService.getMissions({ page: 1, limit: 200 });
+      const missions = response.data ?? [];
+      const byStatus = missions.reduce<Record<string, number>>((acc, mission) => {
+        const status = mission.status || 'UNKNOWN';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      return {
+        total: missions.length,
+        byStatus,
+      };
+    },
   });
 }
 
@@ -56,7 +71,7 @@ export function useUpdateMissionStatus() {
 
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      technicalService.updateMissionStatus(id, status),
+      technicalService.updateMission(id, { status } as any),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
       queryClient.invalidateQueries({ queryKey: ['mission', variables.id] });
@@ -70,7 +85,7 @@ export function useAssignTechnicienToMission() {
 
   return useMutation({
     mutationFn: ({ missionId, technicienId, role }: { missionId: string; technicienId: string; role?: string }) =>
-      technicalService.assignTechnicienToMission(missionId, technicienId, role),
+      technicalService.updateMission(missionId, { technicienIds: [technicienId], role } as any),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['mission', variables.missionId] });
       queryClient.invalidateQueries({ queryKey: ['missions'] });
@@ -92,9 +107,12 @@ export function useDeleteMission() {
 
 // === INTERVENTIONS ===
 export function useInterventions(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Intervention[]>({
     queryKey: ['interventions', params],
-    queryFn: () => technicalService.getInterventions(params),
+    queryFn: async () => {
+      const response = await technicalService.getInterventions(params as any);
+      return response.data ?? [];
+    },
   });
 }
 
@@ -110,7 +128,8 @@ export function useCreateIntervention() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Intervention>) => technicalService.createIntervention(data),
+    mutationFn: (data: Parameters<typeof technicalService.createIntervention>[0]) =>
+      technicalService.createIntervention(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['interventions'] });
     },
@@ -156,9 +175,12 @@ export function useDeleteIntervention() {
 
 // === TECHNICIENS ===
 export function useTechniciens(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Technicien[]>({
     queryKey: ['techniciens', params],
-    queryFn: () => technicalService.getTechniciens(params),
+    queryFn: async () => {
+      const response = await technicalService.getTechniciens(params);
+      return response.data ?? [];
+    },
   });
 }
 
@@ -171,16 +193,20 @@ export function useTechnicien(id: string) {
 }
 
 export function useAvailableTechniciens(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Technicien[]>({
     queryKey: ['available-techniciens', params],
-    queryFn: () => technicalService.getAvailableTechniciens(params),
+    queryFn: async () => {
+      const response = await technicalService.getTechniciens(params);
+      const techniciens = response.data ?? [];
+      return techniciens.filter((t) => t.status === 'AVAILABLE');
+    },
   });
 }
 
 export function useTechnicienStats(id: string) {
   return useQuery({
     queryKey: ['technicien-stats', id],
-    queryFn: () => technicalService.getTechnicienStats(id),
+    queryFn: () => technicalService.getTechnicien(id),
     enabled: !!id,
   });
 }
@@ -216,7 +242,7 @@ export function useUpdateTechnicienStatus() {
 
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      technicalService.updateTechnicienStatus(id, status),
+      technicalService.updateTechnicien(id, { status } as any),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['techniciens'] });
       queryClient.invalidateQueries({ queryKey: ['technicien', variables.id] });
@@ -239,16 +265,22 @@ export function useDeleteTechnicien() {
 
 // === MATERIEL ===
 export function useMateriel(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Materiel[]>({
     queryKey: ['materiel', params],
-    queryFn: () => technicalService.getMateriel(params),
+    queryFn: async () => {
+      const response = await technicalService.getMateriels(params as any);
+      return response.data ?? [];
+    },
   });
 }
 
 export function useMaterielById(id: string) {
-  return useQuery({
+  return useQuery<Materiel>({
     queryKey: ['materiel-item', id],
-    queryFn: () => technicalService.getMaterielById(id),
+    queryFn: async () => {
+      const response = await technicalService.getMateriel(id);
+      return response.data;
+    },
     enabled: !!id,
   });
 }
@@ -256,14 +288,20 @@ export function useMaterielById(id: string) {
 export function useMaterielAlertes() {
   return useQuery({
     queryKey: ['materiel-alertes'],
-    queryFn: () => technicalService.getMaterielAlertes(),
+    queryFn: async () => {
+      const response = await technicalService.getAlertes();
+      return response.data ?? [];
+    },
   });
 }
 
 export function useSortiesEnCours() {
   return useQuery({
     queryKey: ['sorties-en-cours'],
-    queryFn: () => technicalService.getSortiesEnCours(),
+    queryFn: async () => {
+      const response = await technicalService.getSortiesEnCours();
+      return response.data ?? [];
+    },
   });
 }
 
@@ -271,7 +309,8 @@ export function useCreateMateriel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Materiel>) => technicalService.createMateriel(data),
+    mutationFn: (data: Parameters<typeof technicalService.createMateriel>[0]) =>
+      technicalService.createMateriel(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materiel'] });
       queryClient.invalidateQueries({ queryKey: ['materiel-alertes'] });
@@ -307,16 +346,22 @@ export function useDeleteMateriel() {
 
 // === RAPPORTS ===
 export function useRapports(params?: SearchParams) {
-  return useQuery({
+  return useQuery<Rapport[]>({
     queryKey: ['rapports', params],
-    queryFn: () => technicalService.getRapports(params),
+    queryFn: async () => {
+      const response = await technicalService.getRapports(params as any);
+      return response.data ?? [];
+    },
   });
 }
 
 export function useRapport(id: string) {
-  return useQuery({
+  return useQuery<Rapport>({
     queryKey: ['rapport', id],
-    queryFn: () => technicalService.getRapport(id),
+    queryFn: async () => {
+      const response = await technicalService.getRapport(id);
+      return response.data;
+    },
     enabled: !!id,
   });
 }
@@ -325,7 +370,8 @@ export function useCreateRapport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Rapport>) => technicalService.createRapport(data),
+    mutationFn: (data: Parameters<typeof technicalService.createRapport>[0]) =>
+      technicalService.createRapport(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rapports'] });
     },
@@ -370,16 +416,22 @@ export function useDeleteRapport() {
 
 // === SPECIALITES ===
 export function useSpecialites() {
-  return useQuery({
+  return useQuery<Specialite[]>({
     queryKey: ['specialites'],
-    queryFn: () => technicalService.getSpecialites(),
+    queryFn: async () => {
+      const response = await technicalService.getSpecialites();
+      return response.data ?? [];
+    },
   });
 }
 
 export function useSpecialite(id: string) {
-  return useQuery({
+  return useQuery<Specialite>({
     queryKey: ['specialite', id],
-    queryFn: () => technicalService.getSpecialite(id),
+    queryFn: async () => {
+      const response = await technicalService.getSpecialite(id);
+      return response.data;
+    },
     enabled: !!id,
   });
 }
@@ -388,7 +440,8 @@ export function useCreateSpecialite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Specialite>) => technicalService.createSpecialite(data),
+    mutationFn: (data: Parameters<typeof technicalService.createSpecialite>[0]) =>
+      technicalService.createSpecialite(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specialites'] });
     },

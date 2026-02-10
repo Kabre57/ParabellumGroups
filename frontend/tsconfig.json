@@ -32,6 +32,18 @@
       ],
       "@/shared/*": [
         "./src/shared/*"
+      ],
+      "@/shared/api/services": [
+        "./src/shared/api"
+      ],
+      "@/shared/api/services/*": [
+        "./src/shared/api/*"
+      ],
+      "@/shared/api/types": [
+        "./src/shared/api/shared/types"
+      ],
+      "@/shared/api/client": [
+        "./src/shared/api/shared/client"
       ]
     }
   },
@@ -39,8 +51,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

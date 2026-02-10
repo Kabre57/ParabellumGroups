@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Materiel } from '@/shared/api/services/technical';
+import { Materiel } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

@@ -5,4 +5,5 @@
 export { useAuth } from '../providers/AuthProvider';
 
 // Pour compatibilité avec l'ancien code
-export type { AuthContextType } from '../context/AuthContext';
+export type { AuthContextType } from '../providers/AuthProvider';
+

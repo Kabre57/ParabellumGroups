@@ -64,8 +64,8 @@ export default function InterventionsPage() {
         setIsFetching(intervention.id);
         const rapportId = intervention.rapports[intervention.rapports.length - 1].id;
         const fullRapport = await technicalService.getRapport(rapportId);
-        if (fullRapport) {
-          setPrintingData(fullRapport);
+        if (fullRapport?.data) {
+          setPrintingData(fullRapport.data);
           return;
         }
       } catch (error) {

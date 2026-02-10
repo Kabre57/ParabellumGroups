@@ -2,9 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { billingService, Quote } from '@/shared/api/billing';
 
 export function useQuotes(params?: Record<string, any>) {
-  return useQuery({
+  return useQuery<Quote[]>({
     queryKey: ['quotes', params],
-    queryFn: () => billingService.getQuotes(params),
+    queryFn: async () => {
+      const response = await billingService.getQuotes(params);
+      return response.data;
+    },
   });
 }
 
@@ -20,7 +23,8 @@ export function useCreateQuote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Quote>) => billingService.createQuote(data),
+    mutationFn: (data: Parameters<typeof billingService.createQuote>[0]) =>
+      billingService.createQuote(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
     },

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useMissions, useInterventions, useTechniciens, useMaterielAlertes } from '@/hooks/useTechnical';
-import { Mission, Intervention, Technicien } from '@/shared/api/services/technical';
+import { Mission, Intervention, Technicien } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import {
   BarChart,

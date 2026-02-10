@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TruckIcon, Search, Calendar } from 'lucide-react';
+import { procurementService } from '@/shared/api/procurement/procurement.service';
+import { PurchaseOrder } from '@/shared/api/procurement/types';
 
 type ReceptionStatus = 'pending' | 'received' | 'checked';
 
@@ -29,30 +31,30 @@ const statusLabels: Record<ReceptionStatus, string> = {
   checked: 'Vérifiée',
 };
 
-const mockReceptions: Reception[] = [
-  { id: '1', number: 'REC-2026-001', supplier: 'Dell ""', date: '2026-01-20', products: 12, quantity: 45, amount: 58495.55, status: 'pending' },
-  { id: '2', number: 'REC-2026-002', supplier: 'Office Depot', date: '2026-01-19', products: 8, quantity: 96, amount: 5400.00, status: 'received' },
-  { id: '3', number: 'REC-2026-003', supplier: 'Herman Miller', date: '2026-01-18', products: 5, quantity: 8, amount: 6800.00, status: 'checked' },
-  { id: '4', number: 'REC-2026-004', supplier: 'Logitech', date: '2026-01-17', products: 15, quantity: 234, amount: 8967.34, status: 'checked' },
-  { id: '5', number: 'REC-2026-005', supplier: 'Hamelin', date: '2026-01-16', products: 45, quantity: 1287, amount: 7078.50, status: 'checked' },
-  { id: '6', number: 'REC-2026-006', supplier: 'BIC', date: '2026-01-15', products: 23, quantity: 535, amount: 6420.00, status: 'checked' },
-  { id: '7', number: 'REC-2026-007', supplier: 'HP ""', date: '2026-01-21', products: 18, quantity: 67, amount: 32890.00, status: 'pending' },
-  { id: '8', number: 'REC-2026-008', supplier: 'Dell ""', date: '2026-01-14', products: 9, quantity: 23, amount: 8050.00, status: 'received' },
-];
-
 export default function ReceptionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReceptionStatus | 'ALL'>('ALL');
 
-  const { data: receptions = mockReceptions, isLoading } = useQuery({
+  const { data: receptions = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['receptions'],
     queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return mockReceptions;
+      const res = await procurementService.getOrders({ limit: 200 });
+      return res.data;
     },
   });
 
-  const filteredReceptions = receptions.filter((reception: Reception) => {
+  const mappedReceptions: Reception[] = receptions.map((order) => ({
+    id: order.id,
+    number: order.number,
+    supplier: order.supplier || '—',
+    date: order.date,
+    products: order.items ?? 0,
+    quantity: order.itemsDetail?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0,
+    amount: order.amount,
+    status: (order.status === 'LIVRE' ? 'checked' : order.status === 'CONFIRME' ? 'received' : 'pending') as ReceptionStatus,
+  }));
+
+  const filteredReceptions = mappedReceptions.filter((reception: Reception) => {
     const matchesSearch = 
       reception.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       reception.supplier.toLowerCase().includes(searchTerm.toLowerCase());
@@ -61,10 +63,10 @@ export default function ReceptionsPage() {
   });
 
   const stats = {
-    total: receptions.length,
-    pending: receptions.filter((r: Reception) => r.status === 'pending').length,
-    received: receptions.filter((r: Reception) => r.status === 'received').length,
-    totalAmount: receptions.reduce((sum: number, r: Reception) => sum + r.amount, 0),
+    total: mappedReceptions.length,
+    pending: mappedReceptions.filter((r: Reception) => r.status === 'pending').length,
+    received: mappedReceptions.filter((r: Reception) => r.status === 'received').length,
+    totalAmount: mappedReceptions.reduce((sum: number, r: Reception) => sum + r.amount, 0),
   };
 
   return (
@@ -80,10 +82,6 @@ export default function ReceptionsPage() {
           <TruckIcon className="w-4 h-4" />
           Nouvelle réception
         </button>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        Les receptions ne sont pas encore connectees au service procurement. Donnees affichees a titre indicatif.
       </div>
 
       <div className="grid grid-cols-4 gap-4">

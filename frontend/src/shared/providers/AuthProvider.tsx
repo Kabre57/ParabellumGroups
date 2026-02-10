@@ -5,7 +5,7 @@ import { authService } from '@/shared/api/auth';
 import { User } from '@/shared/api/shared/types';
 import Cookies from 'js-cookie';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;

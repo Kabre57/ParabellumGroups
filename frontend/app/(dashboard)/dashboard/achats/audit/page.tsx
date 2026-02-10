@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardCheck, Search, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { procurementService, StockItem } from '@/shared/api/procurement/procurement.service';
 
 type AuditStatus = 'ok' | 'warning' | 'critical';
 
@@ -36,28 +37,26 @@ const statusIcons: Record<AuditStatus, any> = {
   critical: XCircle,
 };
 
-const mockAuditData: AuditItem[] = [
-  { id: '1', product: 'Ordinateur portable Dell XPS', code: 'PROD-001', theoreticalStock: 45, actualStock: 45, variance: 0, varianceValue: 0, lastAudit: '2026-01-15', status: 'ok' },
-  { id: '2', product: 'Bureau ergonomique réglable', code: 'PROD-002', theoreticalStock: 12, actualStock: 10, variance: -2, varianceValue: -900, lastAudit: '2026-01-18', status: 'warning' },
-  { id: '3', product: 'Chaise de bureau Herman Miller', code: 'PROD-003', theoreticalStock: 8, actualStock: 8, variance: 0, varianceValue: 0, lastAudit: '2026-01-20', status: 'ok' },
-  { id: '4', product: 'Écran Dell 27 pouces', code: 'PROD-004', theoreticalStock: 23, actualStock: 18, variance: -5, varianceValue: -1750, lastAudit: '2026-01-14', status: 'critical' },
-  { id: '5', product: 'Clavier mécanique Logitech', code: 'PROD-005', theoreticalStock: 67, actualStock: 69, variance: 2, varianceValue: 179.98, lastAudit: '2026-01-19', status: 'ok' },
-  { id: '6', product: 'Papier A4 (ramette)', code: 'PROD-007', theoreticalStock: 234, actualStock: 220, variance: -14, varianceValue: -77, lastAudit: '2026-01-16', status: 'warning' },
-  { id: '7', product: 'Stylos BIC bleus (boîte de 50)', code: 'PROD-008', theoreticalStock: 89, actualStock: 89, variance: 0, varianceValue: 0, lastAudit: '2026-01-21', status: 'ok' },
-  { id: '8', product: 'Souris sans fil', code: 'PROD-006', theoreticalStock: 0, actualStock: 3, variance: 3, varianceValue: 105, lastAudit: '2026-01-12', status: 'warning' },
-];
-
 export default function AuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AuditStatus | 'ALL'>('ALL');
 
-  const { data: auditItems = mockAuditData, isLoading } = useQuery({
+  const { data: stockResponse, isLoading } = useQuery({
     queryKey: ['audit'],
-    queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return mockAuditData;
-    },
+    queryFn: () => procurementService.getStock({ limit: 200 }),
   });
+
+  const auditItems: AuditItem[] = (stockResponse?.data || []).map((item: StockItem) => ({
+    id: item.id,
+    product: item.name,
+    code: item.id,
+    theoreticalStock: item.quantity ?? 0,
+    actualStock: item.quantity ?? 0,
+    variance: 0,
+    varianceValue: 0,
+    lastAudit: item.lastRestocked || item.lastRestocked || new Date().toISOString(),
+    status: item.quantity === 0 ? 'critical' : 'ok',
+  }));
 
   const filteredAudits = auditItems.filter((item: AuditItem) => {
     const matchesSearch = 

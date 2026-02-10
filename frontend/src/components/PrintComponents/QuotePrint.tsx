@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import React from 'react';
 
 interface QuoteItem {
@@ -281,3 +283,4 @@ export default function QuotePrint({ quote, onClose }: QuotePrintProps) {
     </div>
   );
 }
+

@@ -12,10 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 
 const paymentSchema = z.object({
-  invoiceId: z.string().optional(),
-  amount: z.number().min(0.01, 'Le montant doit etre superieur a 0'),
-  paymentDate: z.string().min(1, 'La date de paiement est requise'),
-  method: z.string().min(1, 'La methode de paiement est requise'),
+  factureId: z.string().optional(),
+  montant: z.number().min(0.01, 'Le montant doit etre superieur a 0'),
+  datePaiement: z.string().min(1, 'La date de paiement est requise'),
+  modePaiement: z.string().min(1, 'La methode de paiement est requise'),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -42,13 +42,10 @@ export default function PaymentForm({
   const queryClient = useQueryClient();
   const isEditing = !!payment;
 
-  const { data: invoices } = useQuery({
+  const { data: invoicesResponse } = useQuery({
     queryKey: ['unpaidInvoices'],
     queryFn: async () => {
-      const data = await billingService.getInvoices({
-        status: ['SENT', 'OVERDUE', 'PARTIALLY_PAID'],
-      });
-      return data;
+      return billingService.getInvoices({ limit: 200 });
     },
     enabled: !invoiceId,
   });
@@ -63,18 +60,18 @@ export default function PaymentForm({
     resolver: zodResolver(paymentSchema),
     defaultValues: payment
       ? {
-          invoiceId: payment.invoiceId || payment.invoice_id || '',
-          amount: payment.amount,
-          paymentDate: payment.payment_date || payment.date,
-          method: payment.method,
+          factureId: payment.factureId || payment.invoiceId || '',
+          montant: payment.montant || payment.amount,
+          datePaiement: payment.datePaiement || payment.payment_date || payment.date,
+          modePaiement: payment.modePaiement || payment.method,
           reference: payment.reference || '',
           notes: payment.notes || '',
         }
       : {
-          invoiceId: invoiceId || '',
-          amount: remainingAmount || 0,
-          paymentDate: new Date().toISOString().split('T')[0],
-          method: 'BANK_TRANSFER',
+          factureId: invoiceId || '',
+          montant: remainingAmount || 0,
+          datePaiement: new Date().toISOString().split('T')[0],
+          modePaiement: 'VIREMENT',
           reference: '',
           notes: '',
         },
@@ -83,10 +80,10 @@ export default function PaymentForm({
   const createMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
       return billingService.createPayment({
-        invoiceId: data.invoiceId,
-        amount: data.amount,
-        payment_date: data.paymentDate,
-        method: data.method,
+        factureId: data.factureId || '',
+        montant: data.montant,
+        datePaiement: data.datePaiement,
+        modePaiement: data.modePaiement as any,
         reference: data.reference,
         notes: data.notes,
       });
@@ -102,16 +99,17 @@ export default function PaymentForm({
     },
   });
 
-  const selectedInvoiceId = watch('invoiceId');
+  const selectedInvoiceId = watch('factureId');
 
   useEffect(() => {
-    if (selectedInvoiceId && invoices) {
+    const invoices = invoicesResponse?.data ?? [];
+    if (selectedInvoiceId && invoices.length > 0) {
       const invoice = invoices.find((inv) => inv.id === selectedInvoiceId);
       if (invoice) {
-        setValue('amount', invoice.totalTTC || invoice.total_ttc || 0);
+        setValue('montant', invoice.montantTTC || 0);
       }
     }
-  }, [selectedInvoiceId, invoices, setValue]);
+  }, [selectedInvoiceId, invoicesResponse, setValue]);
 
   const onSubmit = (data: PaymentFormData) => {
     createMutation.mutate(data);
@@ -133,16 +131,18 @@ export default function PaymentForm({
         <div className="grid grid-cols-1 gap-4">
           {!invoiceId && (
             <div>
-              <Label htmlFor="invoiceId">Facture (optionnel)</Label>
+              <Label htmlFor="factureId">Facture (optionnel)</Label>
               <select
-                id="invoiceId"
-                {...register('invoiceId')}
+                id="factureId"
+                {...register('factureId')}
                 className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
               >
                 <option value="">Paiement non alloue</option>
-                {invoices?.map((invoice) => (
+                {(invoicesResponse?.data ?? [])
+                  .filter((invoice) => ['ENVOYEE', 'EN_RETARD', 'PARTIELLEMENT_PAYEE'].includes(invoice.status))
+                  .map((invoice) => (
                   <option key={invoice.id} value={invoice.id}>
-                    {invoice.invoiceNumber || invoice.invoice_number} - {formatCurrency(invoice.totalTTC || invoice.total_ttc || 0)}
+                    {invoice.numeroFacture} - {formatCurrency(invoice.montantTTC || 0)}
                   </option>
                 ))}
               </select>
@@ -167,42 +167,43 @@ export default function PaymentForm({
           )}
 
           <div>
-            <Label htmlFor="amount">Montant *</Label>
+            <Label htmlFor="montant">Montant *</Label>
             <Input
-              id="amount"
+              id="montant"
               type="number"
               step="0.01"
               min="0.01"
-              {...register('amount', { valueAsNumber: true })}
+              {...register('montant', { valueAsNumber: true })}
               className="mt-1"
             />
-            {errors.amount && (
-              <p className="text-sm text-red-500 mt-1">{errors.amount.message}</p>
+            {errors.montant && (
+              <p className="text-sm text-red-500 mt-1">{errors.montant.message}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="paymentDate">Date de paiement *</Label>
-            <Input id="paymentDate" type="date" {...register('paymentDate')} className="mt-1" />
-            {errors.paymentDate && (
-              <p className="text-sm text-red-500 mt-1">{errors.paymentDate.message}</p>
+            <Label htmlFor="datePaiement">Date de paiement *</Label>
+            <Input id="datePaiement" type="date" {...register('datePaiement')} className="mt-1" />
+            {errors.datePaiement && (
+              <p className="text-sm text-red-500 mt-1">{errors.datePaiement.message}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="method">Methode de paiement *</Label>
+            <Label htmlFor="modePaiement">Methode de paiement *</Label>
             <select
-              id="method"
-              {...register('method')}
+              id="modePaiement"
+              {...register('modePaiement')}
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
-              <option value="BANK_TRANSFER">Virement bancaire</option>
-              <option value="CASH">Especes</option>
-              <option value="CHECK">Cheque</option>
-              <option value="CREDIT_CARD">Carte bancaire</option>
+              <option value="VIREMENT">Virement bancaire</option>
+              <option value="ESPECES">Especes</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="CARTE">Carte bancaire</option>
+              <option value="PRELEVEMENT">Prelevement</option>
             </select>
-            {errors.method && (
-              <p className="text-sm text-red-500 mt-1">{errors.method.message}</p>
+            {errors.modePaiement && (
+              <p className="text-sm text-red-500 mt-1">{errors.modePaiement.message}</p>
             )}
           </div>
 
@@ -245,4 +246,3 @@ export default function PaymentForm({
     </form>
   );
 }
-

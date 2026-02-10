@@ -5,7 +5,7 @@ import { SearchParams } from '@/shared/api/types';
 export function useContracts(params?: SearchParams) {
   return useQuery({
     queryKey: ['contracts', params],
-    queryFn: () => hrService.getAllContracts(params),
+    queryFn: () => hrService.getContracts(params),
   });
 }
 
@@ -20,7 +20,7 @@ export function useContract(id: string) {
 export function useEmployeeContracts(employeeId: string) {
   return useQuery({
     queryKey: ['employee-contracts', employeeId],
-    queryFn: () => hrService.getContracts(employeeId),
+    queryFn: () => hrService.getContractsByEmployee(employeeId),
     enabled: !!employeeId,
   });
 }

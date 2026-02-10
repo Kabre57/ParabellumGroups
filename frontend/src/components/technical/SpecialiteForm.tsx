@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
-import { Specialite } from '@/shared/api/services/technical'; // Import correct de l'interface API
+import { Specialite } from '@/shared/api/technical'; // Import correct de l'interface API
 
 interface SpecialiteFormProps {
   specialite?: Specialite; // Utilise l'interface importée

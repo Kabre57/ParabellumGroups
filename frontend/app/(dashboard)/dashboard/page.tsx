@@ -20,7 +20,25 @@ import {
 import { KPICard } from '@/components/dashboard/KPICard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { analyticsService } from '@/shared/api/analytics';
+import { analyticsService, type OverviewDashboard } from '@/shared/api/analytics';
+
+type ExtendedOverview = OverviewDashboard & {
+  revenue_change?: number;
+  clients_change?: number;
+  active_projects?: number;
+  projects_change?: number;
+  invoices_change?: number;
+  conversion_rate?: number;
+  conversion_change?: number;
+  missions_change?: number;
+  recent_activities?: Array<{ id: string; type: string; description: string; timestamp: string; user?: string }>;
+  stock_alerts?: Array<{ id: string | number; name: string; stockQuantity: number; stockAlertThreshold: number }>;
+  pending_reports?: number;
+  new_clients_this_month?: number;
+  pending_quotes?: number;
+  active_employees?: number;
+  available_technicians?: number;
+};
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState('30d');
@@ -51,7 +69,7 @@ export default function DashboardPage() {
     );
   }
 
-  const stats = overviewData?.data;
+  const stats = overviewData?.data as ExtendedOverview | undefined;
   
   const kpiData = [
     {

@@ -31,27 +31,27 @@ export default function InvoiceDetailPage() {
   const invoiceId = params.num as string;
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
-  const { data: invoice, isLoading } = useQuery({
+  const { data: invoiceResponse, isLoading } = useQuery({
     queryKey: ['invoice', invoiceId],
     queryFn: () => billingService.getInvoice(invoiceId),
   });
 
-  const { data: payments } = useQuery({
+  const { data: paymentsResponse } = useQuery({
     queryKey: ['invoicePayments', invoiceId],
     queryFn: async () => {
-      const data = await billingService.getPayments({ invoiceId });
+      const data = await billingService.getPayments({ factureId: invoiceId });
       return data;
     },
   });
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
-      DRAFT: { label: 'Brouillon', variant: 'outline' },
-      SENT: { label: 'Envoyée', variant: 'default' },
-      PAID: { label: 'Payée', variant: 'success' },
-      OVERDUE: { label: 'En retard', variant: 'destructive' },
-      CANCELLED: { label: 'Annulée', variant: 'secondary' },
-      PARTIALLY_PAID: { label: 'Partiellement payée', variant: 'warning' },
+      BROUILLON: { label: 'Brouillon', variant: 'outline' },
+      ENVOYEE: { label: 'Envoyée', variant: 'default' },
+      PAYEE: { label: 'Payée', variant: 'success' },
+      EN_RETARD: { label: 'En retard', variant: 'destructive' },
+      ANNULEE: { label: 'Annulée', variant: 'secondary' },
+      PARTIALLY_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
     };
 
     const config = statusConfig[status] || { label: status, variant: 'outline' as const };
@@ -79,6 +79,9 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  const invoice = invoiceResponse?.data;
+  const payments = paymentsResponse?.data ?? [];
+
   if (!invoice) {
     return (
       <div className="text-center py-12">
@@ -95,49 +98,27 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  // Mock line items (à remplacer par les vraies données de l'API)
-  const lineItems: InvoiceItem[] =
-    invoice.items?.length
-      ? invoice.items
-      : invoice.line_items?.length
-      ? invoice.line_items
-      : [
-          {
-            id: '1',
-            description: 'Consulting services - Month of January',
-            quantity: 20,
-            unitPrice: 100,
-            vatRate: 0,
-            total: 2000,
-            totalHT: 2000,
-            totalTTC: 2000,
-          },
-          {
-            id: '2',
-            description: 'Project management',
-            quantity: 10,
-            unitPrice: 150,
-            vatRate: 0,
-            total: 1500,
-            totalHT: 1500,
-            totalTTC: 1500,
-          },
-        ];
+  const lineItems: InvoiceItem[] = invoice.lignes ?? [];
 
-  const subtotal = lineItems.reduce((sum, item) => {
-    const lineTotal =
-      item.total ??
-      item.totalTTC ??
-      item.totalHT ??
-      item.quantity * (item.unitPrice || 0);
-    return sum + lineTotal;
-  }, 0);
-  
-  const taxRate = 0.20; // 20% TVA
-  const taxAmount = subtotal * taxRate;
-  const total = subtotal + taxAmount;
+  const subtotal = invoice.montantHT ??
+    lineItems.reduce((sum, item) => {
+      const lineTotal =
+        item.total ??
+        item.totalTTC ??
+        item.totalHT ??
+        item.quantity * (item.unitPrice || 0);
+      return sum + lineTotal;
+    }, 0);
 
-  const totalPaid = (payments || []).reduce((sum, p) => sum + p.amount, 0);
+  const taxAmount =
+    invoice.montantTVA ??
+    (invoice.montantTTC && invoice.montantHT
+      ? invoice.montantTTC - invoice.montantHT
+      : subtotal * 0.2);
+
+  const total = invoice.montantTTC ?? subtotal + taxAmount;
+
+  const totalPaid = payments.reduce((sum, p) => sum + p.montant, 0);
   const remainingAmount = total - totalPaid;
 
   return (
@@ -153,7 +134,7 @@ export default function InvoiceDetailPage() {
             ← Retour
           </Button>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Facture {invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}
+            Facture {invoice.numeroFacture}
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             {getStatusBadge(invoice.status)}
@@ -179,15 +160,15 @@ export default function InvoiceDetailPage() {
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Numéro</p>
-              <p className="font-medium">{invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}</p>
+              <p className="font-medium">{invoice.numeroFacture}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Date d'émission</p>
-              <p className="font-medium">{formatDate(invoice.issueDate || invoice.issue_date || invoice.date)}</p>
+              <p className="font-medium">{formatDate(invoice.dateFacture)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Date d'échéance</p>
-              <p className="font-medium">{formatDate(invoice.dueDate || invoice.due_date)}</p>
+              <p className="font-medium">{formatDate(invoice.dateEcheance)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
@@ -201,7 +182,7 @@ export default function InvoiceDetailPage() {
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">ID Client</p>
-              <p className="font-medium">{invoice.customer?.name || invoice.customerId || invoice.customer_id}</p>
+              <p className="font-medium">{invoice.client?.nom || invoice.clientId}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
@@ -280,7 +261,7 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        {payments && payments.length > 0 ? (
+        {payments.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -292,14 +273,14 @@ export default function InvoiceDetailPage() {
             </TableHeader>
             <TableBody>
               {payments.map((payment) => (
-                <TableRow key={payment.id || payment.payment_id}>
+                <TableRow key={payment.id}>
                   <TableCell className="font-medium">
-                    PAY-{payment.id || payment.payment_id}
+                    PAY-{payment.id}
                   </TableCell>
-                  <TableCell>{formatDate(payment.payment_date || payment.datePaiement)}</TableCell>
-                  <TableCell>{payment.method}</TableCell>
+                  <TableCell>{formatDate(payment.datePaiement)}</TableCell>
+                  <TableCell>{payment.modePaiement}</TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(payment.amount)}
+                    {formatCurrency(payment.montant)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -328,7 +309,7 @@ export default function InvoiceDetailPage() {
           </DialogHeader>
           <PaymentForm
             invoiceId={invoiceId}
-            invoiceNumber={invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}
+            invoiceNumber={invoice.numeroFacture}
             remainingAmount={remainingAmount}
             onSuccess={() => setIsPaymentDialogOpen(false)}
             onCancel={() => setIsPaymentDialogOpen(false)}
@@ -338,3 +319,4 @@ export default function InvoiceDetailPage() {
     </div>
   );
 }
+

@@ -12,7 +12,7 @@ const getUserPermissions = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
       include: {
-        userPermissions: {
+        user_permissions: {
           include: {
             permission: true
           }

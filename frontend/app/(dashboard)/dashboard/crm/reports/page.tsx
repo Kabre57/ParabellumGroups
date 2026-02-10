@@ -21,8 +21,15 @@ export default function CRMReportsPage() {
   const { data: reports, isLoading } = useQuery({
     queryKey: ['crm-reports'],
     queryFn: async () => {
-      const allReports = await analyticsService.getReports();
-      // Filtrer pour ne garder que les rapports liés aux ventes/CRM
+      const dashboards = await analyticsService.getDashboards();
+      const allReports = dashboards.map((dashboard) => ({
+        id: dashboard.id,
+        nom: dashboard.nom,
+        type: 'CUSTOM',
+        format: 'DASHBOARD',
+        frequence: 'MANUEL',
+        updatedAt: dashboard.updatedAt,
+      }));
       return allReports.filter(r => r.type === 'VENTES' || r.type === 'CUSTOM');
     },
   });
@@ -103,3 +110,4 @@ export default function CRMReportsPage() {
     </div>
   );
 }
+

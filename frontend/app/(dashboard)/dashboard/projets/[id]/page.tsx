@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { projectsService } from '@/services/projects';
 import { TaskBoard } from '@/components/projects/TaskBoard';
-import type { ApiResponse, Project } from '@/shared/api/types';
+import type { Project } from '@/shared/api/types';
 
 interface ProjectDetailsProps {
   params: {
@@ -36,7 +36,7 @@ interface Document {
 export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
   const [activeTab, setActiveTab] = useState<TabType>('info');
 
-  const { data: response, isLoading } = useQuery<ApiResponse<Project>>({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['project', params.id],
     queryFn: () => projectsService.getProject(params.id),
   });
@@ -54,7 +54,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
   const completion = project.completion ?? 0;
   const budgetUsage = budgetValue > 0 ? (spentValue / budgetValue) * 100 : 0;
   const projectNumber = project.projectNumber || project.id.slice(0, 8);
-  const clientLabel = project.clientName || project.customer?.name || project.customerId || 'â€”';
+  const clientLabel = project.clientName || project.customer?.companyName || project.customerId || 'â€”';
   const startDateLabel = project.startDate ? new Date(project.startDate).toLocaleDateString() : 'â€”';
   const endDateLabel = project.endDate ? new Date(project.endDate).toLocaleDateString() : 'â€”';
 
@@ -279,5 +279,6 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
     </div>
   );
 }
+
 
 

@@ -29,12 +29,24 @@ class ApiClient {
    * Configuration des intercepteurs pour authentification et gestion d'erreurs
    */
   private setupInterceptors(): void {
+    const shouldLogResponses =
+      typeof window !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_API === 'true';
     // Intercepteur de requête - ajoute le token JWT
     this.instance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = this.getToken();
+        console.log('[ApiClient REQUEST] Token:', token ? `${token.substring(0, 20)}...` : 'NULL', 'URL:', config.url);
         if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
+          // Use .set() method for Axios 1.x AxiosHeaders
+          if (typeof config.headers.set === 'function') {
+            config.headers.set('Authorization', `Bearer ${token}`);
+            console.log('[ApiClient REQUEST] Token attached via .set()');
+          } else {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log('[ApiClient REQUEST] Token attached via direct assignment');
+          }
+        } else {
+          console.log('[ApiClient REQUEST] NO TOKEN ATTACHED');
         }
         return config;
       },
@@ -46,6 +58,13 @@ class ApiClient {
     // Intercepteur de réponse - gestion d'erreurs globale
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => {
+        if (shouldLogResponses) {
+          console.debug('[ApiClient RESPONSE]', {
+            url: response.config?.url,
+            status: response.status,
+            data: response.data,
+          });
+        }
         return response;
       },
       async (error: AxiosError) => {
@@ -101,11 +120,18 @@ class ApiClient {
         if (this.shouldRetryWithRefresh(error)) {
           try {
             await this.refreshAccessToken();
-            // Retry la requête originale
-            const config = error.config!;
+            // Retry la requête originale avec le nouveau token
+            const config = error.config as any;
+            // IMPORTANT: marquer AVANT de modifier les headers
+            config._retry = true;
             const token = this.getToken();
             if (token && config.headers) {
-              config.headers.Authorization = `Bearer ${token}`;
+              // Use .set() method for Axios 1.x AxiosHeaders
+              if (typeof config.headers.set === 'function') {
+                config.headers.set('Authorization', `Bearer ${token}`);
+              } else {
+                config.headers.Authorization = `Bearer ${token}`;
+              }
             }
             return this.instance.request(config);
           } catch (refreshError) {
@@ -265,3 +291,4 @@ export default apiClient;
 
 // Export de l'instance Axios pour compatibilité
 export const axiosInstance = apiClient.getAxiosInstance();
+

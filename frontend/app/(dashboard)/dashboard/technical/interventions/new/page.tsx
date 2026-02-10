@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateIntervention } from '@/hooks/useTechnical';
 import { InterventionForm } from '@/components/technical/InterventionForm';
-import { Intervention } from '@/shared/api/services/technical';
+import { Intervention } from '@/shared/api/technical';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -14,7 +14,7 @@ export default function NewInterventionPage() {
   const createMutation = useCreateIntervention();
 
   const handleSubmit = (data: Partial<Intervention>) => {
-    createMutation.mutate(data, {
+    createMutation.mutate(data as any, {
       onSuccess: () => {
         router.push('/dashboard/technical/interventions');
       },

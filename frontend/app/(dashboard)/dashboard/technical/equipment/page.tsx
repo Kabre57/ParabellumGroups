@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useMateriel, useDeleteMateriel, useCreateMateriel, useUpdateMateriel } from '@/hooks/useTechnical';
-import { Materiel } from '@/shared/api/services/technical';
+import { Materiel } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,7 @@ export default function EquipmentPage() {
         }
       });
     } else {
-      createMutation.mutate(data, {
+      createMutation.mutate(data as any, {
         onSuccess: () => {
           setShowForm(false);
         }

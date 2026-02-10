@@ -380,7 +380,7 @@ export default function ProspectionWorkflowPage() {
 
   const queryClient = useQueryClient();
 
-  const { data: prospectsData, isLoading: prospectsLoading } = useQuery({
+  const { data: prospectsData, isLoading: prospectsLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', selectedStage, searchQuery],
     queryFn: () => commercialService.getProspects({
       stage: selectedStage !== 'all' ? selectedStage : undefined,
@@ -389,14 +389,14 @@ export default function ProspectionWorkflowPage() {
     })
   });
 
-  const { data: statsData } = useQuery({
+  const { data: statsData } = useQuery<ProspectionStats>({
     queryKey: ['prospection-stats'],
     queryFn: () => commercialService.getStats()
   });
 
   const moveProspectMutation = useMutation({
     mutationFn: ({ id, newStage }: { id: string; newStage: ProspectStage }) =>
-      commercialService.moveProspect(id, { stage: newStage }),
+      commercialService.updateProspect(id, { stage: newStage }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       queryClient.invalidateQueries({ queryKey: ['prospection-stats'] });
@@ -439,8 +439,8 @@ export default function ProspectionWorkflowPage() {
     }
   };
 
-  const prospects = prospectsData?.data || [];
-  const statistics = statsData?.data;
+  const prospects = prospectsData || [];
+  const statistics = statsData;
 
   return (
     <div className="space-y-6">

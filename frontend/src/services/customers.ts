@@ -1,1 +1,1 @@
-export * from '@/shared/api/services/customers';
+export * from '@/shared/api/customers';

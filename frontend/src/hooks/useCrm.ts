@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { crmService } from '@/shared/api/services/crm';
+import { crmService } from '@/shared/api/crm';
 
 // ==================== CLIENTS ====================
 
@@ -225,7 +225,10 @@ export function useUpdateContratStatus() {
 export function useContratAvenants(id: string) {
   return useQuery({
     queryKey: ['crm', 'contrat-avenants', id],
-    queryFn: () => crmService.getContratAvenants(id),
+    queryFn: async () => {
+      const response = await crmService.getContrat(id);
+      return (response as any)?.data?.avenants ?? [];
+    },
     enabled: !!id,
   });
 }
@@ -258,10 +261,10 @@ export function useCreateInteraction() {
   });
 }
 
-export function useInteractionsStats(params?: Record<string, any>) {
+export function useInteractionsStats() {
   return useQuery({
-    queryKey: ['crm', 'interactions-stats', params],
-    queryFn: () => crmService.getInteractionsStats(params),
+    queryKey: ['crm', 'interactions-stats'],
+    queryFn: () => crmService.getInteractionsStats(),
   });
 }
 
@@ -269,7 +272,7 @@ export function useLinkInteractionTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.linkInteractionTask(id, data),
+    mutationFn: ({ id, tacheId }: { id: string; tacheId: string }) => crmService.linkToTask(id, tacheId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['crm', 'interactions'] });
       queryClient.invalidateQueries({ queryKey: ['crm', 'interaction', variables.id] });
@@ -308,7 +311,7 @@ export function useCreateOpportunite() {
 export function useOpportunitesPipeline(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'opportunites-pipeline', params],
-    queryFn: () => crmService.getOpportunitesPipeline(params),
+    queryFn: () => crmService.getPipelineStats(),
   });
 }
 
@@ -316,7 +319,7 @@ export function useUpdateOpportuniteStage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateOpportuniteStage(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateStage(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['crm', 'opportunites'] });
       queryClient.invalidateQueries({ queryKey: ['crm', 'opportunite', variables.id] });
@@ -340,7 +343,7 @@ export function useAddOpportuniteProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.addOpportuniteProduct(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.addProduct(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['crm', 'opportunites'] });
       queryClient.invalidateQueries({ queryKey: ['crm', 'opportunite', variables.id] });

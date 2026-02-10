@@ -13,7 +13,7 @@ CREATE TABLE "prospects" (
     "address" TEXT,
     "city" TEXT,
     "postalCode" TEXT,
-    "country" TEXT NOT NULL DEFAULT "Côte d'Ivoire",
+    "country" TEXT NOT NULL DEFAULT 'Côte d''Ivoire',
     "stage" TEXT NOT NULL DEFAULT 'preparation',
     "priority" TEXT NOT NULL DEFAULT 'C',
     "score" INTEGER NOT NULL DEFAULT 0,

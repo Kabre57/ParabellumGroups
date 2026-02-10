@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMissions, useDeleteMission, useUpdateMissionStatus, useCreateMission, useUpdateMission } from '@/hooks/useTechnical';
-import { Mission } from '@/shared/api/services/technical';
+import { Mission } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';

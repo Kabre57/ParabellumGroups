@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { billingService } from '@/shared/api/billing';
 
 type QuoteStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired';
 
@@ -54,75 +55,27 @@ export default function QuotesPage() {
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | 'all'>('all');
   const queryClient = useQueryClient();
 
-  // Mock data - à remplacer par l'API
-  const mockQuotes: Quote[] = [
-    {
-      id: '1',
-      number: 'DEV-2024-001',
-      title: 'Déploiement ERP Module Finance',
-      company: 'TechCorp SA',
-      contact: 'Marie Dupont',
-      amount: 150000,
-      status: 'sent',
-      validUntil: '2024-02-15',
-      sentAt: '2024-01-15',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      number: 'DEV-2024-002',
-      title: 'Maintenance Infrastructure IT',
-      company: 'Industries Modernes',
-      contact: 'Jean Martin',
-      amount: 50000,
-      status: 'accepted',
-      validUntil: '2024-02-28',
-      sentAt: '2024-01-12',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-20'
-    },
-    {
-      id: '3',
-      number: 'DEV-2024-003',
-      title: 'Audit Cybersécurité Complet',
-      company: 'SecureBank',
-      contact: 'Sophie Bernard',
-      amount: 80000,
-      status: 'viewed',
-      validUntil: '2024-03-10',
-      sentAt: '2024-01-18',
-      createdAt: '2024-01-15',
-      updatedAt: '2024-01-19'
-    },
-    {
-      id: '4',
-      number: 'DEV-2024-004',
-      title: 'Formation DevOps & Cloud',
-      company: 'StartupTech',
-      contact: 'Paul Durand',
-      amount: 25000,
-      status: 'draft',
-      validUntil: '2024-02-20',
-      createdAt: '2024-01-20',
-      updatedAt: '2024-01-20'
-    },
-    {
-      id: '5',
-      number: 'DEV-2024-005',
-      title: 'Développement Application Mobile',
-      company: 'RetailGroup',
-      contact: 'Claire Petit',
-      amount: 120000,
-      status: 'rejected',
-      validUntil: '2024-01-25',
-      sentAt: '2024-01-05',
-      createdAt: '2024-01-02',
-      updatedAt: '2024-01-22'
-    }
-  ];
+  const { data: quotesResponse } = useQuery({
+    queryKey: ['quotes'],
+    queryFn: () => billingService.getQuotes({ limit: 200 }),
+  });
 
-  const quotes = mockQuotes;
+  const quotes: Quote[] = useMemo(() => {
+    const list = quotesResponse?.data || [];
+    return list.map((q) => ({
+      id: q.id,
+      number: q.numeroDevis || q.id,
+      title: q.notes || 'Devis',
+      company: q.client?.nom || q.clientId || 'Client',
+      contact: (q.client as any)?.contact || '—',
+      amount: q.montantTTC ?? q.montantHT ?? 0,
+      status: (q.status?.toLowerCase() as QuoteStatus) || 'draft',
+      validUntil: q.dateValidite || '',
+      sentAt: q.dateDevis || '',
+      createdAt: q.createdAt || '',
+      updatedAt: q.updatedAt || q.dateDevis || '',
+    }));
+  }, [quotesResponse]);
 
   // Filtrage
   const filteredQuotes = quotes.filter(quote => {

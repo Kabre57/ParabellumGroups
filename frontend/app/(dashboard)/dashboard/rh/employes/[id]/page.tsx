@@ -25,35 +25,39 @@ export default function EmployeeProfilePage() {
     enabled: !!employeeId,
   });
 
-  const { data: contracts, isLoading: contractsLoading } = useQuery({
+  const { data: contractsResponse, isLoading: contractsLoading } = useQuery({
     queryKey: ['contracts', employeeId],
-    queryFn: () => hrService.getContracts(employeeId),
+    queryFn: () => hrService.getContractsByEmployee(employeeId),
     enabled: !!employeeId,
   });
 
-  const { data: payrolls, isLoading: payrollsLoading } = useQuery({
+  const { data: payrollsResponse, isLoading: payrollsLoading } = useQuery({
     queryKey: ['payrolls', employeeId],
     queryFn: async () => {
-      const response = await hrService.getPayroll({ 
-        pageSize: 100,
-        filters: { employeeId }
+      const response = await hrService.getPayrolls({ 
+        limit: 100,
+        employeeId
       });
       return response.data || [];
     },
     enabled: !!employeeId,
   });
 
-  const { data: leaveRequests, isLoading: leavesLoading } = useQuery({
+  const { data: leaveRequestsResponse, isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', employeeId],
     queryFn: async () => {
-      const response = await hrService.getLeaveRequests({ 
-        pageSize: 100,
-        filters: { employeeId }
+      const response = await hrService.getConges({ 
+        limit: 100,
+        employeId: employeeId
       });
       return response.data || [];
     },
     enabled: !!employeeId,
   });
+
+  const contracts = contractsResponse?.data ?? [];
+  const payrolls = payrollsResponse ?? [];
+  const leaveRequests = leaveRequestsResponse ?? [];
 
   if (employeeLoading) {
     return (
@@ -313,25 +317,25 @@ export default function EmployeeProfilePage() {
                   <div key={leave.id} className="flex justify-between items-start p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {leave.leaveType}
+                        {leave.typeConge}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Du {format(new Date(leave.startDate), 'dd MMM yyyy', { locale: fr })} au {format(new Date(leave.endDate), 'dd MMM yyyy', { locale: fr })}
+                        Du {format(new Date(leave.dateDebut), 'dd MMM yyyy', { locale: fr })} au {format(new Date(leave.dateFin), 'dd MMM yyyy', { locale: fr })}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {leave.totalDays} jour(s)
+                        {leave.nbJours} jour(s)
                       </p>
-                      {leave.reason && (
+                      {leave.motif && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                          Raison: {leave.reason}
+                          Raison: {leave.motif}
                         </p>
                       )}
                     </div>
                     <Badge variant={
-                      leave.status === 'PENDING' ? 'outline' :
-                      leave.status === 'APPROVED' ? 'success' : 'destructive'
+                      leave.statut === 'EN_ATTENTE' ? 'outline' :
+                      leave.statut === 'APPROUVE' ? 'success' : 'destructive'
                     }>
-                      {leave.status}
+                      {leave.statut}
                     </Badge>
                   </div>
                 ))}
@@ -359,3 +363,6 @@ export default function EmployeeProfilePage() {
     </div>
   );
 }
+
+
+

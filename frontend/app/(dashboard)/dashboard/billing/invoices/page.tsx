@@ -142,16 +142,16 @@ export default function InvoicesPage() {
                             {invoice.invoiceNumber || invoice.invoice_number}
                           </span>
                           {overdue && (
-                            <AlertCircle className="w-4 h-4 text-red-500" title="En retard" />
+                            <AlertCircle className="w-4 h-4 text-red-500" />
                           )}
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-gray-900 dark:text-white">
-                          {invoice.customer?.name || 'Client non spécifié'}
+                          {invoice.client?.nom || invoice.customer?.nom || invoice.customer?.companyName || invoice.customer?.name || 'Client non spécifié'}
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {invoice.customer?.email}
+                          {invoice.client?.email || invoice.customer?.email}
                         </div>
                       </td>
                       <td className="py-3 px-4 text-gray-700 dark:text-gray-300">
@@ -248,3 +248,4 @@ export default function InvoicesPage() {
     </div>
   );
 }
+

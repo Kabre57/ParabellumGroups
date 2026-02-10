@@ -31,7 +31,7 @@ export default function PaiementsPage() {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const { data: payments, isLoading } = useQuery({
+  const { data: paymentsResponse, isLoading } = useQuery({
     queryKey: ['payments', searchQuery, methodFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
@@ -44,10 +44,10 @@ export default function PaiementsPage() {
 
   const getMethodBadge = (method: string) => {
     const methodConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
-      CASH: { label: 'Espèces', variant: 'success' },
-      BANK_TRANSFER: { label: 'Virement', variant: 'default' },
-      CHECK: { label: 'Chèque', variant: 'outline' },
-      CREDIT_CARD: { label: 'Carte bancaire', variant: 'secondary' },
+      ESPECES: { label: 'Espèces', variant: 'success' },
+      VIREMENT: { label: 'Virement', variant: 'default' },
+      CHEQUE: { label: 'Chèque', variant: 'outline' },
+      CARTE: { label: 'Carte bancaire', variant: 'secondary' },
     };
 
     const config = methodConfig[method] || { label: method, variant: 'outline' as const };
@@ -64,6 +64,8 @@ export default function PaiementsPage() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR');
   };
+
+  const payments = paymentsResponse?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -100,10 +102,10 @@ export default function PaiementsPage() {
               onChange={(e) => setMethodFilter(e.target.value)}
             >
               <option value="all">Toutes les méthodes</option>
-              <option value="CASH">Espèces</option>
-              <option value="BANK_TRANSFER">Virement</option>
-              <option value="CHECK">Chèque</option>
-              <option value="CREDIT_CARD">Carte bancaire</option>
+              <option value="ESPECES">Espèces</option>
+              <option value="VIREMENT">Virement</option>
+              <option value="CHEQUE">Chèque</option>
+              <option value="CARTE">Carte bancaire</option>
             </select>
           </div>
         </div>
@@ -115,7 +117,7 @@ export default function PaiementsPage() {
           <div className="flex justify-center items-center py-12">
             <Spinner />
           </div>
-        ) : payments && payments.length > 0 ? (
+        ) : payments.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -130,28 +132,28 @@ export default function PaiementsPage() {
             </TableHeader>
             <TableBody>
               {payments.map((payment) => (
-                <TableRow key={payment.id || payment.payment_id}>
+                <TableRow key={payment.id}>
                   <TableCell className="font-medium">
-                    PAY-{payment.id || payment.payment_id}
+                    PAY-{payment.id}
                   </TableCell>
                   <TableCell>
-                    {payment.invoiceId ? (
+                    {payment.factureId ? (
                       <Button
                         variant="link"
                         className="p-0 h-auto"
-                        onClick={() => router.push(`/dashboard/facturation/factures/${payment.invoiceId}`)}
+                        onClick={() => router.push(`/dashboard/facturation/factures/${payment.factureId}`)}
                       >
-                        {payment.invoiceNumber || payment.invoice_num || payment.invoiceId}
+                        {payment.facture?.numeroFacture || payment.factureId}
                       </Button>
                     ) : (
                       '-'
                     )}
                   </TableCell>
-                  <TableCell>{formatDate(payment.payment_date || payment.datePaiement)}</TableCell>
-                  <TableCell>{getMethodBadge(payment.method)}</TableCell>
+                  <TableCell>{formatDate(payment.datePaiement)}</TableCell>
+                  <TableCell>{getMethodBadge(payment.modePaiement)}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.amount)}
+                    {formatCurrency(payment.montant)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -190,3 +192,4 @@ export default function PaiementsPage() {
     </div>
   );
 }
+

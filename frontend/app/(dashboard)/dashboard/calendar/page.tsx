@@ -1,12 +1,14 @@
-'use client';
+﻿"use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Users, Clock, AlertCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { projectsService } from '@/shared/api/projects/projects.service';
+import { Project } from '@/shared/api/shared/types';
 
 interface Event {
   id: string;
@@ -24,89 +26,36 @@ const CalendarPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ['events'],
-    queryFn: async () => {
-      const mockEvents: Event[] = [
-        {
-          id: '1',
-          title: 'Kickoff Meeting',
-          project: 'ERP Implementation',
-          type: 'meeting',
-          date: '2026-01-15',
-          time: '10:00',
-          duration: 120,
-          attendees: ['John Doe', 'Jane Smith', 'Bob Wilson'],
-          status: 'completed'
-        },
-        {
-          id: '2',
-          title: 'Phase 1 Deadline',
-          project: 'ERP Implementation',
-          type: 'deadline',
-          date: '2026-01-25',
-          time: '17:00',
-          duration: 0,
-          attendees: [],
-          status: 'scheduled'
-        },
-        {
-          id: '3',
-          title: 'Design Review',
-          project: 'Website Redesign',
-          type: 'meeting',
-          date: '2026-01-22',
-          time: '14:00',
-          duration: 60,
-          attendees: ['Alice Brown', 'Charlie Davis'],
-          status: 'scheduled'
-        },
-        {
-          id: '4',
-          title: 'Database Migration',
-          project: 'ERP Implementation',
-          type: 'task',
-          date: '2026-01-20',
-          time: '09:00',
-          duration: 240,
-          attendees: ['Bob Wilson'],
-          status: 'scheduled'
-        },
-        {
-          id: '5',
-          title: 'Client Presentation',
-          project: 'Website Redesign',
-          type: 'meeting',
-          date: '2026-01-18',
-          time: '11:00',
-          duration: 90,
-          attendees: ['John Doe', 'Jane Smith'],
-          status: 'cancelled'
-        },
-        {
-          id: '6',
-          title: 'Final Deliverable',
-          project: 'Mobile App',
-          type: 'deadline',
-          date: '2026-01-30',
-          time: '23:59',
-          duration: 0,
-          attendees: [],
-          status: 'scheduled'
-        }
-      ];
-      return mockEvents;
-    }
+  const { data: projectsResponse, isLoading } = useQuery({
+    queryKey: ['projects-calendar'],
+    queryFn: () => projectsService.getProjects({ limit: 200 }),
   });
 
+  const events: Event[] = useMemo(() => {
+    const projects: Project[] = projectsResponse?.data || [];
+    return projects
+      .filter((p) => p.startDate || p.endDate)
+      .map((p) => ({
+        id: p.id,
+        title: p.name,
+        project: p.clientName || p.customer?.companyName || 'Projet',
+        type: 'deadline',
+        date: p.endDate || p.startDate,
+        time: '00:00',
+        duration: 0,
+        attendees: [],
+        status: 'scheduled',
+      }));
+  }, [projectsResponse]);
+
   const stats = {
-    totalEvents: events.filter(e => e.date.startsWith('2026-01')).length,
-    meetings: events.filter(e => e.type === 'meeting').length,
-    deadlines: events.filter(e => e.type === 'deadline').length,
-    occupationRate: 78
+    totalEvents: events.length,
+    meetings: events.filter((e) => e.type === 'meeting').length,
+    deadlines: events.filter((e) => e.type === 'deadline').length,
+    occupationRate: events.length ? 80 : 0,
   };
 
-  const filteredEvents = events.filter(event =>
+  const filteredEvents = events.filter((event) =>
     event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     event.project.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -115,7 +64,7 @@ const CalendarPage = () => {
     const colors = {
       meeting: 'bg-blue-500/10 text-blue-500',
       deadline: 'bg-red-500/10 text-red-500',
-      task: 'bg-green-500/10 text-green-500'
+      task: 'bg-green-500/10 text-green-500',
     };
     return colors[type];
   };
@@ -124,7 +73,7 @@ const CalendarPage = () => {
     const colors = {
       scheduled: 'bg-yellow-500/10 text-yellow-500',
       completed: 'bg-green-500/10 text-green-500',
-      cancelled: 'bg-gray-500/10 text-gray-500'
+      cancelled: 'bg-gray-500/10 text-gray-500',
     };
     return colors[status];
   };
@@ -146,7 +95,7 @@ const CalendarPage = () => {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Événements ce mois</CardTitle>
+            <CardTitle className="text-sm font-medium">Événements</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -236,7 +185,7 @@ const CalendarPage = () => {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {event.time} {event.duration > 0 && `(${event.duration} min)`}
+                        {event.time}
                       </span>
                       {event.attendees.length > 0 && (
                         <span className="flex items-center gap-1">
@@ -257,6 +206,9 @@ const CalendarPage = () => {
                 </div>
               </div>
             ))}
+            {filteredEvents.length === 0 && (
+              <div className="text-sm text-muted-foreground">Aucun événement trouvé.</div>
+            )}
           </div>
         </CardContent>
       </Card>

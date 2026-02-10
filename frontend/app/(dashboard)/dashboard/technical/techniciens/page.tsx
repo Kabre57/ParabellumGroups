@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTechniciens, useDeleteTechnicien, useCreateTechnicien, useUpdateTechnicien } from '@/hooks/useTechnical';
-import { Technicien } from '@/shared/api/services/technical';
+import { Technicien } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';

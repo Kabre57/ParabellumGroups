@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSpecialites, useDeleteSpecialite, useCreateSpecialite, useUpdateSpecialite } from '@/hooks/useTechnical';
-import { Specialite } from '@/shared/api/services/technical';
+import { Specialite } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2, Printer } from 'lucide-react';
@@ -50,7 +50,7 @@ export default function SpecialitesPage() {
         }
       });
     } else {
-      createMutation.mutate(data, {
+      createMutation.mutate(data as any, {
         onSuccess: () => {
           setShowForm(false);
         }

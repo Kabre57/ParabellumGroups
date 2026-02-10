@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Materiel, SortirMaterielRequest } from '@/shared/api/services/technical';
+import { technicalService, Materiel, SortirMaterielRequest } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,12 +26,13 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
     notes: '',
   });
 
-  const { data: materielData = [], isLoading } = useQuery({
+  const { data: materielResponse, isLoading } = useQuery({
     queryKey: ['materiel'],
     queryFn: async () => {
-      return await technicalService.getMateriel({ pageSize: 100 });
+      return await technicalService.getMateriels({ limit: 100 });
     },
   });
+  const materielData = materielResponse?.data ?? [];
 
   const sortirMutation = useMutation({
     mutationFn: (data: SortirMaterielRequest) => technicalService.sortirMateriel(data),
@@ -70,10 +71,22 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
     sortirMutation.mutate(payload);
   };
 
+  const availableQuantity =
+    selectedMateriel?.availableQuantity
+    ?? selectedMateriel?.quantiteDisponible
+    ?? selectedMateriel?.quantiteStock
+    ?? 0;
+
+  const totalQuantity =
+    selectedMateriel?.quantity
+    ?? selectedMateriel?.quantiteTotale
+    ?? selectedMateriel?.quantiteStock
+    ?? 0;
+
   const isQuantityValid =
     selectedMateriel &&
     formData.quantity > 0 &&
-    formData.quantity <= (selectedMateriel.availableQuantity ?? selectedMateriel.quantiteDisponible ?? 0);
+    formData.quantity <= availableQuantity;
 
   if (isLoading) {
     return (
@@ -119,17 +132,23 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
             required
           >
             <option value="">Selectionner un materiel</option>
-            {materielData.map((materiel: Materiel) => (
+            {materielData.map((materiel: Materiel) => {
+              const materielAvailable =
+                materiel.availableQuantity
+                ?? materiel.quantiteDisponible
+                ?? materiel.quantiteStock
+                ?? 0;
+              return (
               <option
                 key={materiel.id}
                 value={materiel.id}
-                disabled={(materiel.availableQuantity ?? 0) === 0}
+                disabled={materielAvailable === 0}
               >
                 {materiel.name || materiel.nom} - {materiel.reference} (
-                {materiel.availableQuantity ?? materiel.quantiteDisponible ?? 0} {materiel.unit || 'u'} disponible
-                {(materiel.availableQuantity ?? 0) > 1 ? 's' : ''})
+                {materielAvailable} {materiel.unit || 'u'} disponible
+                {materielAvailable > 1 ? 's' : ''})
               </option>
-            ))}
+            )})}
           </select>
         </div>
 
@@ -146,13 +165,13 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Stock total</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedMateriel.quantity ?? selectedMateriel.quantiteTotale ?? 0} {selectedMateriel.unit || 'u'}
+                  {totalQuantity} {selectedMateriel.unit || 'u'}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Disponible</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedMateriel.availableQuantity ?? selectedMateriel.quantiteDisponible ?? 0} {selectedMateriel.unit || 'u'}
+                  {availableQuantity} {selectedMateriel.unit || 'u'}
                 </p>
               </div>
               <div>
@@ -172,7 +191,7 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
             id="quantity"
             type="number"
             min="1"
-            max={selectedMateriel?.availableQuantity || 999}
+            max={availableQuantity || 999}
             value={formData.quantity}
             onChange={(e) =>
               setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 1 })
@@ -182,7 +201,7 @@ export default function MaterielSortie({ interventionId, onSuccess }: MaterielSo
           />
           {selectedMateriel && !isQuantityValid && formData.quantity > 0 && (
             <p className="mt-1 text-sm text-red-600">
-              Quantite non disponible (max: {selectedMateriel.availableQuantity ?? 0})
+              Quantite non disponible (max: {availableQuantity})
             </p>
           )}
         </div>

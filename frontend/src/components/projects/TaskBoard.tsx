@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { projectsService, Task } from '@/shared/api/projects';
-import type { ApiResponse, PaginatedResponse } from '@/shared/api/types';
 
 type TaskStatus = Task['status'];
 type TaskPriority = Task['priority'];
@@ -34,12 +33,12 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 export function TaskBoard({ projectId }: TaskBoardProps) {
-  const { data: response, isLoading } = useQuery<ApiResponse<PaginatedResponse<Task>>>({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['project-tasks', projectId],
-    queryFn: () => projectsService.getTasks(projectId),
+    queryFn: () => projectsService.getTasks({ projectId }),
   });
 
-  const tasks = response?.data.data ?? [];
+  const tasks = response?.data ?? [];
 
   const columns: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'DONE', 'BLOCKED'];
 

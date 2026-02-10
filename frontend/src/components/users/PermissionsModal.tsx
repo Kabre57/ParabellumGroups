@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Shield, Check, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -31,17 +31,19 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
     enabled: isOpen && !!user?.id,
   });
 
-  const permissions = permissionsData?.data || [];
-  const userPermissions = userPermissionsData?.data || [];
+  const permissions = useMemo(() => permissionsData?.data || [], [permissionsData]);
+  const userPermissions = useMemo(() => userPermissionsData?.data || [], [userPermissionsData]);
 
-  const permissionsByCategory = permissions.reduce((acc: Record<string, any[]>, perm: any) => {
-    const category = perm.category || 'Autre';
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(perm);
-    return acc;
-  }, {});
+  const permissionsByCategory = useMemo(() => {
+    return permissions.reduce((acc: Record<string, any[]>, perm: any) => {
+      const category = perm.category || 'Autre';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(perm);
+      return acc;
+    }, {});
+  }, [permissions]);
 
   useEffect(() => {
     if (userPermissions.length > 0) {
@@ -51,7 +53,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
     if (Object.keys(permissionsByCategory).length > 0) {
       setExpandedCategories(new Set(Object.keys(permissionsByCategory)));
     }
-  }, [userPermissions, permissions]);
+  }, [userPermissions, permissions, permissionsByCategory]);
 
   const togglePermission = (permissionId: number) => {
     const newPermissions = new Set(selectedPermissions);

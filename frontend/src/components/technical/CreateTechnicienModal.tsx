@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { X, User as UserIcon, Phone, Wrench, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSpecialites, useCreateTechnicien } from '@/hooks/useTechnical';
-import { Specialite } from '@/shared/api/services/technical';
+import { Specialite } from '@/shared/api/technical';
 
 const createTechnicienSchema = z.object({
   prenom: z.string().min(1, 'Prénom requis'),

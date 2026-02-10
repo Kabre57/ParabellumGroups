@@ -36,27 +36,17 @@ export function OverviewDashboard() {
 
   // Real data from API
   const dashboardData = data?.data;
-  const monthlyRevenue = dashboardData?.monthly_revenue || [45000, 52000, 48000, 61000, 55000, 67000, 72000, 65000, 78000, 82000, 88000, 95000];
+  const monthlyRevenue = dashboardData?.monthly_revenue ?? [];
   const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-  const topClients = dashboardData?.top_clients || [
-    { name: 'Entreprise A', revenue: 45000 },
-    { name: 'Entreprise B', revenue: 38000 },
-    { name: 'Entreprise C', revenue: 32000 },
-    { name: 'Entreprise D', revenue: 28000 },
-    { name: 'Entreprise E', revenue: 25000 },
-  ];
+  const topClients = dashboardData?.top_clients ?? [];
 
-  const overdueInvoices = dashboardData?.overdue_invoices || [
-    { client: 'Client X', amount: 5500, days: 15 },
-    { client: 'Client Y', amount: 3200, days: 8 },
-    { client: 'Client Z', amount: 2800, days: 5 },
-  ];
+  const overdueInvoices = dashboardData?.overdue_invoices ?? [];
 
   const stats = [
     {
       title: 'Utilisateurs',
-      value: dashboardData?.users || 47,
+      value: dashboardData?.users ?? 0,
       icon: Users,
       color: 'blue',
       bgColor: 'bg-blue-100 dark:bg-blue-900/20',
@@ -64,7 +54,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Clients',
-      value: dashboardData?.clients || 128,
+      value: dashboardData?.clients ?? 0,
       icon: Building2,
       color: 'green',
       bgColor: 'bg-green-100 dark:bg-green-900/20',
@@ -72,7 +62,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Chiffre d\'affaires',
-      value: `${((dashboardData?.revenue || 825000) / 1000).toFixed(0)}KF`,
+      value: `${((dashboardData?.revenue ?? 0) / 1000).toFixed(0)}KF`,
       icon: DollarSign,
       color: 'orange',
       bgColor: 'bg-orange-100 dark:bg-orange-900/20',
@@ -80,7 +70,7 @@ export function OverviewDashboard() {
     },
     {
       title: 'Missions actives',
-      value: dashboardData?.active_missions || 34,
+      value: dashboardData?.active_missions ?? 0,
       icon: Briefcase,
       color: 'purple',
       bgColor: 'bg-purple-100 dark:bg-purple-900/20',
@@ -125,15 +115,21 @@ export function OverviewDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <LineChart
-            data={monthlyRevenue}
-            labels={months}
-            label="CA (F)"
-            color="rgb(59, 130, 246)"
-            backgroundColor="rgba(59, 130, 246, 0.1)"
-            fill={true}
-            height={300}
-          />
+          {monthlyRevenue.length > 0 ? (
+            <LineChart
+              data={monthlyRevenue}
+              labels={months}
+              label="CA (F)"
+              color="rgb(59, 130, 246)"
+              backgroundColor="rgba(59, 130, 246, 0.1)"
+              fill={true}
+              height={300}
+            />
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              Aucune donnÃ©e disponible
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -162,6 +158,11 @@ export function OverviewDashboard() {
                   </span>
                 </div>
               ))}
+              {topClients.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  Aucun client disponible
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

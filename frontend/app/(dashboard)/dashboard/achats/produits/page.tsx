@@ -1,19 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Search, Filter } from 'lucide-react';
+import { procurementService, StockItem } from '@/shared/api/procurement/procurement.service';
 
 type ProductStatus = 'active' | 'discontinued';
 
 interface Product {
   id: string;
-  code: string;
+  code?: string;
   name: string;
   category: string;
   stock: number;
-  price: number;
-  supplier: string;
+  price?: number;
+  supplier?: string;
   status: ProductStatus;
 }
 
@@ -27,34 +28,39 @@ const statusLabels: Record<ProductStatus, string> = {
   discontinued: 'Discontinué',
 };
 
-const mockProducts: Product[] = [
-  { id: '1', code: 'PROD-001', name: 'Ordinateur portable Dell XPS', category: 'Informatique', stock: 45, price: 1299.99, supplier: 'Dell ""', status: 'active' },
-  { id: '2', code: 'PROD-002', name: 'Bureau ergonomique réglable', category: 'Mobilier', stock: 12, price: 450.00, supplier: 'Office Depot', status: 'active' },
-  { id: '3', code: 'PROD-003', name: 'Chaise de bureau Herman Miller', category: 'Mobilier', stock: 8, price: 850.00, supplier: 'Herman Miller', status: 'active' },
-  { id: '4', code: 'PROD-004', name: 'Écran Dell 27 pouces', category: 'Informatique', stock: 23, price: 350.00, supplier: 'Dell ""', status: 'active' },
-  { id: '5', code: 'PROD-005', name: 'Clavier mécanique Logitech', category: 'Informatique', stock: 67, price: 89.99, supplier: 'Logitech', status: 'active' },
-  { id: '6', code: 'PROD-006', name: 'Souris sans fil', category: 'Informatique', stock: 0, price: 35.00, supplier: 'Logitech', status: 'discontinued' },
-  { id: '7', code: 'PROD-007', name: 'Papier A4 (ramette)', category: 'Fournitures', stock: 234, price: 5.50, supplier: 'Hamelin', status: 'active' },
-  { id: '8', code: 'PROD-008', name: 'Stylos BIC bleus (boîte de 50)', category: 'Fournitures', stock: 89, price: 12.00, supplier: 'BIC', status: 'active' },
-];
-
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
-  const { data: products = mockProducts, isLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return mockProducts;
-    },
+  const { data: stockResponse, isLoading } = useQuery({
+    queryKey: ['products', categoryFilter, searchTerm],
+    queryFn: () => procurementService.getStock({
+      category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+      search: searchTerm || undefined,
+      limit: 200,
+    }),
   });
 
+  const products: Product[] = useMemo(() => {
+    const items = stockResponse?.data ?? [];
+    return items.map((item: StockItem) => ({
+      id: item.id,
+      code: item.id,
+      name: item.name,
+      category: item.category || 'Non catégorisé',
+      stock: item.quantity ?? 0,
+      price: (item as any).unit_price ?? 0,
+      supplier: (item as any).supplier || item.location,
+      status: item.quantity === 0 ? 'discontinued' : 'active',
+    }));
+  }, [stockResponse]);
+
   const filteredProducts = products.filter((product: Product) => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+    const search = searchTerm.toLowerCase();
+    const matchesSearch =
+      product.name.toLowerCase().includes(search) ||
+      (product.code || '').toLowerCase().includes(search) ||
+      (product.supplier || '').toLowerCase().includes(search);
     const matchesCategory = categoryFilter === 'ALL' || product.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -63,7 +69,7 @@ export default function ProductsPage() {
     total: products.length,
     active: products.filter((p: Product) => p.status === 'active').length,
     discontinued: products.filter((p: Product) => p.status === 'discontinued').length,
-    totalValue: products.reduce((sum: number, p: Product) => sum + (p.price * p.stock), 0),
+    totalValue: products.reduce((sum: number, p: Product) => sum + ((p.price ?? 0) * p.stock), 0),
   };
 
   const categories = ['ALL', ...Array.from(new Set(products.map((p: Product) => p.category)))];
@@ -81,10 +87,6 @@ export default function ProductsPage() {
           <Package className="w-4 h-4" />
           Nouveau produit
         </button>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        Le catalogue produits n'est pas encore connecte au service procurement. Donnees affichees a titre indicatif.
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -154,12 +156,16 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredProducts.map((product: Product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{product.code}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{product.code || product.id}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{product.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{product.category}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{product.stock}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{product.price.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{product.supplier}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      {product.price !== undefined
+                        ? product.price.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' F'
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{product.supplier || '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[product.status]}`}>
                         {statusLabels[product.status]}

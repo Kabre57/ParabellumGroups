@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 
 interface PayslipFormProps {
   payslip?: any;
@@ -132,10 +131,14 @@ export default function PayslipForm({ payslip, employees = [], onSuccess, onCanc
 
     const periodDate = new Date(formData.period);
     const payload = {
-      ...formData,
+      employeeId: formData.employeeId,
+      period: formData.period,
       month: periodDate.getMonth() + 1,
       year: periodDate.getFullYear(),
-      deductions,
+      grossSalary: calculations.grossSalary,
+      deductions: calculations.totalDeductions,
+      bonuses: formData.bonuses,
+      currency: formData.currency,
     };
 
     try {
@@ -174,11 +177,11 @@ export default function PayslipForm({ payslip, employees = [], onSuccess, onCanc
           {/* Employé */}
           <div>
             <Label htmlFor="employeeId">Employé *</Label>
-            <Select
+            <select
               id="employeeId"
               value={formData.employeeId}
               onChange={(e) => handleChange('employeeId', e.target.value)}
-              className={errors.employeeId ? 'border-red-500' : ''}
+              className={`w-full h-10 px-3 rounded-md border border-input bg-background ${errors.employeeId ? 'border-red-500' : ''}`}
             >
               <option value="">Sélectionner un employé</option>
               {employees.map((emp) => (
@@ -186,7 +189,7 @@ export default function PayslipForm({ payslip, employees = [], onSuccess, onCanc
                   {emp.firstName} {emp.lastName}
                 </option>
               ))}
-            </Select>
+            </select>
             {errors.employeeId && (
               <p className="text-sm text-red-600 mt-1">{errors.employeeId}</p>
             )}

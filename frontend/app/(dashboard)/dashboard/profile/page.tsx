@@ -1,26 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { User, Mail, Phone, Building, Calendar, Shield, Edit, Save, X, Camera } from 'lucide-react';
 import { toast } from 'sonner';
+import { authService } from '@/shared/api/auth';
+import type { User as AuthUser } from '@/shared/api/shared/types';
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Mock user data - à remplacer par les vraies données utilisateur
-  const [userData, setUserData] = useState({
-    firstName: 'Jean',
-    lastName: 'Dupont',
-    email: 'jean.dupont@parabellum.com',
-    phone: '+225 07 07 07 07 07',
-    role: 'MANAGER',
-    service: 'Services Techniques',
-    joinedDate: '2024-01-15',
-    avatar: ''
+  const { data: currentUser, isLoading: isLoadingUser } = useQuery<AuthUser>({
+    queryKey: ['currentUser'],
+    queryFn: () => authService.getCurrentUser(),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const [formData, setFormData] = useState({ ...userData });
+  const [userData, setUserData] = useState<AuthUser | null>(null);
+  const [formData, setFormData] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      setUserData(currentUser);
+      setFormData(currentUser);
+    }
+  }, [currentUser]);
 
   const roleLabels: Record<string, string> = {
     ADMIN: 'Administrateur',
@@ -33,21 +38,26 @@ export default function ProfilePage() {
 
   const handleEdit = () => {
     setIsEditing(true);
-    setFormData({ ...userData });
+    setFormData(userData);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    setFormData({ ...userData });
+    setFormData(userData);
   };
 
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Simulation - à remplacer par l'API réelle
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUserData({ ...formData });
+      if (!formData) throw new Error('Aucune donnée à sauvegarder');
+      const updated = await authService.updateProfile({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber,
+        avatar: formData.avatar,
+      });
+      setUserData(updated);
+      setFormData(updated);
       setIsEditing(false);
       toast.success('Profil mis à jour avec succès');
     } catch (error) {
@@ -60,7 +70,7 @@ export default function ProfilePage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => prev ? { ...prev, [name]: value } : prev);
   };
 
   const formatDate = (dateString: string) => {
@@ -70,6 +80,10 @@ export default function ProfilePage() {
       year: 'numeric'
     });
   };
+
+  if (isLoadingUser || !userData || !formData) {
+    return <div className="p-6">Chargement du profil...</div>;
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -214,13 +228,13 @@ export default function ProfilePage() {
               {isEditing ? (
                 <input
                   type="tel"
-                  name="phone"
-                  value={formData.phone}
+                  name="phoneNumber"
+                  value={(formData as any).phoneNumber || ''}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               ) : (
-                <p className="text-gray-900 dark:text-gray-100 font-medium">{userData.phone}</p>
+                <p className="text-gray-900 dark:text-gray-100 font-medium">{(userData as any).phoneNumber || '—'}</p>
               )}
             </div>
           </div>
@@ -231,7 +245,7 @@ export default function ProfilePage() {
               <Building className="w-4 h-4 inline mr-2" />
               Service
             </label>
-            <p className="text-gray-900 font-medium">{userData.service}</p>
+            <p className="text-gray-900 font-medium">—</p>
           </div>
 
           {/* Rôle */}

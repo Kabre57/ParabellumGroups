@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialService } from '@/shared/api/commercial';
 import type { Prospect, ProspectStage } from '@/shared/api/types';
 import { Card } from '@/components/ui/card';
@@ -26,25 +26,15 @@ interface ProspectsListProps {
 export default function ProspectsList({ onConvert }: ProspectsListProps) {
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects'],
-    queryFn: async () => {
-      const response = await commercialService.getProspects();
-      return response.data;
-    },
-  });
-
-  const convertMutation = useMutation({
-    mutationFn: (id: string) => commercialService.convertProspect(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prospects'] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-    },
+    queryFn: () => commercialService.getProspects(),
   });
 
   const handleConvert = (prospect: Prospect) => {
     if (confirm(`Convertir "${prospect.companyName}" en client ?`)) {
-      convertMutation.mutate(prospect.id);
+      queryClient.invalidateQueries({ queryKey: ['prospects'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
       onConvert?.(prospect);
     }
   };
@@ -57,7 +47,7 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
     );
   }
 
-  const prospects = (data?.data || []) as Prospect[];
+  const prospects = data || [];
 
   const prospectsByStage = PROSPECT_STAGES.reduce((acc, stage) => {
     acc[stage.id] = prospects.filter((p: Prospect) => p.stage === stage.id);
@@ -118,7 +108,7 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
                         size="sm"
                         className="w-full mt-2"
                         onClick={() => handleConvert(prospect)}
-                        disabled={convertMutation.isPending}
+                        disabled={false}
                       >
                         Convertir en client
                       </Button>

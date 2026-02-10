@@ -1,8 +1,10 @@
-﻿'use client';
+'use client';
+
+/* eslint-disable @next/next/no-img-element */
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { technicalService, RapportIntervention } from '@/shared/api/services/technical';
+import { technicalService, RapportIntervention } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
@@ -13,10 +15,11 @@ interface RapportInterventionViewProps {
 }
 
 export default function RapportInterventionView({ rapportId, onClose }: RapportInterventionViewProps) {
-  const { data: rapport, isLoading, error } = useQuery({
+  const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],
-    queryFn: () => technicalService.getRapport(rapportId) as Promise<RapportIntervention>,
+    queryFn: () => technicalService.getRapport(rapportId),
   });
+  const rapport = rapportResponse?.data as RapportIntervention | undefined;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
@@ -222,3 +225,4 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
     </div>
   );
 }
+

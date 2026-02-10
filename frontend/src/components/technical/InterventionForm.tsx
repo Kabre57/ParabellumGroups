@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
 import { useMissions } from '@/hooks/useTechnical';
-import { Intervention } from '@/shared/api/services/technical';
+import { Intervention } from '@/shared/api/technical';
 
 interface InterventionFormProps {
   item?: Intervention;

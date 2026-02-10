@@ -220,7 +220,7 @@ export default function ContractsPage() {
 
         {data?.data && (
           <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            Total: {data.pagination?.totalItems || data.data.length} contrat(s)
+            Total: {data.meta?.pagination?.total || data.data.length} contrat(s)
           </div>
         )}
       </Card>

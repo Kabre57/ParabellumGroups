@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { hrService, LeaveRequest } from '@/shared/api/hr';
+import { hrService } from '@/shared/api/hr';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,25 +39,19 @@ export default function LeavesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['leave-requests', page, searchQuery, statusFilter],
     queryFn: async () => {
-      const filters: any = {};
-      
+      const params: any = { page, limit: 10 };
       if (statusFilter !== 'all') {
-        filters.status = statusFilter;
+        params.statut = statusFilter;
       }
 
-      const response = await hrService.getLeaveRequests({
-        page,
-        pageSize: 10,
-        query: searchQuery,
-        filters,
-      });
+      const response = await hrService.getConges(params);
       
       return response;
     },
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => hrService.approveLeaveRequest(id),
+    mutationFn: (id: string) => hrService.approveConge(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
       toast.success('Demande de congé approuvée');
@@ -69,7 +63,7 @@ export default function LeavesPage() {
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => 
-      hrService.rejectLeaveRequest(id, reason),
+      hrService.rejectConge(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
       toast.success('Demande de congé rejetée');
@@ -79,13 +73,13 @@ export default function LeavesPage() {
     },
   });
 
-  const handleApprove = (leave: LeaveRequest) => {
-    if (confirm(`Approuver la demande de congé de ${leave.totalDays} jour(s) ?`)) {
+  const handleApprove = (leave: any) => {
+    if (confirm(`Approuver la demande de congé de ${leave.nbJours} jour(s) ?`)) {
       approveMutation.mutate(leave.id);
     }
   };
 
-  const handleReject = (leave: LeaveRequest) => {
+  const handleReject = (leave: any) => {
     const reason = prompt('Raison du rejet (optionnel):');
     if (reason !== null) {
       rejectMutation.mutate({ id: leave.id, reason: reason || undefined });
@@ -93,15 +87,15 @@ export default function LeavesPage() {
   };
 
   const leaveRequests = data?.data || [];
-  const pagination = data?.pagination;
+  const pagination = data?.meta?.pagination;
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case 'EN_ATTENTE':
         return 'outline';
-      case 'APPROVED':
+      case 'APPROUVE':
         return 'success';
-      case 'REJECTED':
+      case 'REFUSE':
         return 'destructive';
       default:
         return 'outline';
@@ -110,11 +104,11 @@ export default function LeavesPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case 'EN_ATTENTE':
         return 'En attente';
-      case 'APPROVED':
+      case 'APPROUVE':
         return 'Approuvé';
-      case 'REJECTED':
+      case 'REFUSE':
         return 'Rejeté';
       default:
         return status;
@@ -123,12 +117,12 @@ export default function LeavesPage() {
 
   const getLeaveTypeLabel = (type: string) => {
     const types: Record<string, string> = {
-      ANNUAL: 'Congé annuel',
-      SICK: 'Congé maladie',
-      MATERNITY: 'Congé maternité',
-      PATERNITY: 'Congé paternité',
-      UNPAID: 'Congé sans solde',
-      OTHER: 'Autre',
+      ANNUEL: 'Congé annuel',
+      MALADIE: 'Congé maladie',
+      MATERNITE: 'Congé maternité',
+      PATERNITE: 'Congé paternité',
+      SANS_SOLDE: 'Congé sans solde',
+      PARENTAL: 'Autre',
     };
     return types[type] || type;
   };
@@ -168,9 +162,9 @@ export default function LeavesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="all">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="APPROVED">Approuvé</option>
-              <option value="REJECTED">Rejeté</option>
+              <option value="EN_ATTENTE">En attente</option>
+              <option value="APPROUVE">Approuvé</option>
+              <option value="REFUSE">Rejeté</option>
             </select>
           </div>
 
@@ -212,38 +206,38 @@ export default function LeavesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leaveRequests.map((leave: LeaveRequest) => (
+                {leaveRequests.map((leave: any) => (
                   <TableRow key={leave.id}>
                     <TableCell className="font-medium">
-                      {leave.employeeId}
-                      {leave.reason && (
+                      {leave.employeId}
+                      {leave.motif && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {leave.reason}
+                          {leave.motif}
                         </div>
                       )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {getLeaveTypeLabel(leave.leaveType)}
+                        {getLeaveTypeLabel(leave.typeConge)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {format(new Date(leave.startDate), 'dd MMM yyyy', { locale: fr })}
+                      {format(new Date(leave.dateDebut), 'dd MMM yyyy', { locale: fr })}
                     </TableCell>
                     <TableCell>
-                      {format(new Date(leave.endDate), 'dd MMM yyyy', { locale: fr })}
+                      {format(new Date(leave.dateFin), 'dd MMM yyyy', { locale: fr })}
                     </TableCell>
                     <TableCell>
-                      {leave.totalDays} jour(s)
+                      {leave.nbJours} jour(s)
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(leave.status)}>
-                        {getStatusLabel(leave.status)}
+                      <Badge variant={getStatusBadgeVariant(leave.statut)}>
+                        {getStatusLabel(leave.statut)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {leave.status === 'PENDING' && (
+                        {leave.statut === 'EN_ATTENTE' && (
                           <>
                             <Button
                               size="sm"
@@ -265,9 +259,9 @@ export default function LeavesPage() {
                             </Button>
                           </>
                         )}
-                        {leave.status !== 'PENDING' && (
+                        {leave.statut !== 'EN_ATTENTE' && (
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {leave.approvedAt && `Le ${format(new Date(leave.approvedAt), 'dd/MM/yyyy', { locale: fr })}`}
+                            {leave.dateApprobation && `Le ${format(new Date(leave.dateApprobation), 'dd/MM/yyyy', { locale: fr })}`}
                           </span>
                         )}
                       </div>
@@ -281,14 +275,14 @@ export default function LeavesPage() {
             {pagination && pagination.totalPages > 1 && (
               <div className="flex justify-between items-center p-4 border-t">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {pagination.currentPage} sur {pagination.totalPages} ({pagination.totalItems} demandes)
+                  Page {pagination.page} sur {pagination.totalPages} ({pagination.total} demandes)
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setPage(page - 1)}
-                    disabled={!pagination.hasPrevious}
+                    disabled={!(pagination.page > 1)}
                   >
                     Précédent
                   </Button>
@@ -296,7 +290,7 @@ export default function LeavesPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setPage(page + 1)}
-                    disabled={!pagination.hasNext}
+                    disabled={!(pagination.page < pagination.totalPages)}
                   >
                     Suivant
                   </Button>
@@ -343,3 +337,6 @@ export default function LeavesPage() {
     </div>
   );
 }
+
+
+

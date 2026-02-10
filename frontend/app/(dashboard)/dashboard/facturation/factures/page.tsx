@@ -32,7 +32,7 @@ export default function FacturesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const { data: invoices, isLoading } = useQuery({
+  const { data: invoicesResponse, isLoading } = useQuery({
     queryKey: ['invoices', searchQuery, statusFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
@@ -52,12 +52,12 @@ export default function FacturesPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
-      DRAFT: { label: 'Brouillon', variant: 'outline' },
-      SENT: { label: 'Envoyée', variant: 'default' },
-      PAID: { label: 'Payée', variant: 'success' },
-      OVERDUE: { label: 'En retard', variant: 'destructive' },
-      CANCELLED: { label: 'Annulée', variant: 'secondary' },
-      PARTIALLY_PAID: { label: 'Partiellement payée', variant: 'warning' },
+      BROUILLON: { label: 'Brouillon', variant: 'outline' },
+      ENVOYEE: { label: 'Envoyée', variant: 'default' },
+      PAYEE: { label: 'Payée', variant: 'success' },
+      EN_RETARD: { label: 'En retard', variant: 'destructive' },
+      ANNULEE: { label: 'Annulée', variant: 'secondary' },
+      PARTIALLY_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
     };
 
     const config = statusConfig[status] || { label: status, variant: 'outline' as const };
@@ -78,7 +78,7 @@ export default function FacturesPage() {
   };
 
   const handleDelete = (invoice: any) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}" ?`)) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.numeroFacture}" ?`)) {
       deleteMutation.mutate(invoice.id);
     }
   };
@@ -94,6 +94,8 @@ export default function FacturesPage() {
     console.log('Send invoice:', invoiceNum);
     alert('Fonctionnalité d\'envoi de facture à implémenter');
   };
+
+  const invoices = invoicesResponse?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -130,11 +132,11 @@ export default function FacturesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="all">Tous les statuts</option>
-              <option value="DRAFT">Brouillon</option>
-              <option value="SENT">Envoyée</option>
-              <option value="PAID">Payée</option>
-              <option value="OVERDUE">En retard</option>
-              <option value="CANCELLED">Annulée</option>
+              <option value="BROUILLON">Brouillon</option>
+              <option value="ENVOYEE">Envoyée</option>
+              <option value="PAYEE">Payée</option>
+              <option value="EN_RETARD">En retard</option>
+              <option value="ANNULEE">Annulée</option>
             </select>
           </div>
         </div>
@@ -146,7 +148,7 @@ export default function FacturesPage() {
           <div className="flex justify-center items-center py-12">
             <Spinner />
           </div>
-        ) : invoices && invoices.length > 0 ? (
+        ) : invoices.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -163,12 +165,12 @@ export default function FacturesPage() {
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">
-                    {invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}
+                    {invoice.numeroFacture}
                   </TableCell>
-                  <TableCell>{invoice.customer?.name || invoice.customerId || invoice.customer_id || 'Client'}</TableCell>
-                  <TableCell>{formatDate(invoice.issueDate || invoice.issue_date || invoice.date)}</TableCell>
-                  <TableCell>{formatDate(invoice.dueDate || invoice.due_date)}</TableCell>
-                  <TableCell>{formatCurrency(invoice.totalTTC || invoice.total_ttc || 0)}</TableCell>
+                  <TableCell>{invoice.client?.nom || invoice.clientId || 'Client'}</TableCell>
+                  <TableCell>{formatDate(invoice.dateFacture)}</TableCell>
+                  <TableCell>{formatDate(invoice.dateEcheance)}</TableCell>
+                  <TableCell>{formatCurrency(invoice.montantTTC || 0)}</TableCell>
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -238,3 +240,4 @@ export default function FacturesPage() {
     </div>
   );
 }
+

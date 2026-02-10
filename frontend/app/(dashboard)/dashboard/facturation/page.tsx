@@ -1,9 +1,10 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { billingService } from '@/shared/api/billing';
+import { analyticsService } from '@/shared/api/analytics/analytics.service';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -29,37 +30,38 @@ import {
 export default function FacturationPage() {
   const router = useRouter();
 
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  const { data: statsResponse, isLoading: isLoadingStats } = useQuery({
     queryKey: ['invoiceStats'],
     queryFn: () => billingService.getInvoiceStats(),
   });
 
-  const { data: invoices, isLoading: isLoadingInvoices } = useQuery({
+  const { data: invoicesResponse, isLoading: isLoadingInvoices } = useQuery({
     queryKey: ['recentInvoices'],
     queryFn: async () => {
-      const data = await billingService.getInvoices({ limit: 5, sort: 'issue_date:desc' });
+      const data = await billingService.getInvoices({ limit: 5, sortBy: "dateFacture", sortOrder: "desc" });
       return data;
     },
   });
 
-  // Mock data pour le graphique CA mensuel
-  const monthlyRevenue = [
-    { month: 'Jan', revenue: 45000 },
-    { month: 'Fév', revenue: 52000 },
-    { month: 'Mar', revenue: 48000 },
-    { month: 'Avr', revenue: 61000 },
-    { month: 'Mai', revenue: 55000 },
-    { month: 'Juin', revenue: 67000 },
-  ];
+  const { data: overviewResponse } = useQuery({
+    queryKey: ['overviewDashboard'],
+    queryFn: () => analyticsService.getOverviewDashboard(),
+  });
+
+  const monthLabels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+  const monthlyRevenue = (overviewResponse?.data?.monthly_revenue || []).map((value: number, idx: number) => ({
+    month: monthLabels[idx % 12],
+    revenue: value,
+  }));
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
-      DRAFT: { label: 'Brouillon', variant: 'outline' },
-      SENT: { label: 'Envoyée', variant: 'default' },
-      PAID: { label: 'Payée', variant: 'success' },
-      OVERDUE: { label: 'En retard', variant: 'destructive' },
-      CANCELLED: { label: 'Annulée', variant: 'secondary' },
-      PARTIALLY_PAID: { label: 'Partiellement payée', variant: 'warning' },
+      BROUILLON: { label: 'Brouillon', variant: 'outline' },
+      ENVOYEE: { label: 'EnvoyÃ©e', variant: 'default' },
+      PAYEE: { label: 'PayÃ©e', variant: 'success' },
+      EN_RETARD: { label: 'En retard', variant: 'destructive' },
+      ANNULEE: { label: 'AnnulÃ©e', variant: 'secondary' },
+      PARTIALLY_PAYEE: { label: 'Partiellement payÃ©e', variant: 'warning' },
     };
 
     const config = statusConfig[status] || { label: status, variant: 'outline' as const };
@@ -78,6 +80,9 @@ export default function FacturationPage() {
     const date = new Date(dateString);
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
   };
+
+  const stats = statsResponse?.data;
+  const invoices = invoicesResponse?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -110,7 +115,7 @@ export default function FacturationPage() {
                   CA Total
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                  {formatCurrency(stats?.total_revenue || 0)}
+                  {formatCurrency(stats?.chiffreAffaires || 0)}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
@@ -125,10 +130,10 @@ export default function FacturationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Factures Payées
+                  Factures PayÃ©es
                 </p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-2">
-                  {stats?.total_invoices || 0}
+                  {stats?.facturesPayees || 0}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
@@ -146,7 +151,7 @@ export default function FacturationPage() {
                   En Attente
                 </p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-2">
-                  {formatCurrency(stats?.pending_amount || 0)}
+                  {formatCurrency(stats?.montantEnAttente || 0)}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
@@ -164,7 +169,7 @@ export default function FacturationPage() {
                   En Retard
                 </p>
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-2">
-                  {formatCurrency(stats?.overdue_amount || 0)}
+                  {formatCurrency(stats?.montantEnRetard || 0)}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
@@ -200,12 +205,12 @@ export default function FacturationPage() {
         </ResponsiveContainer>
       </Card>
 
-      {/* Liste dernières factures */}
+      {/* Liste derniÃ¨res factures */}
       <Card>
         <div className="p-6 border-b">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Dernières factures
+              DerniÃ¨res factures
             </h2>
             <Button
               variant="outline"
@@ -220,14 +225,14 @@ export default function FacturationPage() {
           <div className="flex justify-center items-center py-12">
             <Spinner />
           </div>
-        ) : invoices && invoices.length > 0 ? (
+        ) : invoices.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Numéro</TableHead>
+                <TableHead>NumÃ©ro</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Échéance</TableHead>
+                <TableHead>Ã‰chÃ©ance</TableHead>
                 <TableHead>Montant</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -237,12 +242,12 @@ export default function FacturationPage() {
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">
-                    {invoice.invoiceNumber || invoice.invoice_number || invoice.invoice_num}
+                    {invoice.numeroFacture}
                   </TableCell>
-                  <TableCell>{invoice.customer?.name || invoice.customerId || invoice.customer_id || 'Client'}</TableCell>
-                  <TableCell>{formatDate(invoice.issueDate || invoice.issue_date || invoice.date)}</TableCell>
-                  <TableCell>{formatDate(invoice.dueDate || invoice.due_date)}</TableCell>
-                  <TableCell>{formatCurrency(invoice.totalTTC || invoice.total_ttc || 0)}</TableCell>
+                  <TableCell>{invoice.client?.nom || invoice.clientId || 'Client'}</TableCell>
+                  <TableCell>{formatDate(invoice.dateFacture)}</TableCell>
+                  <TableCell>{formatDate(invoice.dateEcheance)}</TableCell>
+                  <TableCell>{formatCurrency(invoice.montantTTC || 0)}</TableCell>
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -260,7 +265,7 @@ export default function FacturationPage() {
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-gray-400">
-              Aucune facture trouvée
+              Aucune facture trouvÃ©e
             </p>
           </div>
         )}
@@ -268,3 +273,6 @@ export default function FacturationPage() {
     </div>
   );
 }
+
+
+

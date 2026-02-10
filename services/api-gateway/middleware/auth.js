@@ -4,13 +4,18 @@ const { logWarn } = require('../utils/logger');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
+  console.log('[API Gateway Auth] Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[API Gateway Auth] Authorization header:', authHeader);
   const token = authHeader && authHeader.split(' ')[1];
+  console.log('[API Gateway Auth] Extracted token:', token ? `${token.substring(0, 30)}...` : 'NULL');
 
   if (!token) {
     logWarn('Authentication attempt without token', {
       path: req.path,
-      ip: req.ip
+      ip: req.ip,
+      headers: req.headers
     });
+    console.log('[API Gateway Auth] REJECTED - No token');
     return res.status(401).json({
       success: false,
       message: 'Token d\'authentification manquant'
@@ -22,15 +27,17 @@ const authenticateToken = (req, res, next) => {
       logWarn('Invalid token attempt', {
         path: req.path,
         ip: req.ip,
-        error: err.message
+        error: err.message,
+        tokenPreview: token.substring(0, 30)
       });
+      console.log('[API Gateway Auth] REJECTED - Invalid token:', err.message);
       return res.status(403).json({
         success: false,
         message: 'Token invalide ou expiré'
       });
     }
 
-    // Normalize user object: ensure 'id' property exists
+    console.log('[API Gateway Auth] SUCCESS - Token valid, decoded:', decoded);
     req.user = {
       id: decoded.userId || decoded.id,
       userId: decoded.userId || decoded.id,

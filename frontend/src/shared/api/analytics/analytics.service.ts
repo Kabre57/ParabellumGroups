@@ -2,77 +2,173 @@ import { apiClient } from '../shared/client';
 import { OverviewDashboard, FinancialDashboardResponse, TechnicalDashboard, HRDashboard } from './types';
 
 export interface SalesStats {
-  chiffreAffaires: number;
-  chiffreAffairesMoisPrecedent: number;
-  evolution: number;
-  objectif?: number;
-  tauxRealisation?: number;
-  parMois: { mois: string; montant: number }[];
-  parClient: { clientId: string; nom: string; montant: number }[];
+  chiffreAffaires: {
+    total: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  nombreVentes: {
+    total: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  panierMoyen: {
+    valeur: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  tauxConversion: {
+    valeur: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  topProduits: { id: number; nom: string; ventes: number; ca: number }[];
+  ventesParCanal: Record<string, number>;
+  evolutionTemporelle: { date: string; valeur: number }[];
 }
 
 export interface ProjectsStats {
-  totalProjets: number;
-  projetsEnCours: number;
-  projetsTermines: number;
-  projetsSuspendus: number;
-  budgetTotal: number;
-  budgetConsomme: number;
-  tauxCompletion: number;
-  parStatus: Record<string, number>;
+  periode: { dateDebut: string; dateFin: string };
+  nombreProjets: {
+    total: number;
+    enCours: number;
+    termines: number;
+    enRetard: number;
+  };
+  tauxReussite: {
+    valeur: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  budgetTotal: {
+    alloue: number;
+    consomme: number;
+    taux: number;
+  };
+  tempsTotal: {
+    estime: number;
+    realise: number;
+    efficacite: number;
+  };
+  projetsCritiques: { id: number; nom: string; retard: number; risque: string }[];
+  ressourcesUtilisation: Record<string, number>;
 }
 
 export interface HRStats {
-  totalEmployes: number;
-  employesActifs: number;
-  nouveauxCeMois: number;
-  departsCeMois: number;
-  congesEnCours: number;
-  congesEnAttente: number;
-  parDepartement: Record<string, number>;
-  masseSalariale: number;
+  periode: { dateDebut: string; dateFin: string };
+  effectifs: {
+    total: number;
+    cdi: number;
+    cdd: number;
+    stagiaires: number;
+  };
+  turnover: {
+    taux: number;
+    entrees: number;
+    sorties: number;
+    variation: number;
+  };
+  absences: {
+    tauxAbsenteisme: number;
+    conges: number;
+    maladies: number;
+    autres: number;
+  };
+  formations: {
+    nombre: number;
+    heures: number;
+    budget: number;
+    tauxParticipation: number;
+  };
+  satisfaction: {
+    score: number;
+    variation: number;
+    tauxReponse: number;
+  };
+  recrutement: {
+    postesOuverts: number;
+    candidatures: number;
+    entretiens: number;
+    embauches: number;
+  };
 }
 
 export interface FinanceStats {
-  chiffreAffaires: number;
-  facturesEnAttente: number;
-  facturesEnRetard: number;
-  montantEnAttente: number;
-  montantEnRetard: number;
-  tresorerie: number;
-  charges: number;
-  benefice: number;
+  periode: { dateDebut: string; dateFin: string };
+  revenus: {
+    total: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  depenses: {
+    total: number;
+    variation: number;
+    tendance: 'UP' | 'DOWN' | 'STABLE';
+  };
+  resultat: {
+    net: number;
+    marge: number;
+    variation: number;
+  };
+  tresorerie: {
+    disponible: number;
+    variation: number;
+    joursCA: number;
+  };
+  comptesClients: {
+    encours: number;
+    enRetard: number;
+    tauxRecouvrement: number;
+  };
+  comptesFournisseurs: {
+    encours: number;
+    enRetard: number;
+    delaiMoyen: number;
+  };
+  budgetVsReel: {
+    revenus: { budget: number; reel: number; ecart: number };
+    depenses: { budget: number; reel: number; ecart: number };
+  };
 }
 
 export interface KPI {
   id: string;
   nom: string;
-  valeur: number;
-  unite?: string;
-  objectif?: number;
-  evolution?: number;
-  periode: string;
+  description?: string;
   categorie: string;
+  valeur: number;
+  cible?: number;
+  unite?: string;
+  dateCalcul: string;
+  tendance: 'UP' | 'DOWN' | 'STABLE';
+  variation?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Dashboard {
   id: string;
   nom: string;
   description?: string;
-  isDefault: boolean;
-  widgets: Widget[];
+  userId: string;
+  config: Record<string, unknown>;
+  actif: boolean;
+  parDefaut: boolean;
   createdAt: string;
   updatedAt: string;
+  widgets?: Widget[];
 }
 
 export interface Widget {
   id: string;
   dashboardId: string;
-  type: 'KPI' | 'CHART' | 'TABLE' | 'LIST';
+  type: 'CHART' | 'TABLE' | 'KPI' | 'MAP';
   titre: string;
-  configuration: Record<string, unknown>;
-  position: { x: number; y: number; w: number; h: number };
+  config: Record<string, unknown>;
+  position: Record<string, unknown>;
+  refresh: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ListResponse<T> {
@@ -88,137 +184,132 @@ export interface DetailResponse<T> {
 }
 
 export const analyticsService = {
+  // --- Analytics Stats ---
   async getOverviewDashboard(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: OverviewDashboard }> {
     const response = await apiClient.get('/analytics/overview', { params });
     return response.data;
   },
 
-  async getSalesStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: SalesStats }> {
+  async getSalesStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<SalesStats> {
     const response = await apiClient.get('/analytics/sales', { params });
     return response.data;
   },
 
-  async getProjectsStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: ProjectsStats }> {
+  async getProjectsStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<ProjectsStats> {
     const response = await apiClient.get('/analytics/projects', { params });
     return response.data;
   },
 
-  async getHRStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: HRStats }> {
+  async getHRStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<HRStats> {
     const response = await apiClient.get('/analytics/hr', { params });
     return response.data;
   },
 
-  async getFinanceStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: FinanceStats }> {
+  async getFinanceStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<FinanceStats> {
     const response = await apiClient.get('/analytics/finance', { params });
     return response.data;
   },
 
-  async getFinancialDashboard(params?: { period?: string }): Promise<FinancialDashboardResponse> {
-    const response = await apiClient.get('/analytics/finance', { params });
-    return {
-      data: response.data,
-      source: 'analytics/finance',
-      timestamp: new Date().toISOString(),
-    };
-  },
-
-  async getTechnicalDashboard(params?: { period?: string }): Promise<{ success: boolean; data: TechnicalDashboard }> {
-    const response = await apiClient.get('/analytics/projects', { params });
+  // --- Dashboards ---
+  async getDashboards(): Promise<Dashboard[]> {
+    const response = await apiClient.get('/dashboards');
     return response.data;
   },
 
-  async getHRDashboard(params?: { period?: string }): Promise<{ success: boolean; data: HRDashboard }> {
-    const response = await apiClient.get('/analytics/hr', { params });
+  async getDashboard(id: string): Promise<Dashboard> {
+    const response = await apiClient.get(`/dashboards/${id}`);
     return response.data;
   },
 
-  async getDashboards(): Promise<ListResponse<Dashboard>> {
-    const response = await apiClient.get('/analytics/dashboards');
+  async getDashboardData(id: string): Promise<Record<string, unknown>> {
+    const response = await apiClient.get(`/dashboards/${id}/data`);
     return response.data;
   },
 
-  async getDashboard(id: string): Promise<DetailResponse<Dashboard>> {
-    const response = await apiClient.get(`/analytics/dashboards/${id}`);
+  async createDashboard(data: { nom: string; description?: string }): Promise<Dashboard> {
+    const response = await apiClient.post('/dashboards', data);
     return response.data;
   },
 
-  async getDashboardData(id: string): Promise<DetailResponse<Record<string, unknown>>> {
-    const response = await apiClient.get(`/analytics/dashboards/${id}/data`);
+  async updateDashboard(id: string, data: Partial<Dashboard>): Promise<Dashboard> {
+    const response = await apiClient.put(`/dashboards/${id}`, data);
     return response.data;
   },
 
-  async createDashboard(data: { nom: string; description?: string }): Promise<DetailResponse<Dashboard>> {
-    const response = await apiClient.post('/analytics/dashboards', data);
+  async deleteDashboard(id: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete(`/dashboards/${id}`);
     return response.data;
   },
 
-  async updateDashboard(id: string, data: Partial<Dashboard>): Promise<DetailResponse<Dashboard>> {
-    const response = await apiClient.put(`/analytics/dashboards/${id}`, data);
+  async setDefaultDashboard(id: string): Promise<Dashboard> {
+    const response = await apiClient.put(`/dashboards/${id}/set-default`);
     return response.data;
   },
 
-  async deleteDashboard(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/analytics/dashboards/${id}`);
+  async duplicateDashboard(id: string): Promise<Dashboard> {
+    const response = await apiClient.post(`/dashboards/${id}/duplicate`);
     return response.data;
   },
 
-  async setDefaultDashboard(id: string): Promise<DetailResponse<Dashboard>> {
-    const response = await apiClient.put(`/analytics/dashboards/${id}/set-default`);
+  // --- KPIs ---
+  async getKPIs(): Promise<KPI[]> {
+    const response = await apiClient.get('/kpis');
     return response.data;
   },
 
-  async getKPIs(params?: { categorie?: string }): Promise<ListResponse<KPI>> {
-    const response = await apiClient.get('/analytics/kpis', { params });
+  async getKPI(id: string): Promise<KPI> {
+    const response = await apiClient.get(`/kpis/${id}`);
     return response.data;
   },
 
-  async getKPI(id: string): Promise<DetailResponse<KPI>> {
-    const response = await apiClient.get(`/analytics/kpis/${id}`);
+  async calculateKPI(data: { type: string; params: Record<string, unknown> }): Promise<KPI> {
+    const response = await apiClient.post('/kpis/calculate', data);
     return response.data;
   },
 
-  async getKPITrend(params?: { ids?: string[]; period?: string }): Promise<{ success: boolean; data: Record<string, { date: string; valeur: number }[]> }> {
-    const response = await apiClient.get('/analytics/kpis/trend', { params });
+  async getKPITrend(params?: { id: string }): Promise<any> {
+    const response = await apiClient.get('/kpis/trend', { params });
     return response.data;
   },
 
-  async calculateKPI(data: { type: string; params: Record<string, unknown> }): Promise<DetailResponse<KPI>> {
-    const response = await apiClient.post('/analytics/kpis/calculate', data);
+  // --- Widgets ---
+  async getWidgets(): Promise<Widget[]> {
+    const response = await apiClient.get('/widgets');
     return response.data;
   },
 
-  async getWidgets(dashboardId?: string): Promise<ListResponse<Widget>> {
-    const response = await apiClient.get('/analytics/widgets', { params: { dashboardId } });
+  async getWidget(id: string): Promise<Widget> {
+    const response = await apiClient.get(`/widgets/${id}`);
     return response.data;
   },
 
-  async getWidgetData(id: string): Promise<DetailResponse<Record<string, unknown>>> {
-    const response = await apiClient.get(`/analytics/widgets/${id}/data`);
+  async createWidget(data: { dashboardId: string; type: string; titre: string; config: Record<string, unknown> }): Promise<Widget> {
+    const response = await apiClient.post('/widgets', data);
     return response.data;
   },
 
-  async createWidget(data: { dashboardId: string; type: string; titre: string; configuration: Record<string, unknown> }): Promise<DetailResponse<Widget>> {
-    const response = await apiClient.post('/analytics/widgets', data);
+  async updateWidget(id: string, data: Partial<Widget>): Promise<Widget> {
+    const response = await apiClient.put(`/widgets/${id}`, data);
     return response.data;
   },
 
-  async updateWidget(id: string, data: Partial<Widget>): Promise<DetailResponse<Widget>> {
-    const response = await apiClient.put(`/analytics/widgets/${id}`, data);
+  async updateWidgetPosition(id: string, position: Record<string, unknown>): Promise<Widget> {
+    const response = await apiClient.put(`/widgets/${id}/position`, { position });
     return response.data;
   },
 
-  async updateWidgetPosition(id: string, position: { x: number; y: number; w: number; h: number }): Promise<DetailResponse<Widget>> {
-    const response = await apiClient.put(`/analytics/widgets/${id}/position`, position);
+  async deleteWidget(id: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete(`/widgets/${id}`);
     return response.data;
   },
 
-  async deleteWidget(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/analytics/widgets/${id}`);
+  async getWidgetData(id: string): Promise<Record<string, unknown>> {
+    const response = await apiClient.get(`/widgets/${id}/data`);
     return response.data;
   },
 
-  async refreshWidget(id: string): Promise<DetailResponse<Record<string, unknown>>> {
-    const response = await apiClient.post(`/analytics/widgets/${id}/refresh`);
+  async refreshWidget(id: string): Promise<Record<string, unknown>> {
+    const response = await apiClient.post(`/widgets/${id}/refresh`);
     return response.data;
   },
 };

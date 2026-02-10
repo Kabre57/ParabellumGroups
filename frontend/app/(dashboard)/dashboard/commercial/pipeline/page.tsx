@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp,
@@ -21,7 +21,8 @@ import {
   XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { commercialService } from '@/shared/api/services/commercial';
+import { opportunitesService } from '@/shared/api/crm/opportunites.service';
+import { Opportunite } from '@/shared/api/crm/types';
 
 type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'won' | 'lost';
 
@@ -52,47 +53,42 @@ export default function PipelinePage() {
   const [selectedStage, setSelectedStage] = useState<PipelineStage | 'all'>('all');
   const queryClient = useQueryClient();
 
-  // Mock data - à remplacer par l'API
-  const mockOpportunities: PipelineOpportunity[] = [
-    {
-      id: '1',
-      title: 'Déploiement ERP',
-      company: 'TechCorp SA',
-      contact: 'Marie Dupont',
-      value: 150000,
-      probability: 75,
-      stage: 'negotiation',
-      expectedCloseDate: '2024-03-15',
-      lastActivity: '2024-01-10',
-      createdAt: '2024-01-05'
-    },
-    {
-      id: '2',
-      title: 'Maintenance Infrastructure',
-      company: 'Industries Modernes',
-      contact: 'Jean Martin',
-      value: 50000,
-      probability: 50,
-      stage: 'proposal',
-      expectedCloseDate: '2024-02-28',
-      lastActivity: '2024-01-09',
-      createdAt: '2024-01-02'
-    },
-    {
-      id: '3',
-      title: 'Audit Cybersécurité',
-      company: 'SecureBank',
-      contact: 'Sophie Bernard',
-      value: 80000,
-      probability: 25,
-      stage: 'qualification',
-      expectedCloseDate: '2024-04-10',
-      lastActivity: '2024-01-08',
-      createdAt: '2024-01-01'
-    }
-  ];
+  const { data: opportunitiesResponse } = useQuery({
+    queryKey: ['opportunites'],
+    queryFn: () => opportunitesService.getOpportunites({ limit: 200 }),
+  });
 
-  const opportunities = mockOpportunities;
+  const opportunities: PipelineOpportunity[] = useMemo(() => {
+    const list = opportunitiesResponse?.data || (opportunitiesResponse as any)?.data?.data || [];
+    return list.map((opp: Opportunite) => {
+      const stageMap: Record<string, PipelineStage> = {
+        PROSPECTION: 'prospect',
+        QUALIFICATION: 'qualification',
+        PROPOSITION: 'proposal',
+        NEGOCIATION: 'negotiation',
+        FINALISATION: 'negotiation',
+      };
+      const statusStage: Record<string, PipelineStage> = {
+        GAGNEE: 'won',
+        PERDUE: 'lost',
+      };
+      const stage = statusStage[opp.statut] || stageMap[opp.etape] || 'prospect';
+      const updatedAt = (opp as any).updatedAt;
+      const createdAt = (opp as any).createdAt;
+      return {
+        id: opp.id,
+        title: opp.nom,
+        company: opp.client?.nom || 'Client',
+        contact: (opp as any).contact || '—',
+        value: opp.montantEstime,
+        probability: opp.probabilite || 0,
+        stage,
+        expectedCloseDate: opp.dateFermetureEstimee || updatedAt || createdAt || new Date().toISOString(),
+        lastActivity: updatedAt || createdAt,
+        createdAt: createdAt || '',
+      };
+    });
+  }, [opportunitiesResponse]);
 
   // Filtrage
   const filteredOpportunities = opportunities.filter(opp => {

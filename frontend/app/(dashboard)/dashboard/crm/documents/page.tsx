@@ -1,6 +1,6 @@
-'use client';
+﻿"use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,140 +14,41 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FileText, Upload, Download, Eye, Search, File, FileCheck, BarChart } from 'lucide-react';
-
-interface Document {
-  id: string;
-  name: string;
-  project: string;
-  type: 'contract' | 'plan' | 'report' | 'invoice' | 'other';
-  size: string;
-  uploadedBy: string;
-  uploadDate: string;
-  version: string;
-  status: 'draft' | 'published' | 'archived';
-}
+import { documentsService } from '@/shared/api/crm/documents.service';
+import { Document as CrmDocument } from '@/shared/api/crm/types';
 
 const DocumentsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  const { data: documents = [], isLoading } = useQuery({
+  const { data: apiDocuments = [], isLoading } = useQuery<CrmDocument[]>({
     queryKey: ['documents'],
-    queryFn: async () => {
-      const mockDocuments: Document[] = [
-        {
-          id: '1',
-          name: 'Contrat ERP - Phase 1.pdf',
-          project: 'ERP Implementation',
-          type: 'contract',
-          size: '2.4 MB',
-          uploadedBy: 'John Doe',
-          uploadDate: '2026-01-15',
-          version: '1.0',
-          status: 'published'
-        },
-        {
-          id: '2',
-          name: 'Plan projet Website.docx',
-          project: 'Website Redesign',
-          type: 'plan',
-          size: '856 KB',
-          uploadedBy: 'Jane Smith',
-          uploadDate: '2026-01-18',
-          version: '2.1',
-          status: 'published'
-        },
-        {
-          id: '3',
-          name: 'Rapport mensuel Janvier.xlsx',
-          project: 'ERP Implementation',
-          type: 'report',
-          size: '1.2 MB',
-          uploadedBy: 'Bob Wilson',
-          uploadDate: '2026-01-20',
-          version: '1.0',
-          status: 'draft'
-        },
-        {
-          id: '4',
-          name: 'Facture F2026-001.pdf',
-          project: 'Website Redesign',
-          type: 'invoice',
-          size: '345 KB',
-          uploadedBy: 'Alice Brown',
-          uploadDate: '2026-01-19',
-          version: '1.0',
-          status: 'published'
-        },
-        {
-          id: '5',
-          name: 'Spécifications techniques.pdf',
-          project: 'Mobile App',
-          type: 'other',
-          size: '3.8 MB',
-          uploadedBy: 'Charlie Davis',
-          uploadDate: '2026-01-17',
-          version: '1.3',
-          status: 'published'
-        },
-        {
-          id: '6',
-          name: 'Architecture diagram.png',
-          project: 'ERP Implementation',
-          type: 'plan',
-          size: '1.5 MB',
-          uploadedBy: 'John Doe',
-          uploadDate: '2026-01-16',
-          version: '2.0',
-          status: 'published'
-        },
-        {
-          id: '7',
-          name: 'Budget prévisionnel.xlsx',
-          project: 'Mobile App',
-          type: 'report',
-          size: '678 KB',
-          uploadedBy: 'Jane Smith',
-          uploadDate: '2026-01-14',
-          version: '1.0',
-          status: 'archived'
-        },
-        {
-          id: '8',
-          name: 'Cahier des charges.pdf',
-          project: 'Website Redesign',
-          type: 'other',
-          size: '2.1 MB',
-          uploadedBy: 'Bob Wilson',
-          uploadDate: '2026-01-12',
-          version: '1.5',
-          status: 'published'
-        },
-        {
-          id: '9',
-          name: 'Contrat maintenance.pdf',
-          project: 'Mobile App',
-          type: 'contract',
-          size: '1.8 MB',
-          uploadedBy: 'Alice Brown',
-          uploadDate: '2026-01-21',
-          version: '1.0',
-          status: 'draft'
-        }
-      ];
-      return mockDocuments;
-    }
+    queryFn: () => documentsService.getDocuments(),
   });
+
+  const documents = useMemo(() => {
+    return apiDocuments.map((doc) => ({
+      id: doc.id,
+      name: doc.nomFichier || doc.id,
+      project: doc.description || '—',
+      type: (doc.typeDocument as string) || 'other',
+      size: doc.taille ? `${Math.round(doc.taille / 1024)} KB` : '—',
+      uploadedBy: (doc as any).uploadedBy || '—',
+      uploadDate: doc.dateUpload,
+      version: (doc as any).version || '—',
+      status: doc.estValide ? 'published' : 'draft',
+    }));
+  }, [apiDocuments]);
 
   const stats = {
     totalDocuments: documents.length,
-    contracts: documents.filter(d => d.type === 'contract').length,
-    plans: documents.filter(d => d.type === 'plan').length,
-    reports: documents.filter(d => d.type === 'report').length
+    contracts: documents.filter((d) => d.type === 'contract').length,
+    plans: documents.filter((d) => d.type === 'plan').length,
+    reports: documents.filter((d) => d.type === 'report').length,
   };
 
-  const filteredDocuments = documents.filter(document => {
-    const matchesSearch = 
+  const filteredDocuments = documents.filter((document) => {
+    const matchesSearch =
       document.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       document.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
       document.uploadedBy.toLowerCase().includes(searchTerm.toLowerCase());
@@ -155,24 +56,24 @@ const DocumentsPage = () => {
     return matchesSearch && matchesType;
   });
 
-  const getTypeColor = (type: Document['type']) => {
-    const colors = {
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
       contract: 'bg-purple-500/10 text-purple-500',
       plan: 'bg-blue-500/10 text-blue-500',
       report: 'bg-green-500/10 text-green-500',
       invoice: 'bg-orange-500/10 text-orange-500',
-      other: 'bg-gray-500/10 text-gray-500'
+      other: 'bg-gray-500/10 text-gray-500',
     };
-    return colors[type];
+    return colors[type] || colors.other;
   };
 
-  const getStatusColor = (status: Document['status']) => {
-    const colors = {
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
       draft: 'bg-yellow-500/10 text-yellow-500',
       published: 'bg-green-500/10 text-green-500',
-      archived: 'bg-gray-500/10 text-gray-500'
+      archived: 'bg-gray-500/10 text-gray-500',
     };
-    return colors[status];
+    return colors[status] || colors.draft;
   };
 
   if (isLoading) {
@@ -290,9 +191,9 @@ const DocumentsPage = () => {
                     <td className="p-3">{document.size}</td>
                     <td className="p-3">{document.uploadedBy}</td>
                     <td className="p-3">
-                      {new Date(document.uploadDate).toLocaleDateString('fr-FR')}
+                      {document.uploadDate ? new Date(document.uploadDate).toLocaleDateString('fr-FR') : '—'}
                     </td>
-                    <td className="p-3">v{document.version}</td>
+                    <td className="p-3">{document.version}</td>
                     <td className="p-3">
                       <Badge className={getStatusColor(document.status)}>
                         {document.status}

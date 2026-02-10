@@ -58,7 +58,9 @@ export default function EvaluationsPage() {
     return 'text-red-600';
   };
 
-  const filteredEvaluations = evaluations?.filter(evaluation => {
+  const evaluationList = evaluations ?? [];
+
+  const filteredEvaluations = evaluationList.filter(evaluation => {
     const matchesSearch = evaluation.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          evaluation.position.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || evaluation.status === statusFilter;
@@ -86,7 +88,7 @@ export default function EvaluationsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Évaluations</p>
-              <p className="text-2xl font-bold">{evaluations?.length || 0}</p>
+              <p className="text-2xl font-bold">{evaluationList.length || 0}</p>
             </div>
             <Award className="h-8 w-8 text-blue-500" />
           </div>
@@ -96,8 +98,8 @@ export default function EvaluationsPage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Note Moyenne</p>
               <p className="text-2xl font-bold text-green-600">
-                {evaluations?.filter(e => e.overallScore > 0).reduce((sum, e) => sum + e.overallScore, 0) / 
-                 evaluations?.filter(e => e.overallScore > 0).length || 0}/5
+                {evaluationList.filter(e => e.overallScore > 0).reduce((sum, e) => sum + e.overallScore, 0) / 
+                 evaluationList.filter(e => e.overallScore > 0).length || 0}/5
               </p>
             </div>
             <Star className="h-8 w-8 text-yellow-500" />
@@ -108,7 +110,7 @@ export default function EvaluationsPage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Validées</p>
               <p className="text-2xl font-bold text-green-600">
-                {evaluations?.filter(e => e.status === 'validated').length || 0}
+                {evaluationList.filter(e => e.status === 'validated').length || 0}
               </p>
             </div>
             <Award className="h-8 w-8 text-green-500" />
@@ -119,7 +121,7 @@ export default function EvaluationsPage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">En Attente</p>
               <p className="text-2xl font-bold text-orange-600">
-                {evaluations?.filter(e => e.status === 'draft' || e.status === 'completed').length || 0}
+                {evaluationList.filter(e => e.status === 'draft' || e.status === 'completed').length || 0}
               </p>
             </div>
             <Award className="h-8 w-8 text-orange-500" />
@@ -212,3 +214,4 @@ export default function EvaluationsPage() {
     </div>
   );
 }
+

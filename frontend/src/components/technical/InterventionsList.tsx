@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, InterventionDetailed } from '@/shared/api/services/technical';
+import { technicalService, Intervention } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,24 +33,25 @@ export default function InterventionsList() {
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data: interventionsResponse, isLoading, error } = useQuery({
     queryKey: ['interventions', statusFilter, technicianFilter, dateFromFilter, dateToFilter],
     queryFn: () =>
       technicalService.getInterventions({
-        filters: {
-          status: statusFilter || undefined,
-        },
-        pageSize: 100,
+        status: statusFilter || undefined,
+        technicienId: technicianFilter || undefined,
+        startDate: dateFromFilter || undefined,
+        endDate: dateToFilter || undefined,
+        limit: 100,
       }),
   });
 
   const { data: techniciansData } = useQuery({
     queryKey: ['technicians'],
-    queryFn: () => technicalService.getTechniciens({ pageSize: 100 }),
+    queryFn: () => technicalService.getTechniciens({ limit: 100 }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (payload: Partial<InterventionDetailed>) => technicalService.createIntervention(payload),
+    mutationFn: (payload: Partial<Intervention>) => technicalService.createIntervention(payload as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['interventions'] });
       setIsDialogOpen(false);
@@ -74,8 +75,8 @@ export default function InterventionsList() {
     setIsDialogOpen(false);
   };
 
-  const interventions = data ?? [];
-  const technicians = techniciansData ?? [];
+  const interventions = interventionsResponse?.data ?? [];
+  const technicians = techniciansData?.data ?? [];
 
   const filteredInterventions = interventions.filter((intervention) => {
     const dateValue = intervention.dateDebut || intervention.scheduledDate || intervention.date;

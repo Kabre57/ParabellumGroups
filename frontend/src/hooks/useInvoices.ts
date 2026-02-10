@@ -2,9 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { billingService, Invoice } from '@/shared/api/billing';
 
 export function useInvoices(params?: Record<string, any>) {
-  return useQuery({
+  return useQuery<Invoice[]>({
     queryKey: ['invoices', params],
-    queryFn: () => billingService.getInvoices(params),
+    queryFn: async () => {
+      const response = await billingService.getInvoices(params);
+      return response.data;
+    },
   });
 }
 
@@ -20,7 +23,8 @@ export function useCreateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Invoice>) => billingService.createInvoice(data),
+    mutationFn: (data: Parameters<typeof billingService.createInvoice>[0]) =>
+      billingService.createInvoice(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },

@@ -17,13 +17,20 @@ import {
 export default function ProspectsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  const { data: statsResponse, isLoading: isLoadingStats } = useQuery({
     queryKey: ['prospect-stats'],
-    queryFn: async () => {
-      const response = await commercialService.getProspectStats();
-      return response.data;
-    },
+    queryFn: () => commercialService.getStats(),
   });
+
+  const stats = statsResponse
+    ? {
+        total: statsResponse.totalProspects,
+        conversionRate: statsResponse.conversionRate,
+        totalExpectedRevenue: 0,
+        wonDeals: statsResponse.byStage?.won ?? 0,
+        lostDeals: statsResponse.byStage?.lost ?? 0,
+      }
+    : null;
 
   return (
     <div className="space-y-6">

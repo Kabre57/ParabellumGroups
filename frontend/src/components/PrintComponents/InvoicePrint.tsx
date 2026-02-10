@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import React from 'react';
 
 interface InvoiceItem {
@@ -224,3 +226,4 @@ export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
     </div>
   );
 }
+

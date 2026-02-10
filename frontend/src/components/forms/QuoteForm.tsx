@@ -25,16 +25,16 @@ interface QuoteFormProps {
 
 export default function QuoteForm({ quote, customers = [], onSuccess, onCancel }: QuoteFormProps) {
   const [formData, setFormData] = useState({
-    customerId: quote?.customerId || quote?.customer_id || '',
-    quoteNumber: quote?.quoteNumber || quote?.quote_number || `DEVIS-${Date.now()}`,
-    date: quote?.date || new Date().toISOString().split('T')[0],
-    validUntil: quote?.validUntil || quote?.valid_until || '',
+    customerId: quote?.clientId || quote?.customerId || quote?.customer_id || '',
+    quoteNumber: quote?.numeroDevis || quote?.quoteNumber || quote?.quote_number || `DEVIS-${Date.now()}`,
+    date: quote?.dateDevis || quote?.date || new Date().toISOString().split('T')[0],
+    validUntil: quote?.dateValidite || quote?.validUntil || quote?.valid_until || '',
     notes: quote?.notes || '',
-    status: quote?.status || 'DRAFT',
+    status: quote?.status || 'BROUILLON',
   });
 
   const [items, setItems] = useState<QuoteItem[]>(
-    quote?.items || [{ description: '', quantity: 1, unitPrice: 0, vatRate: 18 }]
+    quote?.lignes || quote?.items || [{ description: '', quantity: 1, unitPrice: 0, vatRate: 18 }]
   );
 
   const [calculations, setCalculations] = useState({
@@ -102,21 +102,34 @@ export default function QuoteForm({ quote, customers = [], onSuccess, onCancel }
 
     if (!validate()) return;
 
-    const payload = {
-      ...formData,
-      items,
-      totalHT: calculations.totalHT,
-      totalTTC: calculations.totalTTC,
+    const lignes = items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      vatRate: item.vatRate,
+    }));
+
+    const createPayload = {
+      clientId: formData.customerId,
+      dateDevis: formData.date,
+      dateValidite: formData.validUntil,
+      lignes,
+      notes: formData.notes,
+    };
+
+    const updatePayload = {
+      ...createPayload,
+      status: formData.status,
     };
 
     try {
       if (quote?.id) {
         await updateMutation.mutateAsync({
           id: quote.id,
-          data: payload,
+          data: updatePayload,
         });
       } else {
-        await createMutation.mutateAsync(payload);
+        await createMutation.mutateAsync(createPayload);
       }
 
       onSuccess?.();
@@ -219,10 +232,10 @@ export default function QuoteForm({ quote, customers = [], onSuccess, onCancel }
               onChange={(e) => handleChange('status', e.target.value)}
               className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="DRAFT">Brouillon</option>
-              <option value="SENT">Envoyé</option>
-              <option value="ACCEPTED">Accepté</option>
-              <option value="REJECTED">Rejeté</option>
+              <option value="BROUILLON">Brouillon</option>
+              <option value="ENVOYE">Envoyé</option>
+              <option value="ACCEPTE">Accepté</option>
+              <option value="REFUSE">Rejeté</option>
             </select>
           </div>
         </div>
@@ -366,3 +379,4 @@ export default function QuoteForm({ quote, customers = [], onSuccess, onCancel }
     </Card>
   );
 }
+

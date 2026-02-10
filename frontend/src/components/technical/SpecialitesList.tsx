@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Specialite } from '@/shared/api/services/technical';
+import { technicalService, Specialite } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,12 @@ export default function SpecialitesList() {
   const queryClient = useQueryClient();
 
   // getSpecialites ne prend pas de params de recherche selon votre API
-  const { data: specialites = [], isLoading, error } = useQuery({
+  const { data: specialites = [], isLoading, error } = useQuery<Specialite[]>({
     queryKey: ['specialites'],
-    queryFn: () => technicalService.getSpecialites(),
+    queryFn: async () => {
+      const response = await technicalService.getSpecialites();
+      return response.data ?? [];
+    },
   });
 
   // Filtrage côté client pour la recherche

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
-import { Technicien } from '@/shared/api/services/technical';
+import { Technicien } from '@/shared/api/technical';
 import { useSpecialites } from '@/hooks/useTechnical';
 
 interface TechnicienFormValues {

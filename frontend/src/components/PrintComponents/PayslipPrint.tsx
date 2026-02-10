@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import React from 'react';
 
 interface PayslipDeduction {
@@ -395,3 +397,4 @@ export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
     </div>
   );
 }
+

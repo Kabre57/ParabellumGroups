@@ -264,22 +264,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     
     // Si role est une string
     if (typeof role === 'string') {
-      return role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ADMINISTRATOR';
+      const upperRole = role.toUpperCase();
+      return upperRole === 'ADMIN' || upperRole === 'ADMINISTRATOR' || upperRole === 'ADMINISTRATEUR';
     }
     
     // Si role est un objet
     if (role && typeof role === 'object') {
       const roleObj = role as any;
       
-      // Vérifier plusieurs propriétés possibles
-      const roleValue = roleObj.code || roleObj.name || roleObj.value || roleObj.role;
-      
-      if (roleValue && typeof roleValue === 'string') {
-        const upperValue = roleValue.toUpperCase();
-        return upperValue === 'ADMIN' || upperValue === 'ADMINISTRATOR';
+      // Vérifier le CODE du rôle (recommandé)
+      if (roleObj.code) {
+        const upperCode = roleObj.code.toUpperCase();
+        return upperCode === 'ADMIN' || upperCode === 'ADMINISTRATOR';
       }
       
-      // Vérification toString
+      // Vérifier le NAME du rôle
+      if (roleObj.name) {
+        const upperName = roleObj.name.toUpperCase();
+        return upperName === 'ADMIN' || upperName === 'ADMINISTRATOR' || upperName === 'ADMINISTRATEUR';
+      }
+      
+      // Autres propriétés possibles
+      const roleValue = roleObj.value || roleObj.role;
+      if (roleValue && typeof roleValue === 'string') {
+        const upperValue = roleValue.toUpperCase();
+        return upperValue === 'ADMIN' || upperValue === 'ADMINISTRATOR' || upperValue === 'ADMINISTRATEUR';
+      }
+      
+      // Vérification toString en dernier recours
       if (roleObj.toString && typeof roleObj.toString === 'function') {
         const strValue = roleObj.toString().toUpperCase();
         return strValue.includes('ADMIN');

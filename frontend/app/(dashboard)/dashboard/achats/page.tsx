@@ -23,13 +23,18 @@ const statusColors: Record<PurchaseOrderStatus, string> = {
 export default function ProcurementOverviewPage() {
   const { data: stats, isLoading: statsLoading } = useQuery<ProcurementStats>({
     queryKey: ['procurement-stats'],
-    queryFn: () => procurementService.getStats(),
+    queryFn: async () => {
+      const response = await procurementService.getStats();
+      return response.data;
+    },
   });
 
-  const { data: recentOrders = [], isLoading: ordersLoading } = useQuery<PurchaseOrder[]>({
+  const { data: recentOrdersResponse, isLoading: ordersLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getOrders>>>({
     queryKey: ['recent-orders'],
-    queryFn: () => procurementService.getRecentOrders({ limit: 10 }),
+    queryFn: () => procurementService.getOrders({ limit: 10 }),
   });
+
+  const recentOrders = recentOrdersResponse?.data ?? [];
 
   return (
     <div className="p-6 space-y-6">

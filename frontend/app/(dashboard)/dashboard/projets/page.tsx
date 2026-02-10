@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { projectsService } from '@/services/projects';
-import type { ApiResponse, PaginatedResponse, Project, ProjectStatus } from '@/shared/api/types';
+import type { Project, ProjectStatus } from '@/shared/api/types';
 
 const statusColors: Record<ProjectStatus, string> = {
   PLANNING: 'bg-gray-200 text-gray-800',
@@ -25,7 +25,7 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
   const [clientFilter, setClientFilter] = useState('');
 
-  const { data: response, isLoading } = useQuery<ApiResponse<PaginatedResponse<Project>>>({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['projects', statusFilter, clientFilter],
     queryFn: () =>
       projectsService.getProjects({
@@ -33,10 +33,10 @@ export default function ProjectsPage() {
       }),
   });
 
-  const projects = response?.data.data ?? [];
+  const projects = response?.data ?? [];
 
   const filteredProjects = projects.filter((project) => {
-    const clientLabel = (project.clientName || project.customer?.name || project.customerId || '').toLowerCase();
+    const clientLabel = (project.clientName || project.customer?.companyName || project.customerId || '').toLowerCase();
     const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
     const matchesClient = !clientFilter || clientLabel.includes(clientFilter.toLowerCase());
     return matchesStatus && matchesClient;
@@ -44,8 +44,8 @@ export default function ProjectsPage() {
 
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === ProjectStatus.ACTIVE).length,
-    completed: projects.filter((p) => p.status === ProjectStatus.COMPLETED).length,
+    active: projects.filter((p) => p.status === 'ACTIVE').length,
+    completed: projects.filter((p) => p.status === 'COMPLETED').length,
     totalBudget: projects.reduce((sum, p) => sum + (p.budget || 0), 0),
   };
 
@@ -126,7 +126,7 @@ export default function ProjectsPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredProjects.map((project) => {
                   const projectNumber = project.projectNumber || project.id.slice(0, 8);
-                  const clientLabel = project.clientName || project.customer?.name || project.customerId || '—';
+                  const clientLabel = project.clientName || project.customer?.companyName || project.customerId || '—';
                   const startDateLabel = project.startDate ? new Date(project.startDate).toLocaleDateString() : '—';
                   const endDateLabel = project.endDate ? new Date(project.endDate).toLocaleDateString() : '—';
                   const budgetValue = project.budget ?? 0;
@@ -179,3 +179,4 @@ export default function ProjectsPage() {
     </div>
   );
 }
+

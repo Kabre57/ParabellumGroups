@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { data: dashboard, isLoading } = useQuery({
+  const { data: dashboardResponse, isLoading } = useQuery({
     queryKey: ['overview-dashboard'],
     queryFn: () => analyticsService.getOverviewDashboard(),
   });
@@ -28,6 +28,7 @@ export default function DashboardPage() {
     );
   }
 
+  const dashboard = dashboardResponse?.data;
   const stats = [
     {
       title: 'Chiffre d\'Affaires',

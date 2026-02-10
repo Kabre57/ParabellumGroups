@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 interface ContractFormProps {
@@ -94,11 +93,11 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
         {/* Employé */}
         <div>
           <Label htmlFor="employeeId">Employé *</Label>
-          <Select
+          <select
             id="employeeId"
             value={formData.employeeId}
             onChange={(e) => handleChange('employeeId', e.target.value)}
-            className={errors.employeeId ? 'border-red-500' : ''}
+            className={`w-full h-10 px-3 rounded-md border border-input bg-background ${errors.employeeId ? 'border-red-500' : ''}`}
           >
             <option value="">Sélectionner un employé</option>
             {employees.map((emp) => (
@@ -106,7 +105,7 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
                 {emp.firstName} {emp.lastName}
               </option>
             ))}
-          </Select>
+          </select>
           {errors.employeeId && (
             <p className="text-sm text-red-600 mt-1">{errors.employeeId}</p>
           )}
@@ -116,17 +115,17 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           {/* Type de contrat */}
           <div>
             <Label htmlFor="contractType">Type de contrat *</Label>
-            <Select
+            <select
               id="contractType"
               value={formData.contractType}
               onChange={(e) => handleChange('contractType', e.target.value)}
-              className={errors.contractType ? 'border-red-500' : ''}
+              className={`w-full h-10 px-3 rounded-md border border-input bg-background ${errors.contractType ? 'border-red-500' : ''}`}
             >
               <option value="CDI">CDI - Contrat à Durée Indéterminée</option>
               <option value="CDD">CDD - Contrat à Durée Déterminée</option>
               <option value="STAGE">STAGE - Convention de Stage</option>
               <option value="FREELANCE">FREELANCE - Contrat de Freelance</option>
-            </Select>
+            </select>
             {errors.contractType && (
               <p className="text-sm text-red-600 mt-1">{errors.contractType}</p>
             )}
@@ -206,15 +205,16 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           {/* Devise */}
           <div>
             <Label htmlFor="currency">Devise</Label>
-            <Select
+            <select
               id="currency"
               value={formData.currency}
               onChange={(e) => handleChange('currency', e.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background"
             >
               <option value="XOF">XOF (Franc CFA)</option>
               <option value="EUR">EUR (Euro)</option>
               <option value="USD">USD (Dollar)</option>
-            </Select>
+            </select>
           </div>
         </div>
 

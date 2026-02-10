@@ -22,7 +22,7 @@ const invoiceSchema = z.object({
   customer_id: z.string().min(1, 'Le client est requis'),
   issue_date: z.string().min(1, 'La date d\'émission est requise'),
   due_date: z.string().min(1, 'La date d\'échéance est requise'),
-  status: z.string().default('DRAFT'),
+  status: z.string().default('BROUILLON'),
   line_items: z.array(lineItemSchema).min(1, 'Au moins une ligne est requise'),
   notes: z.string().optional(),
   tax_rate: z.number().min(0).max(100).default(20),
@@ -40,10 +40,10 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
   const queryClient = useQueryClient();
   const isEditing = !!invoice;
 
-  const { data: customers } = useQuery({
+  const { data: customersResponse } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
-      const response = await crmService.getCustomers({ pageSize: 100 });
+      const response = await crmService.getClients({ limit: 100 });
       return response.data;
     },
   });
@@ -72,11 +72,11 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     resolver: zodResolver(invoiceSchema),
     defaultValues: invoice
       ? {
-          customer_id: (invoice.customerId || invoice.customer_id || '').toString(),
-          issue_date: invoice.issueDate || invoice.issue_date || invoice.date || '',
-          due_date: invoice.dueDate || invoice.due_date || '',
+          customer_id: (invoice.clientId || invoice.customerId || invoice.customer_id || '').toString(),
+          issue_date: invoice.dateFacture || invoice.issueDate || invoice.issue_date || invoice.date || '',
+          due_date: invoice.dateEcheance || invoice.dueDate || invoice.due_date || '',
           status: invoice.status,
-          line_items: mapLineItems(invoice.items || invoice.line_items),
+          line_items: mapLineItems(invoice.lignes || invoice.items || invoice.line_items),
           notes: invoice.notes || '',
           tax_rate: invoice.tax_rate || 20,
         }
@@ -84,7 +84,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
           customer_id: '',
           issue_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          status: 'DRAFT',
+          status: 'BROUILLON',
           line_items: [{ description: '', quantity: 1, unit_price: 0 }],
           notes: '',
           tax_rate: 20,
@@ -127,23 +127,31 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
   const total = subtotal + taxAmount;
 
   const onSubmit = (data: InvoiceFormData) => {
-    const invoiceData = {
-      customer_id: data.customer_id,
-      issue_date: data.issue_date,
-      due_date: data.due_date,
-      status: data.status,
-      total_ht: subtotal,
-      tax_rate: data.tax_rate,
-      tax_amount: taxAmount,
-      total_ttc: total,
-      line_items: data.line_items,
+    const lignes = data.line_items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+      vatRate: data.tax_rate,
+      totalHT: item.quantity * item.unit_price,
+    }));
+
+    const createPayload = {
+      clientId: data.customer_id,
+      dateFacture: data.issue_date,
+      dateEcheance: data.due_date,
+      lignes,
       notes: data.notes,
     };
 
+    const updatePayload = {
+      ...createPayload,
+      status: data.status,
+    };
+
     if (isEditing) {
-      updateMutation.mutate(invoiceData);
+      updateMutation.mutate(updatePayload);
     } else {
-      createMutation.mutate(invoiceData);
+      createMutation.mutate(createPayload);
     }
   };
 
@@ -169,7 +177,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
             <option value="">Sélectionner un client</option>
-            {customers?.map((customer) => {
+            {customersResponse?.map((customer) => {
               const name = customer.raisonSociale || customer.nom || customer.reference || customer.email || customer.id;
               const email = customer.email ? ` - ${customer.email}` : '';
               return (
@@ -191,11 +199,11 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
               {...register('status')}
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
-              <option value="DRAFT">Brouillon</option>
-              <option value="SENT">Envoyée</option>
-              <option value="PAID">Payée</option>
-              <option value="OVERDUE">En retard</option>
-              <option value="CANCELLED">Annulée</option>
+              <option value="BROUILLON">Brouillon</option>
+              <option value="ENVOYEE">Envoyée</option>
+              <option value="PAYEE">Payée</option>
+              <option value="EN_RETARD">En retard</option>
+              <option value="ANNULEE">Annulée</option>
             </select>
           </div>
 
@@ -372,3 +380,4 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     </form>
   );
 }
+

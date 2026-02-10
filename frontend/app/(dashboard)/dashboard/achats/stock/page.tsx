@@ -10,16 +10,22 @@ export default function StockPage() {
   const [showLowStock, setShowLowStock] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'movements'>('items');
 
-  const { data: stockItems = [], isLoading: itemsLoading } = useQuery<StockItem[]>({
+  const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getStock>>>({
     queryKey: ['stock-items', categoryFilter],
-    queryFn: () => procurementService.getStockItems(),
+    queryFn: () => procurementService.getStock({
+      category: categoryFilter || undefined,
+      belowThreshold: showLowStock || undefined,
+    }),
   });
 
-  const { data: movements = [], isLoading: movementsLoading } = useQuery<StockMovement[]>({
+  const { data: movementsResponse, isLoading: movementsLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getStockMovements>>>({
     queryKey: ['stock-movements'],
     queryFn: () => procurementService.getStockMovements(),
     enabled: activeTab === 'movements',
   });
+
+  const stockItems = stockItemsResponse?.data ?? [];
+  const movements = movementsResponse?.data ?? [];
 
   const normalizedCategory = categoryFilter.trim().toLowerCase();
   const filteredItems = stockItems.filter((item) => {

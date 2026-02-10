@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Clock, Plus, Search, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { apiClient } from '@/shared/api/shared/client';
 
 interface Timesheet {
   id: string;
@@ -30,103 +31,22 @@ const TimesheetsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const { data: timesheets = [], isLoading } = useQuery({
+  const { data: timesheets = [], isLoading } = useQuery<Timesheet[]>({
     queryKey: ['timesheets'],
     queryFn: async () => {
-      const mockTimesheets: Timesheet[] = [
-        {
-          id: '1',
-          employee: 'John Doe',
-          project: 'ERP Implementation',
-          task: 'Backend Development',
-          date: '2026-01-20',
-          hours: 8,
-          status: 'approved',
-          description: 'Développement API REST pour module facturation'
-        },
-        {
-          id: '2',
-          employee: 'Jane Smith',
-          project: 'Website Redesign',
-          task: 'UI Design',
-          date: '2026-01-20',
-          hours: 6,
-          status: 'submitted',
-          description: 'Création maquettes page d\'accueil'
-        },
-        {
-          id: '3',
-          employee: 'Bob Wilson',
-          project: 'ERP Implementation',
-          task: 'Database Migration',
-          date: '2026-01-19',
-          hours: 10,
-          status: 'approved',
-          description: 'Migration données legacy vers nouveau système'
-        },
-        {
-          id: '4',
-          employee: 'Alice Brown',
-          project: 'Mobile App',
-          task: 'Frontend Development',
-          date: '2026-01-20',
-          hours: 7,
-          status: 'submitted',
-          description: 'Intégration écrans profil utilisateur'
-        },
-        {
-          id: '5',
-          employee: 'Charlie Davis',
-          project: 'Website Redesign',
-          task: 'Testing',
-          date: '2026-01-18',
-          hours: 4,
-          status: 'rejected',
-          description: 'Tests fonctionnels - insuffisant de détails'
-        },
-        {
-          id: '6',
-          employee: 'John Doe',
-          project: 'ERP Implementation',
-          task: 'Code Review',
-          date: '2026-01-21',
-          hours: 3,
-          status: 'draft',
-          description: 'Revue code module inventaire'
-        },
-        {
-          id: '7',
-          employee: 'Jane Smith',
-          project: 'Website Redesign',
-          task: 'UI Design',
-          date: '2026-01-21',
-          hours: 5,
-          status: 'draft',
-          description: 'Design responsive pages produits'
-        },
-        {
-          id: '8',
-          employee: 'Bob Wilson',
-          project: 'Mobile App',
-          task: 'Backend Development',
-          date: '2026-01-20',
-          hours: 8,
-          status: 'submitted',
-          description: 'Développement API notifications push'
-        }
-      ];
-      return mockTimesheets;
+      const response = await apiClient.get('/timesheets');
+      return response.data?.data || response.data || [];
     }
   });
 
   const stats = {
-    totalHours: timesheets.reduce((sum, ts) => sum + ts.hours, 0),
-    pending: timesheets.filter(ts => ts.status === 'submitted').length,
-    approved: timesheets.filter(ts => ts.status === 'approved').length,
-    activeProjects: new Set(timesheets.map(ts => ts.project)).size
+    totalHours: timesheets.reduce((sum: number, ts: Timesheet) => sum + (ts.hours || 0), 0),
+    pending: timesheets.filter((ts: Timesheet) => ts.status === 'submitted').length,
+    approved: timesheets.filter((ts: Timesheet) => ts.status === 'approved').length,
+    activeProjects: new Set(timesheets.map((ts: Timesheet) => ts.project)).size
   };
 
-  const filteredTimesheets = timesheets.filter(timesheet => {
+  const filteredTimesheets = timesheets.filter((timesheet: Timesheet) => {
     const matchesSearch = 
       timesheet.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
       timesheet.project.toLowerCase().includes(searchTerm.toLowerCase()) ||

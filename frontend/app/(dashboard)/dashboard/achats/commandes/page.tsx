@@ -25,13 +25,15 @@ export default function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState('');
 
-  const { data: orders = [], isLoading } = useQuery<PurchaseOrder[]>({
+  const { data: ordersResponse, isLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getOrders>>>({
     queryKey: ['purchase-orders', statusFilter, supplierFilter],
     queryFn: () => procurementService.getOrders({
       status: statusFilter !== 'ALL' ? statusFilter : undefined,
-      supplier: supplierFilter || undefined,
+      search: supplierFilter || undefined,
     }),
   });
+
+  const orders = ordersResponse?.data ?? [];
 
   const filteredOrders = orders.filter((order: PurchaseOrder) => {
     const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;

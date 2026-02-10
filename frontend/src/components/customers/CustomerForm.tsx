@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { crmService, Client, TypeClient } from '@/shared/api/crm';
-import type { ClientData } from '@/shared/api/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +42,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
     const fetchTypes = async () => {
       try {
         const response = await crmService.getTypeClients();
-        setTypes(response.data);
+        setTypes(response);
       } catch (error) {
         console.error('Erreur lors du chargement des types de clients', error);
       }
@@ -76,7 +75,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: ClientData) => crmService.createCustomer(data),
+    mutationFn: (data: ClientFormData) => crmService.createClient(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       onSuccess?.();
@@ -84,7 +83,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: ClientData) => crmService.updateCustomer(customer!.id, data),
+    mutationFn: (data: ClientFormData) => crmService.updateClient(customer!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer', customer!.id] });
@@ -94,9 +93,9 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
 
   const onSubmit = (data: ClientFormData) => {
     if (isEditing) {
-      updateMutation.mutate(data as ClientData);
+      updateMutation.mutate(data);
     } else {
-      createMutation.mutate(data as ClientData);
+      createMutation.mutate(data);
     }
   };
 

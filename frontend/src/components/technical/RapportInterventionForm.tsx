@@ -1,11 +1,13 @@
-﻿'use client';
+'use client';
+
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { technicalService, CreateRapportInterventionRequest } from '@/shared/api/services/technical';
+import { technicalService } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,44 +49,38 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     },
   });
 
-  const { data: interventionsData = [] } = useQuery({
+  const { data: interventionsResponse } = useQuery<Awaited<ReturnType<typeof technicalService.getInterventions>>>({
     queryKey: ['interventions-for-rapport'],
     queryFn: () =>
       technicalService.getInterventions({
-        filters: { status: 'TERMINEE' },
-        pageSize: 100,
+        status: 'TERMINEE',
+        limit: 100,
       }),
   });
+  const interventionsData = interventionsResponse?.data ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateRapportInterventionRequest) => technicalService.createRapport(data),
+    mutationFn: (data: { interventionId: string; workDone: string; issuesFound?: string; recommendations?: string }) =>
+      technicalService.createRapport({
+        interventionId: data.interventionId,
+        titre: 'Rapport intervention',
+        contenu: data.workDone,
+        conclusions: data.issuesFound,
+        recommandations: data.recommendations,
+      } as any),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['rapports'] });
-      setRapportId(data.id);
-    },
-  });
-
-  const uploadPhotoMutation = useMutation({
-    mutationFn: ({ rapportId, file }: { rapportId: string; file: File }) =>
-      technicalService.uploadPhoto(rapportId, file),
-    onSuccess: (data, variables) => {
-      setUploadedPhotos((prev) => [...prev, { url: data.url, name: variables.file.name }]);
-      setIsUploading(false);
-    },
-    onError: () => {
-      setIsUploading(false);
+      setRapportId(data.data?.id ?? null);
     },
   });
 
   const onSubmit = (data: RapportFormData) => {
-    const payload: CreateRapportInterventionRequest = {
+    createMutation.mutate({
       interventionId: data.interventionId,
       workDone: data.workDone,
       issuesFound: data.issuesFound,
       recommendations: data.recommendations,
-    };
-
-    createMutation.mutate(payload);
+    });
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,23 +93,8 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     }
 
     setIsUploading(true);
-
-    for (let i = 0; i < files.length; i += 1) {
-      const file = files[i];
-
-      if (!file.type.startsWith('image/')) {
-        alert(`Le fichier ${file.name} n'est pas une image valide`);
-        continue;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`Le fichier ${file.name} est trop volumineux (max 5MB)`);
-        continue;
-      }
-
-      uploadPhotoMutation.mutate({ rapportId, file });
-    }
-
+    alert('Upload de photos non disponible pour le moment.');
+    setIsUploading(false);
     event.target.value = '';
   };
 
@@ -140,7 +121,7 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
         </Alert>
       )}
 
-      {uploadPhotoMutation.isError && (
+      {false && (
         <Alert className="mb-4 bg-red-50 border-red-200 text-red-800">
           Erreur lors de l'upload de la photo
         </Alert>
@@ -314,3 +295,4 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     </Card>
   );
 }
+

@@ -1,12 +1,13 @@
-export * from './auth';
-export * from './crm';
-export * from './billing';
-export * from './hr';
-export * from './technical';
-export * from './projects';
-export * from './procurement';
-export * from './commercial';
-export * from './analytics';
-export * from './customers';
-export * from './shared/types';
 export { apiClient } from './shared/client';
+export * from './shared/types';
+
+export { authService } from './auth';
+export { crmService } from './crm';
+export { billingService } from './billing';
+export { hrService } from './hr';
+export { technicalService } from './technical';
+export { projectsService } from './projects';
+export { procurementService } from './procurement';
+export { commercialService } from './commercial';
+export { analyticsService } from './analytics';
+export { customersService } from './customers';

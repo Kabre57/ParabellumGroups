@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Technicien } from '@/shared/api/services/technical'; // Changé Technician -> Technicien
+import { technicalService, Technicien } from '@/shared/api/technical'; // Changé Technician -> Technicien
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,19 +21,17 @@ export default function TechnicianAssignment({
   const queryClient = useQueryClient();
   const [selectedTechnicians, setSelectedTechnicians] = useState<string[]>([]);
 
-  const { data: techniciansData, isLoading } = useQuery({
+  const { data: techniciansResponse, isLoading } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
-      return await technicalService.getTechniciens({ pageSize: 100 }); // Changé getTechnicians -> getTechniciens
+      return await technicalService.getTechniciens({ limit: 100 }); // Changé getTechnicians -> getTechniciens
     },
-  });
-
-  const assignMutation = useMutation({
+  });  const techniciansData = techniciansResponse?.data ?? [];  const assignMutation = useMutation({
     mutationFn: (technicianIds: string[]) => {
       // Pour chaque technicien sélectionné, appeler assignTechnicienToMission
       // Note: Vous pourriez vouloir créer une méthode bulk si disponible
       const promises = technicianIds.map(technicienId => 
-        technicalService.assignTechnicienToMission(missionNum, technicienId)
+        technicalService.updateMission(missionNum, { technicienIds: [technicienId] } as any)
       );
       return Promise.all(promises);
     },
@@ -188,3 +186,5 @@ export default function TechnicianAssignment({
     </Card>
   );
 }
+
+

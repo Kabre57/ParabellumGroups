@@ -24,13 +24,14 @@ export default function RapportsPage() {
     // Pour l'instant, on laisse le filtrage côté client
   }
 
-  const { data, isLoading, error } = useQuery({
+  const { data: rapportsResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapports>>>({
     queryKey: ['rapports'],
     queryFn: () => technicalService.getRapports(),
   });
+  const rapports = rapportsResponse?.data ?? [];
 
   // Filtrer les résultats côté client
-  const filteredRapports = (data || []).filter((rapport: any) => {
+  const filteredRapports = rapports.filter((rapport: any) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -177,11 +178,12 @@ export default function RapportsPage() {
 }
 
 function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string; onClose: () => void; onPrint: (rapport: any) => void }) {
-  const { data: rapport, isLoading, error } = useQuery({
+  const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],
     queryFn: () => technicalService.getRapport(rapportId),
     enabled: !!rapportId,
   });
+  const rapport = rapportResponse?.data;
 
   if (isLoading) {
     return (

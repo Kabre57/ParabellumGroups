@@ -14,7 +14,7 @@ export default function RHDashboardPage() {
   const { data: employees, isLoading: employeesLoading } = useQuery({
     queryKey: ['employees-stats'],
     queryFn: async () => {
-      const response = await hrService.getEmployees({ pageSize: 1000 });
+      const response = await hrService.getEmployees({ limit: 1000 });
       return response.data || [];
     },
   });
@@ -22,7 +22,7 @@ export default function RHDashboardPage() {
   const { data: leaveRequests, isLoading: leavesLoading } = useQuery({
     queryKey: ['leave-requests-stats'],
     queryFn: async () => {
-      const response = await hrService.getLeaveRequests({ pageSize: 1000 });
+      const response = await hrService.getConges({ limit: 1000 });
       return response.data || [];
     },
   });
@@ -30,8 +30,7 @@ export default function RHDashboardPage() {
   const { data: loans, isLoading: loansLoading } = useQuery({
     queryKey: ['loans-stats'],
     queryFn: async () => {
-      const response = await hrService.getLoans({ pageSize: 1000 });
-      return response.data || [];
+      return [];
     },
   });
 
@@ -40,7 +39,7 @@ export default function RHDashboardPage() {
     queryFn: async () => {
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
-      const response = await hrService.getPayroll({ 
+      const response = await hrService.getPayrolls({ 
         pageSize: 1000,
         filters: { month: currentMonth, year: currentYear }
       });
@@ -52,10 +51,10 @@ export default function RHDashboardPage() {
 
   const totalEmployees = employees?.length || 0;
   const activeEmployees = employees?.filter(e => e.isActive).length || 0;
-  const onLeave = leaveRequests?.filter(lr => lr.status === 'APPROVED' && 
-    new Date(lr.startDate) <= new Date() && 
-    new Date(lr.endDate) >= new Date()).length || 0;
-  const activeLoans = loans?.filter(l => l.status === 'ACTIVE').length || 0;
+  const onLeave = leaveRequests?.filter(lr => lr.statut === 'APPROUVE' && 
+    new Date(lr.dateDebut) <= new Date() && 
+    new Date(lr.dateFin) >= new Date()).length || 0;
+  const activeLoans = 0;
   const monthlyPayroll = payroll?.reduce((sum, p) => sum + p.totalPaid, 0) || 0;
 
   return (
@@ -239,18 +238,18 @@ export default function RHDashboardPage() {
             <div key={lr.id} className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  Demande de congé - {lr.leaveType}
+                  Demande de congé - {lr.typeConge}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Du {new Date(lr.startDate).toLocaleDateString('fr-FR')} au {new Date(lr.endDate).toLocaleDateString('fr-FR')}
+                  Du {new Date(lr.dateDebut).toLocaleDateString('fr-FR')} au {new Date(lr.dateFin).toLocaleDateString('fr-FR')}
                 </p>
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
-                lr.status === 'PENDING' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
-                lr.status === 'APPROVED' ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
+                lr.statut === 'EN_ATTENTE' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
+                lr.statut === 'APPROUVE' ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
                 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
               }`}>
-                {lr.status}
+                {lr.statut}
               </span>
             </div>
           ))}
@@ -264,3 +263,5 @@ export default function RHDashboardPage() {
     </div>
   );
 }
+
+

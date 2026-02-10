@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React, { useEffect } from "react";
 
 interface RapportPrintProps {
@@ -586,3 +587,4 @@ export default function RapportPrint({ rapport, onClose }: RapportPrintProps) {
     </div>
   );
 }
+
