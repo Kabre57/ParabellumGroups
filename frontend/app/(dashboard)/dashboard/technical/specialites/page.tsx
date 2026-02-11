@@ -2,16 +2,19 @@
 
 import React, { useState } from 'react';
 import { useSpecialites, useDeleteSpecialite, useCreateSpecialite, useUpdateSpecialite } from '@/hooks/useTechnical';
-import { Specialite } from '@/shared/api/technical';
+import { Specialite, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Edit, Trash2, Printer } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Printer, Loader2 } from 'lucide-react';
 import { SpecialiteForm } from '@/components/technical/SpecialiteForm';
+import SpecialitePrint from '@/components/printComponents/SpecialitePrint';
 
 export default function SpecialitesPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedSpecialite, setSelectedSpecialite] = useState<Specialite | undefined>();
+  const [printingSpecialite, setPrintingSpecialite] = useState<Specialite | null>(null);
+  const [isPrinting, setIsPrinting] = useState<string | null>(null);
 
   const { data: specialites = [], isLoading } = useSpecialites();
   const deleteMutation = useDeleteSpecialite();
@@ -58,6 +61,20 @@ export default function SpecialitesPage() {
     }
   };
 
+  const handlePrint = async (specialite: Specialite) => {
+    setIsPrinting(specialite.id);
+    try {
+      const specialiteResp = await technicalService.getSpecialite(specialite.id);
+      const fullSpecialite = (specialiteResp as any)?.data ?? specialiteResp;
+      setPrintingSpecialite(fullSpecialite?.data ?? fullSpecialite ?? specialite);
+    } catch (error) {
+      console.error('Erreur impression specialite:', error);
+      setPrintingSpecialite(specialite);
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -68,6 +85,12 @@ export default function SpecialitesPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {printingSpecialite && (
+        <SpecialitePrint
+          specialite={printingSpecialite}
+          onClose={() => setPrintingSpecialite(null)}
+        />
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Spécialités Techniques</h1>
@@ -128,8 +151,18 @@ export default function SpecialitesPage() {
                       <Edit className="w-3 h-3" />
                       Modifier
                     </Button>
-                    <Button variant="outline" size="sm" title="Imprimer">
-                      <Printer className="w-3 h-3" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title="Imprimer"
+                      onClick={() => handlePrint(specialite)}
+                      disabled={isPrinting === specialite.id}
+                    >
+                      {isPrinting === specialite.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Printer className="w-3 h-3" />
+                      )}
                     </Button>
                     <Button
                       variant="outline"

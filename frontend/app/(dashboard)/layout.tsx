@@ -21,7 +21,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // Vérification d'authentification
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // Rediriger vers la page de connexion avec l'URL de retour
       const returnUrl = encodeURIComponent(pathname || '/dashboard');
       router.push(`/login?returnUrl=${returnUrl}`);
     }
@@ -35,10 +34,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // Afficher un loader pendant la vérification
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <Spinner size="lg" />
-          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-4 text-sm text-gray-600">
             Chargement...
           </p>
         </div>
@@ -51,25 +50,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  // Layout principal avec structure flex
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      {/* Sidebar fixe à gauche */}
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Conteneur principal (Header + Content + Footer) */}
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
-        {/* Header sticky en haut */}
+      {/* Main content area - ajuste selon sidebar */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        {/* Header */}
         <Header onMenuClick={() => setSidebarOpen(true)} />
 
-        {/* Contenu principal scrollable */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 lg:p-6">
-            <div className="max-w-7xl mx-auto">{children}</div>
+        {/* Main content avec scroll */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-6 max-w-7xl mx-auto">
+            {children}
           </div>
         </main>
 
-        {/* Footer en bas */}
+        {/* Footer */}
         <Footer />
       </div>
     </div>

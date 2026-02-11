@@ -3,31 +3,31 @@ import { TypeClient } from './types';
 
 export const typeClientsService = {
   async getTypeClients(): Promise<TypeClient[]> {
-    const response = await apiClient.get('/customers/type-clients');
+    const response = await apiClient.get('/type-clients');
     return response.data;
   },
 
   async getTypeClient(id: string): Promise<TypeClient> {
-    const response = await apiClient.get(`/customers/type-clients/${id}`);
+    const response = await apiClient.get(`/type-clients/${id}`);
     return response.data;
   },
 
   async createTypeClient(data: Partial<TypeClient>): Promise<TypeClient> {
-    const response = await apiClient.post('/customers/type-clients', data);
+    const response = await apiClient.post('/type-clients', data);
     return response.data;
   },
 
   async updateTypeClient(id: string, data: Partial<TypeClient>): Promise<TypeClient> {
-    const response = await apiClient.put(`/customers/type-clients/${id}`, data);
+    const response = await apiClient.put(`/type-clients/${id}`, data);
     return response.data;
   },
 
   async deleteTypeClient(id: string): Promise<void> {
-    await apiClient.delete(`/customers/type-clients/${id}`);
+    await apiClient.delete(`/type-clients/${id}`);
   },
 
   async toggleTypeClient(id: string): Promise<TypeClient> {
-    const response = await apiClient.patch(`/customers/type-clients/${id}/toggle`);
+    const response = await apiClient.patch(`/type-clients/${id}/toggle-active`);
     return response.data;
   },
 };

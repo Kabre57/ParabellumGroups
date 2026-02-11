@@ -144,6 +144,7 @@ const login = async (req, res) => {
           select: {
             id: true,
             name: true,
+            code: true,
           },
         },
       },
@@ -258,7 +259,19 @@ const refreshToken = async (req, res) => {
     // Check if token exists in DB and is not revoked
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token },
-      include: { user: true }
+      include: {
+        user: {
+          include: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      }
     });
 
     if (!storedToken) {

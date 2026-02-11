@@ -2,15 +2,16 @@
 
 import React, { useState } from 'react';
 import { useMissions, useDeleteMission, useUpdateMissionStatus, useCreateMission, useUpdateMission } from '@/hooks/useTechnical';
-import { Mission } from '@/shared/api/technical';
+import { Mission, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MissionForm } from '@/components/technical/MissionForm';
 import { CreateMissionModal } from '@/components/technical/CreateMissionModal';
 import { toast } from 'sonner';
+import MissionPrint from '@/components/printComponents/MissionPrint';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -31,6 +32,8 @@ export default function MissionsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedMission, setSelectedMission] = useState<Mission | undefined>();
+  const [printingMission, setPrintingMission] = useState<Mission | null>(null);
+  const [isPrinting, setIsPrinting] = useState<string | null>(null);
 
   const { data: missions = [], isLoading, error, refetch } = useMissions({ pageSize: 100 });
   const deleteMutation = useDeleteMission();
@@ -131,6 +134,20 @@ export default function MissionsPage() {
     });
   };
 
+  const handlePrint = async (mission: Mission) => {
+    setIsPrinting(mission.id);
+    try {
+      const missionResp = await technicalService.getMission(mission.id);
+      const fullMission = (missionResp as any)?.data ?? missionResp;
+      setPrintingMission(fullMission?.data ?? fullMission ?? mission);
+    } catch (error) {
+      console.error('Erreur impression mission:', error);
+      setPrintingMission(mission);
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
   const formatDate = (date?: string) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('fr-FR');
@@ -163,6 +180,12 @@ export default function MissionsPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {printingMission && (
+        <MissionPrint
+          mission={printingMission}
+          onClose={() => setPrintingMission(null)}
+        />
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Missions Techniques</h1>
@@ -320,6 +343,19 @@ export default function MissionsPage() {
                           Voir
                         </Button>
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Imprimer"
+                        onClick={() => handlePrint(mission)}
+                        disabled={isPrinting === mission.id}
+                      >
+                        {isPrinting === mission.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Printer className="w-3 h-3" />
+                        )}
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 

@@ -62,6 +62,8 @@ exports.getAll = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    console.log('📝 Payload reçu:', JSON.stringify(req.body, null, 2));
+    
     const {
       nom,
       prenom,
@@ -76,10 +78,11 @@ exports.create = async (req, res) => {
       notes
     } = req.body;
 
-    if (!nom || !prenom || !email || !telephone || !specialiteId || !matricule || !dateEmbauche) {
+    if (!nom || !prenom || !telephone || !specialiteId || !matricule || !dateEmbauche) {
+      console.log('❌ Validation échouée:', { nom, prenom, telephone, specialiteId, matricule, dateEmbauche });
       return res.status(400).json({
         success: false,
-        error: 'Les champs nom, prenom, email, telephone, specialiteId, matricule et dateEmbauche sont requis'
+        error: 'Les champs nom, prenom, telephone, specialiteId, matricule et dateEmbauche sont requis'
       });
     }
 
@@ -87,7 +90,7 @@ exports.create = async (req, res) => {
       data: {
         nom,
         prenom,
-        email,
+        email: email || null,
         telephone,
         specialiteId,
         matricule,

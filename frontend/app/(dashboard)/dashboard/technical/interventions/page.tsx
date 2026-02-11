@@ -10,6 +10,7 @@ import { Plus, Search, Eye, Edit, Trash2, CheckCircle, Clock, FileText, Printer,
 import Link from 'next/link';
 import { CreateInterventionModal } from '@/components/technical/CreateInterventionModal';
 import RapportPrint from '@/components/printComponents/RapportPrint';
+import InterventionPrint from '@/components/printComponents/InterventionPrint';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -25,8 +26,8 @@ export default function InterventionsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedIntervention, setSelectedIntervention] = useState<Intervention | undefined>();
   
-  // États pour l'impression (peut être un Rapport ou une Intervention)
-  const [printingData, setPrintingData] = useState<any | null>(null);
+  // États pour l'impression (rapport ou intervention)
+  const [printingData, setPrintingData] = useState<{ type: 'rapport' | 'intervention'; data: any } | null>(null);
   const [isFetching, setIsFetching] = useState<string | null>(null);
 
   const { data: interventions = [], isLoading } = useInterventions({ pageSize: 100 });
@@ -58,25 +59,41 @@ export default function InterventionsPage() {
   };
 
   const handlePrint = async (intervention: Intervention) => {
-    // Si l'intervention a un rapport, on essaie de charger le rapport complet pour une impression détaillée
-    if (intervention.rapports && intervention.rapports.length > 0) {
-      try {
-        setIsFetching(intervention.id);
-        const rapportId = intervention.rapports[intervention.rapports.length - 1].id;
-        const fullRapport = await technicalService.getRapport(rapportId);
-        if (fullRapport?.data) {
-          setPrintingData(fullRapport.data);
-          return;
-        }
-      } catch (error) {
-        console.error("Erreur chargement rapport, repli sur l'intervention:", error);
-      } finally {
-        setIsFetching(null);
-      }
-    }
+    setIsFetching(intervention.id);
+    try {
+      const interventionResp = await technicalService.getIntervention(intervention.id);
+      let fullIntervention = (interventionResp as any)?.data ?? interventionResp;
 
-    // Si pas de rapport ou erreur, on imprime directement les détails de l'intervention
-    setPrintingData(intervention);
+      if (!fullIntervention?.mission && fullIntervention?.missionId) {
+        try {
+          const missionResp = await technicalService.getMission(fullIntervention.missionId);
+          const mission = (missionResp as any)?.data ?? missionResp;
+          fullIntervention = { ...fullIntervention, mission: mission?.data ?? mission };
+        } catch (error) {
+          console.error('Erreur chargement mission pour impression:', error);
+        }
+      }
+
+      const rapports = Array.isArray(fullIntervention?.rapports) ? fullIntervention.rapports : [];
+      if (rapports.length > 0) {
+        const rapportId = rapports[rapports.length - 1]?.id;
+        if (rapportId) {
+          const rapportResp = await technicalService.getRapport(rapportId);
+          const fullRapport = (rapportResp as any)?.data ?? rapportResp;
+          if (fullRapport) {
+            setPrintingData({ type: 'rapport', data: fullRapport });
+            return;
+          }
+        }
+      }
+
+      setPrintingData({ type: 'intervention', data: fullIntervention || intervention });
+    } catch (error) {
+      console.error("Erreur chargement impression intervention:", error);
+      setPrintingData({ type: 'intervention', data: intervention });
+    } finally {
+      setIsFetching(null);
+    }
   };
 
   const handleComplete = (id: string) => {
@@ -119,10 +136,16 @@ export default function InterventionsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {printingData && (
-        <RapportPrint 
-          rapport={printingData} 
-          onClose={() => setPrintingData(null)} 
+      {printingData?.type === 'rapport' && (
+        <RapportPrint
+          rapport={printingData.data}
+          onClose={() => setPrintingData(null)}
+        />
+      )}
+      {printingData?.type === 'intervention' && (
+        <InterventionPrint
+          intervention={printingData.data}
+          onClose={() => setPrintingData(null)}
         />
       )}
 

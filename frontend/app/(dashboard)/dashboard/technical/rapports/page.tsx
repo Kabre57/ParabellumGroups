@@ -1,21 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { technicalService } from '@/shared/api/technical';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Eye, Calendar, X, FileText, AlertCircle, CheckCircle, Printer } from 'lucide-react';
+import { Search, Eye, Calendar, X, FileText, AlertCircle, CheckCircle, Printer, Plus } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import RapportPrint from '@/components/printComponents/RapportPrint';
 import { SearchParams } from '@/shared/api/types';
+import RapportInterventionForm from '@/components/technical/RapportInterventionForm';
 
 export default function RapportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRapportId, setSelectedRapportId] = useState<string | null>(null);
   const [printingRapport, setPrintingRapport] = useState<any | null>(null);
+  const [isPrinting, setIsPrinting] = useState<string | null>(null);
+  const [showCreateRapport, setShowCreateRapport] = useState(false);
 
   // Créer des params de recherche corrects
   const searchParams: SearchParams = {};
@@ -43,6 +46,23 @@ export default function RapportsPage() {
     );
   });
 
+  const loadAndPrintRapport = async (rapportId: string) => {
+    setIsPrinting(rapportId);
+    try {
+      const rapportResponse = await technicalService.getRapport(rapportId);
+      const fullRapport = (rapportResponse as any)?.data ?? rapportResponse;
+      setPrintingRapport(fullRapport?.data ?? fullRapport);
+    } catch (error) {
+      console.error('Erreur chargement rapport pour impression:', error);
+      const fallback = rapports.find((item: any) => item.id === rapportId);
+      if (fallback) {
+        setPrintingRapport(fallback);
+      }
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -63,11 +83,17 @@ export default function RapportsPage() {
         />
       )}
 
-      <div className="no-print">
-        <h1 className="text-3xl font-bold">Rapports d&apos;Intervention</h1>
-        <p className="text-muted-foreground mt-2">
-          Consulter les rapports d&apos;intervention et leurs photos
-        </p>
+      <div className="no-print flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Rapports d&apos;Intervention</h1>
+          <p className="text-muted-foreground mt-2">
+            Consulter les rapports d&apos;intervention et leurs photos
+          </p>
+        </div>
+        <Button onClick={() => setShowCreateRapport(true)} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Nouveau rapport
+        </Button>
       </div>
 
       <Card className="no-print">
@@ -142,9 +168,14 @@ export default function RapportsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setPrintingRapport(rapport)}
+                      onClick={() => loadAndPrintRapport(rapport.id)}
+                      disabled={isPrinting === rapport.id}
                     >
-                      <Printer className="h-4 w-4" />
+                      {isPrinting === rapport.id ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      ) : (
+                        <Printer className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -158,6 +189,10 @@ export default function RapportsPage() {
         <Card className="no-print">
           <CardContent className="text-center py-12">
             <p className="text-muted-foreground">Aucun rapport d&apos;intervention trouvé</p>
+            <Button onClick={() => setShowCreateRapport(true)} className="mt-4">
+              <Plus className="h-4 w-4 mr-2" />
+              Créer un rapport
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -173,11 +208,23 @@ export default function RapportsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showCreateRapport} onOpenChange={setShowCreateRapport}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <RapportInterventionForm
+            onSuccess={() => setShowCreateRapport(false)}
+            onCancel={() => setShowCreateRapport(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string; onClose: () => void; onPrint: (rapport: any) => void }) {
+  const queryClient = useQueryClient();
+  const [showPdf, setShowPdf] = useState(false);
+  const [deletingPhotoUrl, setDeletingPhotoUrl] = useState<string | null>(null);
   const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],
     queryFn: () => technicalService.getRapport(rapportId),
@@ -287,15 +334,71 @@ function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string;
         )}
       </div>
 
+      {rapport.photos && rapport.photos.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Photos</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rapport.photos.map((photo: string) => (
+              <div key={photo} className="group relative">
+                <img
+                  src={photo}
+                  alt="Photo rapport"
+                  className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-800"
+                  onClick={() => window.open(photo, '_blank')}
+                />
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={deletingPhotoUrl === photo}
+                  onClick={async () => {
+                    if (!confirm('Supprimer cette photo ?')) return;
+                    setDeletingPhotoUrl(photo);
+                    try {
+                      await technicalService.deleteRapportPhoto(rapportId, photo);
+                      queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
+                    } catch (err) {
+                      console.error('Erreur suppression photo:', err);
+                      alert('Erreur lors de la suppression de la photo');
+                    } finally {
+                      setDeletingPhotoUrl(null);
+                    }
+                  }}
+                  title="Supprimer la photo"
+                >
+                  {deletingPhotoUrl === photo ? '…' : '×'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3 pt-4 border-t">
         <Button className="flex-1" onClick={() => onPrint(rapport)}>
           <Printer className="h-4 w-4 mr-2" />
           Imprimer le Rapport
         </Button>
+        <Button variant="outline" onClick={() => setShowPdf((v) => !v)}>
+          {showPdf ? 'Masquer PDF' : 'Aperçu PDF'}
+        </Button>
         <Button variant="outline" onClick={onClose}>
           Fermer
         </Button>
       </div>
+
+      {showPdf && (
+        <div className="border rounded-lg overflow-hidden">
+          <iframe
+            src={`/api/technical/rapports/${rapportId}/pdf`}
+            width="100%"
+            height="600"
+            title="Aperçu PDF"
+          />
+        </div>
+      )}
     </div>
   );
 }

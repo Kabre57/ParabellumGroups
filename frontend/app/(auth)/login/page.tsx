@@ -8,11 +8,8 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Alert } from '@/components/ui/alert';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide'),
@@ -49,129 +46,140 @@ export default function LoginPage() {
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Section Logo + Titre - MODIFIÉE */}
-      <div className="text-center">
-        <div className="flex justify-center mb-4">
-          <img 
-            src="/parabellum.jpg" 
-            alt="Parabellum Groups" 
-            className="w-20 h-20 object-contain rounded-full border-4 border-white shadow-lg"
-          />
-        </div>
-        
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Connexion
-        </h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Connectez-vous à votre compte Parabellum ERP
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-8 animate-fade-in">
+        <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-10 transition-all duration-300 hover:shadow-2xl">
+          
+          {/* Logo + Header */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="mb-6 flex flex-col items-center space-y-4">
+              <img 
+                src="/parabellum.jpg" 
+                alt="Parabellum" 
+                className="w-24 h-24 object-contain rounded-full border-4 border-white shadow-lg hover:scale-105 transition-transform duration-300"
+              />
+              <div className="text-center">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  prarabellum groups
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Solution technique innovante
+                </p>
+              </div>
+            </div>
+            
+            <h2 className="text-center text-2xl font-bold text-gray-900 mb-2">
+              Connexion à votre espace
+            </h2>
+            <p className="text-center text-gray-600 mb-6 text-sm">
+              Entrez vos identifiants pour accéder au tableau de bord
+            </p>
+          </div>
 
-      {error && (
-        <Alert variant="destructive">
-          {error}
-        </Alert>
-      )}
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
-      {/* Le reste du formulaire reste inchangé */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* ... Champ email ... */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-5">
+              
+              {/* Email Field */}
+              <div className="group">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
                   Adresse email
                 </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200">
-                    <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500" />
+                <div className="relative transition-all duration-300 group-hover:scale-[1.01]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   </div>
-                  <Input
+                  <input
                     id="email"
                     type="email"
-                    placeholder="exemple@email.com"
                     autoComplete="email"
                     {...register('email')}
-                    className={`pl-10 transition-all duration-200 ${
-                      errors.email 
-                        ? 'border-red-500 focus-visible:ring-red-500' 
-                        : 'focus:border-blue-500 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:focus:border-blue-500'
-                    }`}
+                    className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    placeholder="email@exemple.com"
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-1 text-sm text-red-500 dark:text-red-400 animate-fade-in">
+                  <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
                     {errors.email.message}
                   </p>
                 )}
               </div>
 
-      {/* Champ mot de passe avec icône et toggle */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {/* Password Field */}
+              <div className="group">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
                   Mot de passe
                 </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500" />
+                <div className="relative transition-all duration-300 group-hover:scale-[1.01]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   </div>
-                  <Input
+                  <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
                     autoComplete="current-password"
                     {...register('password')}
-                    className={`pl-10 pr-12 transition-all duration-200 ${
-                      errors.password 
-                        ? 'border-red-500 focus-visible:ring-red-500' 
-                        : 'focus:border-blue-500 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:focus:border-blue-500'
-                    }`}
+                    className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    placeholder="Mot de passe"
                   />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors duration-200"
-                    onClick={togglePasswordVisibility}
-                    aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" />
-                    )}
-                  </button>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                      aria-label={showPassword ? "Cacher le mot de passe" : "Afficher le mot de passe"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 {errors.password && (
-                  <p className="mt-1 text-sm text-red-500 dark:text-red-400 animate-fade-in">
+                  <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
                     {errors.password.message}
                   </p>
                 )}
               </div>
 
-        {/* ... Bouton de connexion ... */}
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Connexion...' : 'Se connecter'}
-        </Button>
-      </form>
+            </div>
 
-      {/* ... Lien d'inscription ... */}
-      <div className="text-center text-sm">
-        <span className="text-gray-600 dark:text-gray-400">
-          Pas encore de compte ?{' '}
-        </span>
-        <Link
-          href="/register"
-          className="font-medium text-primary hover:text-primary-dark"
-        >
-          S'inscrire
-        </Link>
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:-translate-y-0.5"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <span>Se connecter</span>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Mot de passe oublié */}
+          <div className="text-center text-sm mt-6">
+            <Link
+              href="/forgot-password"
+              className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Mot de passe oublié ?
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

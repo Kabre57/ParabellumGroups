@@ -2,14 +2,15 @@
 
 import React, { useState } from 'react';
 import { useTechniciens, useDeleteTechnicien, useCreateTechnicien, useUpdateTechnicien } from '@/hooks/useTechnical';
-import { Technicien } from '@/shared/api/technical';
+import { Technicien, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Award, Printer } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Award, Printer, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TechnicienForm } from '@/components/technical/TechnicienForm';
 import { CreateTechnicienModal } from '@/components/technical/CreateTechnicienModal';
+import TechnicienPrint from '@/components/printComponents/TechnicienPrint';
 
 const statusColors: Record<string, string> = {
   AVAILABLE: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
@@ -32,6 +33,8 @@ export default function TechniciensPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedTechnicien, setSelectedTechnicien] = useState<Technicien | undefined>();
+  const [printingTechnicien, setPrintingTechnicien] = useState<Technicien | null>(null);
+  const [isPrinting, setIsPrinting] = useState<string | null>(null);
 
   const { data: techniciens = [], isLoading, error } = useTechniciens({ pageSize: 100 });
   const deleteMutation = useDeleteTechnicien();
@@ -81,6 +84,20 @@ export default function TechniciensPage() {
     }
   };
 
+  const handlePrint = async (technicien: Technicien) => {
+    setIsPrinting(technicien.id);
+    try {
+      const technicienResp = await technicalService.getTechnicien(technicien.id);
+      const fullTechnicien = (technicienResp as any)?.data ?? technicienResp;
+      setPrintingTechnicien(fullTechnicien?.data ?? fullTechnicien ?? technicien);
+    } catch (error) {
+      console.error('Erreur impression technicien:', error);
+      setPrintingTechnicien(technicien);
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
   const formatCurrency = (amount?: number) => {
     if (!amount) return '-';
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(amount);
@@ -108,6 +125,12 @@ export default function TechniciensPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {printingTechnicien && (
+        <TechnicienPrint
+          technicien={printingTechnicien}
+          onClose={() => setPrintingTechnicien(null)}
+        />
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Techniciens</h1>
@@ -227,8 +250,18 @@ export default function TechniciensPage() {
                 <Edit className="w-3 h-3" />
                 Modifier
               </Button>
-              <Button variant="outline" size="sm" title="Imprimer">
-                <Printer className="w-3 h-3" />
+              <Button
+                variant="outline"
+                size="sm"
+                title="Imprimer"
+                onClick={() => handlePrint(technicien)}
+                disabled={isPrinting === technicien.id}
+              >
+                {isPrinting === technicien.id ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Printer className="w-3 h-3" />
+                )}
               </Button>
               <Button
                 variant="outline"
@@ -247,17 +280,15 @@ export default function TechniciensPage() {
       {filteredTechniciens.length === 0 && (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
           <p className="text-gray-500 dark:text-gray-400 mb-4">Aucun technicien trouvé</p>
-          <Link href="/dashboard/technical/techniciens/new">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter le premier technicien
-            </Button>
-          </Link>
+          <Button onClick={handleCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            Ajouter le premier technicien
+          </Button>
         </div>
       )}
 
       {/* Form Modal */}
-      {showForm && (
+      {showForm && selectedTechnicien && (
         <TechnicienForm
           item={selectedTechnicien}
           onSubmit={handleSubmit}

@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Home,
@@ -46,6 +47,8 @@ import {
   BarChart,
   Building,
   Tag,
+  ChevronLeft,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -102,6 +105,7 @@ const professionalCategories: CategoryItem[] = [
   children: [
     { name: 'CRM', href: '/dashboard/crm', icon: Users, permission: 'customers.read' },
     { name: 'Clients', href: '/dashboard/crm/clients', icon: Users, permission: 'customers.read' },
+    { name: 'Types de Clients', href: '/dashboard/crm/type-clients', icon: Users, permission: 'customers.read' },
     { name: 'Contacts', href: '/dashboard/crm/contacts', icon: PhoneCall, permission: 'customers.read' },
     { name: 'Contrats', href: '/dashboard/crm/contracts', icon: FileCheck, permission: 'customers.read' },
     { name: 'Documents', href: '/dashboard/crm/documents', icon: FileText, permission: 'customers.read' },
@@ -133,6 +137,7 @@ const professionalCategories: CategoryItem[] = [
       { name: 'Gestion des Missions', href: '/dashboard/technical/missions', icon: ClipboardList, permission: 'missions.read' },
       { name: 'Équipe Technique', href: '/dashboard/technical/techniciens', icon: UserCheck, permission: 'techniciens.read' },
       { name: 'Spécialités', href: '/dashboard/technical/specialites', icon: Award, permission: 'specialites.read' },
+      { name: 'Gestion du Matériel', href: '/dashboard/technical/materiel', icon: Package, permission: 'materiel.read' },
       { name: 'Rapports d\'Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'missions.read' },
     ],
   },
@@ -220,9 +225,10 @@ const adminNavigation: NavigationItem[] = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // CORRECTION 1: Vérification robuste du rôle avec typecasting approprié
   const isEmployee = useMemo(() => {
@@ -448,52 +454,92 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     return 'Utilisateur';
   };
 
+  const handleLogout = () => {
+    if (logout) logout();
+  };
+
   return (
-    <div
-      className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 transform transition-transform duration-300 ease-in-out flex flex-col border-r border-gray-200 dark:border-gray-700",
-        isOpen ? 'translate-x-0' : '-translate-x-full',
-        'lg:translate-x-0 lg:static lg:inset-0'
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onClose}
+        />
       )}
-    >
-      {/* Header avec logo */}
-      <div className="flex-shrink-0 flex items-center justify-between h-16 bg-gray-50 dark:bg-gray-800 px-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">P</span>
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-gray-900 dark:text-white text-lg font-bold leading-tight">Parabellum Groups</h1>
-            <span className="text-gray-600 dark:text-gray-300 text-xs">ERP</span>
-          </div>
-        </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-          >
-            <X className="h-6 w-6" />
-          </button>
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transform transition-all duration-300 ease-in-out flex flex-col",
+          isCollapsed ? 'w-20' : 'w-64',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:translate-x-0'
         )}
-      </div>
+      >
+        {/* Header avec logo */}
+        <div className="flex-shrink-0 flex items-center justify-between h-16 px-4 border-b border-gray-200">
+          {!isCollapsed ? (
+            <>
+              <div className="flex items-center space-x-3">
+                <Image
+                  src="/parabellum.jpg"
+                  alt="Parabellum"
+                  width={40}
+                  height={40}
+                  className="rounded-lg object-cover"
+                />
+                <div className="flex flex-col">
+                  <h1 className="text-gray-900 text-base font-bold leading-tight">Parabellum</h1>
+                  <span className="text-gray-500 text-xs">ERP</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="hidden lg:block p-1.5 rounded hover:bg-gray-100 transition-colors"
+                aria-label="Réduire"
+              >
+                <ChevronLeft className="h-5 w-5 text-gray-600" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className="hidden lg:block mx-auto p-1.5 rounded hover:bg-gray-100 transition-colors"
+              aria-label="Étendre"
+            >
+              <ChevronRight className="h-5 w-5 text-gray-600" />
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden text-gray-600 hover:text-gray-900"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          )}
+        </div>
 
       {/* Barre de recherche */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-          />
+      {!isCollapsed && (
+        <div className="p-3 border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation principale */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-700 scrollbar-track-gray-100 dark:scrollbar-track-gray-900">
-        <div className="px-4 space-y-1 py-4">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+        <div className={cn("px-3 space-y-1 py-3", isCollapsed && "px-2")}>
 
           {visibleCategories.map((category) => {
             const filteredChildren = category.children?.filter(hasAccess) || [];
@@ -504,25 +550,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
             const isExpanded = expandedCategories[category.name];
 
+            if (isCollapsed) {
+              return (
+                <div key={category.name} className="mb-1">
+                  <div
+                    className="flex items-center justify-center p-2 text-sm font-medium rounded-lg transition-colors text-gray-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
+                    title={category.name}
+                  >
+                    <category.icon className="h-5 w-5" />
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div key={category.name} className="mb-2">
+              <div key={category.name} className="mb-1">
                 <button
                   onClick={() => toggleCategory(category.name)}
-                  className="flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white group border border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                  className="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 >
                   <div className="flex items-center">
-                    <category.icon className="mr-3 h-4 w-4 group-hover:text-blue-400 flex-shrink-0" />
+                    <category.icon className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400" />
                     <span className="text-sm font-semibold">{category.name}</span>
                   </div>
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-transform duration-200" />
+                    <ChevronDown className="h-4 w-4 text-gray-400 transition-transform" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-transform duration-200" />
+                    <ChevronRight className="h-4 w-4 text-gray-400 transition-transform" />
                   )}
                 </button>
 
                 {isExpanded && filteredChildren.length > 0 && (
-                  <div className="ml-2 mt-2 space-y-1 border-l-2 border-gray-300 dark:border-gray-600 pl-3 animate-in slide-in-from-top-2 duration-200">
+                  <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-3">
                     {filteredChildren.map((child) => {
                       const isActive = pathname === child.href;
 
@@ -532,16 +591,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                           href={child.href || '#'}
                           onClick={onClose}
                           className={cn(
-                            "flex items-center px-3 py-2 text-xs font-medium rounded-md transition-all duration-200 border-l-2",
+                            "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all",
                             isActive
-                              ? 'bg-blue-600 text-white border-blue-400 shadow-md'
-                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white border-transparent'
+                              ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                           )}
                         >
-                          <child.icon className="mr-2 h-3 w-3 flex-shrink-0" />
+                          <child.icon className="mr-2 h-4 w-4 flex-shrink-0" />
                           <span className="truncate">{child.name}</span>
-                          {child.badge && (
-                            <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                          {child.badge && child.badge > 0 && (
+                            <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
                               {child.badge}
                             </span>
                           )}
@@ -554,11 +613,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             );
           })}
 
-          {/* Administration  : toujours visible pour les admins */}
-          {isAdmin && (
-            <div className="pt-6">
-              <div className="px-4 mb-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          {/* Administration : toujours visible pour les admins */}
+          {isAdmin && !isCollapsed && (
+            <div className="pt-4">
+              <div className="px-3 mb-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Administration
                 </h3>
               </div>
@@ -572,22 +631,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                       href={item.href || '#'}
                       onClick={onClose}
                       className={cn(
-                        "flex items-center px-3 py-2 mx-1 text-sm font-medium rounded-lg transition-all duration-200",
+                        "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all",
                         isActive
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                          ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       )}
                     >
-                      <item.icon className={cn(
-                        "mr-3 h-4 w-4 flex-shrink-0",
-                        isActive 
-                          ? "text-white" 
-                          : "text-purple-500 dark:text-purple-400"
-                      )} />
+                      <item.icon className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400" />
                       <span className="font-medium">{item.name}</span>
-                      {isActive && (
-                        <div className="ml-auto w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                      )}
                     </Link>
                   );
                 })}
@@ -599,28 +650,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
       </nav>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center min-w-0">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center">
-                <Settings className="h-4 w-4 text-white" />
+      <div className="flex-shrink-0 border-t border-gray-200 p-4">
+        {!isCollapsed ? (
+          <>
+            <div className="flex items-center mb-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-medium text-sm">
+                  {getUserName().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </span>
+              </div>
+              <div className="ml-3 min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {getUserName()}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {getUserRoleDisplay()}
+                </p>
               </div>
             </div>
-          </div>
-          <div className="flex items-center">
-            <div className="text-right">
-              <p className="text-xs font-medium text-gray-900 dark:text-white">
-                {getUserName()}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                {getUserRoleDisplay()}
-              </p>
-            </div>
-          </div>
-        </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Déconnexion
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            title="Déconnexion"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        )}
       </div>
-    </div>
+    </aside>
+    </>
   );
 };
 

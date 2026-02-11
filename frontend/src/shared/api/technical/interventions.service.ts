@@ -29,6 +29,12 @@ export interface CreateInterventionRequest {
   dureeEstimee?: number;
   priorite?: 'BASSE' | 'MOYENNE' | 'HAUTE' | 'URGENTE';
   technicienIds?: string[];
+  materiels?: Array<{
+    materielId: string;
+    quantite: number;
+    notes?: string;
+    technicienId?: string;
+  }>;
 }
 
 export interface UpdateInterventionRequest {
@@ -42,6 +48,7 @@ export interface UpdateInterventionRequest {
   resultats?: string;
   observations?: string;
   priorite?: 'BASSE' | 'MOYENNE' | 'HAUTE' | 'URGENTE';
+  technicienIds?: string[];
 }
 
 export interface CompleteInterventionRequest {

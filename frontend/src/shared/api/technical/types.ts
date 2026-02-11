@@ -152,6 +152,7 @@ export interface Rapport {
   contenu: string;
   conclusions?: string;
   recommandations?: string;
+  photos?: string[];
   status: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REJETE';
   dateCreation: string;
   dateModification?: string;

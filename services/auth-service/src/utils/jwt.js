@@ -18,7 +18,8 @@ const generateAccessToken = (user) => {
     userId: user.id,
     email: user.email,
     roleId: user.roleId,
-    roleCode: user.role?.code || user.roleCode,
+    roleCode: user.role?.code || user.role?.name || user.roleCode,
+    role: user.role?.code || user.role?.name || user.roleCode,
     serviceId: user.serviceId,
   };
 

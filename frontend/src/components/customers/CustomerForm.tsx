@@ -6,20 +6,41 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { crmService, Client, TypeClient } from '@/shared/api/crm';
+import { useTypeClients } from '@/hooks/useCrm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 
+const emptyToUndefined = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
+const phoneRegex = /^(?:\+33|0)[1-9](?:\d{2}){4}$/;
+
 const clientSchema = z.object({
   nom: z.string().min(1, 'Le nom est requis'),
-  raisonSociale: z.string().optional(),
+  raisonSociale: z.preprocess(emptyToUndefined, z.string().optional()),
   email: z.string().email('Email invalide'),
-  telephone: z.string().optional(),
-  mobile: z.string().optional(),
-  siteWeb: z.string().optional(),
-  siret: z.string().optional(),
-  tvaIntra: z.string().optional(),
+  telephone: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(phoneRegex, 'Numéro de téléphone invalide (format FR)').optional()
+  ),
+  mobile: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(phoneRegex, 'Numéro de mobile invalide (format FR)').optional()
+  ),
+  siteWeb: z.preprocess(emptyToUndefined, z.string().optional()),
+  siret: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(/^\d{14}$/, 'SIRET invalide (14 chiffres)').optional()
+  ),
+  tvaIntra: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(/^[A-Z]{2}[0-9]{11}$/, 'Numéro de TVA intracommunautaire invalide').optional()
+  ),
   typeClientId: z.string().min(1, 'Le type de client est requis'),
   status: z.string().default('PROSPECT'),
   priorite: z.string().default('MOYENNE'),
@@ -36,19 +57,13 @@ interface CustomerFormProps {
 export default function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!customer;
-  const [types, setTypes] = useState<TypeClient[]>([]);
-
-  useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const response = await crmService.getTypeClients();
-        setTypes(response);
-      } catch (error) {
-        console.error('Erreur lors du chargement des types de clients', error);
-      }
-    };
-    fetchTypes();
-  }, []);
+  
+  const { data: typeClientsResponse = [], isLoading: isLoadingTypes } = useTypeClients();
+  const typeClients = Array.isArray(typeClientsResponse)
+    ? typeClientsResponse
+    : Array.isArray((typeClientsResponse as any)?.data)
+    ? (typeClientsResponse as any).data
+    : [];
 
   const {
     register,
@@ -92,10 +107,13 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   });
 
   const onSubmit = (data: ClientFormData) => {
+    const payload = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    ) as ClientFormData;
     if (isEditing) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(payload);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(payload);
     }
   };
 
@@ -135,9 +153,10 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
               id="typeClientId"
               {...register('typeClientId')}
               className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+              disabled={isLoadingTypes}
             >
               <option value="">Sélectionner un type</option>
-              {types.map((t) => (
+              {typeClients.filter((t: any) => t.isActive).map((t: any) => (
                 <option key={t.id} value={t.id}>{t.libelle}</option>
               ))}
             </select>

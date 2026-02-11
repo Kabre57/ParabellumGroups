@@ -1,12 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { crmService } from '@/shared/api/crm';
 
+const normalizeListResponse = (response: any) => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+  return [];
+};
+
 // ==================== CLIENTS ====================
 
 export function useClients(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'clients', params],
-    queryFn: () => crmService.getClients(params),
+    queryFn: async () => normalizeListResponse(await crmService.getClients(params)),
   });
 }
 
@@ -109,7 +119,7 @@ export function useDeleteClient() {
 export function useContacts(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'contacts', params],
-    queryFn: () => crmService.getContacts(params),
+    queryFn: async () => normalizeListResponse(await crmService.getContacts(params)),
   });
 }
 
@@ -173,7 +183,7 @@ export function useSetContactPrincipal() {
 export function useContrats(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'contrats', params],
-    queryFn: () => crmService.getContrats(params),
+    queryFn: async () => normalizeListResponse(await crmService.getContrats(params)),
   });
 }
 
@@ -238,7 +248,7 @@ export function useContratAvenants(id: string) {
 export function useInteractions(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'interactions', params],
-    queryFn: () => crmService.getInteractions(params),
+    queryFn: async () => normalizeListResponse(await crmService.getInteractions(params)),
   });
 }
 
@@ -285,7 +295,7 @@ export function useLinkInteractionTask() {
 export function useOpportunites(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'opportunites', params],
-    queryFn: () => crmService.getOpportunites(params),
+    queryFn: async () => normalizeListResponse(await crmService.getOpportunites(params)),
   });
 }
 
@@ -356,7 +366,7 @@ export function useAddOpportuniteProduct() {
 export function useDocuments(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'documents', params],
-    queryFn: () => crmService.getDocuments(params),
+    queryFn: async () => normalizeListResponse(await crmService.getDocuments(params)),
   });
 }
 
@@ -427,7 +437,7 @@ export function useDocumentsExpiring(params?: Record<string, any>) {
 export function useAdresses(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['crm', 'adresses', params],
-    queryFn: () => crmService.getAdresses(params),
+    queryFn: async () => normalizeListResponse(await crmService.getAdresses(params)),
   });
 }
 
@@ -488,9 +498,9 @@ export function useSetAdressePrincipal() {
 // ==================== TYPES CLIENTS ====================
 
 export function useTypeClients() {
-  return useQuery({
+  return useQuery<any>({
     queryKey: ['crm', 'type-clients'],
-    queryFn: () => crmService.getTypeClients(),
+    queryFn: async () => normalizeListResponse(await crmService.getTypeClients()),
   });
 }
 
@@ -552,7 +562,7 @@ export function useToggleTypeClient() {
 export function useSecteurs() {
   return useQuery({
     queryKey: ['crm', 'secteurs'],
-    queryFn: () => crmService.getSecteurs(),
+    queryFn: async () => normalizeListResponse(await crmService.getSecteurs()),
   });
 }
 

@@ -57,16 +57,21 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
     try {
       const payload = {
         ...data,
-        email: data.email || undefined,
+        email: data.email || '',
         tauxHoraire: data.tauxHoraire ? parseFloat(data.tauxHoraire) : undefined
       };
+      console.log('📤 Payload envoyé au backend:', payload);
       await createMutation.mutateAsync(payload);
       toast.success('Technicien créé avec succès');
       reset();
       onClose();
     } catch (error) {
       console.error('Erreur création technicien:', error);
-      toast.error('Erreur lors de la création du technicien');
+      const message =
+        (error as any)?.message ||
+        (error as any)?.error ||
+        'Erreur lors de la création du technicien';
+      toast.error(message);
     }
   };
 

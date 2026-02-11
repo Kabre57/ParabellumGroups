@@ -23,7 +23,7 @@ model Technicien {
   id              String   @id @default(uuid())
   nom             String
   prenom          String
-  email           String   @unique
+  email           String?  @unique
   telephone       String
   specialiteId    String
   status          String   @default("AVAILABLE")
@@ -166,6 +166,7 @@ model Rapport {
   contenu             String
   conclusions         String?
   recommandations     String?
+  photos              String[] @default([])
   status              String   @default("BROUILLON")
   dateCreation        DateTime @default(now())
   dateModification    DateTime @updatedAt

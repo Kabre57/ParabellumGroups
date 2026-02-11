@@ -77,8 +77,11 @@ exports.create = async (req, res) => {
       titre,
       description,
       dateDebut,
+      dateFin,
       dureeEstimee,
-      technicienIds
+      technicienIds,
+      techniciens,
+      materiels
     } = req.body;
 
     if (!missionId || !titre || !dateDebut) {
@@ -99,39 +102,136 @@ exports.create = async (req, res) => {
       });
     }
 
-    const intervention = await prisma.intervention.create({
-      data: {
-        missionId,
-        titre,
-        description,
-        dateDebut: new Date(dateDebut),
-        dureeEstimee,
-        techniciens: technicienIds ? {
-          create: technicienIds.map(technicienId => ({
-            technicienId
-          }))
-        } : undefined
-      },
-      include: {
-        mission: {
-          select: {
-            id: true,
-            numeroMission: true,
-            titre: true
+    const resolvedTechnicienIds = Array.isArray(technicienIds)
+      ? technicienIds
+      : Array.isArray(techniciens)
+        ? techniciens.map((technicien) => technicien.technicienId).filter(Boolean)
+        : [];
+
+    if (!resolvedTechnicienIds.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Au moins un technicien doit être assigné à l\'intervention'
+      });
+    }
+
+    const intervention = await prisma.$transaction(async (tx) => {
+      const created = await tx.intervention.create({
+        data: {
+          missionId,
+          titre,
+          description,
+          dateDebut: new Date(dateDebut),
+          dateFin: dateFin ? new Date(dateFin) : undefined,
+          dureeEstimee,
+          techniciens: {
+            create: resolvedTechnicienIds.map((technicienId) => ({
+              technicienId
+            }))
           }
-        },
-        techniciens: {
-          include: {
-            technicien: {
-              select: {
-                id: true,
-                nom: true,
-                prenom: true
+        }
+      });
+
+      if (Array.isArray(materiels) && materiels.length > 0) {
+        for (const materielItem of materiels) {
+          const materielId = materielItem?.materielId;
+          const quantite = Number(materielItem?.quantite || 0);
+          const technicienId = materielItem?.technicienId || resolvedTechnicienIds[0];
+
+          if (!materielId || !quantite) {
+            continue;
+          }
+
+          if (!technicienId) {
+            const error = new Error('Technicien requis pour la sortie de matériel');
+            error.status = 400;
+            throw error;
+          }
+
+          const materiel = await tx.materiel.findUnique({
+            where: { id: materielId }
+          });
+
+          if (!materiel) {
+            const error = new Error('Matériel non trouvé');
+            error.status = 404;
+            throw error;
+          }
+
+          if (materiel.quantiteStock < quantite) {
+            const error = new Error('Stock insuffisant pour cette sortie');
+            error.status = 400;
+            throw error;
+          }
+
+          await tx.sortieMateriel.create({
+            data: {
+              materielId,
+              interventionId: created.id,
+              technicienId,
+              quantite,
+              notes: materielItem?.notes
+            }
+          });
+
+          await tx.materiel.update({
+            where: { id: materielId },
+            data: {
+              quantiteStock: materiel.quantiteStock - quantite
+            }
+          });
+        }
+      }
+
+      return tx.intervention.findUnique({
+        where: { id: created.id },
+        include: {
+          mission: {
+            select: {
+              id: true,
+              numeroMission: true,
+              titre: true,
+              clientNom: true,
+              clientContact: true,
+              adresse: true,
+              description: true,
+              dateDebut: true,
+              dateFin: true,
+              priorite: true,
+              status: true
+            }
+          },
+          techniciens: {
+            include: {
+              technicien: {
+                select: {
+                  id: true,
+                  nom: true,
+                  prenom: true
+                }
+              }
+            }
+          },
+          materielUtilise: {
+            include: {
+              materiel: {
+                select: {
+                  id: true,
+                  reference: true,
+                  nom: true
+                }
+              },
+              technicien: {
+                select: {
+                  id: true,
+                  nom: true,
+                  prenom: true
+                }
               }
             }
           }
         }
-      }
+      });
     });
 
     res.status(201).json({
@@ -141,6 +241,12 @@ exports.create = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in create intervention:', error);
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message
+      });
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la création de l\'intervention'
@@ -301,9 +407,11 @@ exports.update = async (req, res) => {
       titre,
       description,
       dateDebut,
+      dateFin,
       dureeEstimee,
       status,
-      technicienIds
+      technicienIds,
+      techniciens
     } = req.body;
 
     // Vérifier si l'intervention existe
@@ -326,17 +434,24 @@ exports.update = async (req, res) => {
       });
     }
 
+    const resolvedTechnicienIds = Array.isArray(technicienIds)
+      ? technicienIds
+      : Array.isArray(techniciens)
+        ? techniciens.map((technicien) => technicien.technicienId).filter(Boolean)
+        : null;
+
     const intervention = await prisma.intervention.update({
       where: { id },
       data: {
         titre,
         description,
         dateDebut: dateDebut ? new Date(dateDebut) : undefined,
+        dateFin: dateFin ? new Date(dateFin) : undefined,
         dureeEstimee,
         status,
-        techniciens: technicienIds ? {
+        techniciens: resolvedTechnicienIds ? {
           deleteMany: {}, // Supprimer les assignations existantes
-          create: technicienIds.map(technicienId => ({
+          create: resolvedTechnicienIds.map(technicienId => ({
             technicienId
           }))
         } : undefined
@@ -412,3 +527,5 @@ exports.delete = async (req, res) => {
     });
   }
 };
+
+

@@ -17,7 +17,19 @@ const logger = winston.createLogger({
  */
 const authMiddleware = (req, res, next) => {
   const userId = req.headers['x-user-id'];
-  const userRole = req.headers['x-user-role'] || 'user';
+  const userRoleRaw = req.headers['x-user-role'] || 'user';
+  const normalizeRole = (value) => {
+    const normalized = String(value).toLowerCase().trim();
+    const roleMap = {
+      administrateur: 'admin',
+      administrator: 'admin',
+      superadmin: 'super_admin',
+      superadministrateur: 'super_admin',
+      superadministrator: 'super_admin'
+    };
+    return roleMap[normalized] || normalized;
+  };
+  const userRole = normalizeRole(userRoleRaw);
 
   if (!userId) {
     logger.warn('Tentative d\'accès non authentifiée', {
@@ -67,7 +79,8 @@ const authorize = (allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const normalizedAllowedRoles = allowedRoles.map((role) => String(role).toLowerCase());
+    if (!normalizedAllowedRoles.includes(req.user.role)) {
       logger.warn('Tentative d\'accès non autorisé', {
         context: {
           userId: req.user.id,

@@ -2,12 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { technicalService, RapportIntervention } from '@/shared/api/technical';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
+import Lightbox from 'react-image-lightbox';
+import 'react-image-lightbox/style.css';
 
 interface RapportInterventionViewProps {
   rapportId: string;
@@ -15,6 +17,9 @@ interface RapportInterventionViewProps {
 }
 
 export default function RapportInterventionView({ rapportId, onClose }: RapportInterventionViewProps) {
+  const queryClient = useQueryClient();
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [deletingPhotoUrl, setDeletingPhotoUrl] = useState<string | null>(null);
   const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],
     queryFn: () => technicalService.getRapport(rapportId),
@@ -96,43 +101,45 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
             <div>
               <p className="text-sm text-gray-500">Mission</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {rapport.intervention.mission?.title || rapport.intervention.missionNum}
+                {rapport.intervention.mission?.numeroMission || rapport.intervention.mission?.titre || '-'}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Technicien</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {rapport.intervention.technician
-                  ? `${rapport.intervention.technician.firstName} ${rapport.intervention.technician.lastName}`
+                {rapport.intervention.techniciens?.[0]?.technicien
+                  ? `${rapport.intervention.techniciens[0].technicien.prenom || ''} ${rapport.intervention.techniciens[0].technicien.nom || ''}`.trim()
                   : '-'}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Date d'intervention</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(rapport.intervention.dateDebut || rapport.intervention.scheduledDate || rapport.intervention.date)}
+                {formatDate(rapport.intervention.dateDebut)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Horaires</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {rapport.intervention.startTime?.substring(0, 5)}
-                {rapport.intervention.endTime && ` - ${rapport.intervention.endTime.substring(0, 5)}`}
+                {rapport.intervention.dateDebut ? new Date(rapport.intervention.dateDebut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                {rapport.intervention.dateFin
+                  ? ` - ${new Date(rapport.intervention.dateFin).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                  : ''}
               </p>
             </div>
-            {rapport.intervention.estimatedDuration && (
+            {rapport.intervention.dureeEstimee && (
               <div>
                 <p className="text-sm text-gray-500">Duree estimee</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {rapport.intervention.estimatedDuration}h
+                  {rapport.intervention.dureeEstimee}h
                 </p>
               </div>
             )}
-            {rapport.intervention.actualDuration && (
+            {rapport.intervention.dureeReelle && (
               <div>
                 <p className="text-sm text-gray-500">Duree reelle</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {rapport.intervention.actualDuration}h
+                  {rapport.intervention.dureeReelle}h
                 </p>
               </div>
             )}
@@ -193,8 +200,29 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
                   src={photo}
                   alt={`Photo ${index + 1}`}
                   className="w-full h-64 object-cover rounded-lg border border-gray-200 dark:border-gray-800 cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(photo, '_blank')}
+                  onClick={() => setLightboxIndex(index)}
                 />
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={deletingPhotoUrl === photo}
+                  onClick={async () => {
+                    if (!confirm('Supprimer cette photo ?')) return;
+                    setDeletingPhotoUrl(photo);
+                    try {
+                      await technicalService.deleteRapportPhoto(rapportId, photo);
+                      queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
+                      setDeletingPhotoUrl(null);
+                    } catch (err) {
+                      console.error('Erreur suppression photo:', err);
+                      alert('Erreur lors de la suppression de la photo');
+                      setDeletingPhotoUrl(null);
+                    }
+                  }}
+                  title="Supprimer la photo"
+                >
+                  {deletingPhotoUrl === photo ? '…' : '×'}
+                </button>
                 <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
                   Photo {index + 1}
                 </div>
@@ -205,6 +233,21 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
             Cliquez sur une photo pour l'agrandir
           </p>
         </Card>
+      )}
+
+      {rapport.photos && rapport.photos.length > 0 && lightboxIndex !== null && (
+        <Lightbox
+          mainSrc={rapport.photos[lightboxIndex]}
+          nextSrc={rapport.photos[(lightboxIndex + 1) % rapport.photos.length]}
+          prevSrc={rapport.photos[(lightboxIndex + rapport.photos.length - 1) % rapport.photos.length]}
+          onCloseRequest={() => setLightboxIndex(null)}
+          onMovePrevRequest={() =>
+            setLightboxIndex((lightboxIndex + rapport.photos.length - 1) % rapport.photos.length)
+          }
+          onMoveNextRequest={() =>
+            setLightboxIndex((lightboxIndex + 1) % rapport.photos.length)
+          }
+        />
       )}
 
       {/* Metadata */}

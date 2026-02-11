@@ -2,7 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Compress from 'compress.js';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -16,6 +17,7 @@ import { Alert } from '@/components/ui/alert';
 
 const rapportSchema = z.object({
   interventionId: z.string().min(1, "L'intervention est requise"),
+  redacteurId: z.string().optional(),
   workDone: z.string().min(10, 'Veuillez decrire les travaux effectues (min. 10 caracteres)'),
   issuesFound: z.string().optional(),
   recommendations: z.string().optional(),
@@ -39,10 +41,15 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
     handleSubmit,
     formState: { errors },
     reset,
+    setError,
+    clearErrors,
+    watch,
+    setValue,
   } = useForm<RapportFormData>({
     resolver: zodResolver(rapportSchema),
     defaultValues: {
       interventionId: '',
+      redacteurId: '',
       workDone: '',
       issuesFound: '',
       recommendations: '',
@@ -59,10 +66,35 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
   });
   const interventionsData = interventionsResponse?.data ?? [];
 
+  const { data: techniciensResponse } = useQuery<Awaited<ReturnType<typeof technicalService.getTechniciens>>>({
+    queryKey: ['techniciens-for-rapport'],
+    queryFn: () => technicalService.getTechniciens({ pageSize: 200 }),
+  });
+  const techniciensData = techniciensResponse?.data ?? [];
+
+  const interventionId = watch('interventionId');
+  const redacteurId = watch('redacteurId');
+  const selectedIntervention = interventionsData.find((item: any) => item.id === interventionId);
+  const assignedTechnicienId =
+    selectedIntervention?.techniciens?.[0]?.technicienId ||
+    selectedIntervention?.techniciens?.[0]?.technicien?.id;
+
+  useEffect(() => {
+    if (!interventionId || !selectedIntervention) {
+      return;
+    }
+    if (assignedTechnicienId && !redacteurId) {
+      setValue('redacteurId', assignedTechnicienId, { shouldValidate: true });
+      clearErrors('redacteurId');
+      return;
+    }
+  }, [assignedTechnicienId, interventionId, redacteurId, selectedIntervention, setValue, clearErrors]);
+
   const createMutation = useMutation({
-    mutationFn: (data: { interventionId: string; workDone: string; issuesFound?: string; recommendations?: string }) =>
+    mutationFn: (data: { interventionId: string; redacteurId: string; workDone: string; issuesFound?: string; recommendations?: string }) =>
       technicalService.createRapport({
         interventionId: data.interventionId,
+        redacteurId: data.redacteurId,
         titre: 'Rapport intervention',
         contenu: data.workDone,
         conclusions: data.issuesFound,
@@ -75,8 +107,20 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
   });
 
   const onSubmit = (data: RapportFormData) => {
+    if (!data.redacteurId) {
+      if (assignedTechnicienId) {
+        data.redacteurId = assignedTechnicienId;
+      } else {
+        setError('redacteurId', {
+          type: 'manual',
+          message: "Aucun technicien assigné à l'intervention. Veuillez sélectionner un rédacteur."
+        });
+        return;
+      }
+    }
     createMutation.mutate({
       interventionId: data.interventionId,
+      redacteurId: data.redacteurId,
       workDone: data.workDone,
       issuesFound: data.issuesFound,
       recommendations: data.recommendations,
@@ -92,14 +136,93 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
       return;
     }
 
-    setIsUploading(true);
-    alert('Upload de photos non disponible pour le moment.');
-    setIsUploading(false);
-    event.target.value = '';
+    const filesArray = Array.from(files);
+    const invalidType = filesArray.find((file) => !file.type.startsWith('image/'));
+    if (invalidType) {
+      alert('Seules les images (JPEG, PNG, WEBP) sont autorisées.');
+      return;
+    }
+    const tooLarge = filesArray.find((file) => file.size > 5 * 1024 * 1024);
+    if (tooLarge) {
+      alert('La taille maximale par fichier est de 5 Mo.');
+      return;
+    }
+    if (filesArray.length > 10) {
+      alert('Maximum 10 fichiers par upload.');
+      return;
+    }
+
+    const compress = new Compress();
+
+    const dataUrlToFile = (dataUrl: string, fileName: string, fileType: string) => {
+      const arr = dataUrl.split(',');
+      const mimeMatch = arr[0]?.match(/:(.*?);/);
+      const mime = mimeMatch?.[1] || fileType;
+      const bstr = atob(arr[1] || '');
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], fileName, { type: mime });
+    };
+
+    try {
+      setIsUploading(true);
+      const compressed = await compress.compress(filesArray, {
+        size: 4,
+        quality: 0.8,
+        maxWidth: 2000,
+        maxHeight: 2000,
+        resize: true,
+      });
+
+      const compressedFiles = compressed.map((item) => {
+        const ext = item.ext || 'jpeg';
+        const name = item.alt ? `${item.alt}.${ext}` : `photo.${ext}`;
+        const mimeType = `image/${ext}`;
+        return dataUrlToFile(item.data, name, mimeType);
+      });
+
+      const tooLargeAfter = compressedFiles.find((file) => file.size > 5 * 1024 * 1024);
+      if (tooLargeAfter) {
+        alert('Un fichier compressé dépasse 5 Mo. Veuillez réduire la taille des images.');
+        return;
+      }
+
+      const response = await technicalService.uploadRapportPhotos(rapportId, compressedFiles);
+      const newUrls = response.data?.photos || [];
+      const newPhotos = newUrls.map((url: string) => ({
+        url,
+        name: url.split('/').pop() || 'photo',
+      }));
+      setUploadedPhotos((prev) => [...prev, ...newPhotos]);
+      queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
+    } catch (error) {
+      console.error('Erreur upload photos:', error);
+      alert("Erreur lors de l'upload des photos");
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
   };
 
   const handleRemovePhoto = (index: number) => {
-    setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
+    const photo = uploadedPhotos[index];
+    if (!photo || !rapportId) {
+      setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+
+    technicalService.deleteRapportPhoto(rapportId, photo.url)
+      .then(() => {
+        setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
+        queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
+      })
+      .catch((error) => {
+        console.error('Erreur suppression photo:', error);
+        alert("Erreur lors de la suppression de la photo");
+      });
   };
 
   const handleFinish = () => {
@@ -146,19 +269,49 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
             className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm mt-1 disabled:opacity-50"
           >
             <option value="">Selectionner une intervention</option>
-            {interventionsData.map((intervention: any) => (
-              <option key={intervention.id} value={intervention.id}>
-                {intervention.mission?.title || intervention.missionNum} -{' '}
-                {intervention.technician
-                  ? `${intervention.technician.firstName} ${intervention.technician.lastName}`
-                  : ''}
-                {' - '}
-                {new Date(intervention.dateDebut || intervention.scheduledDate || intervention.date).toLocaleDateString('fr-FR')}
-              </option>
-            ))}
+            {interventionsData.map((intervention: any) => {
+              const missionLabel = intervention.mission?.numeroMission || intervention.mission?.titre || '-';
+              const technicienNom =
+                intervention.techniciens?.[0]?.technicien
+                  ? `${intervention.techniciens[0].technicien.prenom || ''} ${intervention.techniciens[0].technicien.nom || ''}`.trim()
+                  : '';
+              const dateLabel = intervention.dateDebut
+                ? new Date(intervention.dateDebut).toLocaleDateString('fr-FR')
+                : '-';
+              return (
+                <option key={intervention.id} value={intervention.id}>
+                  {missionLabel}
+                  {technicienNom ? ` - ${technicienNom}` : ''}
+                  {dateLabel ? ` - ${dateLabel}` : ''}
+                </option>
+              );
+            })}
           </select>
           {errors.interventionId && (
             <p className="mt-1 text-sm text-red-600">{errors.interventionId.message}</p>
+          )}
+        </div>
+
+        {/* Rédacteur */}
+        <div>
+          <Label htmlFor="redacteurId">
+            Rédacteur <span className="text-gray-500">(optionnel si technicien assigné)</span>
+          </Label>
+          <select
+            id="redacteurId"
+            {...register('redacteurId')}
+            disabled={!!rapportId}
+            className="w-full h-10 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm mt-1 disabled:opacity-50"
+          >
+            <option value="">Sélectionner un technicien</option>
+            {techniciensData.map((tech: any) => (
+              <option key={tech.id} value={tech.id}>
+                {tech.prenom} {tech.nom} {tech.matricule ? `- ${tech.matricule}` : ''}
+              </option>
+            ))}
+          </select>
+          {errors.redacteurId && (
+            <p className="mt-1 text-sm text-red-600">{errors.redacteurId.message}</p>
           )}
         </div>
 

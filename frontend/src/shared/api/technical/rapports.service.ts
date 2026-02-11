@@ -82,6 +82,22 @@ export const rapportsService = {
     return response.data;
   },
 
+  async uploadRapportPhotos(id: string, files: File[]): Promise<DetailResponse<Rapport>> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('photos', file));
+    const response = await apiClient.post(`/technical/rapports/${id}/photos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  async deleteRapportPhoto(id: string, url: string): Promise<DetailResponse<Rapport>> {
+    const response = await apiClient.delete(`/technical/rapports/${id}/photos`, {
+      data: { url },
+    });
+    return response.data;
+  },
+
   async submitRapport(id: string): Promise<DetailResponse<Rapport>> {
     return this.updateRapportStatus(id, { status: 'SOUMIS' });
   },
