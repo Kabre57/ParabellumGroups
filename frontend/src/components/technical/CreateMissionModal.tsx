@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, FileText, Calendar, User, AlertCircle, Search } from 'lucide-react';
+import { X, FileText, Calendar, User, AlertCircle, Search, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateMission } from '@/hooks/useTechnical';
 import { useClients, useCreateClient, useCreateAdresse, useTypeClients } from '@/hooks/useCrm';
@@ -107,16 +107,16 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
   const createClientMutation = useCreateClient();
   const createAdresseMutation = useCreateAdresse();
   const { data: typeClientsResponse } = useTypeClients();
-  const [clientSearch, setClientSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [showClientTableModal, setShowClientTableModal] = useState(false);
+  const [tableSearch, setTableSearch] = useState('');
 
   const { data: clientsData, isLoading: isLoadingClients } = useClients({
-    query: clientSearch,
-    pageSize: 10
+    pageSize: 50,
+    ...(showClientTableModal && tableSearch ? { search: tableSearch } : {})
   });
 
-  const clients = clientsData?.data || [];
+  const clients = Array.isArray(clientsData) ? clientsData : (clientsData as any)?.data || [];
   const typeClients = typeClientsResponse?.data || [];
 
   const {
@@ -150,8 +150,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
   useEffect(() => {
     if (useManualClient) {
       setSelectedClient(null);
-      setClientSearch('');
-      setShowClientDropdown(false);
+      setShowClientTableModal(false);
       setValue('clientId', '');
       setValue('clientNom', '');
       setValue('clientContact', '');
@@ -170,8 +169,8 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
 
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
-    setClientSearch(client.nom);
-    setShowClientDropdown(false);
+    setShowClientTableModal(false);
+    setTableSearch('');
     
     setValue('useManualClient', false);
     setValue('clientId', client.id);
@@ -190,13 +189,6 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
     }
   };
 
-  useEffect(() => {
-    if (!useManualClient && clientSearch && !selectedClient) {
-      setShowClientDropdown(true);
-      return;
-    }
-    setShowClientDropdown(false);
-  }, [clientSearch, selectedClient, useManualClient]);
 
   const onSubmit = async (data: CreateMissionFormData) => {
     try {
@@ -359,46 +351,108 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
                     disabled={createMutation.isPending}
                   />
                 ) : (
-                  <>
+                  <div className="space-y-2">
                     <input type="hidden" {...register('clientNom')} />
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
-                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
-                      <input
-                        type="text"
-                        value={clientSearch}
-                        onChange={(e) => {
-                          setClientSearch(e.target.value);
+                    <select
+                      value={selectedClient?.id || ''}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) {
                           setSelectedClient(null);
                           setValue('clientId', '');
                           setValue('clientNom', '');
                           setValue('clientContact', '');
                           setValue('adresse', '');
-                        }}
-                        onFocus={() => setShowClientDropdown(true)}
-                        className="pl-10 pr-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="Rechercher un client..."
-                        disabled={createMutation.isPending}
-                      />
-                    </div>
-
-                    {showClientDropdown && clients.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {clients.map((client: Client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <div className="font-medium text-gray-900 dark:text-white">{client.nom}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {client.telephone || client.mobile || client.email}
+                          return;
+                        }
+                        const client = clients.find((c: Client) => c.id === id);
+                        if (client) handleClientSelect(client);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      disabled={createMutation.isPending || isLoadingClients}
+                    >
+                      <option value="">Sélectionner un client</option>
+                      {clients.map((client: Client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.nom} {client.telephone || client.mobile || client.email ? `- ${client.telephone || client.mobile || client.email}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowClientTableModal(true)}
+                      className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      disabled={createMutation.isPending}
+                    >
+                      <List className="h-4 w-4" />
+                      Choisir dans la liste complète
+                    </button>
+                    {showClientTableModal && (
+                      <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-[60]">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+                          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <h4 className="text-lg font-medium text-gray-900 dark:text-white">Sélectionner un client</h4>
+                            <button
+                              type="button"
+                              onClick={() => { setShowClientTableModal(false); setTableSearch(''); }}
+                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              <X className="h-6 w-6" />
+                            </button>
+                          </div>
+                          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                              <input
+                                type="text"
+                                value={tableSearch}
+                                onChange={(e) => setTableSearch(e.target.value)}
+                                placeholder="Rechercher un client..."
+                                className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              />
                             </div>
                           </div>
-                        ))}
+                          <div className="flex-1 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                              <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nom</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Contact</th>
+                                  <th className="px-4 py-2 w-20"></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {clients.map((client: Client) => (
+                                  <tr
+                                    key={client.id}
+                                    onClick={() => handleClientSelect(client)}
+                                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  >
+                                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{client.nom}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                      {client.telephone || client.mobile || client.email || '-'}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <button type="button" className="text-blue-600 dark:text-blue-400 text-sm font-medium">
+                                        Sélectionner
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {clients.length === 0 && !isLoadingClients && (
+                                  <tr>
+                                    <td colSpan={3} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                      {tableSearch ? 'Aucun client trouvé' : 'Aucun client'}
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {errors.clientNom && <p className="mt-1 text-sm text-red-600">{errors.clientNom.message}</p>}

@@ -72,7 +72,7 @@ export function useUpdateMissionStatus() {
 
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      technicalService.updateMission(id, { status } as any),
+      technicalService.updateMissionStatus(id, status),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
       queryClient.invalidateQueries({ queryKey: ['mission', variables.id] });

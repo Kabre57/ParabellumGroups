@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,6 +42,7 @@ export function CreateServiceModal({
     enabled: isOpen,
   });
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
   const users = Array.isArray(usersData?.data) ? usersData.data : [];
 
@@ -55,16 +57,20 @@ export function CreateServiceModal({
 
   const onSubmit = async (data: CreateServiceForm) => {
     try {
-      await adminServicesService.createService({
-        name: data.name,
-        code: data.code,
-        description: data.description,
-        parentId: data.parentId ? parseInt(data.parentId) : undefined,
-        managerId: data.managerId ? parseInt(data.managerId) : undefined,
-      });
-      
+      await adminServicesService.createService(
+        {
+          name: data.name,
+          code: data.code,
+          description: data.description,
+          parentId: data.parentId ? parseInt(data.parentId) : undefined,
+          managerId: data.managerId ? parseInt(data.managerId) : undefined,
+        },
+        imageFile || undefined
+      );
+
       toast.success('Service cree avec succes');
       reset();
+      setImageFile(null);
       onSuccess();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la creation du service');
@@ -153,6 +159,24 @@ export function CreateServiceModal({
                   {errors.description.message}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Image du service
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-400"
+                />
+                {imageFile && (
+                  <span className="text-sm text-gray-500 truncate max-w-[200px]">{imageFile.name}</span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF ou WebP (max 5 Mo)</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

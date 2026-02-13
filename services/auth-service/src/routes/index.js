@@ -4,6 +4,7 @@ const userRoutes = require('./user.routes');
 const serviceRoutes = require('./service.routes');
 const permissionRoutes = require('./permission.routes');
 const roleRoutes = require('./role.routes');
+const auditLogRoutes = require('./audit-log.routes');
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.use('/users', userRoutes);
 router.use('/services', serviceRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/roles', roleRoutes);
+router.use('/audit-logs', auditLogRoutes);
 
 /**
  * 404 handler for API routes

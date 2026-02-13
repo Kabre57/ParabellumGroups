@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Bell, Moon, Sun } from 'lucide-react';
+import { Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { UserMenu } from './UserMenu';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -58,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="flex-shrink-0 bg-white border-b border-gray-200 h-16">
+    <header className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16">
       <div className="flex items-center justify-between h-full px-6">
         {/* Left section */}
         <div className="flex items-center space-x-4">
@@ -66,10 +67,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               aria-label="Ouvrir le menu"
             >
-              <Menu className="w-5 h-5 text-gray-600" />
+              <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
           )}
 
@@ -79,13 +80,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               {breadcrumbs.map((crumb, index) => (
                 <React.Fragment key={crumb.href}>
                   {index > 0 && (
-                    <span className="text-gray-400">/</span>
+                    <span className="text-gray-400 dark:text-gray-600">/</span>
                   )}
                   <span
                     className={
                       index === breadcrumbs.length - 1
-                        ? 'text-gray-900 font-medium'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'text-gray-900 dark:text-gray-100 font-medium'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                     }
                   >
                     {crumb.label}
@@ -102,25 +103,19 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           {mounted && (
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Changer le thème"
             >
               {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-gray-600" />
+                <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               ) : (
-                <Moon className="w-5 h-5 text-gray-600" />
+                <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               )}
             </button>
           )}
 
           {/* Notifications */}
-          <button
-            className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Notifications"
-          >
-            <Bell className="w-5 h-5 text-gray-600" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
-          </button>
+          <NotificationDropdown />
 
           {/* User menu */}
           <UserMenu />

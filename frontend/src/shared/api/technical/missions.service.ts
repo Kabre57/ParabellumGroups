@@ -23,8 +23,24 @@ export const missionsService = {
     return response.data;
   },
 
+  async updateMissionStatus(id: string, status: string): Promise<Mission> {
+    const response = await apiClient.patch(`/missions/${id}/status`, { status });
+    return response.data;
+  },
+
   async deleteMission(id: string): Promise<void> {
     await apiClient.delete(`/missions/${id}`);
+  },
+
+  async getMissionsStats(): Promise<{
+    planifiees: number;
+    enCours: number;
+    terminees: number;
+    annulees: number;
+    total: number;
+  }> {
+    const response = await apiClient.get('/missions/stats');
+    return (response.data as any)?.data ?? response.data;
   },
 
   async getInterventions(params?: any): Promise<PaginatedResponse<Intervention>> {

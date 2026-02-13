@@ -99,13 +99,21 @@ export const interventionsService = {
     return response.data;
   },
 
-  async assignTechnicien(id: string, technicienId: string): Promise<DetailResponse<Intervention>> {
-    const response = await apiClient.post(`/technical/interventions/${id}/techniciens`, { technicienId });
+  async assignTechnicien(id: string, technicienId: string, role?: string): Promise<DetailResponse<Intervention>> {
+    const response = await apiClient.post(`/technical/interventions/${id}/techniciens`, { technicienId, role });
     return response.data;
   },
 
   async removeTechnicien(id: string, technicienId: string): Promise<{ success: boolean; message?: string }> {
     const response = await apiClient.delete(`/technical/interventions/${id}/techniciens/${technicienId}`);
+    return response.data;
+  },
+
+  async addMaterielToIntervention(
+    id: string,
+    data: { materielId: string; quantite: number; notes?: string; technicienId: string }
+  ): Promise<DetailResponse<Intervention>> {
+    const response = await apiClient.post(`/technical/interventions/${id}/materiel`, data);
     return response.data;
   },
 };

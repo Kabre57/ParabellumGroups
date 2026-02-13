@@ -214,6 +214,15 @@ const permissionCategories = {
       { name: 'purchases.delete', description: 'Supprimer des achats' },
       { name: 'purchases.approve', description: 'Approuver les achats' }
     ]
+  },
+  AuditLog: {
+    label: 'Journal de bord (AuditLog)',
+    permissions: [
+      { name: 'canViewAuditLogInfo', description: 'Voir les journaux d\'audit de niveau INFO', category: 'AuditLog' },
+      { name: 'canViewAuditLogWarning', description: 'Voir les journaux d\'audit de niveau WARNING', category: 'AuditLog' },
+      { name: 'canViewAuditLogCritical', description: 'Voir les journaux d\'audit de niveau CRITICAL', category: 'AuditLog' },
+      { name: 'canViewAuditLogSecurity', description: 'Voir les journaux d\'audit de niveau SECURITY', category: 'AuditLog' }
+    ]
   }
 };
 

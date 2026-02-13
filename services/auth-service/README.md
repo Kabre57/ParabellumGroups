@@ -28,6 +28,14 @@ DATABASE_URL=postgresql://postgres:password@localhost:5432/parabellum_auth
 JWT_SECRET=416500b0f18082fb66834e3a45d550cfc154218b718d8fdb91185168c873682c2bfb9a4c6bf69e5b6060bc5b22366f54fedfd5a3da38065246d0093c19ea861b
 JWT_EXPIRES_IN=7d
 REFRESH_TOKEN_EXPIRES_IN=30d
+
+# Optionnel: Stockage S3/MinIO pour images des services
+# S3_ENDPOINT=http://localhost:9000
+# S3_ACCESS_KEY_ID=minioadmin
+# S3_SECRET_ACCESS_KEY=minioadmin
+# S3_BUCKET_NAME=parabellum-services
+# S3_REGION=us-east-1
+# S3_FORCE_PATH_STYLE=true
 ```
 
 ### 3. Configuration de la base de données

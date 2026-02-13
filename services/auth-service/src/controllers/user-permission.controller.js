@@ -14,7 +14,7 @@ const getUserPermissions = async (req, res) => {
       include: {
         user_permissions: {
           include: {
-            permission: true
+            permissions: true  // Changed from 'permission' to 'permissions'
           }
         },
         role: true
@@ -58,33 +58,35 @@ const getUserPermissions = async (req, res) => {
     });
 
     // Ajouter/surcharger avec permissions utilisateur
-    user.userPermissions.forEach(up => {
-      const existing = permissionsMap.get(up.permissionId);
-      if (existing && existing.source === 'role') {
-        // Fusionner : les permissions utilisateur écrasent celles du rôle
-        permissionsMap.set(up.permissionId, {
-          ...existing,
-          source: 'mixed',
-          canView: up.canView !== undefined ? up.canView : existing.canView,
-          canCreate: up.canCreate !== undefined ? up.canCreate : existing.canCreate,
-          canEdit: up.canEdit !== undefined ? up.canEdit : existing.canEdit,
-          canDelete: up.canDelete !== undefined ? up.canDelete : existing.canDelete,
-          canApprove: up.canApprove !== undefined ? up.canApprove : existing.canApprove
-        });
-      } else {
-        permissionsMap.set(up.permissionId, {
-          id: up.id,
-          permissionId: up.permissionId,
-          permission: up.permission,
-          source: 'user',
-          canView: up.canView,
-          canCreate: up.canCreate,
-          canEdit: up.canEdit,
-          canDelete: up.canDelete,
-          canApprove: up.canApprove
-        });
-      }
-    });
+    if (user.user_permissions) {
+      user.user_permissions.forEach(up => {
+        const existing = permissionsMap.get(up.permission_id);
+        if (existing && existing.source === 'role') {
+          // Fusionner : les permissions utilisateur écrasent celles du rôle
+          permissionsMap.set(up.permission_id, {
+            ...existing,
+            source: 'mixed',
+            canView: up.can_view !== undefined ? up.can_view : existing.canView,
+            canCreate: up.can_create !== undefined ? up.can_create : existing.canCreate,
+            canEdit: up.can_edit !== undefined ? up.can_edit : existing.canEdit,
+            canDelete: up.can_delete !== undefined ? up.can_delete : existing.canDelete,
+            canApprove: up.can_approve !== undefined ? up.can_approve : existing.canApprove
+          });
+        } else {
+          permissionsMap.set(up.permission_id, {
+            id: up.id,
+            permissionId: up.permission_id,
+            permission: up.permissions,  // Changed from 'permission' to 'permissions'
+            source: 'user',
+            canView: up.can_view,
+            canCreate: up.can_create,
+            canEdit: up.can_edit,
+            canDelete: up.can_delete,
+            canApprove: up.can_approve
+          });
+        }
+      });
+    }
 
     const permissions = Array.from(permissionsMap.values());
 
@@ -109,12 +111,25 @@ const getUserPermissions = async (req, res) => {
 const updateUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { permissions } = req.body;
+    let { permissions, permissionIds } = req.body;
+
+    // Support des deux formats: permissionIds simple ou permissions détaillées
+    if (permissionIds && Array.isArray(permissionIds)) {
+      // Conversion de permissionIds en format complet avec toutes les actions à true
+      permissions = permissionIds.map(id => ({
+        permissionId: id,
+        canView: true,
+        canCreate: true,
+        canEdit: true,
+        canDelete: true,
+        canApprove: true
+      }));
+    }
 
     if (!Array.isArray(permissions)) {
       return res.status(400).json({
         success: false,
-        message: 'Le champ permissions doit être un tableau'
+        message: 'Le champ permissions ou permissionIds doit être un tableau'
       });
     }
 
@@ -188,6 +203,7 @@ const updateUserPermissions = async (req, res) => {
           canDelete: p.canDelete,
           canApprove: p.canApprove
         }))),
+        level: 'CRITICAL',
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }

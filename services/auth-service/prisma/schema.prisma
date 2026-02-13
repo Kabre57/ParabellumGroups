@@ -78,6 +78,7 @@ model Service {
   managerId   Int?      @map("manager_id")
   parentId    Int?      @map("parent_id")
   code        String?   @unique @map("service_code") @db.VarChar(10)
+  imageUrl    String?   @map("image_url")
   manager     User?     @relation("ServiceManager", fields: [managerId], references: [id])
   parent      Service?  @relation("ServiceHierarchy", fields: [parentId], references: [id])
   children    Service[] @relation("ServiceHierarchy")
@@ -97,11 +98,14 @@ model AuditLog {
   details    String?
   entityId   String?  @map("entity_id")
   newValue   String?  @map("new_value")
+  oldValue   String?  @map("old_value")
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
+  level      String   @default("INFO")
   createdAt  DateTime @default(now()) @map("created_at")
   user       User?    @relation(fields: [userId], references: [id])
 
+  @@index([level])
   @@map("audit_logs")
 }
 

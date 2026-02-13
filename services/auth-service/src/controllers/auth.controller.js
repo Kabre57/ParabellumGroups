@@ -74,6 +74,7 @@ const register = async (req, res) => {
         entityType: 'User',
         entityId: user.id.toString(),
         details: `User ${user.email} registered`,
+        level: 'INFO',
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       },
@@ -188,6 +189,7 @@ const login = async (req, res) => {
         entityType: 'User',
         entityId: user.id.toString(),
         details: `User ${user.email} logged in`,
+        level: 'INFO',
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       },
@@ -370,6 +372,7 @@ const logout = async (req, res) => {
           entityType: 'User',
           entityId: req.user.id.toString(),
           details: `User ${req.user.email} logged out`,
+          level: 'INFO',
           ipAddress: req.ip,
           userAgent: req.get('user-agent'),
         },
@@ -492,6 +495,7 @@ const revokeAllTokens = async (req, res) => {
         action: 'REVOKE_ALL_TOKENS',
         entityType: 'RefreshToken',
         details: `All tokens revoked for user ${req.user.email}`,
+        level: 'SECURITY',
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }

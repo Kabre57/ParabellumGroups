@@ -2,16 +2,33 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analyticsService } from '@/shared/api/analytics';
+import { technicalService } from '@/shared/api/technical';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { Briefcase, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { PieChart } from '@/components/charts/PieChart';
+import { LineChart } from '@/components/charts/LineChart';
+import { Briefcase, CheckCircle, Clock, AlertCircle, Wrench } from 'lucide-react';
 
 export function TechnicalDashboard() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboard', 'technical'],
-    queryFn: () => analyticsService.getProjectsStats(),
+  const { data: missionsStats, isLoading: isLoadingStats, error: statsError } = useQuery({
+    queryKey: ['technical', 'missions-stats'],
+    queryFn: () => technicalService.getMissionsStats(),
   });
+
+  const { data: interventionsResponse, isLoading: isLoadingInterventions } = useQuery({
+    queryKey: ['technical', 'interventions-performance'],
+    queryFn: async () => {
+      const res = await technicalService.getInterventions({ pageSize: 500 });
+      return res;
+    },
+  });
+
+  const interventions = Array.isArray(interventionsResponse?.data)
+    ? interventionsResponse.data
+    : (interventionsResponse as any)?.data ?? [];
+
+  const isLoading = isLoadingStats;
+  const error = statsError;
 
   if (isLoading) {
     return (
@@ -21,47 +38,78 @@ export function TechnicalDashboard() {
     );
   }
 
-  if (error || !data) {
+  if (error || !missionsStats) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">
-            Erreur lors du chargement des données
+            Erreur lors du chargement des données techniques
           </p>
         </div>
       </div>
     );
   }
 
-  const stats = data.nombreProjets;
-  const budget = data.budgetTotal;
-  const projectsCritiques = data.projetsCritiques ?? [];
+  const pieData = [
+    missionsStats.planifiees ?? 0,
+    missionsStats.enCours ?? 0,
+    missionsStats.terminees ?? 0,
+    missionsStats.annulees ?? 0,
+  ].filter((n) => n > 0);
+  const pieLabels = ['Planifiées', 'En cours', 'Terminées', 'Annulées'].slice(
+    0,
+    pieData.length
+  );
+
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    return d;
+  });
+  const monthLabels = last6Months.map((d) =>
+    d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+  );
+  const interventionsByMonth = last6Months.map((monthStart) => {
+    const monthEnd = new Date(monthStart);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+    return (interventions as any[]).filter((i) => {
+      const date = i.dateDebut ? new Date(i.dateDebut) : null;
+      return date && date >= monthStart && date < monthEnd;
+    }).length;
+  });
 
   const statsCards = [
     {
-      title: 'Total projets',
-      value: stats?.total ?? 0,
+      title: 'Total missions',
+      value: missionsStats.total ?? 0,
       icon: Briefcase,
       color: 'bg-blue-100 dark:bg-blue-900/20',
       iconColor: 'text-blue-600 dark:text-blue-400',
     },
     {
-      title: 'En cours',
-      value: stats?.enCours ?? 0,
+      title: 'Planifiées',
+      value: missionsStats.planifiees ?? 0,
       icon: Clock,
+      color: 'bg-cyan-100 dark:bg-cyan-900/20',
+      iconColor: 'text-cyan-600 dark:text-cyan-400',
+    },
+    {
+      title: 'En cours',
+      value: missionsStats.enCours ?? 0,
+      icon: Wrench,
       color: 'bg-orange-100 dark:bg-orange-900/20',
       iconColor: 'text-orange-600 dark:text-orange-400',
     },
     {
-      title: 'Terminés',
-      value: stats?.termines ?? 0,
+      title: 'Terminées',
+      value: missionsStats.terminees ?? 0,
       icon: CheckCircle,
       color: 'bg-green-100 dark:bg-green-900/20',
       iconColor: 'text-green-600 dark:text-green-400',
     },
     {
-      title: 'En retard',
-      value: stats?.enRetard ?? 0,
+      title: 'Annulées',
+      value: missionsStats.annulees ?? 0,
       icon: AlertCircle,
       color: 'bg-red-100 dark:bg-red-900/20',
       iconColor: 'text-red-600 dark:text-red-400',
@@ -70,7 +118,7 @@ export function TechnicalDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {statsCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -85,7 +133,9 @@ export function TechnicalDashboard() {
                       {stat.value}
                     </p>
                   </div>
-                  <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
+                  <div
+                    className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}
+                  >
                     <Icon className={`w-6 h-6 ${stat.iconColor}`} />
                   </div>
                 </div>
@@ -98,47 +148,47 @@ export function TechnicalDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Budget projets</CardTitle>
+            <CardTitle>Répartition des missions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Alloué</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {budget?.alloue ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Consommé</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {budget?.consomme ?? 0}
-                </span>
-              </div>
-            </div>
+            {pieData.length > 0 ? (
+              <PieChart
+                data={pieData}
+                labels={pieLabels}
+                height={280}
+                colors={[
+                  'rgb(6, 182, 212)',
+                  'rgb(251, 146, 60)',
+                  'rgb(34, 197, 94)',
+                  'rgb(239, 68, 68)',
+                ]}
+              />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
+                Aucune mission
+              </p>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Projets critiques</CardTitle>
+            <CardTitle>Performance interventions (6 derniers mois)</CardTitle>
           </CardHeader>
           <CardContent>
-            {projectsCritiques.length > 0 ? (
-              <div className="space-y-3">
-                {projectsCritiques.map((project: any) => (
-                  <div key={project.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{project.nom}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Retard: {project.retard} j</p>
-                    </div>
-                    <span className="text-xs text-red-600">{project.risque}</span>
-                  </div>
-                ))}
-              </div>
+            {!isLoadingInterventions ? (
+              <LineChart
+                data={interventionsByMonth}
+                labels={monthLabels}
+                label="Interventions"
+                height={280}
+                color="rgb(59, 130, 246)"
+                fill
+              />
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                Aucun projet critique
-              </p>
+              <div className="flex items-center justify-center h-[280px]">
+                <Spinner size="md" />
+              </div>
             )}
           </CardContent>
         </Card>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Building2 } from 'lucide-react';
+import { X, Building2, Image, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { adminServicesService, adminUsersService, type Service } from '@/shared/api/admin';
@@ -47,6 +47,8 @@ export function EditServiceModal({
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
   const users = Array.isArray(usersData?.data) ? usersData.data : [];
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const availableParentServices = services.filter(s => s.id !== service?.id);
 
   const {
@@ -67,6 +69,8 @@ export function EditServiceModal({
         managerId: service.managerId?.toString() || '',
         isActive: service.isActive,
       });
+      setImageFile(null);
+      setRemoveImage(false);
     }
   }, [service, reset]);
 
@@ -74,16 +78,23 @@ export function EditServiceModal({
     if (!service) return;
 
     try {
-      await adminServicesService.updateService(service.id, {
-        name: data.name,
-        description: data.description,
-        parentId: data.parentId ? parseInt(data.parentId) : null,
-        managerId: data.managerId ? parseInt(data.managerId) : null,
-        isActive: data.isActive,
-      });
-      
+      await adminServicesService.updateService(
+        service.id,
+        {
+          name: data.name,
+          description: data.description,
+          parentId: data.parentId ? parseInt(data.parentId) : null,
+          managerId: data.managerId ? parseInt(data.managerId) : null,
+          isActive: data.isActive,
+        },
+        imageFile || undefined,
+        removeImage
+      );
+
       toast.success('Service modifie avec succes');
       reset();
+      setImageFile(null);
+      setRemoveImage(false);
       onSuccess();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la modification du service');
@@ -167,6 +178,42 @@ export function EditServiceModal({
                   {errors.description.message}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Image du service
+              </label>
+              <div className="flex flex-wrap items-center gap-4">
+                {service.imageUrl && !removeImage ? (
+                  <div className="relative">
+                    <img
+                      src={service.imageUrl}
+                      alt={service.name}
+                      className="h-24 w-24 object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setRemoveImage(true)}
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      title="Supprimer l'image"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : null}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => {
+                    setImageFile(e.target.files?.[0] ?? null);
+                    setRemoveImage(false);
+                  }}
+                  className="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-400"
+                />
+                {imageFile && <span className="text-sm text-gray-500 truncate max-w-[150px]">{imageFile.name}</span>}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF ou WebP (max 5 Mo)</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

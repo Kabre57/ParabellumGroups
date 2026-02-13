@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { TechnicalDashboard } from '@/components/dashboard/TechnicalDashboard';
 import { Wrench, Users, ClipboardCheck } from 'lucide-react';
 
 export default function TechnicalPage() {
@@ -13,6 +14,8 @@ export default function TechnicalPage() {
           Gestion des interventions techniques, spécialités et rapports
         </p>
       </div>
+
+      <TechnicalDashboard />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>

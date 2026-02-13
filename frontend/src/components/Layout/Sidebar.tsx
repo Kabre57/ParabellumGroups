@@ -220,6 +220,7 @@ const adminNavigation: NavigationItem[] = [
   { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
   { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },
   { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck, permission: 'admin' },
+  { name: 'Journal d\'audit', href: '/dashboard/admin/audit-logs', icon: BookOpen, permission: 'admin' },
   { name: 'Paramètres', href: '/dashboard/settings', icon: Settings, permission: 'admin' },
 ];
 
@@ -471,14 +472,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transform transition-all duration-300 ease-in-out flex flex-col",
+          "fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-all duration-300 ease-in-out flex flex-col",
           isCollapsed ? 'w-20' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}
       >
         {/* Header avec logo */}
-        <div className="flex-shrink-0 flex items-center justify-between h-16 px-4 border-b border-gray-200">
+        <div className="flex-shrink-0 flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
           {!isCollapsed ? (
             <>
               <div className="flex items-center space-x-3">
@@ -490,31 +491,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                   className="rounded-lg object-cover"
                 />
                 <div className="flex flex-col">
-                  <h1 className="text-gray-900 text-base font-bold leading-tight">Parabellum</h1>
-                  <span className="text-gray-500 text-xs">ERP</span>
+                  <h1 className="text-gray-900 dark:text-gray-100 text-base font-bold leading-tight">Parabellum</h1>
+                  <span className="text-gray-500 dark:text-gray-400 text-xs">ERP</span>
                 </div>
               </div>
               <button
                 onClick={() => setIsCollapsed(true)}
-                className="hidden lg:block p-1.5 rounded hover:bg-gray-100 transition-colors"
+                className="hidden lg:block p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 aria-label="Réduire"
               >
-                <ChevronLeft className="h-5 w-5 text-gray-600" />
+                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </button>
             </>
           ) : (
             <button
               onClick={() => setIsCollapsed(false)}
-              className="hidden lg:block mx-auto p-1.5 rounded hover:bg-gray-100 transition-colors"
+              className="hidden lg:block mx-auto p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               aria-label="Étendre"
             >
-              <ChevronRight className="h-5 w-5 text-gray-600" />
+              <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
           )}
           {onClose && (
             <button
               onClick={onClose}
-              className="lg:hidden text-gray-600 hover:text-gray-900"
+              className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
             >
               <X className="h-6 w-6" />
             </button>

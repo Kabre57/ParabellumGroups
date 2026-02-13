@@ -172,7 +172,7 @@ export default function PrintLayout({
             }}
           />
           <div>
-            <div className="print-title">PARABELLUM GROUP</div>
+            <div className="print-title">PARABELLUM GROUPS</div>
             <div className="print-subtitle">{title}</div>
             {subtitle && <div className="print-subtitle">{subtitle}</div>}
           </div>
@@ -184,7 +184,7 @@ export default function PrintLayout({
 
       {showFooter && (
         <div className="print-footer">
-          <div>PARABELLUM GROUP • Service Technique Professionnel</div>
+          <div>PARABELLUM GROUPS • Service Technique Professionnel</div>
           <div>Siège Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
           <div>Email : contact@parabellumgroup.ci • Tél : +225 27 20 21 22 23</div>
           <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D&apos;IVOIRE</div>

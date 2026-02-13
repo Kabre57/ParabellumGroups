@@ -1,33 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Calendar, Clock, Plus, Trash2, AlertTriangle, CheckCircle, Package } from 'lucide-react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { X, Calendar, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useMissions, useTechniciens, useCreateIntervention, useUpdateIntervention, useMateriel } from '@/hooks/useTechnical';
-
-const technicienSchema = z.object({
-  technicienId: z.string().min(1, 'Technicien requis'),
-  role: z.enum(['Principal', 'Assistant']).default('Principal'),
-  commentaire: z.string().optional()
-});
-
-const materielSchema = z.object({
-  materielId: z.string().min(1, 'Matériel requis'),
-  quantite: z.number().min(1, 'Quantité minimale: 1'),
-  notes: z.string().optional()
-});
+import { useMissions, useInterventions, useIntervention, useCreateIntervention, useUpdateIntervention } from '@/hooks/useTechnical';
+import { useRouter } from 'next/navigation';
 
 const createInterventionSchema = z.object({
   titre: z.string().min(1, 'Titre requis'),
   missionId: z.string().min(1, 'Mission requise'),
   dateHeureDebut: z.string().min(1, 'Date de début requise'),
   dateHeureFin: z.string().optional(),
-  techniciens: z.array(technicienSchema).min(1, 'Au moins un technicien requis'),
-  materiels: z.array(materielSchema).optional(),
   description: z.string().optional(),
   priorite: z.enum(['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE']).default('MOYENNE')
 });
@@ -47,13 +33,20 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
   missionId,
   interventionId
 }) => {
-  const queryClient = useQueryClient();
-  
-  // Fetch real data from backend
+  const router = useRouter();
   const { data: missions = [] } = useMissions({ pageSize: 100 });
-  const { data: techniciens = [] } = useTechniciens({ pageSize: 100 });
-  const { data: materiels = [] } = useMateriel({ pageSize: 100 });
-  
+  const { data: interventions = [] } = useInterventions({ pageSize: 500 });
+  const { data: currentIntervention } = useIntervention(interventionId || '');
+
+  const missionIdsWithIntervention = [...new Set((interventions as any[]).map((i: any) => i.missionId).filter(Boolean))];
+  const currentMissionId = (currentIntervention as any)?.data?.missionId ?? (currentIntervention as any)?.missionId ?? missionId;
+  const availableMissions = missions.filter(
+    (m: any) =>
+      !missionIdsWithIntervention.includes(m.id) ||
+      m.id === currentMissionId ||
+      (missionId && m.id === missionId)
+  );
+
   const createMutation = useCreateIntervention();
   const updateMutation = useUpdateIntervention();
 
@@ -62,7 +55,6 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
     handleSubmit,
     formState: { errors },
     reset,
-    control,
     watch
   } = useForm<CreateInterventionFormData>({
     resolver: zodResolver(createInterventionSchema),
@@ -72,23 +64,9 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
       dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16),
-      techniciens: [{ technicienId: '', role: 'Principal', commentaire: '' }],
-      materiels: [],
       priorite: 'MOYENNE'
     }
   });
-
-  const {
-    fields: technicienFields,
-    append: appendTechnicien,
-    remove: removeTechnicien
-  } = useFieldArray({ control, name: 'techniciens' });
-
-  const {
-    fields: materielFields,
-    append: appendMateriel,
-    remove: removeMateriel
-  } = useFieldArray({ control, name: 'materiels' });
 
   const dateHeureDebut = watch('dateHeureDebut') ?? '';
   const dateHeureFin = watch('dateHeureFin') ?? '';
@@ -108,19 +86,6 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
 
   const onSubmit = async (data: CreateInterventionFormData) => {
     try {
-      const technicienIds = data.techniciens
-        .map((technicien) => technicien.technicienId)
-        .filter((technicienId) => technicienId);
-      const fallbackTechnicienId = technicienIds[0];
-      const materielsPayload = (data.materiels || [])
-        .filter((materiel) => materiel.materielId && materiel.quantite)
-        .map((materiel) => ({
-          materielId: materiel.materielId,
-          quantite: materiel.quantite,
-          notes: materiel.notes,
-          technicienId: fallbackTechnicienId
-        }));
-
       if (interventionId) {
         await updateMutation.mutateAsync({
           id: interventionId,
@@ -130,30 +95,35 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
             dateDebut: data.dateHeureDebut,
             dateFin: data.dateHeureFin,
             description: data.description,
-            priorite: data.priorite,
-            technicienIds
+            priorite: data.priorite
           }
         });
         toast.success('Intervention mise à jour avec succès');
+        reset();
+        onClose();
       } else {
-        await createMutation.mutateAsync({
+        const response = await createMutation.mutateAsync({
           titre: data.titre,
           missionId: data.missionId,
           dateDebut: data.dateHeureDebut,
           dateFin: data.dateHeureFin,
           description: data.description,
-          priorite: data.priorite,
-          technicienIds,
-          materiels: materielsPayload
+          priorite: data.priorite
         });
-        toast.success('Intervention créée avec succès');
+        
+        toast.success('Intervention créée avec succès ! Ajoutez maintenant des techniciens et du matériel.');
+        reset();
+        onClose();
+        
+        // Rediriger vers la page de détails pour ajouter techniciens et matériel
+        const interventionId = (response as any)?.data?.id || (response as any)?.id;
+        if (interventionId) {
+          router.push(`/dashboard/technical/interventions/${interventionId}`);
+        }
       }
-
-      reset();
-      onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sauvegarde de l\'intervention:', error);
-      toast.error('Erreur lors de la sauvegarde de l\'intervention');
+      toast.error(error.response?.data?.error || 'Erreur lors de la sauvegarde de l\'intervention');
     }
   };
 
@@ -165,8 +135,6 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
         dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
           .toISOString()
           .slice(0, 16),
-        techniciens: [{ technicienId: '', role: 'Principal', commentaire: '' }],
-        materiels: [],
         priorite: 'MOYENNE'
       });
     }
@@ -176,11 +144,11 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
             <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-            Nouvelle Intervention
+            {interventionId ? "Modifier l'Intervention" : "Nouvelle Intervention"}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" type="button">
             <X className="h-6 w-6" />
@@ -190,7 +158,9 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
         <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
           {/* Titre */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre de l'Intervention *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Titre de l'Intervention *
+            </label>
             <input
               {...register('titre')}
               type="text"
@@ -209,11 +179,13 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
               disabled={!!missionId}
             >
               <option value="">Sélectionner une mission</option>
-              {missions.map((mission: any) => (
-                <option key={mission.id} value={mission.id}>
-                  {mission.numeroMission} - {mission.titre} 
-                </option>
-              ))}
+              {availableMissions
+                .filter((mission: any) => mission.status !== 'TERMINEE' && mission.status !== 'ANNULEE')
+                .map((mission: any) => (
+                  <option key={mission.id} value={mission.id}>
+                    {mission.numeroMission} - {mission.titre} ({mission.status})
+                  </option>
+                ))}
             </select>
             {errors.missionId && <p className="mt-1 text-sm text-red-600">{errors.missionId.message}</p>}
           </div>
@@ -234,7 +206,9 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date et Heure de Fin</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Date et Heure de Fin
+              </label>
               <input
                 {...register('dateHeureFin')}
                 type="datetime-local"
@@ -270,81 +244,6 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
             </select>
           </div>
 
-          {/* Techniciens */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Techniciens assignés *</label>
-              <button
-                type="button"
-                onClick={() => appendTechnicien({ technicienId: '', role: 'Assistant', commentaire: '' })}
-                className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter Technicien
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {technicienFields.map((field, index) => (
-                <div key={field.id} className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Technicien {index + 1}</span>
-                    {technicienFields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTechnicien(index)}
-                        className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
-                      >
-                        Supprimer
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Technicien *</label>
-                      <select
-                        {...register(`techniciens.${index}.technicienId` as const)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Sélectionner un technicien</option>
-                        {techniciens.map((technicien: any) => (
-                          <option key={technicien.id} value={technicien.id}>
-                            {technicien.prenom} {technicien.nom} - {technicien.specialite?.nom || 'N/A'}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.techniciens?.[index]?.technicienId && (
-                        <p className="mt-1 text-xs text-red-600">
-                          {errors.techniciens[index]?.technicienId?.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Rôle</label>
-                      <select
-                        {...register(`techniciens.${index}.role` as const)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="Principal">Principal</option>
-                        <option value="Assistant">Assistant</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Commentaire</label>
-                      <input
-                        {...register(`techniciens.${index}.commentaire` as const)}
-                        type="text"
-                        placeholder="Responsabilités..."
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
@@ -356,87 +255,14 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
             />
           </div>
 
-          {/* Matériels */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                <Package className="inline h-4 w-4 mr-1" />
-                Sortie de Matériel
-              </label>
-              <button
-                type="button"
-                onClick={() => appendMateriel({ materielId: '', quantite: 1, notes: '' })}
-                className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter Matériel
-              </button>
+          {/* Info message */}
+          {!interventionId && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                💡 Après la création, vous pourrez ajouter des techniciens et du matériel depuis la page de détails.
+              </p>
             </div>
-
-            {materielFields.length > 0 && (
-              <div className="space-y-3">
-                {materielFields.map((field, index) => (
-                  <div key={field.id} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Matériel {index + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeMateriel(index)}
-                        className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Matériel *</label>
-                        <select
-                          {...register(`materiels.${index}.materielId` as const)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-green-500 focus:border-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="">Sélectionner un matériel</option>
-                          {materiels.map((materiel: any) => (
-                            <option key={materiel.id} value={materiel.id}>
-                              {materiel.nom} - Stock: {materiel.quantiteDisponible || materiel.quantiteStock || 0}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.materiels?.[index]?.materielId && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {errors.materiels[index]?.materielId?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Quantité *</label>
-                        <input
-                          {...register(`materiels.${index}.quantite` as const, { valueAsNumber: true })}
-                          type="number"
-                          min="1"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                        {errors.materiels?.[index]?.quantite && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {errors.materiels[index]?.quantite?.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Notes</label>
-                        <input
-                          {...register(`materiels.${index}.notes` as const)}
-                          type="text"
-                          placeholder="État, conditions..."
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -459,7 +285,7 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
                   {interventionId ? 'Mise à jour...' : 'Création...'}
                 </>
               ) : (
-                interventionId ? "Mettre à jour l'intervention" : "Créer l'intervention"
+                interventionId ? "Mettre à jour" : "Créer l'intervention"
               )}
             </button>
           </div>
@@ -468,4 +294,3 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
     </div>
   );
 };
-

@@ -50,27 +50,48 @@ export const sendNotification = async (req: Request, res: Response) => {
 
 export const getUserNotifications = async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params
-    const { isRead } = req.query
+    const { userId } = req.params;
+    const { isRead } = req.query;
 
-    const where: any = { userId }
+    const where: any = { userId };
     if (isRead !== undefined) {
-      where.isRead = isRead === 'true'
+      where.isRead = isRead === 'true';
     }
 
-    const notifications = await prisma.notification.findMany({
-      where,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const [notifications, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 50, // Limiter à 50 notifications
+      }),
+      prisma.notification.count({
+        where: {
+          userId,
+          isRead: false,
+        },
+      }),
+    ]);
 
-    res.json(notifications)
+    res.json({
+      success: true,
+      data: notifications.map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        read: n.isRead,
+        createdAt: n.createdAt,
+        link: (n.data as any)?.link || undefined,
+      })),
+      unreadCount,
+    });
   } catch (error) {
-    console.error('Get notifications error:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};
 
 export const markAsRead = async (req: Request, res: Response) => {
   try {

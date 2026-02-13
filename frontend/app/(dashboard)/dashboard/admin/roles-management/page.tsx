@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
-import { apiClient } from '@/lib/api-client';
+import { adminRolesService } from '@/shared/api/admin';
 
 interface Role {
   id: number;
@@ -43,11 +43,11 @@ export default function RolesManagementPage() {
   // Fetch roles
   const { data: rolesData, isLoading } = useQuery<RolesResponse>({
     queryKey: ['roles'],
-    queryFn: () => apiClient.getRoles(),
+    queryFn: () => adminRolesService.getRoles(),
   });
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (roleId: number) => apiClient.deleteRole(roleId),
+    mutationFn: (roleId: number) => adminRolesService.deleteRole(roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('Rôle supprimé avec succès');

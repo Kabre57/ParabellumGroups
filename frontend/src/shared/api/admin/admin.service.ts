@@ -43,12 +43,45 @@ export interface Service {
   parentId: number | null;
   managerId: number | null;
   isActive: boolean;
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   parent?: Service;
   children?: Service[];
   manager?: AdminUser;
   _count?: { members: number };
+}
+
+export interface AuditLog {
+  id: number;
+  userId: number | null;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  details: string | null;
+  newValue: string | null;
+  oldValue: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  level: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
+  createdAt: string;
+  user?: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+}
+
+export interface AuditLogFilters {
+  page?: number;
+  limit?: number;
+  level?: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
+  entityType?: string;
+  entityId?: string;
+  action?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface Permission {
@@ -298,12 +331,36 @@ export const adminServicesService = {
     return response.data;
   },
 
-  createService: async (data: CreateServiceRequest): Promise<ApiDetailResponse<Service>> => {
+  createService: async (data: CreateServiceRequest, imageFile?: File): Promise<ApiDetailResponse<Service>> => {
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      if (data.code) formData.append('code', data.code);
+      if (data.description) formData.append('description', data.description);
+      if (data.parentId) formData.append('parentId', String(data.parentId));
+      if (data.managerId) formData.append('managerId', String(data.managerId));
+      formData.append('image', imageFile);
+      const response = await apiClient.post<ApiDetailResponse<Service>>('/auth/services', formData);
+      return response.data;
+    }
     const response = await apiClient.post<ApiDetailResponse<Service>>('/auth/services', data);
     return response.data;
   },
 
-  updateService: async (id: number, data: UpdateServiceRequest): Promise<ApiDetailResponse<Service>> => {
+  updateService: async (id: number, data: UpdateServiceRequest, imageFile?: File | null, removeImage?: boolean): Promise<ApiDetailResponse<Service>> => {
+    if (imageFile || removeImage) {
+      const formData = new FormData();
+      formData.append('name', data.name ?? '');
+      formData.append('description', (data.description ?? '').toString());
+      formData.append('parentId', data.parentId ? String(data.parentId) : '');
+      formData.append('managerId', data.managerId ? String(data.managerId) : '');
+      formData.append('isActive', String(data.isActive ?? true));
+      if (data.code !== undefined) formData.append('code', data.code ?? '');
+      if (imageFile) formData.append('image', imageFile);
+      if (removeImage) formData.append('removeImage', 'true');
+      const response = await apiClient.put<ApiDetailResponse<Service>>(`/auth/services/${id}`, formData);
+      return response.data;
+    }
     const response = await apiClient.put<ApiDetailResponse<Service>>(`/auth/services/${id}`, data);
     return response.data;
   },
@@ -357,11 +414,31 @@ export const adminPermissionsService = {
   },
 };
 
+export const adminAuditLogsService = {
+  getAuditLogs: async (filters?: AuditLogFilters): Promise<{ success: boolean; data: AuditLog[]; meta: { total: number; page: number; limit: number; totalPages: number } }> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+    if (filters?.level) params.append('level', filters.level);
+    if (filters?.entityType) params.append('entityType', filters.entityType);
+    if (filters?.entityId) params.append('entityId', filters.entityId);
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const query = params.toString();
+    const response = await apiClient.get<{ success: boolean; data: AuditLog[]; meta: any }>(
+      `/auth/audit-logs${query ? `?${query}` : ''}`
+    );
+    return response.data;
+  },
+};
+
 export const adminService = {
   users: adminUsersService,
   roles: adminRolesService,
   services: adminServicesService,
   permissions: adminPermissionsService,
+  auditLogs: adminAuditLogsService,
 };
 
 export default adminService;
