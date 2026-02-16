@@ -5,6 +5,7 @@ const {
   login,
   refreshToken,
   logout,
+  forgotPassword,
   getCurrentUser,
   revokeAllTokens
 } = require('../controllers/auth.controller');
@@ -89,6 +90,22 @@ router.post(
       .withMessage('Refresh token is required'),
   ],
   refreshToken
+);
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post(
+  '/forgot-password',
+  [
+    body('email')
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Valid email is required'),
+  ],
+  forgotPassword
 );
 
 /**

@@ -19,6 +19,13 @@ module.exports = {
     {
       path: '/communication',
       auth: true,
+      permission: {
+        GET: 'messages.read',
+        POST: 'messages.send',
+        PUT: 'messages.send',
+        PATCH: 'messages.send',
+        DELETE: 'messages.delete'
+      },
     },
   ],
 };

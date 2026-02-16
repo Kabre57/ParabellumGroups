@@ -86,7 +86,7 @@ const communicationServiceLimiter = createServiceLimiter('communication', {
 
 /**
  * Rate limiter pour le service Commercial
- * ModÃ©rÃ© - 100 requÃªtes / 15 minutes
+ * Modéré - 100 requêtes / 15 minutes
  */
 const commercialServiceLimiter = createServiceLimiter('commercial', {
   windowMs: 15 * 60 * 1000,
@@ -95,7 +95,7 @@ const commercialServiceLimiter = createServiceLimiter('commercial', {
 
 /**
  * Rate limiter pour le service Inventory
- * ModÃ©rÃ© - 100 requÃªtes / 15 minutes
+ * Modéré - 100 requêtes / 15 minutes
  */
 const inventoryServiceLimiter = createServiceLimiter('inventory', {
   windowMs: 15 * 60 * 1000,
@@ -133,7 +133,7 @@ const analyticsServiceLimiter = createServiceLimiter('analytics', {
 
 /**
  * Rate limiter pour le service Notifications
- * Plus souple - 200 requÃªtes / 15 minutes
+ * Plus souple - 200 requêtes / 15 minutes
  */
 const notificationsServiceLimiter = createServiceLimiter('notifications', {
   windowMs: 15 * 60 * 1000,

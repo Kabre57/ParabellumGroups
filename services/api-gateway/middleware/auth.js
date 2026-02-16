@@ -43,7 +43,8 @@ const authenticateToken = (req, res, next) => {
       email: decoded.email,
       role: decoded.role || decoded.roleCode,
       roleCode: decoded.roleCode,
-      serviceId: decoded.serviceId
+      serviceId: decoded.serviceId,
+      permissions: decoded.permissions || decoded.permissionsList || []
     };
     next();
   });
@@ -66,7 +67,8 @@ const optionalAuth = (req, res, next) => {
         email: decoded.email,
         role: decoded.role || decoded.roleCode,
         roleCode: decoded.roleCode,
-        serviceId: decoded.serviceId
+        serviceId: decoded.serviceId,
+        permissions: decoded.permissions || decoded.permissionsList || []
       };
     }
     next();

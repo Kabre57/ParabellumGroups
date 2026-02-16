@@ -57,11 +57,11 @@ export default function FacturationPage() {
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
       BROUILLON: { label: 'Brouillon', variant: 'outline' },
-      ENVOYEE: { label: 'EnvoyÃ©e', variant: 'default' },
-      PAYEE: { label: 'PayÃ©e', variant: 'success' },
+      ENVOYEE: { label: 'Envoyée', variant: 'default' },
+      PAYEE: { label: 'Payée', variant: 'success' },
       EN_RETARD: { label: 'En retard', variant: 'destructive' },
-      ANNULEE: { label: 'AnnulÃ©e', variant: 'secondary' },
-      PARTIALLY_PAYEE: { label: 'Partiellement payÃ©e', variant: 'warning' },
+      ANNULEE: { label: 'Annulée', variant: 'secondary' },
+      PARTIALLY_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
     };
 
     const config = statusConfig[status] || { label: status, variant: 'outline' as const };
@@ -130,7 +130,7 @@ export default function FacturationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Factures PayÃ©es
+                  Factures Payées
                 </p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-2">
                   {stats?.facturesPayees || 0}
@@ -229,10 +229,10 @@ export default function FacturationPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>NumÃ©ro</TableHead>
+                <TableHead>Numéro</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Ã‰chÃ©ance</TableHead>
+                <TableHead>Ã‰chéance</TableHead>
                 <TableHead>Montant</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -265,7 +265,7 @@ export default function FacturationPage() {
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-gray-400">
-              Aucune facture trouvÃ©e
+              Aucune facture trouvée
             </p>
           </div>
         )}

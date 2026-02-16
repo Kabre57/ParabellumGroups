@@ -1,6 +1,48 @@
 const config = require('../../utils/config');
 const { hrServiceLimiter } = require('../../middleware/serviceLimiters');
 
+const hrPermissionRules = [
+  {
+    pattern: /^\/employees/,
+    permissions: {
+      GET: 'employees.read',
+      POST: 'employees.create',
+      PUT: 'employees.update',
+      PATCH: 'employees.update',
+      DELETE: 'employees.delete'
+    }
+  },
+  {
+    pattern: /^\/contracts/,
+    permissions: {
+      GET: 'contracts.read',
+      POST: 'contracts.create',
+      PUT: 'contracts.update',
+      PATCH: 'contracts.update',
+      DELETE: 'contracts.delete'
+    }
+  },
+  {
+    pattern: /^\/leave-requests/,
+    permissions: {
+      GET: 'leaves.read',
+      POST: 'leaves.create',
+      PUT: 'leaves.update',
+      PATCH: 'leaves.update',
+      DELETE: 'leaves.delete'
+    }
+  },
+  {
+    pattern: /^\/payroll/,
+    permissions: {
+      GET: 'salaries.read',
+      POST: 'salaries.create',
+      PUT: 'salaries.update',
+      PATCH: 'salaries.update',
+      DELETE: 'salaries.delete'
+    }
+  }
+];
 /**
  * Path rewrite pour hr-service
  */
@@ -47,6 +89,7 @@ module.exports = {
     {
       path: '/hr',
       auth: true,
+      permissionByPath: hrPermissionRules,
     },
   ],
 };

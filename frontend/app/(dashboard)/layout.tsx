@@ -7,16 +7,31 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
+import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
+import { hasPermission } from '@/shared/permissions';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const requiredPermission = React.useMemo(() => {
+    if (!pathname) return undefined;
+    const allItems = [...sidebarItems, ...adminNavigation].filter(item => item.href && item.permission);
+    const matches = allItems.filter(item =>
+      pathname === item.href || pathname.startsWith(`${item.href}/`)
+    );
+    matches.sort((a, b) => (b.href?.length || 0) - (a.href?.length || 0));
+    return matches[0]?.permission;
+  }, [pathname]);
+  const isAuthorized = React.useMemo(() => {
+    if (!requiredPermission) return true;
+    return hasPermission(user, requiredPermission);
+  }, [requiredPermission, user]);
 
   // Vérification d'authentification
   useEffect(() => {
@@ -31,6 +46,42 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setSidebarOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      const requiredPermission = detail.permission;
+      const base = '/access-denied';
+      const target = requiredPermission
+        ? `${base}?permission=${encodeURIComponent(requiredPermission)}`
+        : base;
+
+      if (pathname !== base) {
+        router.push(target);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:forbidden', handler as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auth:forbidden', handler as EventListener);
+      }
+    };
+  }, [router, pathname]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) return;
+    if (!requiredPermission) return;
+    if (pathname?.startsWith('/access-denied')) return;
+    if (!isAuthorized) {
+      const target = `/access-denied?permission=${encodeURIComponent(requiredPermission)}`;
+      router.replace(target);
+    }
+  }, [isLoading, user, requiredPermission, isAuthorized, router, pathname]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -43,6 +94,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   if (!isAuthenticated) return null;
+  if (!isAuthorized && requiredPermission) return null;
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">

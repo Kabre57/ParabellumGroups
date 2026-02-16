@@ -30,6 +30,13 @@ module.exports = {
     {
       path: '/procurement',
       auth: true,
+      permission: {
+        GET: 'purchases.read',
+        POST: 'purchases.create',
+        PUT: 'purchases.update',
+        PATCH: 'purchases.update',
+        DELETE: 'purchases.delete'
+      },
     },
   ],
 };

@@ -13,10 +13,11 @@ const normalizeListResponse = (response: any) => {
 
 // ==================== CLIENTS ====================
 
-export function useClients(params?: Record<string, any>) {
+export function useClients(params?: Record<string, any>, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['crm', 'clients', params],
     queryFn: async () => normalizeListResponse(await crmService.getClients(params)),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -497,10 +498,11 @@ export function useSetAdressePrincipal() {
 
 // ==================== TYPES CLIENTS ====================
 
-export function useTypeClients() {
+export function useTypeClients(options?: { enabled?: boolean }) {
   return useQuery<any>({
     queryKey: ['crm', 'type-clients'],
     queryFn: async () => normalizeListResponse(await crmService.getTypeClients()),
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -39,18 +39,22 @@ module.exports = {
     {
       path: '/auth/users',
       auth: true,
+      admin: true,
     },
     {
       path: '/auth/roles',
       auth: true,
+      admin: true,
     },
     {
       path: '/auth/services',
       auth: true,
+      admin: true,
     },
     {
       path: '/auth/permissions',
       auth: true,
+      admin: true,
     },
     
     // Routes publiques avec validation
@@ -83,21 +87,25 @@ module.exports = {
     {
       path: '/roles',
       auth: true,
+      admin: true,
       pathRewrite: { '^/roles': '/api/roles' },
     },
     {
       path: '/users',
       auth: true,
+      admin: true,
       pathRewrite: { '^/users': '/api/users' },
     },
     {
       path: '/services',
       auth: true,
+      admin: true,
       pathRewrite: { '^/services': '/api/services' },
     },
     {
       path: '/permissions',
       auth: true,
+      admin: true,
       pathRewrite: { '^/permissions': '/api/permissions' },
     },
   ],

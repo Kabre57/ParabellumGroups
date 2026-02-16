@@ -19,6 +19,13 @@ module.exports = {
     {
       path: '/inventory',
       auth: true,
+      permission: {
+        GET: 'inventory.read',
+        POST: 'inventory.create',
+        PUT: 'inventory.update',
+        PATCH: 'inventory.update',
+        DELETE: 'inventory.delete'
+      },
     },
   ],
 };

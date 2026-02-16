@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
+const { getUserPermissionNames } = require('../utils/permissions');
 
 /**
  * Register new user
@@ -79,6 +80,9 @@ const register = async (req, res) => {
         userAgent: req.get('user-agent'),
       },
     });
+
+    const permissionsList = await getUserPermissionNames(user.id);
+    user.permissionsList = permissionsList;
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
@@ -198,6 +202,9 @@ const login = async (req, res) => {
     // Remove password hash from response
     const { passwordHash, ...userWithoutPassword } = user;
 
+    const permissionsList = await getUserPermissionNames(user.id);
+    user.permissionsList = permissionsList;
+
     // Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -217,7 +224,10 @@ const login = async (req, res) => {
       success: true,
       message: 'Login successful',
       data: {
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          permissionsList,
+        },
         accessToken,
         refreshToken,
       },
@@ -304,6 +314,9 @@ const refreshToken = async (req, res) => {
       });
     }
 
+    const permissionsList = await getUserPermissionNames(storedToken.user.id);
+    storedToken.user.permissionsList = permissionsList;
+
     // Generate new access token and refresh token
     const accessToken = generateAccessToken(storedToken.user);
     const newRefreshToken = generateRefreshToken(storedToken.user);
@@ -348,7 +361,7 @@ const refreshToken = async (req, res) => {
  */
 const logout = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const { refreshToken } = req.body || {};
 
     if (refreshToken) {
       // Revoke the refresh token
@@ -388,6 +401,65 @@ const logout = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error logging out',
+      errors: error.message,
+    });
+  }
+};
+
+/**
+ * Forgot password (request reset)
+ * POST /api/auth/forgot-password
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const { email } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email requis',
+      });
+    }
+
+    // Ne pas rÃ©vÃ©ler si l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+
+    if (user) {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'PASSWORD_RESET_REQUEST',
+          entityType: 'User',
+          entityId: user.id.toString(),
+          details: `Password reset requested for ${user.email}`,
+          level: 'SECURITY',
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Si un compte existe, un email de rÃ©initialisation a Ã©tÃ© envoyÃ©',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la demande de rÃ©initialisation',
       errors: error.message,
     });
   }
@@ -452,9 +524,14 @@ const getCurrentUser = async (req, res) => {
       });
     }
 
+    const permissionsList = await getUserPermissionNames(user.id);
+
     return res.status(200).json({
       success: true,
-      data: user,
+      data: {
+        ...user,
+        permissionsList,
+      },
     });
   } catch (error) {
     console.error('Get current user error:', error);
@@ -520,6 +597,7 @@ module.exports = {
   login,
   refreshToken,
   logout,
+  forgotPassword,
   getCurrentUser,
   revokeAllTokens
 };

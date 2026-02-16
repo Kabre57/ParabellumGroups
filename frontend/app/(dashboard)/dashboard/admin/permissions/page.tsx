@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Search, Plus, Edit, Trash2 } from 'lucide-react';
+import { Shield, Search, Plus, Edit, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminPermissionsService, adminRolesService, type Permission } from '@/shared/api/admin';
 import { CreatePermissionModal } from '@/components/permissions/CreatePermissionModal';
@@ -111,6 +112,43 @@ export default function PermissionsPage() {
           <Plus className="h-4 w-4" />
           Nouvelle Permission
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4 border-l-4 border-blue-500">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold">Permissions par rôle</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Définissez les accès standards d'un rôle. Chaque utilisateur hérite
+                automatiquement des permissions de son rôle.
+              </p>
+            </div>
+            <Shield className="h-6 w-6 text-blue-500" />
+          </div>
+          <div className="mt-4">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/admin/roles-management">Gérer par rôle</Link>
+            </Button>
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-amber-500">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold">Permissions utilisateur</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ajoutez des exceptions individuelles (surcouches) pour un utilisateur
+                précis sans changer son rôle global.
+              </p>
+            </div>
+            <Users className="h-6 w-6 text-amber-500" />
+          </div>
+          <div className="mt-4">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/admin/users">Gérer par utilisateur</Link>
+            </Button>
+          </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

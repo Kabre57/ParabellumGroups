@@ -19,6 +19,13 @@ module.exports = {
     {
       path: '/commercial',
       auth: true,
+      permission: {
+        GET: 'prospects.read',
+        POST: 'prospects.create',
+        PUT: 'prospects.update',
+        PATCH: 'prospects.update',
+        DELETE: 'prospects.delete'
+      },
     },
   ],
 };

@@ -1,6 +1,38 @@
 const config = require('../../utils/config');
 const { billingServiceLimiter } = require('../../middleware/serviceLimiters');
 
+const billingPermissionRules = [
+  {
+    pattern: /^\/invoices/,
+    permissions: {
+      GET: 'invoices.read',
+      POST: 'invoices.create',
+      PUT: 'invoices.update',
+      PATCH: 'invoices.update',
+      DELETE: 'invoices.delete'
+    }
+  },
+  {
+    pattern: /^\/quotes/,
+    permissions: {
+      GET: 'quotes.read',
+      POST: 'quotes.create',
+      PUT: 'quotes.update',
+      PATCH: 'quotes.update',
+      DELETE: 'quotes.delete'
+    }
+  },
+  {
+    pattern: /^\/payments/,
+    permissions: {
+      GET: 'payments.read',
+      POST: 'payments.create',
+      PUT: 'payments.update',
+      PATCH: 'payments.update',
+      DELETE: 'payments.delete'
+    }
+  }
+];
 /**
  * Path rewrite pour billing-service
  */
@@ -41,6 +73,7 @@ module.exports = {
     {
       path: '/billing',
       auth: true,
+      permissionByPath: billingPermissionRules,
     },
   ],
 };

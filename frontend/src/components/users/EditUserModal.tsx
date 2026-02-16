@@ -111,10 +111,18 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
-        roleId: parseInt(data.roleId),
-        serviceId: data.serviceId ? parseInt(data.serviceId) : null,
         isActive: data.isActive,
       };
+
+      if (data.roleId) {
+        updateData.roleId = parseInt(data.roleId, 10);
+      }
+
+      if (data.serviceId === '') {
+        updateData.serviceId = null;
+      } else if (data.serviceId) {
+        updateData.serviceId = parseInt(data.serviceId, 10);
+      }
 
       if (data.changePassword && data.newPassword) {
         updateData.password = data.newPassword;
@@ -126,8 +134,19 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      console.error('Erreur modification utilisateur:', error);
-      toast.error(error?.message || 'Erreur lors de la modification de l\'utilisateur');
+      const errorData = error?.response?.data || error?.data;
+      const firstValidationError =
+        (errorData?.errors && Array.isArray(errorData.errors))
+          ? errorData.errors[0]?.msg || errorData.errors[0]?.message
+          : (error?.errors && Array.isArray(error.errors))
+            ? error.errors[0]?.msg || error.errors[0]?.message
+          : null;
+      toast.error(
+        firstValidationError ||
+        errorData?.message ||
+        error?.message ||
+        'Erreur lors de la modification de l\'utilisateur'
+      );
     }
   };
 
@@ -224,6 +243,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                     <input
                       {...register('newPassword')}
                       type={showNewPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       className="pl-10 pr-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="********"
                     />
@@ -248,6 +268,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                     <input
                       {...register('confirmNewPassword')}
                       type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       className="pl-10 pr-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="********"
                     />

@@ -128,17 +128,45 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
   };
 
   useEffect(() => {
-    if (isOpen) {
-      reset({
-        titre: '',
-        missionId: missionId || '',
-        dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-          .toISOString()
-          .slice(0, 16),
-        priorite: 'MOYENNE'
-      });
+    if (!isOpen) return;
+
+    if (interventionId) {
+      const data = (currentIntervention as any)?.data ?? currentIntervention;
+      if (data) {
+        const toLocalInput = (value?: string) => {
+          if (!value) return '';
+          const date = new Date(value);
+          return isNaN(date.getTime())
+            ? ''
+            : new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+                .toISOString()
+                .slice(0, 16);
+        };
+
+        reset({
+          titre: data.titre || '',
+          missionId: data.missionId || missionId || '',
+          dateHeureDebut: toLocalInput(data.dateDebut) ||
+            new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+              .toISOString()
+              .slice(0, 16),
+          dateHeureFin: toLocalInput(data.dateFin),
+          description: data.description || '',
+          priorite: data.priorite || 'MOYENNE',
+        });
+        return;
+      }
     }
-  }, [isOpen, missionId, reset]);
+
+    reset({
+      titre: '',
+      missionId: missionId || '',
+      dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16),
+      priorite: 'MOYENNE'
+    });
+  }, [isOpen, missionId, interventionId, currentIntervention, reset]);
 
   if (!isOpen) return null;
 

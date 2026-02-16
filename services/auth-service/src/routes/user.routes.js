@@ -92,7 +92,7 @@ router.post(
       .isInt({ min: 1 })
       .withMessage('Role ID must be a positive integer'),
     body('serviceId')
-      .optional()
+      .optional({ nullable: true })
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
     body('isActive')
@@ -147,7 +147,7 @@ router.put(
       .isInt({ min: 1 })
       .withMessage('Role ID must be a positive integer'),
     body('serviceId')
-      .optional()
+      .optional({ nullable: true, checkFalsy: true })
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
     body('isActive')

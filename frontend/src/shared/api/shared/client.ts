@@ -113,6 +113,13 @@ class ApiClient {
       case 401:
         // Token expiré ou invalide - tentative de refresh
         if (this.shouldRetryWithRefresh(error)) {
+          const refreshToken = typeof window !== 'undefined'
+            ? localStorage.getItem('refreshToken')
+            : null;
+          if (!refreshToken) {
+            this.handleUnauthorized();
+            throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
+          }
           try {
             await this.refreshAccessToken();
             // Retry la requête originale avec le nouveau token
@@ -142,6 +149,12 @@ class ApiClient {
         throw this.formatError(429, 'Trop de requêtes, veuillez patienter');
 
       case 403:
+        if (typeof window !== 'undefined') {
+          const requiredPermission = (data as any)?.requiredPermission;
+          window.dispatchEvent(
+            new CustomEvent('auth:forbidden', { detail: { permission: requiredPermission } })
+          );
+        }
         throw this.formatError(403, 'Accès refusé');
 
       case 404:
@@ -284,4 +297,5 @@ export default apiClient;
 
 // Export de l'instance Axios pour compatibilité
 export const axiosInstance = apiClient.getAxiosInstance();
+
 

@@ -57,6 +57,8 @@ class ApiClient {
       if (response.status === 401) {
         this.setToken(null);
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
           window.location.href = '/login';
         }
         throw new Error('Session expirée. Veuillez vous reconnecter.');
@@ -335,3 +337,4 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient(API_BASE_URL);
+

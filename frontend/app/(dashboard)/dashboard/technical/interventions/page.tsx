@@ -161,19 +161,24 @@ export default function InterventionsPage() {
         </Button>
       </div>
 
-      <CreateInterventionModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-      />
+      {showCreateModal && (
+        <CreateInterventionModal
+          isOpen={true}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
 
-      <CreateInterventionModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedIntervention(undefined);
-        }}
-        missionId={selectedIntervention?.missionId}
-      />
+      {showEditModal && selectedIntervention && (
+        <CreateInterventionModal
+          isOpen={true}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedIntervention(undefined);
+          }}
+          missionId={selectedIntervention.missionId}
+          interventionId={selectedIntervention.id}
+        />
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 no-print">
         <div className="flex flex-col sm:flex-row gap-4">

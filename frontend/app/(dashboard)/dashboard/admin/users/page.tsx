@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Ban,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateUserModal } from '@/components/users/CreateUserModal';
@@ -34,6 +35,7 @@ const roleColors: Record<string, string> = {
 };
 
 export default function UsersManagementPage() {
+  const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
@@ -42,6 +44,7 @@ export default function UsersManagementPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [selectedPermissionsUser, setSelectedPermissionsUser] = useState<AdminUser | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -60,6 +63,12 @@ export default function UsersManagementPage() {
       search: search || undefined,
       roleId: roleFilter ? parseInt(roleFilter) : undefined,
     }),
+  });
+
+  const { data: selectedUserPermissionsData, isLoading: selectedUserPermissionsLoading } = useQuery({
+    queryKey: ['admin-user-permissions-summary', selectedPermissionsUser?.id],
+    queryFn: () => adminUsersService.getUserPermissions(selectedPermissionsUser!.id),
+    enabled: activeTab === 'permissions' && !!selectedPermissionsUser?.id,
   });
 
   const deleteUserMutation = useMutation({
@@ -142,6 +151,18 @@ export default function UsersManagementPage() {
 
   const users = Array.isArray(usersData?.data) ? usersData.data : [];
   const pagination = usersData?.pagination;
+  const selectedUserPermissions = Array.isArray(selectedUserPermissionsData?.data)
+    ? selectedUserPermissionsData.data
+    : [];
+
+  const permissionsByCategory = selectedUserPermissions.reduce((acc: Record<string, any[]>, perm: any) => {
+    const category = perm.permission?.category || perm.category || 'Autre';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(perm);
+    return acc;
+  }, {});
 
   if (error) {
     return (
@@ -161,44 +182,156 @@ export default function UsersManagementPage() {
             Gerez les comptes utilisateurs, roles et permissions
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvel Utilisateur
-        </button>
-      </div>
-
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Rechercher un utilisateur..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-            >
-              <option value="">Tous les roles</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>{role.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
+              activeTab === 'users'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Utilisateurs
+          </button>
+          <button
+            onClick={() => setActiveTab('permissions')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
+              activeTab === 'permissions'
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Permissions utilisateur
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvel Utilisateur
+          </button>
         </div>
       </div>
 
+      {activeTab === 'users' && (
+        <div className="bg-white shadow rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un utilisateur..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+              >
+                <option value="">Tous les roles</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>{role.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'permissions' && (
+        <div className="bg-white shadow rounded-lg p-4 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Permissions utilisateur</h2>
+              <p className="text-sm text-gray-500">
+                Resume des permissions individuelles (overrides) attribuees par utilisateur.
+              </p>
+            </div>
+            <UserCheck className="h-6 w-6 text-purple-600" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Utilisateur</label>
+              <select
+                value={selectedPermissionsUser?.id || ''}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  const user = users.find((u) => u.id === id) || null;
+                  setSelectedPermissionsUser(user);
+                }}
+                className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+              >
+                <option value="">Selectionner un utilisateur</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.firstName} {user.lastName} ({user.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  if (!selectedPermissionsUser) return;
+                  setSelectedUser(selectedPermissionsUser);
+                  setShowPermissionsModal(true);
+                }}
+                disabled={!selectedPermissionsUser}
+                className="w-full inline-flex items-center justify-center px-4 py-2 border border-purple-600 rounded-md text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Modifier les overrides
+              </button>
+            </div>
+          </div>
+
+          {!selectedPermissionsUser ? (
+            <div className="text-sm text-gray-500">
+              Choisissez un utilisateur pour afficher ses permissions individuelles.
+            </div>
+          ) : selectedUserPermissionsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              Chargement des permissions utilisateur...
+            </div>
+          ) : selectedUserPermissions.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              Aucun override defini pour cet utilisateur.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{selectedUserPermissions.length}</span> permission(s) utilisateur
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(permissionsByCategory).map(([category, perms]) => (
+                  <div key={category} className="border border-gray-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                      {category}
+                    </div>
+                    <ul className="text-sm text-gray-700 space-y-1">
+                      {perms.map((perm: any) => (
+                        <li key={perm.id || perm.permissionId}>
+                          {perm.permission?.name || perm.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'users' && (
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -329,6 +462,7 @@ export default function UsersManagementPage() {
           </div>
         )}
       </div>
+      )}
 
       <CreateUserModal
         isOpen={showCreateModal}

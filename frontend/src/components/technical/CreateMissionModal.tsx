@@ -9,8 +9,10 @@ import { toast } from 'sonner';
 import { useCreateMission } from '@/hooks/useTechnical';
 import { useClients, useCreateClient, useCreateAdresse, useTypeClients } from '@/hooks/useCrm';
 import { Client } from '@/shared/api/crm/types';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { hasPermission } from '@/shared/permissions';
 
-// Utiliser les mÃªmes valeurs que le backend: BASSE, MOYENNE, HAUTE, URGENTE
+// Utiliser les mêmes valeurs que le backend: BASSE, MOYENNE, HAUTE, URGENTE
 const createMissionSchema = z.object({
   titre: z.string().min(1, 'Titre requis'),
   description: z.string().optional(),
@@ -18,7 +20,7 @@ const createMissionSchema = z.object({
   clientNom: z.string().min(1, 'Nom du client requis'),
   clientContact: z.string().optional(),
   adresse: z.string().optional(),
-  dateDebut: z.string().min(1, 'Date de dÃ©but requise'),
+  dateDebut: z.string().min(1, 'Date de début requise'),
   dateFin: z.string().optional(),
   priorite: z.enum(['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE']).default('MOYENNE'),
   budgetEstime: z.string().optional(),
@@ -66,14 +68,14 @@ const createMissionSchema = z.object({
     if (!data.manualEmail && !data.manualPhone) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'TÃ©lÃ©phone ou email requis',
+        message: 'Téléphone ou email requis',
         path: ['manualPhone'],
       });
     }
     if (data.createInCrm && !data.manualEmail) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Email requis pour crÃ©er le client dans le CRM',
+        message: 'Email requis pour créer le client dans le CRM',
         path: ['manualEmail'],
       });
     }
@@ -81,7 +83,7 @@ const createMissionSchema = z.object({
     if (!data.clientId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'SÃ©lectionnez un client du CRM',
+        message: 'Sélectionnez un client du CRM',
         path: ['clientNom'],
       });
     }
@@ -103,18 +105,23 @@ interface CreateMissionModalProps {
 }
 
 export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
+  const canReadCustomers = hasPermission(user, 'customers.read');
   const createMutation = useCreateMission();
   const createClientMutation = useCreateClient();
   const createAdresseMutation = useCreateAdresse();
-  const { data: typeClientsResponse } = useTypeClients();
+  const { data: typeClientsResponse } = useTypeClients({ enabled: canReadCustomers });
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showClientTableModal, setShowClientTableModal] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
 
-  const { data: clientsData, isLoading: isLoadingClients } = useClients({
-    pageSize: 50,
-    ...(showClientTableModal && tableSearch ? { search: tableSearch } : {})
-  });
+  const { data: clientsData, isLoading: isLoadingClients } = useClients(
+    {
+      pageSize: 50,
+      ...(showClientTableModal && tableSearch ? { search: tableSearch } : {})
+    },
+    { enabled: canReadCustomers }
+  );
 
   const clients = Array.isArray(clientsData) ? clientsData : (clientsData as any)?.data || [];
   const typeClients = typeClientsResponse?.data || [];
@@ -148,6 +155,13 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
   const clientId = watch('clientId');
 
   useEffect(() => {
+    if (!canReadCustomers) {
+      setValue('useManualClient', true);
+      setValue('createInCrm', false);
+      setSelectedClient(null);
+      setShowClientTableModal(false);
+    }
+
     if (useManualClient) {
       setSelectedClient(null);
       setShowClientTableModal(false);
@@ -165,7 +179,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
       setValue('manualCity', '');
       setValue('manualCountry', 'Cote dIvoire');
     }
-  }, [useManualClient, setValue]);
+  }, [useManualClient, setValue, canReadCustomers]);
 
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
@@ -278,7 +292,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
             <FileText className="h-5 w-5 mr-2 text-blue-600" />
-            CrÃ©er une Mission
+            Creer une Mission
           </h3>
           <button 
             onClick={onClose} 
@@ -300,7 +314,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               {...register('titre')}
               type="text"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Ex: Installation Ã©lectrique bÃ¢timent A"
+              placeholder="Ex: Installation électrique bâtiment A"
               disabled={createMutation.isPending}
             />
             {errors.titre && <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>}
@@ -309,18 +323,21 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
           {/* Client */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <input
-                id="useManualClient"
-                type="checkbox"
-                {...register('useManualClient')}
-                disabled={createMutation.isPending}
-              />
-              <label htmlFor="useManualClient" className="text-sm text-gray-700 dark:text-gray-300">
-                Ajouter un nouveau client (saisie manuelle)
-              </label>
-            </div>
+  <input
+    id="useManualClient"
+    type="checkbox"
+    {...register('useManualClient')}
+    disabled={createMutation.isPending || !canReadCustomers}
+  />
+  <label htmlFor="useManualClient" className="text-sm text-gray-700 dark:text-gray-300">
+    Ajouter un nouveau client (saisie manuelle)
+  </label>
+</div>
+{!canReadCustomers && (
+  <p className="text-xs text-amber-600">Acc?s CRM manquant: mode manuel uniquement.</p>
+)}
 
-            {useManualClient && (
+            {useManualClient && canReadCustomers && (
               <div className="flex items-center gap-2">
                 <input
                   id="createInCrm"
@@ -461,11 +478,11 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
                 )}
               </div>
 
-              {!useManualClient ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Contact Client
-                  </label>
+                {!useManualClient ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Contact Client
+                    </label>
                   <input
                     {...register('clientContact')}
                     type="text"
@@ -528,11 +545,11 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
           </div>
 
           {/* Adresse */}
-          {!useManualClient ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Adresse du Chantier *
-              </label>
+              {!useManualClient ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Adresse du Chantier *
+                  </label>
               <input
                 {...register('adresse')}
                 type="text"
@@ -612,11 +629,11 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
             </div>
           )}
 
-          {/* Dates et PrioritÃ© */}
+          {/* Dates et Priorité */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Date de DÃ©but *
+                Date de Début *
               </label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -643,7 +660,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                PrioritÃ© *
+                Priorité *
               </label>
               <div className="relative">
                 <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -662,10 +679,10 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
             </div>
           </div>
 
-          {/* Budget EstimÃ© */}
+          {/* Budget Estimé */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Budget EstimÃ© (FCFA)
+              Budget Estimé (FCFA)
             </label>
             <input
               {...register('budgetEstime')}
@@ -673,7 +690,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               step="0.01"
               min="0"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Montant estimÃ©"
+              placeholder="Montant estimé"
               disabled={createMutation.isPending}
             />
           </div>
@@ -687,7 +704,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               {...register('description')}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Description dÃ©taillÃ©e de la mission..."
+              placeholder="Description détaillée de la mission..."
               disabled={createMutation.isPending}
             />
           </div>
@@ -695,13 +712,13 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes ComplÃ©mentaires
+              Notes Complémentaires
             </label>
             <textarea
               {...register('notes')}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Notes, contraintes, informations supplÃ©mentaires..."
+              placeholder="Notes, contraintes, informations supplémentaires..."
               disabled={createMutation.isPending}
             />
           </div>
@@ -727,10 +744,10 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  CrÃ©ation...
+                  Création...
                 </span>
               ) : (
-                'CrÃ©er la mission'
+                'Créer la mission'
               )}
             </button>
           </div>

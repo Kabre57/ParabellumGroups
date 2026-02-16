@@ -33,7 +33,14 @@ export default function ForgotPasswordPage() {
       setIsLoading(true);
       
       // Appel à l'API pour envoyer l'email de réinitialisation
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`, {
+      const rawBaseUrl =
+        process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        '/api';
+      const baseUrl = rawBaseUrl.replace(/\/$/, '');
+      const baseWithApi = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+      const response = await fetch(`${baseWithApi}/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,3 +183,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

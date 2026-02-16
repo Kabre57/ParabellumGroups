@@ -146,7 +146,7 @@ const updateUserPermissions = async (req, res) => {
 
     // Supprimer toutes les permissions existantes
     await prisma.userPermission.deleteMany({
-      where: { userId: parseInt(userId) }
+      where: { user_id: parseInt(userId) }
     });
 
     // Créer les nouvelles permissions

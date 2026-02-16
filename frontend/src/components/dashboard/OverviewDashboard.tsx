@@ -127,7 +127,7 @@ export function OverviewDashboard() {
             />
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              Aucune donnÃ©e disponible
+              Aucune donnée disponible
             </p>
           )}
         </CardContent>

@@ -14,6 +14,10 @@ if (!JWT_SECRET) {
  * @returns {string} JWT token
  */
 const generateAccessToken = (user) => {
+  const permissions =
+    user?.permissionsList ||
+    user?.permissions ||
+    [];
   const payload = {
     userId: user.id,
     email: user.email,
@@ -21,6 +25,7 @@ const generateAccessToken = (user) => {
     roleCode: user.role?.code || user.role?.name || user.roleCode,
     role: user.role?.code || user.role?.name || user.roleCode,
     serviceId: user.serviceId,
+    permissions,
   };
 
   return jwt.sign(payload, JWT_SECRET, {

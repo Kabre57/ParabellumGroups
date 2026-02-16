@@ -127,13 +127,15 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: UserRole;
+  role: UserRole | { id?: number; name?: string; code?: string; description?: string };
   phoneNumber?: string;
   avatar?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
+  permissionsList?: string[];
+  permissions?: string[] | Record<string, any> | null;
 }
 
 /**

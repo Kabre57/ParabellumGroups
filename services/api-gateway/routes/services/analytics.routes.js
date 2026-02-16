@@ -36,6 +36,7 @@ module.exports = {
     {
       path: '/analytics',
       auth: true,
+      permission: { GET: 'reports.financial' },
     },
   ],
 };

@@ -30,6 +30,13 @@ module.exports = {
     {
       path: '/projects',
       auth: true,
+      permission: {
+        GET: 'projects.read',
+        POST: 'projects.create',
+        PUT: 'projects.update',
+        PATCH: 'projects.update',
+        DELETE: 'projects.delete'
+      },
     },
   ],
 };

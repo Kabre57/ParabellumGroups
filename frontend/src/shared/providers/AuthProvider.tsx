@@ -38,6 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Token invalide ou expiré
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
       }
       setUser(null);
     } finally {
@@ -83,3 +85,4 @@ export function useAuth() {
   }
   return context;
 }
+

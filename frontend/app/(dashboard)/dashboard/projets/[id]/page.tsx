@@ -81,7 +81,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
           <div className="text-2xl font-bold">{budgetValue.toLocaleString()} F</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">DÃ©pensÃ©</div>
+          <div className="text-sm text-gray-600">Dépensé</div>
           <div className="text-2xl font-bold text-orange-600">{spentValue.toLocaleString()} F</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
@@ -111,7 +111,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              TÃ¢ches
+              Tâches
             </button>
             <button
               onClick={() => setActiveTab('time')}
@@ -146,7 +146,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-1">Date de dÃ©but</h3>
+                  <h3 className="text-sm font-medium text-gray-600 mb-1">Date de début</h3>
                   <p className="text-gray-900">{startDateLabel}</p>
                 </div>
                 <div>
@@ -195,7 +195,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Feuilles de temps</h3>
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Ajouter une entrÃ©e
+                  Ajouter une entrée
                 </button>
               </div>
               <div className="overflow-x-auto">
@@ -204,7 +204,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">TÃ¢che</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tâche</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heures</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                     </tr>
@@ -222,7 +222,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                   </tbody>
                 </table>
                 {timeEntries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">Aucune entrÃ©e de temps</div>
+                  <div className="text-center py-8 text-gray-500">Aucune entrée de temps</div>
                 )}
               </div>
             </div>
@@ -236,7 +236,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Documents</h3>
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  TÃ©lÃ©charger un document
+                  Télécharger un document
                 </button>
               </div>
               <div className="overflow-x-auto">
@@ -246,7 +246,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taille</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">AjoutÃ© par</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ajouté par</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3"></th>
                     </tr>
@@ -261,7 +261,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                         <td className="px-4 py-3 text-sm text-gray-600">{new Date(doc.uploadedAt).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                            TÃ©lÃ©charger
+                            Télécharger
                           </button>
                         </td>
                       </tr>

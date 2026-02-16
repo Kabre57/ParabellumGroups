@@ -197,16 +197,17 @@ export default function MissionsPage() {
           <Plus className="w-4 h-4" />
           Nouvelle Mission
         </Button>
-      </div>
+      </div>      {/* MODAL POUR LA CR?ATION */}
+      {showForm && !selectedMission && (
+        <CreateMissionModal
+          isOpen={true}
+          onClose={() => {
+            setShowForm(false);
+            setSelectedMission(undefined);
+          }}
+        />
+      )}
 
-      {/* MODAL POUR LA CRÉATION */}
-      <CreateMissionModal
-        isOpen={showForm && !selectedMission}
-        onClose={() => {
-          setShowForm(false);
-          setSelectedMission(undefined);
-        }}
-      />
 
       {/* Filtres */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">

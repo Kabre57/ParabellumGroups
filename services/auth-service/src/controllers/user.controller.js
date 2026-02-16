@@ -329,6 +329,16 @@ const updateUser = async (req, res) => {
     delete updateData.passwordHash;
     delete updateData.createdAt;
 
+    if (updateData.roleId !== undefined && updateData.roleId !== null) {
+      updateData.roleId = parseInt(updateData.roleId);
+    }
+
+    if (updateData.serviceId === '') {
+      updateData.serviceId = null;
+    } else if (updateData.serviceId !== undefined && updateData.serviceId !== null) {
+      updateData.serviceId = parseInt(updateData.serviceId);
+    }
+
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: parseInt(id) },

@@ -19,6 +19,7 @@ module.exports = {
     {
       path: '/notifications',
       auth: true,
+      permission: { GET: 'messages.read' },
     },
   ],
 };
