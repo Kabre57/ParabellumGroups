@@ -4,7 +4,8 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Search, XCircle } from 'lucide-react';
-import { procurementService, StockItem } from '@/shared/api/procurement/procurement.service';
+import { inventoryService } from '@/shared/api/inventory/inventory.service';
+import type { InventoryArticle } from '@/shared/api/inventory/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,22 +57,22 @@ export default function AuditPage() {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const { data: stockResponse, isLoading } = useQuery({
-    queryKey: ['audit'],
-    queryFn: () => procurementService.getStock({ limit: 200 }),
+    queryKey: ['inventory-articles', 'audit'],
+    queryFn: () => inventoryService.getArticles(),
   });
 
   const auditItems: AuditItem[] = useMemo(
     () =>
-      (stockResponse?.data || []).map((item: StockItem) => ({
+      (stockResponse?.data || []).map((item: InventoryArticle) => ({
         id: item.id,
-        product: item.name,
-        code: item.id,
-        theoreticalStock: item.quantity ?? 0,
-        actualStock: item.quantity ?? 0,
+        product: item.nom,
+        code: item.reference || item.id,
+        theoreticalStock: item.quantiteStock ?? 0,
+        actualStock: item.quantiteStock ?? 0,
         variance: 0,
         varianceValue: 0,
-        lastAudit: item.lastRestocked || new Date().toISOString(),
-        status: item.quantity === 0 ? 'critical' : 'ok',
+        lastAudit: item.updatedAt || new Date().toISOString(),
+        status: (item.quantiteStock ?? 0) === 0 ? 'critical' : 'ok',
       })),
     [stockResponse]
   );

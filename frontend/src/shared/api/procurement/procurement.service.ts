@@ -40,17 +40,17 @@ export const procurementService = {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Supplier>> {
-    const response = await apiClient.get('/procurement/suppliers', { params });
+    const response = await apiClient.get('/procurement/fournisseurs', { params });
     return response.data;
   },
 
   async getSupplier(id: string): Promise<DetailResponse<Supplier>> {
-    const response = await apiClient.get(`/procurement/suppliers/${id}`);
+    const response = await apiClient.get(`/procurement/fournisseurs/${id}`);
     return response.data;
   },
 
   async getSupplierStats(id: string): Promise<{ success: boolean; data: { ordersCount: number; totalAmount: number; rating: number } }> {
-    const response = await apiClient.get(`/procurement/suppliers/${id}/stats`);
+    const response = await apiClient.get(`/procurement/fournisseurs/${id}/stats`);
     return response.data;
   },
 
@@ -61,22 +61,22 @@ export const procurementService = {
     adresse?: string;
     categorie?: string;
   }): Promise<DetailResponse<Supplier>> {
-    const response = await apiClient.post('/procurement/suppliers', data);
+    const response = await apiClient.post('/procurement/fournisseurs', data);
     return response.data;
   },
 
   async updateSupplier(id: string, data: Partial<Supplier>): Promise<DetailResponse<Supplier>> {
-    const response = await apiClient.put(`/procurement/suppliers/${id}`, data);
+    const response = await apiClient.put(`/procurement/fournisseurs/${id}`, data);
     return response.data;
   },
 
   async updateSupplierRating(id: string, rating: number): Promise<DetailResponse<Supplier>> {
-    const response = await apiClient.patch(`/procurement/suppliers/${id}/rating`, { rating });
+    const response = await apiClient.patch(`/procurement/fournisseurs/${id}/rating`, { rating });
     return response.data;
   },
 
   async deleteSupplier(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/procurement/suppliers/${id}`);
+    const response = await apiClient.delete(`/procurement/fournisseurs/${id}`);
     return response.data;
   },
 
@@ -91,17 +91,17 @@ export const procurementService = {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<PurchaseRequest>> {
-    const response = await apiClient.get('/procurement/requests', { params });
+    const response = await apiClient.get('/procurement/demandes-achat', { params });
     return response.data;
   },
 
   async getRequest(id: string): Promise<DetailResponse<PurchaseRequest>> {
-    const response = await apiClient.get(`/procurement/requests/${id}`);
+    const response = await apiClient.get(`/procurement/demandes-achat/${id}`);
     return response.data;
   },
 
   async getRequestsStats(): Promise<{ success: boolean; data: ProcurementStats }> {
-    const response = await apiClient.get('/procurement/requests/stats');
+    const response = await apiClient.get('/procurement/demandes-achat/stats');
     return response.data;
   },
 
@@ -111,27 +111,27 @@ export const procurementService = {
     demandeurId?: string;
     montantEstime?: number;
   }): Promise<DetailResponse<PurchaseRequest>> {
-    const response = await apiClient.post('/procurement/requests', data);
+    const response = await apiClient.post('/procurement/demandes-achat', data);
     return response.data;
   },
 
   async updateRequest(id: string, data: Partial<PurchaseRequest>): Promise<DetailResponse<PurchaseRequest>> {
-    const response = await apiClient.put(`/procurement/requests/${id}`, data);
+    const response = await apiClient.put(`/procurement/demandes-achat/${id}`, data);
     return response.data;
   },
 
   async approveRequest(id: string, commentaire?: string): Promise<DetailResponse<PurchaseRequest>> {
-    const response = await apiClient.patch(`/procurement/requests/${id}/approve`, { commentaire });
+    const response = await apiClient.patch(`/procurement/demandes-achat/${id}/approve`, { commentaire });
     return response.data;
   },
 
   async rejectRequest(id: string, raison?: string): Promise<DetailResponse<PurchaseRequest>> {
-    const response = await apiClient.patch(`/procurement/requests/${id}/reject`, { raison });
+    const response = await apiClient.patch(`/procurement/demandes-achat/${id}/reject`, { raison });
     return response.data;
   },
 
   async deleteRequest(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/procurement/requests/${id}`);
+    const response = await apiClient.delete(`/procurement/demandes-achat/${id}`);
     return response.data;
   },
 
@@ -146,17 +146,17 @@ export const procurementService = {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<PurchaseOrder>> {
-    const response = await apiClient.get('/procurement/orders', { params });
+    const response = await apiClient.get('/procurement/bons-commande', { params });
     return response.data;
   },
 
   async getOrder(id: string): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.get(`/procurement/orders/${id}`);
+    const response = await apiClient.get(`/procurement/bons-commande/${id}`);
     return response.data;
   },
 
   async getOrdersBySupplier(supplierId: string): Promise<ListResponse<PurchaseOrder>> {
-    const response = await apiClient.get(`/procurement/orders/fournisseur/${supplierId}`);
+    const response = await apiClient.get(`/procurement/bons-commande/fournisseur/${supplierId}`);
     return response.data;
   },
 
@@ -170,12 +170,12 @@ export const procurementService = {
     }[];
     requestId?: string;
   }): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.post('/procurement/orders', data);
+    const response = await apiClient.post('/procurement/bons-commande', data);
     return response.data;
   },
 
   async updateOrder(id: string, data: Partial<PurchaseOrder>): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.put(`/procurement/orders/${id}`, data);
+    const response = await apiClient.put(`/procurement/bons-commande/${id}`, data);
     return response.data;
   },
 
@@ -184,22 +184,22 @@ export const procurementService = {
     quantite: number;
     prixUnitaire: number;
   }): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.post(`/procurement/orders/${id}/lignes`, ligne);
+    const response = await apiClient.post(`/procurement/bons-commande/${id}/lignes`, ligne);
     return response.data;
   },
 
   async updateOrderStatus(id: string, status: PurchaseOrderStatus): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.patch(`/procurement/orders/${id}/status`, { status });
+    const response = await apiClient.patch(`/procurement/bons-commande/${id}/status`, { status });
     return response.data;
   },
 
   async deleteOrder(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/procurement/orders/${id}`);
+    const response = await apiClient.delete(`/procurement/bons-commande/${id}`);
     return response.data;
   },
 
   async getStats(): Promise<{ success: boolean; data: ProcurementStats }> {
-    const response = await apiClient.get('/procurement/requests/stats');
+    const response = await apiClient.get('/procurement/demandes-achat/stats');
     return response.data;
   },
 

@@ -33,6 +33,15 @@ interface Reception {
   orderStatus: PurchaseOrder['status'];
 }
 
+interface ReceptionHistoryEntry {
+  id: string;
+  number: string;
+  action: 'validate' | 'revert';
+  fromStatus: PurchaseOrder['status'];
+  toStatus: PurchaseOrder['status'];
+  timestamp: string;
+}
+
 const statusColors: Record<ReceptionStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   received: 'bg-blue-100 text-blue-800',
@@ -50,6 +59,13 @@ export default function ReceptionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReceptionStatus | 'ALL'>('ALL');
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'validate' | 'revert';
+    reception: Reception;
+    targetStatus: PurchaseOrder['status'];
+  } | null>(null);
+  const [history, setHistory] = useState<ReceptionHistoryEntry[]>([]);
 
   const { data: receptions = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['receptions'],
@@ -103,12 +119,40 @@ export default function ReceptionsPage() {
     },
   });
 
-  const handleValidate = (reception: Reception) => {
-    if (reception.status === 'pending') {
-      updateStatusMutation.mutate({ id: reception.id, status: 'CONFIRME' });
-    } else if (reception.status === 'received') {
-      updateStatusMutation.mutate({ id: reception.id, status: 'LIVRE' });
+  const openConfirm = (type: 'validate' | 'revert', reception: Reception) => {
+    if (type === 'validate') {
+      const targetStatus = reception.status === 'pending' ? 'CONFIRME' : 'LIVRE';
+      setPendingAction({ type, reception, targetStatus });
+    } else {
+      const targetStatus = reception.status === 'checked' ? 'CONFIRME' : 'ENVOYE';
+      setPendingAction({ type, reception, targetStatus });
     }
+    setConfirmOpen(true);
+  };
+
+  const confirmAction = () => {
+    if (!pendingAction) return;
+    const { reception, targetStatus, type } = pendingAction;
+    updateStatusMutation.mutate(
+      { id: reception.id, status: targetStatus },
+      {
+        onSuccess: () => {
+          setHistory((prev) => [
+            {
+              id: reception.id,
+              number: reception.number,
+              action: type,
+              fromStatus: reception.orderStatus,
+              toStatus: targetStatus,
+              timestamp: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        },
+      }
+    );
+    setConfirmOpen(false);
+    setPendingAction(null);
   };
 
   return (
@@ -232,20 +276,30 @@ export default function ReceptionsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {reception.status !== 'checked' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleValidate(reception)}
-                            disabled={updateStatusMutation.isPending}
-                          >
-                            {reception.status === 'pending'
-                              ? 'Marquer recue'
-                              : 'Valider'}
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">OK</span>
-                        )}
+                        <div className="flex justify-end gap-2">
+                          {reception.status !== 'checked' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openConfirm('validate', reception)}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              {reception.status === 'pending'
+                                ? 'Marquer recue'
+                                : 'Valider'}
+                            </Button>
+                          )}
+                          {reception.status !== 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openConfirm('revert', reception)}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              Annuler
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -272,6 +326,56 @@ export default function ReceptionsPage() {
           </DialogHeader>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmer l'action</DialogTitle>
+            <DialogDescription>
+              {pendingAction?.type === 'validate'
+                ? `Confirmer la validation de la reception ${pendingAction?.reception.number} ?`
+                : `Annuler la validation de la reception ${pendingAction?.reception.number} ?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={confirmAction} disabled={updateStatusMutation.isPending}>
+              Confirmer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique des validations</CardTitle>
+          <CardDescription>Dernieres actions effectuees sur les receptions.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Aucun historique pour cette session.
+            </div>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {history.slice(0, 10).map((entry, index) => (
+                <li key={`${entry.id}-${index}`} className="flex items-center gap-3">
+                  <Badge variant="outline">{entry.number}</Badge>
+                  <span>
+                    {entry.action === 'validate' ? 'Validation' : 'Annulation'}:{' '}
+                    {entry.fromStatus} → {entry.toStatus}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {new Date(entry.timestamp).toLocaleString('fr-FR')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
