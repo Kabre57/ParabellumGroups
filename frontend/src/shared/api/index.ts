@@ -11,3 +11,4 @@ export { procurementService } from './procurement';
 export { commercialService } from './commercial';
 export { analyticsService } from './analytics';
 export { customersService } from './customers';
+export { communicationService } from './communication';

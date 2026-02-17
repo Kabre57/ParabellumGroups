@@ -138,7 +138,7 @@ exports.create = async (req, res) => {
       actionRequise,
       participants,
       tags,
-      piècesJointes,
+      piecesJointes,
       confidential
     } = req.body;
 
@@ -184,7 +184,7 @@ exports.create = async (req, res) => {
         createdById: req.user.id,
         participants: participants || [],
         tags: tags || [],
-        piècesJointes: piècesJointes || [],
+        piecesJointes: piecesJointes || [],
         confidential: confidential || false
       },
       include: {

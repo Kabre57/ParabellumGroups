@@ -5,14 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '@/shared/api/analytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
-  Briefcase,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
+import { Users, TrendingUp, DollarSign, Briefcase, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data: dashboardResponse, isLoading } = useQuery({
@@ -31,7 +24,7 @@ export default function DashboardPage() {
   const dashboard = dashboardResponse?.data;
   const stats = [
     {
-      title: 'Chiffre d\'Affaires',
+      title: "Chiffre d'Affaires",
       value: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(dashboard?.revenue || 0),
       icon: DollarSign,
       trend: '+12.5%',
@@ -64,7 +57,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tableau de Bord</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Vue d'ensemble de votre activité CRM et ERP</p>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Vue d ensemble de votre activite CRM et ERP
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -108,7 +103,7 @@ export default function DashboardPage() {
                 </div>
               ))}
               {(!dashboard?.top_clients || dashboard.top_clients.length === 0) && (
-                <p className="text-sm text-gray-500 text-center py-4">Aucune donnée disponible</p>
+                <p className="text-sm text-gray-500 text-center py-4">Aucune donnee disponible</p>
               )}
             </div>
           </CardContent>

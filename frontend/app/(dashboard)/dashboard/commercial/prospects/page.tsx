@@ -1,410 +1,93 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Target, 
-  Search, 
-  Phone, 
-  Calendar, 
-  FileText, 
-  CheckCircle, 
-  XCircle,
-  Plus,
-  Filter,
-  Users,
-  TrendingUp,
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
   Activity,
   Eye,
   Edit,
+  Plus,
+  Search,
+  Target,
   Trash2,
-  Mail,
-  PhoneCall,
-  Calendar as CalendarIcon,
-  StickyNote
+  TrendingUp,
+  Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
 import { commercialService } from '@/shared/api/commercial';
-import type { Prospect, ProspectStage, ProspectionStats } from '@/shared/api/types';
+import type { Prospect, ProspectPriority, ProspectStage, ProspectionStats } from '@/shared/api/commercial/types';
 import CreateProspectModal from '@/components/commercial/CreateProspectModal';
 import EditProspectModal from '@/components/commercial/EditProspectModal';
 import ViewProspectModal from '@/components/commercial/ViewProspectModal';
 
-const workflowStages = [
-  {
-    id: 'preparation' as ProspectStage,
-    name: 'Préparation',
-    description: 'Définition de la cible & préparation des outils',
-    color: 'bg-blue-100 text-blue-800',
-    borderColor: 'border-blue-300',
-    icon: Target
-  },
-  {
-    id: 'research' as ProspectStage,
-    name: 'Recherche & Qualification',
-    description: 'Identification, qualification et priorisation',
-    color: 'bg-yellow-100 text-yellow-800',
-    borderColor: 'border-yellow-300',
-    icon: Search
-  },
-  {
-    id: 'contact' as ProspectStage,
-    name: 'Prise de Contact',
-    description: 'Email & phoning - Objectif: Fixer un RDV',
-    color: 'bg-purple-100 text-purple-800',
-    borderColor: 'border-purple-300',
-    icon: Phone
-  },
-  {
-    id: 'discovery' as ProspectStage,
-    name: 'Entretien Découverte',
-    description: 'Écoute active & diagnostic - Comprendre le besoin',
-    color: 'bg-indigo-100 text-indigo-800',
-    borderColor: 'border-indigo-300',
-    icon: Calendar
-  },
-  {
-    id: 'proposal' as ProspectStage,
-    name: 'Proposition & Conclusion',
-    description: 'Présentation offre & réponse objections',
-    color: 'bg-green-100 text-green-800',
-    borderColor: 'border-green-300',
-    icon: FileText
-  },
-  {
-    id: 'won' as ProspectStage,
-    name: 'Client Converti',
-    description: 'Prospect converti en client',
-    color: 'bg-green-100 text-green-800',
-    borderColor: 'border-green-300',
-    icon: CheckCircle
-  },
-  {
-    id: 'lost' as ProspectStage,
-    name: 'Perdu/Nurturing',
-    description: 'Analyse échec & nurturing futur',
-    color: 'bg-red-100 text-red-800',
-    borderColor: 'border-red-300',
-    icon: XCircle
-  }
+const STAGE_OPTIONS: { value: ProspectStage; label: string }[] = [
+  { value: 'preparation', label: 'Preparation' },
+  { value: 'research', label: 'Recherche' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'discovery', label: 'Decouverte' },
+  { value: 'proposal', label: 'Proposition' },
+  { value: 'won', label: 'Converti' },
+  { value: 'lost', label: 'Perdu' },
 ];
 
-interface StageNavigationProps {
-  selectedStage: ProspectStage | 'all';
-  setSelectedStage: (stage: ProspectStage | 'all') => void;
-  statistics: ProspectionStats | undefined;
-}
+const PRIORITY_OPTIONS: { value: ProspectPriority; label: string }[] = [
+  { value: 'A', label: 'Haute' },
+  { value: 'B', label: 'Moyenne' },
+  { value: 'C', label: 'Basse' },
+];
 
-const StageNavigation = ({ selectedStage, setSelectedStage, statistics }: StageNavigationProps) => {
-  return (
-    <div className="border-b border-gray-200">
-      <nav className="-mb-px flex space-x-8 px-6 overflow-x-auto">
-        <button
-          onClick={() => setSelectedStage('all')}
-          className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-            selectedStage === 'all'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          Tous ({statistics?.totalProspects || 0})
-        </button>
-        {workflowStages.map((stage) => {
-          const Icon = stage.icon;
-          const isActive = selectedStage === stage.id;
-          const stageCount = statistics?.byStage?.[stage.id] || 0;
-
-          return (
-            <button
-              key={stage.id}
-              onClick={() => setSelectedStage(stage.id)}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center space-x-2 ${
-                isActive
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{stage.name}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${stage.color}`}>
-                {stageCount}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-    </div>
-  );
+const getStageBadge = (stage: ProspectStage) => {
+  const label = STAGE_OPTIONS.find((s) => s.value === stage)?.label || stage;
+  const classNameMap: Record<ProspectStage, string> = {
+    preparation: 'bg-blue-500',
+    research: 'bg-amber-500',
+    contact: 'bg-purple-500',
+    discovery: 'bg-indigo-500',
+    proposal: 'bg-green-500',
+    won: 'bg-emerald-600',
+    lost: 'bg-red-500',
+  };
+  return { label, className: classNameMap[stage] || 'bg-gray-500' };
 };
 
-interface StatisticsDashboardProps {
-  statistics: ProspectionStats | undefined;
-}
-
-const StatisticsDashboard = ({ statistics }: StatisticsDashboardProps) => {
-  if (!statistics) return null;
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <Users className="h-8 w-8 text-blue-600" />
-          </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-500">Total Prospects</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {statistics.totalProspects || 0}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-500">Convertis</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {statistics.convertedProspects || 0}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <TrendingUp className="h-8 w-8 text-purple-600" />
-          </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-500">Taux de Conversion</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {statistics.conversionRate?.toFixed(1) || 0}%
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <Activity className="h-8 w-8 text-orange-600" />
-          </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-500">Activités (7j)</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {statistics.recentActivities || 0}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface ProspectItemProps {
-  prospect: Prospect;
-  selectedStage: ProspectStage | 'all';
-  onMoveProspect: (id: string, newStage: ProspectStage) => void;
-  onEdit: (prospect: Prospect) => void;
-  onView: (prospect: Prospect) => void;
-  onDelete: (prospect: Prospect) => void;
-}
-
-const ProspectItem = ({ 
-  prospect, 
-  selectedStage, 
-  onMoveProspect, 
-  onEdit, 
-  onView, 
-  onDelete 
-}: ProspectItemProps) => {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showMoveMenu, setShowMoveMenu] = useState(false);
-
-  const priorityColors = {
+const getPriorityBadge = (priority: ProspectPriority) => {
+  const label = PRIORITY_OPTIONS.find((p) => p.value === priority)?.label || priority;
+  const classNameMap: Record<ProspectPriority, string> = {
     A: 'bg-red-500',
-    B: 'bg-yellow-500',
-    C: 'bg-green-500'
+    B: 'bg-amber-500',
+    C: 'bg-green-500',
   };
-
-  const priorityLabels = {
-    A: 'Priorité haute',
-    B: 'Priorité moyenne',
-    C: 'Priorité basse'
-  };
-
-  const currentStage = workflowStages.find(s => s.id === prospect.stage);
-  const availableStages = workflowStages.filter(s => s.id !== prospect.stage);
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <div 
-                className={`h-3 w-3 rounded-full ${priorityColors[prospect.priority]}`} 
-                title={priorityLabels[prospect.priority]} 
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-medium text-gray-900 truncate">{prospect.companyName}</h4>
-              <p className="text-sm text-gray-500 truncate">
-                {prospect.contactName} - {prospect.position || 'Poste non spécifié'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-            {prospect.email && (
-              <div className="flex items-center">
-                <Mail className="h-3 w-3 mr-1" />
-                <span className="truncate max-w-[150px]">{prospect.email}</span>
-              </div>
-            )}
-            {prospect.phone && (
-              <div className="flex items-center">
-                <PhoneCall className="h-3 w-3 mr-1" />
-                <span>{prospect.phone}</span>
-              </div>
-            )}
-            {prospect.sector && (
-              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{prospect.sector}</span>
-            )}
-          </div>
-
-          {prospect.potentialValue && (
-            <div className="mt-2 text-sm font-semibold text-green-600">
-              Valeur potentielle: {prospect.potentialValue.toLocaleString('fr-FR')} €
-            </div>
-          )}
-
-          {showDetails && (
-            <div className="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600 space-y-1">
-              {prospect.notes && <p><strong>Notes:</strong> {prospect.notes}</p>}
-              {prospect.activities && prospect.activities.length > 0 && (
-                <p><strong>Dernière activité:</strong> {prospect.activities[0].subject}</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="ml-4 flex items-center space-x-2">
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            title="Voir les détails"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => onView(prospect)}
-            className="text-blue-600 hover:text-blue-900 transition-colors"
-            title="Voir la fiche complète"
-          >
-            <FileText className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => onEdit(prospect)}
-            className="text-indigo-600 hover:text-indigo-900 transition-colors"
-            title="Modifier"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => onDelete(prospect)}
-            className="text-red-600 hover:text-red-900 transition-colors"
-            title="Supprimer"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowMoveMenu(!showMoveMenu)}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs font-medium"
-            >
-              Déplacer
-            </button>
-            {showMoveMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                <div className="p-2">
-                  {availableStages.map((stage) => {
-                    const Icon = stage.icon;
-                    return (
-                      <button
-                        key={stage.id}
-                        onClick={() => {
-                          onMoveProspect(prospect.id, stage.id);
-                          setShowMoveMenu(false);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center space-x-2"
-                      >
-                        <Icon className="h-4 w-4" />
-                        <div>
-                          <div className="text-sm font-medium">{stage.name}</div>
-                          <div className="text-xs text-gray-500">{stage.description}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {currentStage && (
-        <div className="mt-2">
-          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${currentStage.color}`}>
-            {currentStage.name}
-          </span>
-        </div>
-      )}
-    </div>
-  );
+  return { label, className: classNameMap[priority] || 'bg-gray-500' };
 };
 
 export default function ProspectionWorkflowPage() {
-  const [selectedStage, setSelectedStage] = useState<ProspectStage | 'all'>('all');
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState<ProspectStage | 'all'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<ProspectPriority | 'all'>('all');
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
 
-  const queryClient = useQueryClient();
-
-  const { data: prospectsData, isLoading: prospectsLoading } = useQuery<Prospect[]>({
-    queryKey: ['prospects', selectedStage, searchQuery],
-    queryFn: () => commercialService.getProspects({
-      stage: selectedStage !== 'all' ? selectedStage : undefined,
-      search: searchQuery || undefined,
-      limit: 50
-    })
+  const { data: prospectsData, isLoading } = useQuery<Prospect[]>({
+    queryKey: ['prospects', stageFilter, searchQuery],
+    queryFn: () =>
+      commercialService.getProspects({
+        stage: stageFilter !== 'all' ? stageFilter : undefined,
+        search: searchQuery || undefined,
+        limit: 200,
+      }),
   });
 
   const { data: statsData } = useQuery<ProspectionStats>({
     queryKey: ['prospection-stats'],
-    queryFn: () => commercialService.getStats()
-  });
-
-  const moveProspectMutation = useMutation({
-    mutationFn: ({ id, newStage }: { id: string; newStage: ProspectStage }) =>
-      commercialService.updateProspect(id, { stage: newStage }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prospects'] });
-      queryClient.invalidateQueries({ queryKey: ['prospection-stats'] });
-      toast.success('Prospect déplacé avec succès');
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors du déplacement du prospect');
-    }
+    queryFn: () => commercialService.getStats(),
   });
 
   const deleteProspectMutation = useMutation({
@@ -412,208 +95,248 @@ export default function ProspectionWorkflowPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       queryClient.invalidateQueries({ queryKey: ['prospection-stats'] });
-      toast.success('Prospect supprimé avec succès');
+      toast.success('Prospect supprime avec succes');
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Erreur lors de la suppression du prospect');
-    }
+    },
   });
 
-  const handleMoveProspect = (id: string, newStage: ProspectStage) => {
-    moveProspectMutation.mutate({ id, newStage });
-  };
+  const prospects: Prospect[] = Array.isArray(prospectsData)
+    ? prospectsData
+    : ((prospectsData as any)?.data || []);
 
-  const handleEditProspect = (prospect: Prospect) => {
+  const filteredProspects = useMemo(() => {
+    return prospects.filter((prospect) => {
+      const matchesSearch =
+        prospect.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.phone?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStage = stageFilter === 'all' || prospect.stage === stageFilter;
+      const matchesPriority = priorityFilter === 'all' || prospect.priority === priorityFilter;
+
+      return matchesSearch && matchesStage && matchesPriority;
+    });
+  }, [prospects, searchQuery, stageFilter, priorityFilter]);
+
+  const stats = useMemo(() => {
+    if (statsData) return statsData;
+    const total = prospects.length;
+    const converted = prospects.filter((p) => p.isConverted).length;
+    const conversionRate = total > 0 ? (converted / total) * 100 : 0;
+    return {
+      totalProspects: total,
+      convertedProspects: converted,
+      conversionRate,
+      recentActivities: prospects.reduce((sum, p) => sum + (p.activities?.length ? 1 : 0), 0),
+      byStage: {} as ProspectionStats['byStage'],
+      byPriority: {} as ProspectionStats['byPriority'],
+    };
+  }, [prospects, statsData]);
+
+  const handleEdit = (prospect: Prospect) => {
     setSelectedProspect(prospect);
     setShowEditModal(true);
   };
 
-  const handleViewProspect = (prospect: Prospect) => {
+  const handleView = (prospect: Prospect) => {
     setSelectedProspect(prospect);
     setShowViewModal(true);
   };
 
-  const handleDeleteProspect = (prospect: Prospect) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer le prospect "${prospect.companyName}" ?`)) {
+  const handleDelete = (prospect: Prospect) => {
+    if (confirm(`Supprimer le prospect "${prospect.companyName}" ?`)) {
       deleteProspectMutation.mutate(prospect.id);
     }
   };
-
-  const prospects = prospectsData || [];
-  const statistics = statsData;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workflow de Prospection</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gérez votre pipeline de prospection du premier contact à la conversion
-          </p>
+          <h1 className="text-3xl font-bold">Workflow Prospection</h1>
+          <p className="text-muted-foreground">Pilotez votre prospection commerciale</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau Prospect
-        </button>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nouveau prospect
+        </Button>
       </div>
 
-      <StatisticsDashboard statistics={statistics} />
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total prospects</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalProspects || 0}</div>
+            <p className="text-xs text-muted-foreground">Dans le pipeline</p>
+          </CardContent>
+        </Card>
 
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Rechercher un prospect (nom, email, entreprise...)"
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Convertis</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.convertedProspects || 0}</div>
+            <p className="text-xs text-muted-foreground">Prospects devenus clients</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Taux de conversion</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{(stats.conversionRate || 0).toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">Performance globale</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Activites recentes</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.recentActivities || 0}</div>
+            <p className="text-xs text-muted-foreground">Sur les 7 derniers jours</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Liste des prospects</CardTitle>
+          <CardDescription>Suivez vos prospects et leurs avances</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par entreprise, contact, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="pl-8"
               />
             </div>
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <Filter className="h-4 w-4 mr-2" />
-              Filtres
-            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value as ProspectStage | 'all')}
+                className="border rounded-md px-3 py-2 text-sm"
+              >
+                <option value="all">Toutes les etapes</option>
+                {STAGE_OPTIONS.map((stage) => (
+                  <option key={stage.value} value={stage.value}>{stage.label}</option>
+                ))}
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value as ProspectPriority | 'all')}
+                className="border rounded-md px-3 py-2 text-sm"
+              >
+                <option value="all">Toutes priorites</option>
+                {PRIORITY_OPTIONS.map((priority) => (
+                  <option key={priority.value} value={priority.value}>{priority.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        <StageNavigation 
-          selectedStage={selectedStage} 
-          setSelectedStage={setSelectedStage} 
-          statistics={statistics} 
-        />
-
-        <div className="p-6">
-          {prospectsLoading ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-sm text-gray-500">Chargement des prospects...</p>
-            </div>
-          ) : prospects.length === 0 ? (
-            <div className="text-center py-8">
-              <Target className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun prospect</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Commencez par créer votre premier prospect
-              </p>
-              <div className="mt-6">
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouveau Prospect
-                </button>
+          <div className="border rounded-lg overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Spinner />
               </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {prospects.map((prospect) => (
-                <ProspectItem
-                  key={prospect.id}
-                  prospect={prospect}
-                  selectedStage={selectedStage}
-                  onMoveProspect={handleMoveProspect}
-                  onEdit={handleEditProspect}
-                  onView={handleViewProspect}
-                  onDelete={handleDeleteProspect}
-                />
-              ))}
+            ) : (
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-4 font-medium">Entreprise</th>
+                    <th className="text-left p-4 font-medium">Contact</th>
+                    <th className="text-left p-4 font-medium">Etape</th>
+                    <th className="text-left p-4 font-medium">Priorite</th>
+                    <th className="text-left p-4 font-medium">Valeur potentielle</th>
+                    <th className="text-left p-4 font-medium">Derniere mise a jour</th>
+                    <th className="text-left p-4 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProspects.map((prospect) => {
+                    const stageBadge = getStageBadge(prospect.stage);
+                    const priorityBadge = getPriorityBadge(prospect.priority);
+                    return (
+                      <tr key={prospect.id} className="border-t hover:bg-muted/50">
+                        <td className="p-4 font-medium">{prospect.companyName}</td>
+                        <td className="p-4">
+                          <div className="text-sm">
+                            <div className="font-medium">{prospect.contactName}</div>
+                            <div className="text-muted-foreground">{prospect.email || prospect.phone || '-'}</div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <Badge className={stageBadge.className}>{stageBadge.label}</Badge>
+                        </td>
+                        <td className="p-4">
+                          <Badge className={priorityBadge.className}>{priorityBadge.label}</Badge>
+                        </td>
+                        <td className="p-4 text-sm">
+                          {prospect.potentialValue ? prospect.potentialValue.toLocaleString('fr-FR') : '-'}
+                        </td>
+                        <td className="p-4 text-sm text-muted-foreground">
+                          {new Date(prospect.updatedAt).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleView(prospect)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Voir
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(prospect)}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Modifier
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleDelete(prospect)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {!isLoading && filteredProspects.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              Aucun prospect trouve
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Guide des bonnes pratiques */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Guide des Bonnes Pratiques</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <Target className="h-5 w-5 text-blue-600 mr-2" />
-              <h4 className="font-medium text-blue-900">Phase 1 : Préparation</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Définir le profil client idéal (ICP)</li>
-              <li>• Préparer les outils (CRM, scripts, supports)</li>
-              <li>• Fixer les objectifs quantitatifs</li>
-            </ul>
-          </div>
-
-          <div className="border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <Search className="h-5 w-5 text-yellow-600 mr-2" />
-              <h4 className="font-medium text-yellow-900">Phase 2 : Recherche</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Utiliser LinkedIn Sales Navigator</li>
-              <li>• Qualifier selon critères BANT</li>
-              <li>• Scorer et prioriser (A/B/C)</li>
-            </ul>
-          </div>
-
-          <div className="border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <Phone className="h-5 w-5 text-purple-600 mr-2" />
-              <h4 className="font-medium text-purple-900">Phase 3 : Contact</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Personnaliser chaque approche</li>
-              <li>• Relancer max 3 fois</li>
-              <li>• Objectif: fixer un RDV qualifié</li>
-            </ul>
-          </div>
-
-          <div className="border border-indigo-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <CalendarIcon className="h-5 w-5 text-indigo-600 mr-2" />
-              <h4 className="font-medium text-indigo-900">Phase 4 : Découverte</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Écoute active (80/20)</li>
-              <li>• Méthode SPIN Selling</li>
-              <li>• Identifier les pain points</li>
-            </ul>
-          </div>
-
-          <div className="border border-green-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <FileText className="h-5 w-5 text-green-600 mr-2" />
-              <h4 className="font-medium text-green-900">Phase 5 : Proposition</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Proposition sur-mesure</li>
-              <li>• Anticiper les objections</li>
-              <li>• Closing en 2-3 étapes max</li>
-            </ul>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <Activity className="h-5 w-5 text-gray-600 mr-2" />
-              <h4 className="font-medium text-gray-900">Suivi Post-Deal</h4>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Analyser chaque échec</li>
-              <li>• Nurturing des perdus</li>
-              <li>• Onboarding des gagnés</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <CreateProspectModal 
-        isOpen={showCreateModal} 
-        onClose={() => setShowCreateModal(false)} 
+      <CreateProspectModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
       />
 
-      <EditProspectModal 
-        isOpen={showEditModal} 
+      <EditProspectModal
+        isOpen={showEditModal}
         onClose={() => {
           setShowEditModal(false);
           setSelectedProspect(null);
@@ -621,8 +344,8 @@ export default function ProspectionWorkflowPage() {
         prospect={selectedProspect}
       />
 
-      <ViewProspectModal 
-        isOpen={showViewModal} 
+      <ViewProspectModal
+        isOpen={showViewModal}
         onClose={() => {
           setShowViewModal(false);
           setSelectedProspect(null);

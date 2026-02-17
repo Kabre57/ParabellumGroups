@@ -272,6 +272,29 @@ export function useCreateInteraction() {
   });
 }
 
+export function useUpdateInteraction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateInteraction(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'interactions'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'interaction', variables.id] });
+    },
+  });
+}
+
+export function useDeleteInteraction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.deleteInteraction(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'interactions'] });
+    },
+  });
+}
+
 export function useInteractionsStats() {
   return useQuery({
     queryKey: ['crm', 'interactions-stats'],
@@ -313,6 +336,29 @@ export function useCreateOpportunite() {
 
   return useMutation({
     mutationFn: (data: any) => crmService.createOpportunite(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'opportunites'] });
+    },
+  });
+}
+
+export function useUpdateOpportunite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateOpportunite(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'opportunites'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'opportunite', variables.id] });
+    },
+  });
+}
+
+export function useDeleteOpportunite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.deleteOpportunite(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm', 'opportunites'] });
     },

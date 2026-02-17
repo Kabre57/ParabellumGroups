@@ -1,31 +1,38 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CheckCircle,
   FileText,
   Search,
-  Filter,
-  Eye,
-  Edit,
-  Trash2,
-  Plus,
+  Send,
   DollarSign,
   Calendar,
-  User,
-  Building,
-  Clock,
-  Download,
-  Send,
-  CheckCircle,
-  XCircle,
-  Clock as ClockIcon,
-  AlertCircle
+  AlertCircle,
+  FileDown,
+  Edit,
+  Eye,
+  Trash2,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { billingService } from '@/shared/api/billing';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { useForm } from 'react-hook-form';
 
-type QuoteStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired';
+type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+
+type BackendQuoteStatus = 'BROUILLON' | 'ENVOYE' | 'ACCEPTE' | 'REFUSE' | 'EXPIRE' | 'CONVERTI';
 
 interface Quote {
   id: string;
@@ -39,25 +46,81 @@ interface Quote {
   sentAt?: string;
   createdAt: string;
   updatedAt: string;
+  notes?: string;
+  clientId?: string;
 }
 
-const quoteStatuses = [
-  { id: 'draft' as QuoteStatus, name: 'Brouillon', color: 'bg-gray-100 text-gray-800', icon: FileText },
-  { id: 'sent' as QuoteStatus, name: 'Envoyé', color: 'bg-blue-100 text-blue-800', icon: Send },
-  { id: 'viewed' as QuoteStatus, name: 'Consulté', color: 'bg-purple-100 text-purple-800', icon: Eye },
-  { id: 'accepted' as QuoteStatus, name: 'Accepté', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  { id: 'rejected' as QuoteStatus, name: 'Refusé', color: 'bg-red-100 text-red-800', icon: XCircle },
-  { id: 'expired' as QuoteStatus, name: 'Expiré', color: 'bg-orange-100 text-orange-800', icon: AlertCircle }
+interface QuoteFormValues {
+  status: QuoteStatus;
+  dateValidite?: string;
+  notes?: string;
+}
+
+const STATUS_MAP: Record<BackendQuoteStatus, QuoteStatus> = {
+  BROUILLON: 'draft',
+  ENVOYE: 'sent',
+  ACCEPTE: 'accepted',
+  REFUSE: 'rejected',
+  EXPIRE: 'expired',
+  CONVERTI: 'accepted',
+};
+
+const STATUS_TO_BACKEND: Record<QuoteStatus, BackendQuoteStatus> = {
+  draft: 'BROUILLON',
+  sent: 'ENVOYE',
+  accepted: 'ACCEPTE',
+  rejected: 'REFUSE',
+  expired: 'EXPIRE',
+};
+
+const QUOTE_STATUSES = [
+  { id: 'draft' as QuoteStatus, name: 'Brouillon', className: 'bg-gray-500' },
+  { id: 'sent' as QuoteStatus, name: 'Envoye', className: 'bg-blue-500' },
+  { id: 'accepted' as QuoteStatus, name: 'Accepte', className: 'bg-green-600' },
+  { id: 'rejected' as QuoteStatus, name: 'Refuse', className: 'bg-red-500' },
+  { id: 'expired' as QuoteStatus, name: 'Expire', className: 'bg-orange-500' },
 ];
 
-export default function QuotesPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | 'all'>('all');
-  const queryClient = useQueryClient();
+const toInputDate = (value?: string) => {
+  if (!value) return '';
+  return value.length >= 16 ? value.slice(0, 16) : value;
+};
 
-  const { data: quotesResponse } = useQuery({
+const normalizeDate = (value?: string) => {
+  if (!value) return undefined;
+  return value.length === 16 ? `${value}:00` : value;
+};
+
+export default function QuotesPage() {
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all');
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const { data: quotesResponse, isLoading } = useQuery({
     queryKey: ['quotes'],
     queryFn: () => billingService.getQuotes({ limit: 200 }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: QuoteFormValues }) =>
+      billingService.updateQuote(id, {
+        status: STATUS_TO_BACKEND[data.status],
+        dateValidite: normalizeDate(data.dateValidite),
+        notes: data.notes,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => billingService.deleteQuote(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    },
   });
 
   const quotes: Quote[] = useMemo(() => {
@@ -67,71 +130,55 @@ export default function QuotesPage() {
       number: q.numeroDevis || q.id,
       title: q.notes || 'Devis',
       company: q.client?.nom || q.clientId || 'Client',
-      contact: (q.client as any)?.contact || '—',
+      contact: (q.client as any)?.contact || '-',
       amount: q.montantTTC ?? q.montantHT ?? 0,
-      status: (q.status?.toLowerCase() as QuoteStatus) || 'draft',
+      status: STATUS_MAP[(q.status as BackendQuoteStatus) || 'BROUILLON'] || 'draft',
       validUntil: q.dateValidite || '',
       sentAt: q.dateDevis || '',
       createdAt: q.createdAt || '',
       updatedAt: q.updatedAt || q.dateDevis || '',
+      notes: q.notes || '',
+      clientId: q.clientId,
     }));
   }, [quotesResponse]);
 
-  // Filtrage
-  const filteredQuotes = quotes.filter(quote => {
-    const matchesSearch = searchQuery === '' || 
+  const filteredQuotes = quotes.filter((quote) => {
+    const matchesSearch =
       quote.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       quote.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
       quote.contact.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = selectedStatus === 'all' || quote.status === selectedStatus;
-    
+    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Statistiques
   const totalValue = filteredQuotes.reduce((sum, q) => sum + q.amount, 0);
   const acceptedValue = filteredQuotes
-    .filter(q => q.status === 'accepted')
+    .filter((q) => q.status === 'accepted')
     .reduce((sum, q) => sum + q.amount, 0);
   const pendingValue = filteredQuotes
-    .filter(q => ['sent', 'viewed'].includes(q.status))
+    .filter((q) => q.status === 'sent')
     .reduce((sum, q) => sum + q.amount, 0);
   const conversionRate = quotes.length > 0
-    ? (quotes.filter(q => q.status === 'accepted').length / quotes.length) * 100
+    ? (quotes.filter((q) => q.status === 'accepted').length / quotes.length) * 100
     : 0;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('fr-FR', {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
     }).format(value);
-  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
     });
-  };
-
-  const getStatusBadge = (status: QuoteStatus) => {
-    const statusConfig = quoteStatuses.find(s => s.id === status);
-    if (!statusConfig) return null;
-
-    const Icon = statusConfig.icon;
-    return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
-        <Icon className="w-4 h-4" />
-        {statusConfig.name}
-      </span>
-    );
-  };
 
   const isExpiringSoon = (validUntil: string) => {
+    if (!validUntil) return false;
     const daysUntilExpiry = Math.ceil(
       (new Date(validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -139,254 +186,290 @@ export default function QuotesPage() {
   };
 
   const isExpired = (validUntil: string) => {
+    if (!validUntil) return false;
     return new Date(validUntil) < new Date();
   };
 
+  const getStatusBadge = (status: QuoteStatus) => {
+    const statusConfig = QUOTE_STATUSES.find((s) => s.id === status);
+    return statusConfig || QUOTE_STATUSES[0];
+  };
+
+  const form = useForm<QuoteFormValues>({
+    defaultValues: {
+      status: 'draft',
+      dateValidite: '',
+      notes: '',
+    },
+  });
+
+  useEffect(() => {
+    if (!editOpen || !selectedQuote) return;
+    form.reset({
+      status: selectedQuote.status,
+      dateValidite: toInputDate(selectedQuote.validUntil),
+      notes: selectedQuote.notes || '',
+    });
+  }, [editOpen, selectedQuote, form]);
+
+  const openView = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setViewOpen(true);
+  };
+
+  const openEdit = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setEditOpen(true);
+  };
+
+  const handleDelete = (quote: Quote) => {
+    if (confirm(`Supprimer le devis ${quote.number} ?`)) {
+      deleteMutation.mutate(quote.id);
+    }
+  };
+
+  const onSubmit = async (values: QuoteFormValues) => {
+    if (!selectedQuote) return;
+    await updateMutation.mutateAsync({ id: selectedQuote.id, data: values });
+    setEditOpen(false);
+    setSelectedQuote(null);
+  };
+
   return (
-    <div className="p-6 space-y-6">
-      {/* En-tête */}
-      <div className="flex justify-between items-start">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-blue-600" />
-            Gestion des Devis
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Création, suivi et gestion de vos devis commerciaux
-          </p>
+          <h1 className="text-3xl font-bold">Devis et Propositions</h1>
+          <p className="text-muted-foreground">Creation, suivi et gestion de vos devis</p>
         </div>
-
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-          <Plus className="w-5 h-5" />
+        <Button>
+          <FileText className="mr-2 h-4 w-4" />
           Nouveau devis
-        </button>
+        </Button>
       </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Valeur totale</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(totalValue)}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valeur totale</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
+            <p className="text-xs text-muted-foreground">Devis filtres</p>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Devis acceptés</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(acceptedValue)}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Devis acceptes</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(acceptedValue)}</div>
+            <p className="text-xs text-muted-foreground">Devis gagnes</p>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">En attente</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(pendingValue)}
-              </p>
-            </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <ClockIcon className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En attente</CardTitle>
+            <Send className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(pendingValue)}</div>
+            <p className="text-xs text-muted-foreground">Envoyes</p>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Taux de conversion</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {conversionRate.toFixed(0)}%
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <FileText className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Taux de conversion</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{conversionRate.toFixed(0)}%</div>
+            <p className="text-xs text-muted-foreground">Sur tous les devis</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filtres */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher par numéro, titre, entreprise ou contact..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => setSelectedStatus('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                selectedStatus === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Tous
-            </button>
-            {quoteStatuses.map(status => (
-              <button
-                key={status.id}
-                onClick={() => setSelectedStatus(status.id)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                  selectedStatus === status.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+      <Card>
+        <CardHeader>
+          <CardTitle>Liste des devis</CardTitle>
+          <CardDescription>Suivez l avancement de vos propositions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par numero, titre, client..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as QuoteStatus | 'all')}
+                className="border rounded-md px-3 py-2 text-sm"
               >
-                {status.name}
-              </button>
-            ))}
+                <option value="all">Tous les statuts</option>
+                {QUOTE_STATUSES.map((status) => (
+                  <option key={status.id} value={status.id}>{status.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Liste des devis */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left p-4 font-semibold text-gray-900">Numéro</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Titre</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Client</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Montant</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Statut</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Validité</th>
-                <th className="text-left p-4 font-semibold text-gray-900">Créé le</th>
-                <th className="text-right p-4 font-semibold text-gray-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredQuotes.map(quote => (
-                <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="p-4">
-                    <span className="font-mono text-sm text-gray-900">{quote.number}</span>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium text-gray-900">{quote.title}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm text-gray-900">
-                        <Building className="w-4 h-4 text-gray-400" />
-                        {quote.company}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                        <User className="w-4 h-4 text-gray-400" />
-                        {quote.contact}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className="font-semibold text-gray-900">
-                      {formatCurrency(quote.amount)}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    {getStatusBadge(quote.status)}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className={`text-sm ${
-                        isExpired(quote.validUntil) ? 'text-red-600 font-semibold' :
-                        isExpiringSoon(quote.validUntil) ? 'text-orange-600 font-semibold' :
-                        'text-gray-900'
-                      }`}>
-                        {formatDate(quote.validUntil)}
-                      </span>
-                      {isExpiringSoon(quote.validUntil) && (
-                        <AlertCircle className="w-4 h-4 text-orange-500" />
-                      )}
-                      {isExpired(quote.validUntil) && (
-                        <AlertCircle className="w-4 h-4 text-red-500" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className="text-sm text-gray-600">
-                      {formatDate(quote.createdAt)}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Voir"
-                      >
-                        <Eye className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Modifier"
-                      >
-                        <Edit className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Télécharger PDF"
-                      >
-                        <Download className="w-4 h-4 text-gray-600" />
-                      </button>
-                      {quote.status === 'draft' && (
-                        <button
-                          className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Envoyer"
-                        >
-                          <Send className="w-4 h-4 text-blue-600" />
-                        </button>
-                      )}
-                      <button
-                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredQuotes.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 font-medium">Aucun devis trouvé</p>
-            <p className="text-gray-500 text-sm mt-1">
-              {searchQuery || selectedStatus !== 'all'
-                ? 'Essayez de modifier vos filtres de recherche'
-                : 'Créez votre premier devis pour commencer'}
-            </p>
+          <div className="border rounded-lg overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Spinner />
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-4 font-medium">Numero</th>
+                    <th className="text-left p-4 font-medium">Titre</th>
+                    <th className="text-left p-4 font-medium">Client</th>
+                    <th className="text-left p-4 font-medium">Montant</th>
+                    <th className="text-left p-4 font-medium">Statut</th>
+                    <th className="text-left p-4 font-medium">Validite</th>
+                    <th className="text-left p-4 font-medium">Cree le</th>
+                    <th className="text-left p-4 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredQuotes.map((quote) => {
+                    const statusBadge = getStatusBadge(quote.status);
+                    return (
+                      <tr key={quote.id} className="border-t hover:bg-muted/50">
+                        <td className="p-4 font-mono text-sm">{quote.number}</td>
+                        <td className="p-4 font-medium">{quote.title}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{quote.company}</td>
+                        <td className="p-4 text-sm">{formatCurrency(quote.amount)}</td>
+                        <td className="p-4">
+                          <Badge className={statusBadge.className}>{statusBadge.name}</Badge>
+                        </td>
+                        <td className="p-4 text-sm">
+                          <Calendar className="inline h-4 w-4 mr-1 text-muted-foreground" />
+                          <span className={
+                            isExpired(quote.validUntil)
+                              ? 'text-red-600 font-semibold'
+                              : isExpiringSoon(quote.validUntil)
+                                ? 'text-orange-600 font-semibold'
+                                : 'text-muted-foreground'
+                          }>
+                            {quote.validUntil ? formatDate(quote.validUntil) : '-'}
+                          </span>
+                          {(isExpiringSoon(quote.validUntil) || isExpired(quote.validUntil)) && (
+                            <AlertCircle className="inline h-4 w-4 ml-1 text-orange-500" />
+                          )}
+                        </td>
+                        <td className="p-4 text-sm text-muted-foreground">
+                          {quote.createdAt ? formatDate(quote.createdAt) : '-'}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openView(quote)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Voir
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => openEdit(quote)}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Modifier
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleDelete(quote)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
-      </div>
+
+          {!isLoading && filteredQuotes.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              Aucun devis trouve
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detail devis</DialogTitle>
+            <DialogDescription>Informations principales</DialogDescription>
+          </DialogHeader>
+          {selectedQuote && (
+            <div className="space-y-2 text-sm">
+              <div><strong>Numero:</strong> {selectedQuote.number}</div>
+              <div><strong>Client:</strong> {selectedQuote.company}</div>
+              <div><strong>Montant:</strong> {formatCurrency(selectedQuote.amount)}</div>
+              <div><strong>Statut:</strong> {selectedQuote.status}</div>
+              <div><strong>Validite:</strong> {selectedQuote.validUntil ? formatDate(selectedQuote.validUntil) : '-'}</div>
+              <div><strong>Notes:</strong> {selectedQuote.notes || '-'}</div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Modifier devis</DialogTitle>
+            <DialogDescription>Mettre a jour le statut et la validite.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Statut</label>
+              <select className="w-full px-3 py-2 border rounded-md" {...form.register('status')}>
+                {QUOTE_STATUSES.map((status) => (
+                  <option key={status.id} value={status.id}>{status.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Date de validite</label>
+              <Input type="datetime-local" {...form.register('dateValidite')} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <textarea className="w-full px-3 py-2 border rounded-md" {...form.register('notes')} />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                Mettre a jour
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

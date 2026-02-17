@@ -1,10 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { TruckIcon, Search, Calendar } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Calendar, Search, TruckIcon } from 'lucide-react';
 import { procurementService } from '@/shared/api/procurement/procurement.service';
 import { PurchaseOrder } from '@/shared/api/procurement/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type ReceptionStatus = 'pending' | 'received' | 'checked';
 
@@ -17,23 +30,26 @@ interface Reception {
   quantity: number;
   amount: number;
   status: ReceptionStatus;
+  orderStatus: PurchaseOrder['status'];
 }
 
 const statusColors: Record<ReceptionStatus, string> = {
-  pending: 'bg-yellow-200 text-yellow-800',
-  received: 'bg-blue-200 text-blue-800',
-  checked: 'bg-green-200 text-green-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+  received: 'bg-blue-100 text-blue-800',
+  checked: 'bg-green-100 text-green-800',
 };
 
 const statusLabels: Record<ReceptionStatus, string> = {
   pending: 'En attente',
-  received: 'Reçue',
-  checked: 'Vérifiée',
+  received: 'Recue',
+  checked: 'Verifiee',
 };
 
 export default function ReceptionsPage() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReceptionStatus | 'ALL'>('ALL');
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const { data: receptions = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['receptions'],
@@ -43,19 +59,29 @@ export default function ReceptionsPage() {
     },
   });
 
-  const mappedReceptions: Reception[] = receptions.map((order) => ({
-    id: order.id,
-    number: order.number,
-    supplier: order.supplier || '—',
-    date: order.date,
-    products: order.items ?? 0,
-    quantity: order.itemsDetail?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0,
-    amount: order.amount,
-    status: (order.status === 'LIVRE' ? 'checked' : order.status === 'CONFIRME' ? 'received' : 'pending') as ReceptionStatus,
-  }));
+  const mappedReceptions: Reception[] = useMemo(
+    () =>
+      receptions.map((order) => ({
+        id: order.id,
+        number: order.number,
+        supplier: order.supplier || '-',
+        date: order.date,
+        products: order.items ?? 0,
+        quantity:
+          order.itemsDetail?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0,
+        amount: order.amount,
+        status: (order.status === 'LIVRE'
+          ? 'checked'
+          : order.status === 'CONFIRME'
+          ? 'received'
+          : 'pending') as ReceptionStatus,
+        orderStatus: order.status,
+      })),
+    [receptions]
+  );
 
-  const filteredReceptions = mappedReceptions.filter((reception: Reception) => {
-    const matchesSearch = 
+  const filteredReceptions = mappedReceptions.filter((reception) => {
+    const matchesSearch =
       reception.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       reception.supplier.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || reception.status === statusFilter;
@@ -64,122 +90,188 @@ export default function ReceptionsPage() {
 
   const stats = {
     total: mappedReceptions.length,
-    pending: mappedReceptions.filter((r: Reception) => r.status === 'pending').length,
-    received: mappedReceptions.filter((r: Reception) => r.status === 'received').length,
-    totalAmount: mappedReceptions.reduce((sum: number, r: Reception) => sum + r.amount, 0),
+    pending: mappedReceptions.filter((r) => r.status === 'pending').length,
+    received: mappedReceptions.filter((r) => r.status === 'received').length,
+    totalAmount: mappedReceptions.reduce((sum, r) => sum + r.amount, 0),
+  };
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: PurchaseOrder['status'] }) =>
+      procurementService.updateOrderStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['receptions'] });
+    },
+  });
+
+  const handleValidate = (reception: Reception) => {
+    if (reception.status === 'pending') {
+      updateStatusMutation.mutate({ id: reception.id, status: 'CONFIRME' });
+    } else if (reception.status === 'received') {
+      updateStatusMutation.mutate({ id: reception.id, status: 'LIVRE' });
+    }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <a href="/dashboard/achats" className="text-gray-500 hover:text-gray-700 text-sm">
-            ← Retour aux achats
-          </a>
-          <h1 className="text-3xl font-bold mt-1">Réceptions Marchandises</h1>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dashboard/achats">Retour aux achats</Link>
+          </Button>
+          <h1 className="mt-2 text-3xl font-bold">Receptions marchandises</h1>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-          <TruckIcon className="w-4 h-4" />
-          Nouvelle réception
-        </button>
+        <Button variant="outline" onClick={() => setComingSoonOpen(true)}>
+          <TruckIcon className="mr-2 h-4 w-4" />
+          Nouvelle reception
+        </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Total Réceptions</div>
-          <div className="text-2xl font-bold">{stats.total}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">En Attente</div>
-          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Reçues</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.received}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Montant Total</div>
-          <div className="text-2xl font-bold">{stats.totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F</div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total receptions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">En attente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Recues</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.received}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Montant total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher une réception..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Liste des receptions</CardTitle>
+          <CardDescription>Suivi des receptions fournisseurs.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Rechercher une reception..."
+                className="pl-9"
+              />
+            </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as ReceptionStatus | 'ALL')}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="ALL">Tous les statuts</option>
               <option value="pending">En attente</option>
-              <option value="received">Reçue</option>
-              <option value="checked">Vérifiée</option>
+              <option value="received">Recue</option>
+              <option value="checked">Verifiee</option>
             </select>
           </div>
-        </div>
 
-        {isLoading ? (
-          <div className="text-center py-8 text-gray-500">Chargement...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numéro</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produits</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredReceptions.map((reception: Reception) => (
-                  <tr key={reception.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{reception.number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{reception.supplier}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        {new Date(reception.date).toLocaleDateString('fr-FR')}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{reception.products}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{reception.quantity}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{reception.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[reception.status]}`}>
-                        {statusLabels[reception.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                        Voir
-                      </button>
-                    </td>
+          {isLoading ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Spinner />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Numero</th>
+                    <th className="px-4 py-3 font-medium">Fournisseur</th>
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Produits</th>
+                    <th className="px-4 py-3 font-medium">Quantite</th>
+                    <th className="px-4 py-3 font-medium">Montant</th>
+                    <th className="px-4 py-3 font-medium">Statut</th>
+                    <th className="px-4 py-3 font-medium text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredReceptions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Aucune réception trouvée</div>
-            )}
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {filteredReceptions.map((reception) => (
+                    <tr key={reception.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">{reception.number}</td>
+                      <td className="px-4 py-3">{reception.supplier}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {new Date(reception.date).toLocaleDateString('fr-FR')}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{reception.products}</td>
+                      <td className="px-4 py-3">{reception.quantity}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {reception.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className={statusColors[reception.status]}>
+                          {statusLabels[reception.status]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {reception.status !== 'checked' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleValidate(reception)}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            {reception.status === 'pending'
+                              ? 'Marquer recue'
+                              : 'Valider'}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">OK</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredReceptions.length === 0 && (
+                <div className="py-8 text-center text-muted-foreground">
+                  Aucune reception trouvee.
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bientot disponible</DialogTitle>
+            <DialogDescription>
+              La creation de receptions arrive bientot. Vous pouvez deja valider
+              les receptions depuis cette page.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

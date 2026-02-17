@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import CustomerForm from '@/components/customers/CustomerForm';
 
@@ -44,12 +45,12 @@ export default function CustomerDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => crmService.deleteClient(customerId),
     onSuccess: () => {
-      router.push('/dashboard/clients');
+      router.push('/dashboard/crm/clients');
     },
   });
 
   const handleDelete = () => {
-    if (confirm(`Êtes-vous sûr de vouloir archiver ce client ?`)) {
+    if (confirm('Etes-vous sur de vouloir archiver ce client ?')) {
       deleteMutation.mutate();
     }
   };
@@ -65,7 +66,7 @@ export default function CustomerDetailPage() {
   if (!customer) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Client non trouvé</p>
+        <p className="text-gray-500 dark:text-gray-400">Client non trouve</p>
       </div>
     );
   }
@@ -75,14 +76,13 @@ export default function CustomerDetailPage() {
       case 'ACTIF': return <Badge variant="success">Actif</Badge>;
       case 'PROSPECT': return <Badge variant="warning">Prospect</Badge>;
       case 'INACTIF': return <Badge variant="secondary">Inactif</Badge>;
-      case 'ARCHIVE': return <Badge variant="outline">Archivé</Badge>;
+      case 'ARCHIVE': return <Badge variant="outline">Archive</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-3">
@@ -92,7 +92,7 @@ export default function CustomerDetailPage() {
             {getStatusBadge(customer.status)}
           </div>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Référence: {customer.reference} | ID: {customer.id.slice(0, 8).toUpperCase()}
+            Reference: {customer.reference} | ID: {customer.id.slice(0, 8).toUpperCase()}
           </p>
         </div>
         <div className="flex gap-2">
@@ -113,7 +113,6 @@ export default function CustomerDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList>
           <TabsTrigger value="info">Informations</TabsTrigger>
@@ -122,10 +121,9 @@ export default function CustomerDetailPage() {
           <TabsTrigger value="interactions">Interactions</TabsTrigger>
         </TabsList>
 
-        {/* Informations Tab */}
         <TabsContent value="info" className="space-y-4">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
+            <h3 className="text-lg font-semibold mb-4">Informations generales</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -156,7 +154,7 @@ export default function CustomerDetailPage() {
 
               <div>
                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Téléphone
+                  Telephone
                 </label>
                 <p className="mt-1 text-gray-900 dark:text-white">
                   {customer.telephone || customer.mobile || '-'}
@@ -189,7 +187,7 @@ export default function CustomerDetailPage() {
 
               <div>
                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Priorité
+                  Priorite
                 </label>
                 <p className="mt-1 text-gray-900 dark:text-white">
                   {customer.priorite}
@@ -198,7 +196,7 @@ export default function CustomerDetailPage() {
 
               <div>
                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Secteur d'activité
+                  Secteur d activite
                 </label>
                 <p className="mt-1 text-gray-900 dark:text-white">
                   {customer.secteurActivite?.libelle || '-'}
@@ -224,13 +222,12 @@ export default function CustomerDetailPage() {
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-2xl font-bold">{customer._count?.opportunites || 0}</p>
-                <p className="text-xs text-gray-500">Opportunités</p>
+                <p className="text-xs text-gray-500">Opportunites</p>
               </div>
             </div>
           </Card>
         </TabsContent>
 
-        {/* Contacts Tab */}
         <TabsContent value="contacts">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
@@ -242,7 +239,9 @@ export default function CustomerDetailPage() {
                 {customer.contacts.map((contact) => (
                   <div key={contact.id} className="flex justify-between items-center p-4 border rounded-lg">
                     <div>
-                      <p className="font-medium">{contact.prenom} {contact.nom} {contact.principal && <Badge className="ml-2">Principal</Badge>}</p>
+                      <p className="font-medium">
+                        {contact.prenom} {contact.nom} {contact.principal && <Badge className="ml-2">Principal</Badge>}
+                      </p>
                       <p className="text-sm text-gray-500">{contact.poste} - {contact.departement}</p>
                       <p className="text-xs text-gray-400">{contact.email} | {contact.mobile || contact.telephone}</p>
                     </div>
@@ -252,13 +251,12 @@ export default function CustomerDetailPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                Aucun contact enregistré
+                Aucun contact enregistre
               </div>
             )}
           </Card>
         </TabsContent>
 
-        {/* Addresses Tab */}
         <TabsContent value="addresses">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
@@ -280,17 +278,16 @@ export default function CustomerDetailPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                Aucune adresse enregistrée
+                Aucune adresse enregistree
               </div>
             )}
           </Card>
         </TabsContent>
 
-        {/* Interactions Tab */}
         <TabsContent value="interactions">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Dernières Interactions</h3>
+              <h3 className="text-lg font-semibold">Dernieres interactions</h3>
               <Button size="sm">Nouvelle interaction</Button>
             </div>
             {isLoadingInteractions ? (
@@ -301,14 +298,18 @@ export default function CustomerDetailPage() {
                   <div key={interaction.id} className="p-4 border-l-4 border-blue-500 bg-gray-50 dark:bg-gray-800 rounded-r-lg">
                     <div className="flex justify-between">
                       <p className="font-bold">{interaction.sujet}</p>
-                      <p className="text-xs text-gray-400">{new Date(interaction.dateInteraction).toLocaleString('fr-FR')}</p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(interaction.dateInteraction).toLocaleString('fr-FR')}
+                      </p>
                     </div>
                     <p className="text-sm mt-1">{interaction.description}</p>
                     <div className="flex gap-2 mt-2">
                       <Badge variant="outline">{interaction.type}</Badge>
                       <Badge variant="outline">{interaction.canal}</Badge>
                       {interaction.contact && (
-                        <span className="text-xs text-gray-500">avec {interaction.contact.prenom} {interaction.contact.nom}</span>
+                        <span className="text-xs text-gray-500">
+                          avec {interaction.contact.prenom} {interaction.contact.nom}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -316,18 +317,20 @@ export default function CustomerDetailPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                Aucune interaction enregistrée
+                Aucune interaction enregistree
               </div>
             )}
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Modifier le client</DialogTitle>
+            <DialogDescription>
+              Mettez a jour les informations du client.
+            </DialogDescription>
           </DialogHeader>
           <CustomerForm
             customer={customer}

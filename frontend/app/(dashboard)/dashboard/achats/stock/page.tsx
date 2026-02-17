@@ -1,184 +1,298 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { procurementService } from '@/services/procurement';
-import type { StockItem, StockMovement } from '@/services/procurement';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, List, MoveRight, Plus } from 'lucide-react';
+import { inventoryService } from '@/shared/api/inventory/inventory.service';
+import type { InventoryArticle, StockMovement, StockMovementType } from '@/shared/api/inventory/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'movements'>('items');
 
-  const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getStock>>>({
-    queryKey: ['stock-items', categoryFilter],
-    queryFn: () => procurementService.getStock({
-      category: categoryFilter || undefined,
-      belowThreshold: showLowStock || undefined,
-    }),
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState<InventoryArticle | null>(null);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+
+  const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<
+    Awaited<ReturnType<typeof inventoryService.getArticles>>
+  >({
+    queryKey: ['inventory-articles', categoryFilter, showLowStock],
+    queryFn: () =>
+      inventoryService.getArticles({
+        categorie: categoryFilter || undefined,
+      }),
   });
 
-  const { data: movementsResponse, isLoading: movementsLoading } = useQuery<Awaited<ReturnType<typeof procurementService.getStockMovements>>>({
-    queryKey: ['stock-movements'],
-    queryFn: () => procurementService.getStockMovements(),
+  const { data: movementsResponse, isLoading: movementsLoading } = useQuery<
+    Awaited<ReturnType<typeof inventoryService.getMovements>>
+  >({
+    queryKey: ['inventory-movements'],
+    queryFn: () => inventoryService.getMovements(),
     enabled: activeTab === 'movements',
   });
 
   const stockItems = stockItemsResponse?.data ?? [];
   const movements = movementsResponse?.data ?? [];
 
-  const normalizedCategory = categoryFilter.trim().toLowerCase();
-  const filteredItems = stockItems.filter((item) => {
-    if (normalizedCategory && !item.category.toLowerCase().includes(normalizedCategory)) {
-      return false;
-    }
-    if (showLowStock) {
-      return item.quantity <= item.threshold;
-    }
-    return true;
+  const filteredItems = useMemo(() => {
+    const normalizedCategory = categoryFilter.trim().toLowerCase();
+    return stockItems.filter((item) => {
+      if (normalizedCategory && !item.category.toLowerCase().includes(normalizedCategory)) {
+        return false;
+      }
+      if (showLowStock) {
+        return item.quantity <= item.threshold;
+      }
+      return true;
+    });
+  }, [stockItems, categoryFilter, showLowStock]);
+
+  const lowStockCount = stockItems.filter(
+    (item: InventoryArticle) =>
+      (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0)
+  ).length;
+
+  const createMovementMutation = useMutation({
+    mutationFn: (values: MovementFormValues) =>
+      inventoryService.createMovement({
+        articleId: values.articleId,
+        type: values.type,
+        quantite: Number(values.quantite) || 0,
+        dateOperation: values.dateOperation || undefined,
+        numeroDocument: values.numeroDocument || undefined,
+        emplacement: values.emplacement || undefined,
+        notes: values.notes || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
+    },
   });
 
-  const lowStockCount = stockItems.filter((item: StockItem) => item.quantity <= item.threshold).length;
+  const form = useForm<MovementFormValues>({
+    defaultValues: {
+      articleId: '',
+      type: 'AJUSTEMENT',
+      quantite: '',
+      dateOperation: '',
+      numeroDocument: '',
+      emplacement: '',
+      notes: '',
+    },
+  });
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    form.reset({
+      articleId: selectedArticle?.id || stockItems[0]?.id || '',
+      type: 'AJUSTEMENT',
+      quantite: '',
+      dateOperation: '',
+      numeroDocument: '',
+      emplacement: selectedArticle?.emplacement || '',
+      notes: '',
+    });
+  }, [dialogOpen, selectedArticle, stockItems, form]);
+
+  const openAdjust = (article?: InventoryArticle) => {
+    setSelectedArticle(article || null);
+    setDialogOpen(true);
+  };
+
+  const onSubmit = form.handleSubmit((values) => {
+    createMovementMutation.mutate(values);
+    setDialogOpen(false);
+  });
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <a href="/dashboard/achats" className="text-gray-500 hover:text-gray-700 text-sm">
-            ← Retour aux achats
-          </a>
-          <h1 className="text-3xl font-bold mt-1">Gestion du stock</h1>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dashboard/achats">Retour aux achats</Link>
+          </Button>
+          <h1 className="mt-2 text-3xl font-bold">Stock</h1>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          Ajouter un article
-        </button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openAdjust()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Ajuster stock
+          </Button>
+          <Button variant="outline" onClick={() => setComingSoonOpen(true)}>
+            Ajouter un article
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        Le module stock n'est pas encore connect? au service procurement. Donn?es affich?es a titre indicatif.
-      </div>
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="flex items-start gap-3 py-4 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4" />
+          <div>
+            Ajustements disponibles via inventory-service. Verifiez les droits
+            `inventory.update` et `stock_movements.create`.
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Articles en stock</div>
-          <div className="text-2xl font-bold">{stockItems.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Stock faible</div>
-          <div className="text-2xl font-bold text-red-600">{lowStockCount}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Valeur totale</div>
-          <div className="text-2xl font-bold">-</div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Articles en stock</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stockItems.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Stock faible</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{lowStockCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Valeur totale</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">-</div>
+          </CardContent>
+        </Card>
       </div>
 
       {lowStockCount > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-start gap-3 py-4 text-sm text-red-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
             <div>
-              <h3 className="font-semibold text-red-900">Alerte stock faible</h3>
-              <p className="text-sm text-red-700 mt-1">
-                {lowStockCount} article{lowStockCount > 1 ? 's sont' : ' est'} en dessous du seuil de réapprovisionnement.
-              </p>
+              <div className="font-semibold text-red-900">Alerte stock faible</div>
+              <div>
+                {lowStockCount} article{lowStockCount > 1 ? 's sont' : ' est'} en dessous du seuil
+                de reapprovisionnement.
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px">
-            <button
-              onClick={() => setActiveTab('items')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
-                activeTab === 'items'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Articles
-            </button>
-            <button
-              onClick={() => setActiveTab('movements')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 ${
-                activeTab === 'movements'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Historique des mouvements
-            </button>
-          </nav>
-        </div>
-
-        <div className="p-4">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Stock</CardTitle>
+              <CardDescription>Articles et mouvements de stock.</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={activeTab === 'items' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('items')}
+              >
+                <List className="mr-2 h-4 w-4" />
+                Articles
+              </Button>
+              <Button
+                variant={activeTab === 'movements' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('movements')}
+              >
+                <MoveRight className="mr-2 h-4 w-4" />
+                Mouvements
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
           {activeTab === 'items' && (
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
-                  <input
-                    type="text"
+            <>
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex-1 min-w-[220px]">
+                  <label className="text-sm font-medium">Categorie</label>
+                  <Input
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    placeholder="Filtrer par catégorie..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Filtrer par categorie..."
                   />
                 </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={showLowStock}
-                      onChange={(e) => setShowLowStock(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Afficher uniquement le stock faible</span>
-                  </label>
-                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={showLowStock}
+                    onChange={(e) => setShowLowStock(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Afficher uniquement le stock faible
+                </label>
               </div>
 
               {itemsLoading ? (
-                <div className="text-center py-8 text-gray-500">Chargement...</div>
+                <div className="py-8 text-center text-muted-foreground">
+                  <Spinner />
+                </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
+                  <table className="w-full text-sm">
+                    <thead className="border-b text-left text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Article</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seuil</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emplacement</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dernier réappro.</th>
-                        <th className="px-4 py-3"></th>
+                        <th className="px-4 py-3 font-medium">Article</th>
+                        <th className="px-4 py-3 font-medium">Categorie</th>
+                        <th className="px-4 py-3 font-medium">Quantite</th>
+                        <th className="px-4 py-3 font-medium">Seuil</th>
+                        <th className="px-4 py-3 font-medium">Emplacement</th>
+                        <th className="px-4 py-3 font-medium">Dernier reappr.</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredItems.map((item: StockItem) => {
-                        const isLowStock = item.quantity <= item.threshold;
+                    <tbody>
+                      {filteredItems.map((item: InventoryArticle) => {
+                        const isLowStock =
+                          (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0);
                         return (
-                          <tr key={item.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.category}</td>
+                          <tr
+                            key={item.id}
+                            className={`border-b last:border-0 ${
+                              isLowStock ? 'bg-red-50' : ''
+                            }`}
+                          >
+                            <td className="px-4 py-3 font-medium">{item.nom}</td>
+                            <td className="px-4 py-3">{item.categorie || '-'}</td>
                             <td className="px-4 py-3">
-                              <span className={`text-sm font-medium ${isLowStock ? 'text-red-600' : 'text-gray-900'}`}>
-                                {item.quantity} {item.unit}
+                              <span className={isLowStock ? 'text-red-600' : ''}>
+                                {item.quantiteStock ?? 0} {item.unite || ''}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.threshold} {item.unit}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{item.location}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {new Date(item.lastRestocked).toLocaleDateString()}
+                            <td className="px-4 py-3">
+                              {item.seuilAlerte ?? '-'} {item.unite || ''}
+                            </td>
+                            <td className="px-4 py-3">{item.emplacement || '-'}</td>
+                            <td className="px-4 py-3">
+                              {item.updatedAt
+                                ? new Date(item.updatedAt).toLocaleDateString()
+                                : '-'}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openAdjust(item)}
+                              >
                                 Ajuster
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -186,62 +300,168 @@ export default function StockPage() {
                     </tbody>
                   </table>
                   {filteredItems.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Aucun article trouvé</div>
+                    <div className="py-8 text-center text-muted-foreground">
+                      Aucun article trouve.
+                    </div>
                   )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {activeTab === 'movements' && (
-            <div className="space-y-4">
+            <>
               {movementsLoading ? (
-                <div className="text-center py-8 text-gray-500">Chargement...</div>
+                <div className="py-8 text-center text-muted-foreground">
+                  <Spinner />
+                </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
+                  <table className="w-full text-sm">
+                    <thead className="border-b text-left text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Article</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
+                        <th className="px-4 py-3 font-medium">Date</th>
+                        <th className="px-4 py-3 font-medium">Article</th>
+                        <th className="px-4 py-3 font-medium">Type</th>
+                        <th className="px-4 py-3 font-medium">Quantite</th>
+                        <th className="px-4 py-3 font-medium">Utilisateur</th>
+                        <th className="px-4 py-3 font-medium">Reference</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody>
                       {movements.map((movement: StockMovement) => (
-                        <tr key={movement.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {new Date(movement.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{movement.item}</td>
+                        <tr key={movement.id} className="border-b last:border-0">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              movement.type === 'IN' ? 'bg-green-200 text-green-800' : 'bg-orange-200 text-orange-800'
-                            }`}>
-                              {movement.type === 'IN' ? 'Entrée' : 'Sortie'}
-                            </span>
+                            {movement.dateOperation
+                              ? new Date(movement.dateOperation).toLocaleDateString()
+                              : '-'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
+                          <td className="px-4 py-3">
+                            {movement.article?.nom || movement.articleId}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{movement.user}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{movement.reference}</td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              className={
+                                movement.type === 'ENTREE'
+                                  ? 'bg-green-100 text-green-800'
+                                  : movement.type === 'SORTIE'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }
+                            >
+                              {movement.type}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            {movement.type === 'ENTREE' ? '+' : movement.type === 'SORTIE' ? '-' : ''}
+                            {movement.quantite}
+                          </td>
+                          <td className="px-4 py-3">{movement.utilisateurId || '-'}</td>
+                          <td className="px-4 py-3">{movement.numeroDocument || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   {movements.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Aucun mouvement enregistré</div>
+                    <div className="py-8 text-center text-muted-foreground">
+                      Aucun mouvement enregistre.
+                    </div>
                   )}
                 </div>
               )}
-            </div>
+            </>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ajuster le stock</DialogTitle>
+            <DialogDescription>
+              Creer un mouvement de stock pour l'article selectionne.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Article</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                {...form.register('articleId', { required: true })}
+              >
+                {stockItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Type</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                {...form.register('type')}
+              >
+                <option value="ENTREE">Entree</option>
+                <option value="SORTIE">Sortie</option>
+                <option value="AJUSTEMENT">Ajustement</option>
+                <option value="TRANSFERT">Transfert</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quantite</label>
+              <Input type="number" step="0.01" {...form.register('quantite', { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date operation</label>
+              <Input type="datetime-local" {...form.register('dateOperation')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Numero document</label>
+              <Input {...form.register('numeroDocument')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Emplacement</label>
+              <Input {...form.register('emplacement')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Input {...form.register('notes')} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={createMovementMutation.isPending}>
+                Enregistrer
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bientot disponible</DialogTitle>
+            <DialogDescription>
+              L'ajout direct d'articles sera disponible bientot. Utilisez la page
+              Produits pour creer un article.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+interface MovementFormValues {
+  articleId: string;
+  type: StockMovementType;
+  quantite: string;
+  dateOperation?: string;
+  numeroDocument?: string;
+  emplacement?: string;
+  notes?: string;
 }

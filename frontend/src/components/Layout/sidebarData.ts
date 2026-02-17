@@ -113,7 +113,7 @@ export const sidebarItems: SidebarItem[] = [
 
   { name: 'Messagerie Interne', href: '/dashboard/messages', icon: MessageSquare, permission: 'messages.read', categoryId: 'communication' },
   { name: 'Contacts Clients', href: '/dashboard/contacts', icon: PhoneCall, permission: 'customers.read', categoryId: 'communication' },
-  { name: 'Campagnes Email', href: '/dashboard/email-campaigns', icon: Mail, permission: 'marketing.read', categoryId: 'communication' },
+  { name: 'Campagnes Email', href: '/dashboard/crm/email-campaigns', icon: Mail, permission: 'marketing.read', categoryId: 'communication' },
 ];
 
 export const employeeProjectShortcuts: SidebarItem[] = [
