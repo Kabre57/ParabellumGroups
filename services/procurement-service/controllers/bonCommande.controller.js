@@ -211,11 +211,20 @@ exports.addLigne = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, action } = req.body;
 
     const validStatuses = ['BROUILLON', 'ENVOYE', 'CONFIRME', 'LIVRE', 'ANNULE'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Status invalide' });
+    }
+
+    const existing = await prisma.bonCommande.findUnique({
+      where: { id },
+      select: { status: true }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Bon de commande non trouvÃ©' });
     }
 
     const bon = await prisma.bonCommande.update({
@@ -227,6 +236,24 @@ exports.updateStatus = async (req, res) => {
         lignes: true
       }
     });
+
+    if (existing.status !== status) {
+      const resolvedAction =
+        action ||
+        (status === 'BROUILLON' || status === 'ENVOYE' || status === 'ANNULE'
+          ? 'revert'
+          : 'validate');
+
+      await prisma.bonCommandeValidationLog.create({
+        data: {
+          bonCommandeId: id,
+          action: resolvedAction,
+          fromStatus: existing.status,
+          toStatus: status,
+          createdById: req.userId || null
+        }
+      });
+    }
 
     // If status is LIVRE, update demande achat status to COMMANDEE
     if (status === 'LIVRE' && bon.demandeAchatId) {
@@ -243,6 +270,90 @@ exports.updateStatus = async (req, res) => {
       return res.status(404).json({ error: 'Bon de commande non trouvé' });
     }
     res.status(500).json({ error: 'Erreur lors de la mise à jour du status' });
+  }
+};
+
+// Get validation logs for a bon commande
+exports.getValidationLogs = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const logs = await prisma.bonCommandeValidationLog.findMany({
+      where: { bonCommandeId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ data: logs });
+  } catch (error) {
+    console.error('Error fetching validation logs:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'historique' });
+  }
+};
+
+// Get global validation history
+exports.getValidationHistory = async (req, res) => {
+  try {
+    const {
+      limit = 50,
+      page = 1,
+      bonCommandeId,
+      action,
+      fromStatus,
+      toStatus
+    } = req.query;
+
+    const take = Math.min(parseInt(limit, 10) || 50, 200);
+    const skip = (parseInt(page, 10) - 1) * take;
+
+    const where = {};
+    if (bonCommandeId) where.bonCommandeId = bonCommandeId;
+    if (action) where.action = action;
+    if (fromStatus) where.fromStatus = fromStatus;
+    if (toStatus) where.toStatus = toStatus;
+
+    const [logs, total] = await Promise.all([
+      prisma.bonCommandeValidationLog.findMany({
+        take,
+        skip,
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          bonCommande: {
+            select: {
+              id: true,
+              numeroBon: true
+            }
+          }
+        }
+      }),
+      prisma.bonCommandeValidationLog.count({ where })
+    ]);
+
+    const data = logs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      fromStatus: log.fromStatus,
+      toStatus: log.toStatus,
+      createdAt: log.createdAt,
+      createdById: log.createdById,
+      bonCommandeId: log.bonCommande?.id || null,
+      numeroBon: log.bonCommande?.numeroBon || null
+    }));
+
+    res.json({
+      data,
+      meta: {
+        pagination: {
+          total,
+          page: parseInt(page, 10),
+          limit: take,
+          totalPages: Math.ceil(total / take)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching validation history:', error);
+    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'historique' });
   }
 };
 

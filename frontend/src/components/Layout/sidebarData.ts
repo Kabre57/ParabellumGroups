@@ -66,7 +66,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read', categoryId: 'dashboard' },
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart, permission: 'reports.financial', categoryId: 'dashboard' },
 
-  { name: 'Workflow Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
+  { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Pipeline Commercial', href: '/dashboard/commercial/pipeline', icon: Workflow, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Devis & Propositions', href: '/dashboard/commercial/quotes', icon: FileText, permission: 'quotes.read', categoryId: 'commercial' },
 
@@ -89,7 +89,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Équipe Technique', href: '/dashboard/technical/techniciens', icon: UserCheck, permission: 'techniciens.read', categoryId: 'technical' },
   { name: 'Spécialités', href: '/dashboard/technical/specialites', icon: Award, permission: 'specialites.read', categoryId: 'technical' },
   { name: 'Gestion du Matériel', href: '/dashboard/technical/materiel', icon: Package, permission: 'materiel.read', categoryId: 'technical' },
-  { name: 'Rapports d\'Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'missions.read', categoryId: 'technical' },
+  { name: 'Rapports Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'missions.read', categoryId: 'technical' },
 
   { name: 'Projets', href: '/dashboard/projets', icon: FolderKanban, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Tâches & Planning', href: '/dashboard/projets/taches', icon: ClipboardList, permission: 'projects.read', categoryId: 'projects' },
@@ -126,7 +126,7 @@ export const quickAccessItems: SidebarItem[] = [
   { name: 'Nouveau Devis', href: '/dashboard/quotes?action=create', icon: FileText, permission: 'quotes.create' },
   { name: 'Nouvelle Intervention', href: '/dashboard/technical/interventions?action=create', icon: Wrench, permission: 'interventions.create' },
   { name: 'Saisie Dépense', href: '/dashboard/comptabilite/depenses?action=create', icon: DollarSign, permission: 'expenses.create' },
-  { name: 'Commande d\'Achat', href: '/dashboard/achats/commandes?action=create', icon: ShoppingCart, permission: 'purchases.create' },
+  { name: 'Commande Achat', href: '/dashboard/achats/commandes?action=create', icon: ShoppingCart, permission: 'purchases.create' },
 ];
 
 export const adminNavigation: SidebarItem[] = [
@@ -134,6 +134,6 @@ export const adminNavigation: SidebarItem[] = [
   { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
   { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },
   { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck, permission: 'admin' },
-  { name: 'Journal d\'audit', href: '/dashboard/admin/audit-logs', icon: BookOpen, permission: 'admin' },
+  { name: 'Journal audit', href: '/dashboard/admin/audit-logs', icon: BookOpen, permission: 'admin' },
   { name: 'Paramètres', href: '/dashboard/settings', icon: Settings, permission: 'admin' },
 ];

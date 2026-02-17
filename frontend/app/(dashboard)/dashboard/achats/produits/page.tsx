@@ -25,6 +25,8 @@ type ProductStatus = 'active' | 'discontinued';
 interface Product {
   id: string;
   reference?: string;
+  code?: string;
+  supplier?: string;
   name: string;
   category: string;
   stock: number;
@@ -94,6 +96,8 @@ export default function ProductsPage() {
     return items.map((item: InventoryArticle) => ({
       id: item.id,
       reference: item.reference,
+      code: item.reference,
+      supplier: item.fournisseurId,
       name: item.nom,
       category: item.categorie || 'Non categorise',
       stock: item.quantiteStock ?? 0,

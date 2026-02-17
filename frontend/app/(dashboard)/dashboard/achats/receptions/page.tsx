@@ -4,8 +4,10 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Search, TruckIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { procurementService } from '@/shared/api/procurement/procurement.service';
-import { PurchaseOrder } from '@/shared/api/procurement/types';
+import { PurchaseOrder, PurchaseOrderValidationLog } from '@/shared/api/procurement/types';
+import adminService, { AdminUser } from '@/shared/api/admin/admin.service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,15 +35,6 @@ interface Reception {
   orderStatus: PurchaseOrder['status'];
 }
 
-interface ReceptionHistoryEntry {
-  id: string;
-  number: string;
-  action: 'validate' | 'revert';
-  fromStatus: PurchaseOrder['status'];
-  toStatus: PurchaseOrder['status'];
-  timestamp: string;
-}
-
 const statusColors: Record<ReceptionStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   received: 'bg-blue-100 text-blue-800',
@@ -58,14 +51,17 @@ export default function ReceptionsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReceptionStatus | 'ALL'>('ALL');
-  const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [historyActionFilter, setHistoryActionFilter] = useState<'ALL' | 'validate' | 'revert'>('ALL');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | PurchaseOrder['status']>('ALL');
+  const [historyOrderFilter, setHistoryOrderFilter] = useState<string>('ALL');
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyLimit = 10;
   const [pendingAction, setPendingAction] = useState<{
     type: 'validate' | 'revert';
     reception: Reception;
     targetStatus: PurchaseOrder['status'];
   } | null>(null);
-  const [history, setHistory] = useState<ReceptionHistoryEntry[]>([]);
 
   const { data: receptions = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['receptions'],
@@ -74,6 +70,52 @@ export default function ReceptionsPage() {
       return res.data;
     },
   });
+
+  const { data: validationHistoryResponse } = useQuery({
+    queryKey: [
+      'receptions-history',
+      historyActionFilter,
+      historyStatusFilter,
+      historyOrderFilter,
+      historyPage,
+    ],
+    queryFn: async () => {
+      const res = await procurementService.getOrderValidationHistory({
+        limit: historyLimit,
+        page: historyPage,
+        action: historyActionFilter === 'ALL' ? undefined : historyActionFilter,
+        fromStatus: historyStatusFilter === 'ALL' ? undefined : historyStatusFilter,
+        bonCommandeId: historyOrderFilter === 'ALL' ? undefined : historyOrderFilter,
+      });
+      return res;
+    },
+  });
+
+  const validationHistory = validationHistoryResponse?.data || [];
+  const historyPagination = validationHistoryResponse?.meta?.pagination;
+
+  const { data: usersResponse } = useQuery({
+    queryKey: ['validation-users'],
+    queryFn: async () => adminService.users.getUsers({ limit: 200, page: 1 }),
+  });
+
+  const usersMap = useMemo(() => {
+    const map = new Map<number, AdminUser>();
+    (usersResponse?.data || []).forEach((user) => {
+      map.set(user.id, user);
+    });
+    return map;
+  }, [usersResponse]);
+
+  const resolveUserLabel = (createdById?: string | null) => {
+    if (!createdById) return 'N/A';
+    const parsedId = Number(createdById);
+    if (!Number.isFinite(parsedId)) return createdById;
+    const user = usersMap.get(parsedId);
+    if (!user) return `#${createdById}`;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return name || user.email || `#${createdById}`;
+  };
 
   const mappedReceptions: Reception[] = useMemo(
     () =>
@@ -112,10 +154,23 @@ export default function ReceptionsPage() {
   };
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: PurchaseOrder['status'] }) =>
-      procurementService.updateOrderStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      action,
+    }: {
+      id: string;
+      status: PurchaseOrder['status'];
+      action?: 'validate' | 'revert';
+    }) => procurementService.updateOrderStatus(id, status, action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      queryClient.invalidateQueries({ queryKey: ['receptions-history'] });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.error || error?.message || 'Erreur lors de la mise a jour'
+      );
     },
   });
 
@@ -124,7 +179,7 @@ export default function ReceptionsPage() {
       const targetStatus = reception.status === 'pending' ? 'CONFIRME' : 'LIVRE';
       setPendingAction({ type, reception, targetStatus });
     } else {
-      const targetStatus = reception.status === 'checked' ? 'CONFIRME' : 'ENVOYE';
+      const targetStatus = reception.status === 'checked' ? 'CONFIRME' : 'BROUILLON';
       setPendingAction({ type, reception, targetStatus });
     }
     setConfirmOpen(true);
@@ -134,20 +189,14 @@ export default function ReceptionsPage() {
     if (!pendingAction) return;
     const { reception, targetStatus, type } = pendingAction;
     updateStatusMutation.mutate(
-      { id: reception.id, status: targetStatus },
+      { id: reception.id, status: targetStatus, action: type },
       {
         onSuccess: () => {
-          setHistory((prev) => [
-            {
-              id: reception.id,
-              number: reception.number,
-              action: type,
-              fromStatus: reception.orderStatus,
-              toStatus: targetStatus,
-              timestamp: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
+          toast.success(
+            type === 'validate'
+              ? 'Reception validee avec succes'
+              : 'Validation annulee avec succes'
+          );
         },
       }
     );
@@ -164,9 +213,11 @@ export default function ReceptionsPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Receptions marchandises</h1>
         </div>
-        <Button variant="outline" onClick={() => setComingSoonOpen(true)}>
-          <TruckIcon className="mr-2 h-4 w-4" />
-          Nouvelle reception
+        <Button asChild variant="outline">
+          <Link href="/dashboard/achats/receptions/nouvelle">
+            <TruckIcon className="mr-2 h-4 w-4" />
+            Nouvelle reception
+          </Link>
         </Button>
       </div>
 
@@ -315,18 +366,6 @@ export default function ReceptionsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Bientot disponible</DialogTitle>
-            <DialogDescription>
-              La creation de receptions arrive bientot. Vous pouvez deja valider
-              les receptions depuis cette page.
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -354,25 +393,99 @@ export default function ReceptionsPage() {
           <CardDescription>Dernieres actions effectuees sur les receptions.</CardDescription>
         </CardHeader>
         <CardContent>
-          {history.length === 0 ? (
+          <div className="mb-4 flex flex-wrap gap-3">
+            <select
+              value={historyOrderFilter}
+              onChange={(e) => {
+                setHistoryOrderFilter(e.target.value);
+                setHistoryPage(1);
+              }}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="ALL">Tous les bons</option>
+              {receptions.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {order.number}
+                </option>
+              ))}
+            </select>
+            <select
+              value={historyActionFilter}
+              onChange={(e) => {
+                setHistoryActionFilter(e.target.value as 'ALL' | 'validate' | 'revert');
+                setHistoryPage(1);
+              }}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="ALL">Toutes les actions</option>
+              <option value="validate">Validation</option>
+              <option value="revert">Annulation</option>
+            </select>
+            <select
+              value={historyStatusFilter}
+              onChange={(e) => {
+                setHistoryStatusFilter(e.target.value as 'ALL' | PurchaseOrder['status']);
+                setHistoryPage(1);
+              }}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="BROUILLON">BROUILLON</option>
+              <option value="ENVOYE">ENVOYE</option>
+              <option value="CONFIRME">CONFIRME</option>
+              <option value="LIVRE">LIVRE</option>
+              <option value="ANNULE">ANNULE</option>
+            </select>
+          </div>
+          {validationHistory.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               Aucun historique pour cette session.
             </div>
           ) : (
             <ul className="space-y-2 text-sm">
-              {history.slice(0, 10).map((entry, index) => (
+              {validationHistory.slice(0, 10).map((entry, index) => (
                 <li key={`${entry.id}-${index}`} className="flex items-center gap-3">
-                  <Badge variant="outline">{entry.number}</Badge>
+                  <Badge variant="outline">{entry.numeroBon || 'N/A'}</Badge>
                   <span>
                     {entry.action === 'validate' ? 'Validation' : 'Annulation'}:{' '}
                     {entry.fromStatus} → {entry.toStatus}
                   </span>
                   <span className="text-muted-foreground">
-                    {new Date(entry.timestamp).toLocaleString('fr-FR')}
+                    Utilisateur: {resolveUserLabel(entry.createdById)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {new Date(entry.createdAt).toLocaleString('fr-FR')}
                   </span>
                 </li>
               ))}
             </ul>
+          )}
+          {historyPagination && historyPagination.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setHistoryPage((prev) => Math.max(prev - 1, 1))}
+                disabled={historyPage === 1}
+              >
+                Precedent
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {historyPage} / {historyPagination.totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setHistoryPage((prev) =>
+                    historyPagination.totalPages ? Math.min(prev + 1, historyPagination.totalPages) : prev
+                  )
+                }
+                disabled={historyPage === historyPagination.totalPages}
+              >
+                Suivant
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -15,8 +15,10 @@ router.use(authMiddleware);
 
 // Routes
 router.get('/', bonCommandeController.getAll);
+router.get('/validations', bonCommandeController.getValidationHistory);
 router.post('/', validateBonCommande, bonCommandeController.create);
 router.get('/fournisseur/:fournisseurId', bonCommandeController.getByFournisseur);
+router.get('/:id/validations', bonCommandeController.getValidationLogs);
 router.get('/:id', bonCommandeController.getById);
 router.put('/:id', validateBonCommande, bonCommandeController.update);
 router.post('/:id/lignes', bonCommandeController.addLigne);

@@ -8,7 +8,8 @@ import {
   StockMovement,
   PurchaseOrderStatus,
   PurchaseRequestStatus,
-  SupplierStatus
+  SupplierStatus,
+  PurchaseOrderValidationLog
 } from './types';
 
 export interface ListResponse<T> {
@@ -169,6 +170,7 @@ export const procurementService = {
       prixUnitaire: number;
     }[];
     requestId?: string;
+    status?: PurchaseOrderStatus;
   }): Promise<DetailResponse<PurchaseOrder>> {
     const response = await apiClient.post('/procurement/bons-commande', data);
     return response.data;
@@ -188,8 +190,31 @@ export const procurementService = {
     return response.data;
   },
 
-  async updateOrderStatus(id: string, status: PurchaseOrderStatus): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.patch(`/procurement/bons-commande/${id}/status`, { status });
+  async updateOrderStatus(
+    id: string,
+    status: PurchaseOrderStatus,
+    action?: 'validate' | 'revert'
+  ): Promise<DetailResponse<PurchaseOrder>> {
+    const response = await apiClient.patch(`/procurement/bons-commande/${id}/status`, { status, action });
+    return response.data;
+  },
+
+  async getOrderValidationHistory(params?: {
+    limit?: number;
+    page?: number;
+    bonCommandeId?: string;
+    action?: string;
+    fromStatus?: PurchaseOrderStatus;
+    toStatus?: PurchaseOrderStatus;
+  }): Promise<ListResponse<PurchaseOrderValidationLog>> {
+    const response = await apiClient.get('/procurement/bons-commande/validations', {
+      params
+    });
+    return response.data;
+  },
+
+  async getOrderValidationLogs(id: string): Promise<ListResponse<PurchaseOrderValidationLog>> {
+    const response = await apiClient.get(`/procurement/bons-commande/${id}/validations`);
     return response.data;
   },
 

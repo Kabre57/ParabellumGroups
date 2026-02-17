@@ -156,7 +156,7 @@ export default function ProspectionWorkflowPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Workflow Prospection</h1>
+          <h1 className="text-3xl font-bold">Prospection</h1>
           <p className="text-muted-foreground">Pilotez votre prospection commerciale</p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>

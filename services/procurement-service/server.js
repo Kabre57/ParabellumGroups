@@ -56,6 +56,11 @@ app.use('/api/fournisseurs', fournisseurRoutes);
 app.use('/api/demandes-achat', demandeAchatRoutes);
 app.use('/api/bons-commande', bonCommandeRoutes);
 
+// Compatibilite avec les routes passees via /api/procurement/*
+app.use('/api/procurement/fournisseurs', fournisseurRoutes);
+app.use('/api/procurement/demandes-achat', demandeAchatRoutes);
+app.use('/api/procurement/bons-commande', bonCommandeRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route non trouvée' });

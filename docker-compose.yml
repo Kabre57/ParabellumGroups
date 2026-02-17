@@ -205,6 +205,7 @@ services:
       - PORT=4005
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_inventory?schema=public
+      - AUTH_SERVICE_URL=http://auth-service:4001
     depends_on:
       postgres:
         condition: service_healthy

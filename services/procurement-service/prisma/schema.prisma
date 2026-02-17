@@ -81,8 +81,23 @@ model BonCommande {
   demandeAchat    DemandeAchat?      @relation(fields: [demandeAchatId], references: [id], onDelete: SetNull)
   fournisseur     Fournisseur        @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
   lignes          LigneCommande[]
+  validationLogs  BonCommandeValidationLog[]
 
   @@map("bons_commande")
+}
+
+model BonCommandeValidationLog {
+  id             String            @id @default(uuid())
+  bonCommandeId  String
+  action         String
+  fromStatus     StatusBonCommande
+  toStatus       StatusBonCommande
+  createdAt      DateTime          @default(now())
+  createdById    String?
+
+  bonCommande    BonCommande       @relation(fields: [bonCommandeId], references: [id], onDelete: Cascade)
+
+  @@map("bon_commande_validation_logs")
 }
 
 model LigneCommande {

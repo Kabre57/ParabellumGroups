@@ -78,6 +78,17 @@ export interface PurchaseOrder {
   requestNumber?: string;
 }
 
+export interface PurchaseOrderValidationLog {
+  id: string;
+  action: string;
+  fromStatus: PurchaseOrderStatus;
+  toStatus: PurchaseOrderStatus;
+  createdAt: string;
+  createdById?: string | null;
+  bonCommandeId?: string | null;
+  numeroBon?: string | null;
+}
+
 export type PurchaseRequestStatus =
   | 'BROUILLON'
   | 'SOUMISE'
