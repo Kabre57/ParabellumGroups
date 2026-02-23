@@ -1,57 +1,89 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Plus, Search, Download, CheckCircle, Clock } from 'lucide-react';
-
-interface Payroll {
-  id: string;
-  employee: string;
-  period: string;
-  grossSalary: number;
-  netSalary: number;
-  socialCharges: number;
-  tax: number;
-  bonus: number;
-  deductions: number;
-  status: 'draft' | 'validated' | 'paid';
-  paymentDate?: string;
-}
+import { DollarSign, Plus, Search, Download, CheckCircle } from 'lucide-react';
+import { hrService, Payroll } from '@/shared/api/hr';
+import { Spinner } from '@/components/ui/spinner';
+import { toast } from 'sonner';
 
 export default function PaiePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [periodFilter, setPeriodFilter] = useState('2026-01');
+  const queryClient = useQueryClient();
 
-  const { data: payrolls, isLoading } = useQuery<Payroll[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['payrolls', periodFilter],
     queryFn: async () => {
-      return [
-        { id: '1', employee: 'Jean Dupont', period: '2026-01', grossSalary: 3500, netSalary: 2625, socialCharges: 700, tax: 175, bonus: 0, deductions: 0, status: 'paid', paymentDate: '2026-01-31' },
-        { id: '2', employee: 'Marie Martin', period: '2026-01', grossSalary: 3200, netSalary: 2400, socialCharges: 640, tax: 160, bonus: 200, deductions: 0, status: 'paid', paymentDate: '2026-01-31' },
-        { id: '3', employee: 'Pierre Durant', period: '2026-01', grossSalary: 2800, netSalary: 2100, socialCharges: 560, tax: 140, bonus: 0, deductions: 0, status: 'validated' },
-        { id: '4', employee: 'Sophie Lambert', period: '2026-01', grossSalary: 1200, netSalary: 1050, socialCharges: 120, tax: 30, bonus: 0, deductions: 0, status: 'validated' },
-        { id: '5', employee: 'Lucas Bernard', period: '2026-01', grossSalary: 600, netSalary: 570, socialCharges: 30, tax: 0, bonus: 0, deductions: 0, status: 'draft' },
-      ];
+      const [year, month] = periodFilter.split('-').map((v) => parseInt(v, 10));
+      return hrService.getPayrolls({ year, month, pageSize: 50 });
     },
   });
 
-  const getStatusBadge = (status: string) => {
+  const payrolls = data?.data ?? [];
+
+  const validateMutation = useMutation({
+    mutationFn: (p: Payroll) => hrService.updatePayroll(p.id, { statut: 'VALIDE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payrolls'] });
+      toast.success('Bulletin validé');
+    },
+    onError: () => toast.error('Validation impossible'),
+  });
+
+  const payMutation = useMutation({
+    mutationFn: (p: Payroll) => hrService.updatePayroll(p.id, { statut: 'PAYE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payrolls'] });
+      toast.success('Bulletin marqué payé');
+    },
+    onError: () => toast.error('Mise à jour impossible'),
+  });
+
+  const downloadMutation = useMutation({
+    mutationFn: (p: Payroll) => hrService.downloadPayrollPdf(p.id),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bulletin-${Date.now()}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    },
+    onError: () => toast.error('PDF indisponible'),
+  });
+
+  const getStatusBadge = (status: string | undefined) => {
+    const s = (status || 'genere').toLowerCase();
     const badges: Record<string, { label: string; className: string }> = {
       draft: { label: 'Brouillon', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' },
+      genere: { label: 'Généré', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+      valide: { label: 'Validée', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+      paye: { label: 'Payée', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
       validated: { label: 'Validée', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
       paid: { label: 'Payée', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
     };
-    const badge = badges[status] || badges.draft;
+    const badge = badges[s] || badges.genere;
     return <Badge className={badge.className}>{badge.label}</Badge>;
   };
 
-  const filteredPayrolls = payrolls?.filter(payroll =>
-    payroll.employee.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPayrolls = useMemo(
+    () =>
+      payrolls.filter((p: Payroll) =>
+        `${p.employee?.firstName ?? ''} ${p.employee?.lastName ?? ''}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      ),
+    [payrolls, searchQuery]
   );
+
+  const totalGross = payrolls.reduce((sum, p: Payroll) => sum + (p.grossSalary || 0), 0);
+  const totalNet = payrolls.reduce((sum, p: Payroll) => sum + (p.netSalary || 0), 0);
+  const totalCharges = payrolls.reduce((sum, p: Payroll) => sum + (p.socialContributions || p.deductions || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -81,7 +113,7 @@ export default function PaiePage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Salaires Bruts</p>
               <p className="text-2xl font-bold">
-                {payrolls?.reduce((sum, p) => sum + p.grossSalary, 0).toLocaleString()}F
+                {totalGross.toLocaleString()}F
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-blue-500" />
@@ -92,7 +124,7 @@ export default function PaiePage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Salaires Nets</p>
               <p className="text-2xl font-bold text-green-600">
-                {payrolls?.reduce((sum, p) => sum + p.netSalary, 0).toLocaleString()}F
+                {totalNet.toLocaleString()}F
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-green-500" />
@@ -103,7 +135,7 @@ export default function PaiePage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Charges Sociales</p>
               <p className="text-2xl font-bold text-orange-600">
-                {payrolls?.reduce((sum, p) => sum + p.socialCharges, 0).toLocaleString()}F
+                {totalCharges.toLocaleString()}F
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-orange-500" />
@@ -114,7 +146,7 @@ export default function PaiePage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Payées</p>
               <p className="text-2xl font-bold text-green-600">
-                {payrolls?.filter(p => p.status === 'paid').length || 0}/{payrolls?.length || 0}
+                {payrolls.filter((p: Payroll) => (p.status || '').startsWith('pay')).length}/{payrolls.length}
               </p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-500" />
@@ -149,7 +181,7 @@ export default function PaiePage() {
       {/* Payrolls Table */}
       <Card className="p-6">
         {isLoading ? (
-          <div className="text-center py-8">Chargement...</div>
+          <div className="text-center py-8"><Spinner /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -168,59 +200,71 @@ export default function PaiePage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPayrolls?.map((payroll) => (
+                {filteredPayrolls?.map((payroll: Payroll) => (
                   <tr key={payroll.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="py-3 px-4 font-medium">{payroll.employee}</td>
+                    <td className="py-3 px-4 font-medium">
+                      {payroll.employee?.firstName ? `${payroll.employee.firstName} ${payroll.employee.lastName ?? ''}` : payroll.employeeId}
+                      {payroll.employee?.matricule && (
+                        <div className="text-xs text-gray-500">Matricule {payroll.employee.matricule}</div>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-sm">
                       {new Date(payroll.period + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                     </td>
-                    <td className="py-3 px-4 text-right">{payroll.grossSalary.toLocaleString()}F</td>
-                    <td className="py-3 px-4 text-right text-red-600">-{payroll.socialCharges.toLocaleString()}F</td>
-                    <td className="py-3 px-4 text-right text-red-600">-{payroll.tax.toLocaleString()}F</td>
+                    <td className="py-3 px-4 text-right">{(payroll.grossSalary || 0).toLocaleString()}F</td>
+                    <td className="py-3 px-4 text-right text-red-600">-{(payroll.socialContributions || payroll.deductions || 0).toLocaleString()}F</td>
+                    <td className="py-3 px-4 text-right text-red-600">-{(payroll.taxAmount || 0).toLocaleString()}F</td>
                     <td className="py-3 px-4 text-right text-green-600">
-                      {payroll.bonus > 0 ? `+${payroll.bonus.toLocaleString()}F` : '-'}
+                      {payroll.bonuses && payroll.bonuses > 0 ? `+${payroll.bonuses.toLocaleString()}F` : '-'}
                     </td>
-                    <td className="py-3 px-4 text-right font-bold text-blue-600">{payroll.netSalary.toLocaleString()}F</td>
+                    <td className="py-3 px-4 text-right font-bold text-blue-600">{(payroll.netSalary || 0).toLocaleString()}F</td>
                     <td className="py-3 px-4">{getStatusBadge(payroll.status)}</td>
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
                       {payroll.paymentDate ? new Date(payroll.paymentDate).toLocaleDateString('fr-FR') : '-'}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadMutation.mutate(payroll)}
+                          disabled={downloadMutation.isPending}
+                          title="Télécharger le PDF"
+                        >
                           <Download className="h-3 w-3" />
                         </Button>
-                        {payroll.status === 'draft' && (
-                          <Button size="sm" className="bg-blue-600 text-white">
+                        {(payroll.status === 'draft' || payroll.status === 'genere') && (
+                          <Button
+                            size="sm"
+                            className="bg-blue-600 text-white"
+                            onClick={() => validateMutation.mutate(payroll)}
+                            disabled={validateMutation.isPending}
+                          >
                             <CheckCircle className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {payroll.status && ['valide', 'validated', 'validee'].includes(payroll.status) && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 text-white"
+                            onClick={() => payMutation.mutate(payroll)}
+                            disabled={payMutation.isPending}
+                          >
+                            Payer
                           </Button>
                         )}
                       </div>
                     </td>
                   </tr>
                 ))}
+                {filteredPayrolls?.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="text-center py-8 text-muted-foreground">
+                      Aucun bulletin trouvé pour cette période.
+                    </td>
+                  </tr>
+                )}
               </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 dark:bg-gray-800 font-bold">
-                  <td colSpan={2} className="py-3 px-4">TOTAUX</td>
-                  <td className="py-3 px-4 text-right">
-                    {payrolls?.reduce((sum, p) => sum + p.grossSalary, 0).toLocaleString()}F
-                  </td>
-                  <td className="py-3 px-4 text-right text-red-600">
-                    -{payrolls?.reduce((sum, p) => sum + p.socialCharges, 0).toLocaleString()}F
-                  </td>
-                  <td className="py-3 px-4 text-right text-red-600">
-                    -{payrolls?.reduce((sum, p) => sum + p.tax, 0).toLocaleString()}F
-                  </td>
-                  <td className="py-3 px-4 text-right text-green-600">
-                    +{payrolls?.reduce((sum, p) => sum + p.bonus, 0).toLocaleString()}F
-                  </td>
-                  <td className="py-3 px-4 text-right text-blue-600">
-                    {payrolls?.reduce((sum, p) => sum + p.netSalary, 0).toLocaleString()}F
-                  </td>
-                  <td colSpan={3}></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         )}

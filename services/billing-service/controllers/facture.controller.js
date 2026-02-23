@@ -4,6 +4,7 @@ const moment = require('moment');
 const { generateFactureNumber } = require('../utils/billingNumberGenerator');
 const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateFacturePDF } = require('../utils/pdfGenerator');
+const axios = require('axios');
 const path = require('path');
 
 /**
@@ -68,6 +69,20 @@ exports.getFactureById = async (req, res) => {
 exports.createFacture = async (req, res) => {
   try {
     const { clientId, dateEcheance, notes } = req.body;
+    const serviceId = req.user?.serviceId || null;
+    let serviceLogoUrl = null;
+
+    if (serviceId) {
+      try {
+        const authBase = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
+        const resp = await axios.get(`${authBase}/api/services/${serviceId}`, {
+          headers: { authorization: req.headers.authorization || '' },
+        });
+        serviceLogoUrl = resp.data?.data?.imageUrl || null;
+      } catch (e) {
+        console.warn('Logo service non récupéré', e?.response?.status || e.message);
+      }
+    }
 
     // Générer le numéro de facture
     const currentYearMonth = moment().format('YYYYMM');
@@ -96,7 +111,9 @@ exports.createFacture = async (req, res) => {
         montantHT: 0,
         montantTVA: 0,
         montantTTC: 0,
-        notes
+        notes,
+        serviceId,
+        serviceLogoUrl
       },
       include: {
         lignes: true,

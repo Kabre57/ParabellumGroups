@@ -12,3 +12,5 @@ export { commercialService } from './commercial';
 export { analyticsService } from './analytics';
 export { customersService } from './customers';
 export { communicationService } from './communication';
+export { inventoryService } from './inventory/inventory.service';
+export { inventoryReceptionsService } from './inventory/receptions.service';

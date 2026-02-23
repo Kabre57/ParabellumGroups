@@ -35,6 +35,12 @@ export default function LeavesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [calendarRange, setCalendarRange] = useState<{ start: string; end: string }>(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    return { start, end };
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['leave-requests', page, searchQuery, statusFilter],
@@ -48,6 +54,11 @@ export default function LeavesPage() {
       
       return response;
     },
+  });
+
+  const { data: calendarData, isLoading: calLoading } = useQuery({
+    queryKey: ['leave-calendar', calendarRange],
+    queryFn: () => hrService.getCalendrier({ startDate: calendarRange.start, endDate: calendarRange.end }),
   });
 
   const approveMutation = useMutation({
@@ -209,7 +220,14 @@ export default function LeavesPage() {
                 {leaveRequests.map((leave: any) => (
                   <TableRow key={leave.id}>
                     <TableCell className="font-medium">
-                      {leave.employeId}
+                      {leave.employe?.prenom
+                        ? `${leave.employe.prenom} ${leave.employe.nom}`
+                        : leave.employeId}
+                      {leave.employe?.matricule && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Matricule {leave.employe.matricule}
+                        </div>
+                      )}
                       {leave.motif && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {leave.motif}
@@ -307,16 +325,52 @@ export default function LeavesPage() {
         )}
       </Card>
 
-      {/* Calendar View (Optional - Placeholder) */}
+      {/* Calendar View */}
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Vue calendrier
         </h2>
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            Vue calendrier des congés - À implémenter
-          </p>
+        <div className="flex gap-3 mb-4">
+          <Input
+            type="date"
+            value={calendarRange.start}
+            onChange={(e) => setCalendarRange((p) => ({ ...p, start: e.target.value }))}
+          />
+          <Input
+            type="date"
+            value={calendarRange.end}
+            onChange={(e) => setCalendarRange((p) => ({ ...p, end: e.target.value }))}
+          />
         </div>
+        {calLoading ? (
+          <div className="flex items-center justify-center py-8"><Spinner /></div>
+        ) : (
+          <div className="space-y-2">
+            {(calendarData?.data ?? []).map((leave: any) => (
+              <div
+                key={leave.id}
+                className="flex items-center justify-between p-3 rounded-md bg-gray-50 dark:bg-gray-800"
+              >
+                <div>
+                  <div className="font-medium">
+                    {leave.employe?.prenom ? `${leave.employe.prenom} ${leave.employe.nom}` : leave.employeId}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {format(new Date(leave.dateDebut), 'dd MMM', { locale: fr })} → {format(new Date(leave.dateFin), 'dd MMM', { locale: fr })}
+                    {' · '}
+                    {getLeaveTypeLabel(leave.typeConge)}
+                  </div>
+                </div>
+                <Badge variant={getStatusBadgeVariant(leave.statut)}>
+                  {getStatusLabel(leave.statut)}
+                </Badge>
+              </div>
+            ))}
+            {(calendarData?.data ?? []).length === 0 && (
+              <div className="text-sm text-gray-500">Aucun congé sur la période.</div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Create Dialog */}

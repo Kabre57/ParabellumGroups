@@ -47,33 +47,74 @@ const hrPermissionRules = [
  * Path rewrite pour hr-service
  */
 const rewriteHrPath = (path) => {
-  const employeeContractsMatch = path.match(/^\/hr\/employees\/([^\/]+)\/contracts(\?.*)?$/);
+  console.log('[HR Path Rewrite] Original path:', path);
+
+  // Normaliser le préfixe (/api/hr -> /hr) pour simplifier les remplacements
+  const normalizedPath = path.replace(/^\/api\/hr/, '/hr');
+
+  const employeeContractsMatch = normalizedPath.match(/^\/hr\/employees\/([^\/]+)\/contracts(\?.*)?$/);
   if (employeeContractsMatch) {
     const employeeId = employeeContractsMatch[1];
     const query = employeeContractsMatch[2] || '';
     const queryPrefix = query ? `${query}&` : '?';
-    return `/contracts${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
+    const rewritten = `/contracts${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/employees')) {
-    return path.replace('/hr/employees', '/api/employes');
+  if (normalizedPath.startsWith('/hr/employees')) {
+    const rewritten = normalizedPath.replace('/hr/employees', '/api/employes');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/leave-requests')) {
-    return path.replace('/hr/leave-requests', '/api/conges');
+  if (normalizedPath.startsWith('/hr/leave-requests')) {
+    const rewritten = normalizedPath.replace('/hr/leave-requests', '/api/conges');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/presences')) {
-    return path.replace('/hr/presences', '/api/presences');
+  if (normalizedPath.startsWith('/hr/presences')) {
+    const rewritten = normalizedPath.replace('/hr/presences', '/api/presences');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/evaluations')) {
-    return path.replace('/hr/evaluations', '/api/evaluations');
+  if (normalizedPath.startsWith('/hr/evaluations')) {
+    const rewritten = normalizedPath.replace('/hr/evaluations', '/api/evaluations');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/contracts')) {
-    return path.replace('/hr/contracts', '/contracts');
+  if (normalizedPath.startsWith('/hr/contracts')) {
+    const rewritten = normalizedPath.replace('/hr/contracts', '/contracts');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
-  if (path.startsWith('/hr/payroll')) {
-    return path.replace('/hr/payroll', '/payroll');
+  if (normalizedPath.startsWith('/hr/payroll')) {
+    const rewritten = normalizedPath.replace('/hr/payroll', '/payroll');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payrolls')) {
+    const rewritten = normalizedPath.replace('/payrolls', '/payroll');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/api/payrolls')) {
+    const rewritten = normalizedPath.replace('/api/payrolls', '/payroll');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/api/employees')) {
+    const rewritten = normalizedPath.replace('/api/employees', '/api/employes');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/employees')) {
+    const rewritten = normalizedPath.replace('/employees', '/api/employes');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
 
-  return path.replace(/^\/hr/, '/api');
+  const rewritten = normalizedPath.replace(/^\/hr/, '/api');
+  console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+  return rewritten;
 };
 
 /**
@@ -91,5 +132,28 @@ module.exports = {
       auth: true,
       permissionByPath: hrPermissionRules,
     },
+    {
+      path: '/employees',
+      auth: true,
+      permissionByPath: hrPermissionRules,
+      pathRewrite: rewriteHrPath,
+    },
+    {
+      path: '/payrolls',
+      auth: true,
+      permissionByPath: hrPermissionRules,
+      pathRewrite: rewriteHrPath,
+    },
+    {
+      path: '/timesheets',
+      auth: true,
+      // Pas de permissions fines pour l'instant, on redirige vers le stub HR
+      pathRewrite: (path) => {
+        console.log('[HR Path Rewrite] Timesheets original path:', path);
+        const rewritten = path.replace(/^\/timesheets/, '/api/timesheets');
+        console.log('[HR Path Rewrite] Timesheets rewritten to:', rewritten);
+        return rewritten;
+      }
+    }
   ],
 };

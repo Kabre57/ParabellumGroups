@@ -4,6 +4,7 @@ const payrollController = require('../controllers/payroll.controller');
 
 router.get('/', payrollController.getAllPayroll.bind(payrollController));
 router.get('/:id', payrollController.getPayroll.bind(payrollController));
+router.get('/:id/pdf', payrollController.getPayrollPdf.bind(payrollController));
 router.post('/', payrollController.createPayroll.bind(payrollController));
 router.post('/generate', payrollController.generatePayslip.bind(payrollController));
 router.patch('/:id', payrollController.updatePayroll.bind(payrollController));

@@ -34,3 +34,30 @@ export interface StockMovement {
   notes?: string;
   article?: InventoryArticle;
 }
+
+export type ReceptionStatus = 'EN_ATTENTE' | 'PARTIELLE' | 'COMPLETE' | 'VERIFIEE';
+
+export interface ReceptionLine {
+  id: string;
+  articleId: string | null;
+  designation?: string;
+  quantitePrev: number;
+  quantiteRecue: number;
+  prixUnitaire: number;
+  tva?: number;
+  ecart?: number;
+  article?: InventoryArticle;
+}
+
+export interface Reception {
+  id: string;
+  numero: string;
+  bonCommandeId: string;
+  fournisseurId?: string;
+  dateReception: string;
+  status: ReceptionStatus;
+  notes?: string;
+  lignes: ReceptionLine[];
+  createdAt?: string;
+  updatedAt?: string;
+}

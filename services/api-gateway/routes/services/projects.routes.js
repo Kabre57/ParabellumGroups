@@ -3,18 +3,33 @@ const { projectsServiceLimiter } = require('../../middleware/serviceLimiters');
 
 /**
  * Path rewrite pour projects-service
+ *
+ * - /api/projects -> /api/projets
+ * - /api/projects/:id/tasks -> /api/taches?projetId=:id
+ *
+ * Note: les requêtes arrivent souvent préfixées par /api,
+ * on normalise donc /projects et /api/projects.
  */
 const rewriteProjectsPath = (path) => {
-  const tasksMatch = path.match(/^\/projects\/([^\/]+)\/tasks(\/[^?]*)?(\?.*)?$/);
+  console.log('[Projects Path Rewrite] Original path:', path);
+  // Gestion des routes taches imbriquées
+  const tasksMatch = path.match(/^\/(?:api\/)?projects\/([^\/]+)\/tasks(\/[^?]*)?(\?.*)?$/);
   if (tasksMatch) {
     const projectId = tasksMatch[1];
     const tail = tasksMatch[2] || '';
     const query = tasksMatch[3] || '';
     const queryPrefix = query ? `${query}&` : '?';
-    return `/api/taches${tail}${queryPrefix}projetId=${encodeURIComponent(projectId)}`;
+    const rewritten = `/api/taches${tail}${queryPrefix}projetId=${encodeURIComponent(projectId)}`;
+    console.log('[Projects Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
   }
 
-  return path.replace(/^\/projects/, '/api/projets');
+  // Normalisation du préfixe principal
+  const rewritten = path
+    .replace(/^\/api\/projects/, '/api/projets')
+    .replace(/^\/projects/, '/api/projets');
+  console.log('[Projects Path Rewrite] Rewritten to:', rewritten);
+  return rewritten;
 };
 
 /**

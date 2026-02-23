@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Search, XCircle } from 'lucide-react';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +56,10 @@ const statusIcons: Record<AuditStatus, any> = {
 export default function AuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AuditStatus | 'ALL'>('ALL');
-  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [selectedArticleId, setSelectedArticleId] = useState<string>('');
+
+  const queryClient = useQueryClient();
 
   const { data: stockResponse, isLoading } = useQuery({
     queryKey: ['inventory-articles', 'audit'],
@@ -76,6 +81,42 @@ export default function AuditPage() {
       })),
     [stockResponse]
   );
+
+  // ensure default selection when opening dialog
+  useEffect(() => {
+    if (auditDialogOpen && auditItems.length > 0) {
+      setSelectedArticleId(auditItems[0].id);
+    }
+  }, [auditDialogOpen, auditItems]);
+
+  const auditForm = useForm<AuditFormValues>({
+    defaultValues: {
+      articleId: '',
+      actualStock: '',
+      dateOperation: '',
+      notes: '',
+    },
+  });
+
+  const createAdjustment = useMutation({
+    mutationFn: (payload: {
+      articleId: string;
+      quantite: number;
+      dateOperation?: string;
+      notes?: string;
+    }) =>
+      inventoryService.createMovement({
+        articleId: payload.articleId,
+        type: 'AJUSTEMENT',
+        quantite: payload.quantite,
+        dateOperation: payload.dateOperation,
+        notes: payload.notes,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
+    },
+  });
 
   const filteredAudits = auditItems.filter((item) => {
     const matchesSearch =
@@ -107,7 +148,7 @@ export default function AuditPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Audit stock</h1>
         </div>
-        <Button variant="outline" onClick={() => setComingSoonOpen(true)}>
+        <Button variant="outline" onClick={() => setAuditDialogOpen(true)}>
           <ClipboardCheck className="mr-2 h-4 w-4" />
           Nouvel audit
         </Button>
@@ -254,16 +295,103 @@ export default function AuditPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog open={auditDialogOpen} onOpenChange={setAuditDialogOpen}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Bientot disponible</DialogTitle>
+            <DialogTitle>Nouvel audit</DialogTitle>
             <DialogDescription>
-              La creation et la validation d'audits seront ajoutees prochainement.
+              Saisir le stock reel pour ajuster l'article selectionne.
             </DialogDescription>
           </DialogHeader>
+
+          <form
+            onSubmit={auditForm.handleSubmit((values) => {
+              const article = auditItems.find((a) => a.id === values.articleId) || auditItems[0];
+              if (!article) return;
+              const theoretical = article.theoreticalStock;
+              const actual = Number(values.actualStock || 0);
+              const variance = actual - theoretical;
+
+              if (variance === 0) {
+                toast.info('Aucun ecart : aucun mouvement cree.');
+                setAuditDialogOpen(false);
+                return;
+              }
+
+              createAdjustment.mutate(
+                {
+                  articleId: article.id,
+                  quantite: variance,
+                  dateOperation: values.dateOperation || undefined,
+                  notes: values.notes || undefined,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success('Audit enregistre et ajustement cree.');
+                    setAuditDialogOpen(false);
+                  },
+                  onError: (e: any) => {
+                    toast.error(e?.response?.data?.error || e?.message || 'Erreur audit');
+                  },
+                }
+              );
+            })}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Article</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                {...auditForm.register('articleId')}
+                value={auditForm.watch('articleId') || selectedArticleId}
+                onChange={(e) => {
+                  auditForm.setValue('articleId', e.target.value);
+                  setSelectedArticleId(e.target.value);
+                }}
+              >
+                {auditItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.product} ({item.code})
+                  </option>
+                ))}
+              </select>
+              {selectedArticleId && (
+                <div className="text-xs text-muted-foreground">
+                  Stock theorique :{' '}
+                  {auditItems.find((a) => a.id === selectedArticleId)?.theoreticalStock ?? 0}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stock reel constate</label>
+              <Input type="number" step="0.01" {...auditForm.register('actualStock', { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date</label>
+              <Input type="datetime-local" {...auditForm.register('dateOperation')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Input {...auditForm.register('notes')} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setAuditDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={createAdjustment.isPending}>
+                Enregistrer
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+interface AuditFormValues {
+  articleId: string;
+  actualStock: string;
+  dateOperation?: string;
+  notes?: string;
 }

@@ -173,8 +173,7 @@ docker compose logs -f
 
     ```bash
 docker compose logs -f auth-service
-docker compose logs -f frontend
- API Gateway   ```
+    ```
 
 ### 6.2. Arrêter les Services
 
@@ -198,7 +197,6 @@ Par exemple, pour redémarrer l'API Gateway :
 
 ```bash
 docker compose restart api-gateway
-docker compose restart auth-service
 ```
 
 Pour redémarrer tous les services :
@@ -260,131 +258,6 @@ Si les services backend ne parviennent pas à se connecter à la base de donnée
 docker compose down -v
 docker compose up --build -d
     ```
-# 🔧 Que faire après `docker-compose down -v` ?
-
-## 🚨 Problème
-
-Quand vous exécutez `docker-compose down -v`, **tous les volumes sont supprimés**, y compris les bases de données. Au redémarrage :
-
-✅ Les bases de données PostgreSQL sont **recréées**  
-❌ Les tables **ne sont PAS créées automatiquement**  
-❌ L'utilisateur admin **n'existe plus**
-
-## ✅ Solution rapide (manuelle)
-
-Exécutez ces 3 commandes après chaque `docker-compose down -v` :
-
-```bash
-# 1. Créer les tables
-docker exec auth-service npx prisma migrate deploy
-
-# 2. Créer les rôles et permissions
-docker exec auth-service node prisma/seed.js
-
-# 3. Créer l'utilisateur admin
-docker exec auth-service node scripts/create-admin.js
-```
-
-**Credentials admin :**
-- Email : `admin@parabellum.com`
-- Mot de passe : `Admin@2026!`
-
-## 🤖 Solution automatique (recommandée)
-
-Le fichier `docker-entrypoint.sh` détecte automatiquement si la base est vide et exécute les migrations au démarrage.
-
-### Activer l'auto-init (déjà configuré) :
-
-Le Dockerfile utilise maintenant `docker-entrypoint.sh` qui :
-1. ✅ Attend que PostgreSQL soit prêt
-2. ✅ Vérifie si les tables existent
-3. ✅ Applique les migrations si nécessaire
-4. ✅ Crée les rôles/permissions et l'admin
-5. ✅ Démarre l'application
-
-### Pour reconstruire avec l'auto-init :
-
-```bash
-docker-compose build auth-service
-docker-compose up -d auth-service
-```
-
-## 📋 Commandes utiles
-
-### Réinitialiser complètement le projet :
-```bash
-# Tout supprimer et reconstruire
-docker-compose down -v
-docker-compose up --build -d
-
-# Attendre 10 secondes que tout démarre
-# L'auth-service s'initialise automatiquement !
-```
-
-### Vérifier l'état de la base :
-```bash
-# Voir les logs d'initialisation
-docker logs auth-service --tail 50
-
-# Vérifier les tables créées
-docker exec auth-service npx prisma db pull
-```
-
-### Créer un nouvel utilisateur admin :
-```bash
-docker exec auth-service node scripts/create-admin.js
-```
-
-### Lister les utilisateurs existants :
-```bash
-docker exec -it parabellum-db psql -U parabellum -d parabellum_auth -c "SELECT id, email, first_name, last_name FROM users;"
-```
-
-## 🔍 Debugging
-
-### Erreur : "Table public.users does not exist"
-**Cause :** Les migrations n'ont pas été appliquées  
-**Solution :** Exécutez `docker exec auth-service npx prisma migrate deploy`
-
-### Erreur : "Invalid email or password"
-**Cause :** L'utilisateur admin n'existe pas  
-**Solution :** Exécutez `docker exec auth-service node scripts/create-admin.js`
-
-### Erreur : "Connection refused" ou "ECONNREFUSED"
-**Cause :** Le service n'a pas encore démarré  
-**Solution :** Attendez 10-20 secondes ou vérifiez `docker ps`
-
-## 📦 Autres microservices
-
-Les autres services (technical, billing, etc.) peuvent également nécessiter des migrations. Si vous avez des erreurs similaires :
-
-```bash
-# Remplacez SERVICE_NAME par le nom du service
-docker exec SERVICE_NAME npx prisma migrate deploy
-```
-
-## 🎯 Workflow recommandé
-
-### Développement quotidien :
-```bash
-docker-compose up -d           # Démarrer (garde les données)
-docker-compose restart SERVICE # Redémarrer un service
-docker-compose logs -f SERVICE # Voir les logs
-```
-
-### Reset complet (rare) :
-```bash
-docker-compose down -v         # Supprimer TOUT
-docker-compose up --build -d   # Reconstruire et démarrer
-# ⏳ Attendre l'auto-init (10-20s)
-# ✅ Connectez-vous avec admin@parabellum.com / Admin@2026!
-```
-
----
-
-💡 **Astuce :** Évitez `docker-compose down -v` en développement. Utilisez simplement `docker-compose restart` pour préserver vos données !
-
-
 
 ## 8. Conclusion
 
@@ -394,7 +267,7 @@ N'hésitez pas à explorer davantage la documentation de Docker et Docker Compos
 
 ---
 
-**Auteur :** Theo geoffroy
+**Auteur :** Manus AI
 **Date :** 5 Février 2026
 
 ## Références

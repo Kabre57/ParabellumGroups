@@ -4,7 +4,12 @@ const { commercialServiceLimiter } = require('../../middleware/serviceLimiters')
 /**
  * Path rewrite pour commercial-service
  */
-const rewriteCommercialPath = (path) => path.replace(/^\/commercial/, '/api/prospects');
+const rewriteCommercialPath = (path) => {
+  // accepte /commercial ou /api/commercial et réécrit vers /api/prospects
+  return path
+    .replace(/^\/api\/commercial/, '/api/prospects')
+    .replace(/^\/commercial/, '/api/prospects');
+};
 
 /**
  * Configuration des routes commercial-service

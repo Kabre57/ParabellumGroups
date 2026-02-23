@@ -39,23 +39,25 @@ const billingPermissionRules = [
 const rewriteBillingPath = (path) => {
   console.log('[Billing Path Rewrite] Original path:', path);
   
+  const normalize = (p) => p.replace(/^\/api\/billing/, '/api').replace(/^\/billing/, '/api');
+
   if (path.includes('/invoices')) {
-    const rewritten = path.replace(/\/invoices/, '/factures');
+    const rewritten = normalize(path).replace('/invoices', '/factures');
     console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (path.includes('/quotes')) {
-    const rewritten = path.replace(/\/quotes/, '/devis');
+    const rewritten = normalize(path).replace('/quotes', '/devis');
     console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (path.includes('/payments')) {
-    const rewritten = path.replace(/\/payments/, '/paiements');
+    const rewritten = normalize(path).replace('/payments', '/paiements');
     console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   
-  const rewritten = path.replace(/^\/billing/, '/api');
+  const rewritten = normalize(path);
   console.log('[Billing Path Rewrite] Default rewrite to:', rewritten);
   return rewritten;
 };

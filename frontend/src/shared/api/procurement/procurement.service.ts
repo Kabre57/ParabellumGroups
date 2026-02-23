@@ -152,7 +152,10 @@ export const procurementService = {
   },
 
   async getOrder(id: string): Promise<DetailResponse<PurchaseOrder>> {
-    const response = await apiClient.get(`/procurement/bons-commande/${id}`);
+    // Cache-buster en query pour forcer un 200 sans ajouter de headers bloquants CORS
+    const response = await apiClient.get(`/procurement/bons-commande/${id}`, {
+      params: { _ts: Date.now() },
+    });
     return response.data;
   },
 

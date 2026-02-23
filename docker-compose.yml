@@ -283,6 +283,7 @@ services:
       - PORT=4010
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_billing?schema=public
+      - JWT_SECRET=${JWT_SECRET}
       - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:

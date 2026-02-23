@@ -92,7 +92,9 @@ export default function ProductsPage() {
   });
 
   const products: Product[] = useMemo(() => {
-    const items = articlesResponse?.data ?? [];
+    const items = Array.isArray(articlesResponse)
+      ? articlesResponse
+      : articlesResponse?.data ?? [];
     return items.map((item: InventoryArticle) => ({
       id: item.id,
       reference: item.reference,
@@ -110,9 +112,9 @@ export default function ProductsPage() {
   }, [articlesResponse]);
 
   const filteredProducts = products.filter((product: Product) => {
-    const search = searchTerm.toLowerCase();
+    const search = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      product.name.toLowerCase().includes(search) ||
+      (product.name || '').toLowerCase().includes(search) ||
       (product.code || '').toLowerCase().includes(search) ||
       (product.supplier || '').toLowerCase().includes(search);
     const matchesCategory = categoryFilter === 'ALL' || product.category === categoryFilter;

@@ -4,6 +4,24 @@ const { generateBonCommandeNumber } = require('../utils/purchaseNumberGenerator'
 
 const prisma = new PrismaClient();
 
+const buildLignePayload = (ligne) => {
+  const quantite = parseInt(ligne.quantite, 10) || 0;
+  const prixUnitaire = parseFloat(ligne.prixUnitaire) || 0;
+  const tva = parseFloat(ligne.tva ?? 0) || 0;
+  const montantHT = quantite * prixUnitaire;
+  const montantTTC = montantHT * (1 + tva / 100);
+
+  return {
+    designation: ligne.designation,
+    quantite,
+    prixUnitaire,
+    tva,
+    montantHT,
+    montantTTC,
+    montant: montantTTC, // compatibilité
+  };
+};
+
 // Get all bons commande with pagination and filters
 exports.getAll = async (req, res) => {
   try {
@@ -75,10 +93,27 @@ exports.create = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { demandeAchatId, fournisseurId, dateCommande, dateLivraison, montantTotal, status } = req.body;
+    const {
+      demandeAchatId,
+      fournisseurId,
+      dateCommande,
+      dateLivraison,
+      montantTotal,
+      status,
+      lignes = [],
+    } = req.body;
 
     // Generate unique numero bon
     const numeroBon = await generateBonCommandeNumber(prisma);
+
+    const lignesData = Array.isArray(lignes)
+      ? lignes.filter((l) => l.designation && l.quantite && l.prixUnitaire).map(buildLignePayload)
+      : [];
+
+    const totalTTC =
+      lignesData.length > 0
+        ? lignesData.reduce((sum, l) => sum + l.montantTTC, 0)
+        : montantTotal || 0;
 
     const bon = await prisma.bonCommande.create({
       data: {
@@ -87,14 +122,23 @@ exports.create = async (req, res) => {
         fournisseurId,
         dateCommande: dateCommande ? new Date(dateCommande) : new Date(),
         dateLivraison: dateLivraison ? new Date(dateLivraison) : null,
-        montantTotal,
-        status: status || 'BROUILLON'
+        montantTotal: totalTTC,
+        status: status || 'BROUILLON',
+        ...(lignesData.length
+          ? {
+              lignes: {
+                createMany: {
+                  data: lignesData,
+                },
+              },
+            }
+          : {}),
       },
       include: {
         fournisseur: true,
         demandeAchat: true,
-        lignes: true
-      }
+        lignes: true,
+      },
     });
 
     res.status(201).json(bon);
@@ -170,22 +214,19 @@ exports.update = async (req, res) => {
 exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
-    const { designation, quantite, prixUnitaire } = req.body;
+    const { designation, quantite, prixUnitaire, tva = 0 } = req.body;
 
     if (!designation || !quantite || !prixUnitaire) {
       return res.status(400).json({ error: 'designation, quantite et prixUnitaire sont requis' });
     }
 
-    const montant = quantite * parseFloat(prixUnitaire);
+    const payload = buildLignePayload({ designation, quantite, prixUnitaire, tva });
 
     const ligne = await prisma.ligneCommande.create({
       data: {
         bonCommandeId: id,
-        designation,
-        quantite: parseInt(quantite),
-        prixUnitaire: parseFloat(prixUnitaire),
-        montant
-      }
+        ...payload,
+      },
     });
 
     // Update bon commande montant total
@@ -193,7 +234,7 @@ exports.addLigne = async (req, res) => {
       where: { bonCommandeId: id }
     });
 
-    const montantTotal = bonLignes.reduce((sum, l) => sum + parseFloat(l.montant), 0);
+    const montantTotal = bonLignes.reduce((sum, l) => sum + parseFloat(l.montantTTC), 0);
 
     await prisma.bonCommande.update({
       where: { id },

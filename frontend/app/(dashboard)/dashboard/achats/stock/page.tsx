@@ -6,7 +6,12 @@ import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, List, MoveRight, Plus } from 'lucide-react';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
-import type { InventoryArticle, StockMovement, StockMovementType } from '@/shared/api/inventory/types';
+import type {
+  InventoryArticle,
+  StockMovement,
+  StockMovementType,
+  ArticleUnit,
+} from '@/shared/api/inventory/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +33,7 @@ export default function StockPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<InventoryArticle | null>(null);
-  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<
     Awaited<ReturnType<typeof inventoryService.getArticles>>
@@ -48,17 +53,18 @@ export default function StockPage() {
     enabled: activeTab === 'movements',
   });
 
-  const stockItems = stockItemsResponse?.data ?? [];
-  const movements = movementsResponse?.data ?? [];
+  const stockItems = Array.isArray(stockItemsResponse?.data) ? stockItemsResponse?.data : [];
+  const movements = Array.isArray(movementsResponse?.data) ? movementsResponse?.data : [];
 
   const filteredItems = useMemo(() => {
     const normalizedCategory = categoryFilter.trim().toLowerCase();
     return stockItems.filter((item) => {
-      if (normalizedCategory && !item.category.toLowerCase().includes(normalizedCategory)) {
+      const itemCategory = (item.categorie || '').toLowerCase();
+      if (normalizedCategory && !itemCategory.includes(normalizedCategory)) {
         return false;
       }
       if (showLowStock) {
-        return item.quantity <= item.threshold;
+        return (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0);
       }
       return true;
     });
@@ -116,9 +122,50 @@ export default function StockPage() {
     setDialogOpen(true);
   };
 
+  const createArticleForm = useForm<CreateArticleFormValues>({
+    defaultValues: {
+      reference: '',
+      nom: '',
+      categorie: '',
+      unite: 'PIECE',
+      prixAchat: '',
+      prixVente: '',
+      quantiteStock: '',
+      seuilAlerte: '',
+      seuilRupture: '',
+      emplacement: '',
+    },
+  });
+
+  const createArticleMutation = useMutation({
+    mutationFn: (values: CreateArticleFormValues) =>
+      inventoryService.createArticle({
+        reference: values.reference || undefined,
+        nom: values.nom,
+        description: values.description || undefined,
+        categorie: values.categorie || undefined,
+        unite: values.unite,
+        prixAchat: values.prixAchat ? Number(values.prixAchat) : undefined,
+        prixVente: values.prixVente ? Number(values.prixVente) : undefined,
+        quantiteStock: values.quantiteStock ? Number(values.quantiteStock) : undefined,
+        seuilAlerte: values.seuilAlerte ? Number(values.seuilAlerte) : undefined,
+        seuilRupture: values.seuilRupture ? Number(values.seuilRupture) : undefined,
+        emplacement: values.emplacement || undefined,
+        status: 'ACTIF',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
+    },
+  });
+
   const onSubmit = form.handleSubmit((values) => {
     createMovementMutation.mutate(values);
     setDialogOpen(false);
+  });
+
+  const onCreateArticle = createArticleForm.handleSubmit((values) => {
+    createArticleMutation.mutate(values);
+    setCreateDialogOpen(false);
   });
 
   return (
@@ -135,7 +182,7 @@ export default function StockPage() {
             <Plus className="mr-2 h-4 w-4" />
             Ajuster stock
           </Button>
-          <Button variant="outline" onClick={() => setComingSoonOpen(true)}>
+          <Button variant="outline" onClick={() => setCreateDialogOpen(true)}>
             Ajouter un article
           </Button>
         </div>
@@ -259,12 +306,12 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredItems.map((item: InventoryArticle) => {
+                      {filteredItems.map((item: InventoryArticle, idx) => {
                         const isLowStock =
                           (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0);
                         return (
                           <tr
-                            key={item.id}
+                            key={item.id ?? idx}
                             className={`border-b last:border-0 ${
                               isLowStock ? 'bg-red-50' : ''
                             }`}
@@ -329,8 +376,8 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movements.map((movement: StockMovement) => (
-                        <tr key={movement.id} className="border-b last:border-0">
+                      {movements.map((movement: StockMovement, idx) => (
+                        <tr key={movement.id ?? idx} className="border-b last:border-0">
                           <td className="px-4 py-3">
                             {movement.dateOperation
                               ? new Date(movement.dateOperation).toLocaleDateString()
@@ -441,15 +488,78 @@ export default function StockPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Bientot disponible</DialogTitle>
-            <DialogDescription>
-              L'ajout direct d'articles sera disponible bientot. Utilisez la page
-              Produits pour creer un article.
-            </DialogDescription>
+            <DialogTitle>Nouvel article</DialogTitle>
+            <DialogDescription>Creer un article de stock.</DialogDescription>
           </DialogHeader>
+
+          <form onSubmit={onCreateArticle} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reference</label>
+              <Input {...createArticleForm.register('reference')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nom</label>
+              <Input {...createArticleForm.register('nom', { required: true })} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Description</label>
+              <Input {...createArticleForm.register('description')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categorie</label>
+              <Input {...createArticleForm.register('categorie')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Unite</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                {...createArticleForm.register('unite')}
+              >
+                <option value="PIECE">Piece</option>
+                <option value="KG">Kg</option>
+                <option value="M">Metre</option>
+                <option value="L">Litre</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prix achat</label>
+              <Input type="number" step="0.01" {...createArticleForm.register('prixAchat')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prix vente</label>
+              <Input type="number" step="0.01" {...createArticleForm.register('prixVente')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quantite stock</label>
+              <Input type="number" step="0.01" {...createArticleForm.register('quantiteStock')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Seuil alerte</label>
+              <Input type="number" step="0.01" {...createArticleForm.register('seuilAlerte')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Seuil rupture</label>
+              <Input type="number" step="0.01" {...createArticleForm.register('seuilRupture')} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Emplacement</label>
+              <Input {...createArticleForm.register('emplacement')} />
+            </div>
+            <div className="md:col-span-2 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={createArticleMutation.isPending}
+              >
+                Enregistrer
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
@@ -464,4 +574,18 @@ interface MovementFormValues {
   numeroDocument?: string;
   emplacement?: string;
   notes?: string;
+}
+
+interface CreateArticleFormValues {
+  reference?: string;
+  nom: string;
+  description?: string;
+  categorie?: string;
+  unite?: ArticleUnit;
+  prixAchat?: string;
+  prixVente?: string;
+  quantiteStock?: string;
+  seuilAlerte?: string;
+  seuilRupture?: string;
+  emplacement?: string;
 }

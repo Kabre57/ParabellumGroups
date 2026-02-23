@@ -9,6 +9,7 @@ const mouvementRoutes = require('./routes/mouvement.routes');
 const inventaireRoutes = require('./routes/inventaire.routes');
 const equipementRoutes = require('./routes/equipement.routes');
 const maintenanceRoutes = require('./routes/maintenance.routes');
+const receptionRoutes = require('./routes/reception.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4005;
@@ -31,6 +32,7 @@ app.use('/api/mouvements', mouvementRoutes);
 app.use('/api/inventaires', inventaireRoutes);
 app.use('/api/equipements', equipementRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
+app.use('/api/receptions', receptionRoutes);
 
 // Compatibilite avec les routes passees via /api/inventory/*
 app.use('/api/inventory/articles', articleRoutes);
@@ -38,6 +40,7 @@ app.use('/api/inventory/mouvements', mouvementRoutes);
 app.use('/api/inventory/inventaires', inventaireRoutes);
 app.use('/api/inventory/equipements', equipementRoutes);
 app.use('/api/inventory/maintenances', maintenanceRoutes);
+app.use('/api/inventory/receptions', receptionRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

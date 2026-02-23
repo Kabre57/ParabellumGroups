@@ -6,11 +6,16 @@ export interface Employee {
   phoneNumber?: string;
   dateOfBirth?: string;
   address?: string;
+  nationality?: string;
+  cnpsNumber?: string;
+  cnamNumber?: string;
   position: string;
   department: string;
   hireDate: string;
   employmentStatus: string;
   isActive: boolean;
+  salary?: number;
+  matricule?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +35,11 @@ export interface Contract {
   status: string;
   createdAt: string;
   updatedAt: string;
+  employee?: {
+    firstName?: string;
+    lastName?: string;
+    matricule?: string;
+  };
 }
 
 export interface SalaryCalculation {
@@ -115,9 +125,15 @@ export interface CreateEmployeeRequest {
   phoneNumber?: string;
   dateOfBirth?: string;
   address?: string;
+  nationality?: string;
+  cnpsNumber?: string;
+  cnamNumber?: string;
   position: string;
   department: string;
   hireDate: string;
+  salary: number;
+  matricule?: string;
+  isActive?: boolean;
 }
 
 export interface UpdateEmployeeRequest {
@@ -126,9 +142,15 @@ export interface UpdateEmployeeRequest {
   email?: string;
   phoneNumber?: string;
   address?: string;
+  nationality?: string;
+  cnpsNumber?: string;
+  cnamNumber?: string;
   position?: string;
   department?: string;
   employmentStatus?: string;
+  salary?: number;
+  matricule?: string;
+  isActive?: boolean;
 }
 
 export interface CreateContractRequest {

@@ -11,6 +11,8 @@ const presenceRoutes = require('./routes/presence.routes');
 const evaluationRoutes = require('./routes/evaluation.routes');
 const contractRoutes = require('./routes/contract.routes');
 const payrollRoutes = require('./routes/payroll.routes');
+const loanRoutes = require('./routes/loan.routes');
+const timesheetRoutes = require('./routes/timesheet.routes');
 
 // Initialize Express app
 const app = express();
@@ -61,6 +63,8 @@ app.use('/api/presences', presenceRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/contracts', contractRoutes);
 app.use('/payroll', payrollRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/timesheets', timesheetRoutes);
 
 // 404 handler
 app.use((req, res) => {

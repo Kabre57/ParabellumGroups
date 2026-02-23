@@ -1,208 +1,105 @@
-'use client';
+"use client";
 
-import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Search, TruckIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { procurementService } from '@/shared/api/procurement/procurement.service';
-import { PurchaseOrder, PurchaseOrderValidationLog } from '@/shared/api/procurement/types';
-import adminService, { AdminUser } from '@/shared/api/admin/admin.service';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Spinner } from '@/components/ui/spinner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
-type ReceptionStatus = 'pending' | 'received' | 'checked';
-
-interface Reception {
-  id: string;
-  number: string;
-  supplier: string;
-  date: string;
-  products: number;
-  quantity: number;
-  amount: number;
-  status: ReceptionStatus;
-  orderStatus: PurchaseOrder['status'];
-}
+import React, { useMemo, useState } from "react";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search, CheckCircle2, RefreshCw } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
+import type { Reception, ReceptionStatus } from "@/shared/api/inventory/types";
 
 const statusColors: Record<ReceptionStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  received: 'bg-blue-100 text-blue-800',
-  checked: 'bg-green-100 text-green-800',
+  EN_ATTENTE: "bg-yellow-100 text-yellow-800",
+  PARTIELLE: "bg-blue-100 text-blue-800",
+  COMPLETE: "bg-purple-100 text-purple-800",
+  VERIFIEE: "bg-green-100 text-green-800",
 };
 
 const statusLabels: Record<ReceptionStatus, string> = {
-  pending: 'En attente',
-  received: 'Recue',
-  checked: 'Verifiee',
+  EN_ATTENTE: "En attente",
+  PARTIELLE: "Partielle",
+  COMPLETE: "Complète",
+  VERIFIEE: "Vérifiée",
 };
 
 export default function ReceptionsPage() {
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ReceptionStatus | 'ALL'>('ALL');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [historyActionFilter, setHistoryActionFilter] = useState<'ALL' | 'validate' | 'revert'>('ALL');
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | PurchaseOrder['status']>('ALL');
-  const [historyOrderFilter, setHistoryOrderFilter] = useState<string>('ALL');
-  const [historyPage, setHistoryPage] = useState(1);
-  const historyLimit = 10;
-  const [pendingAction, setPendingAction] = useState<{
-    type: 'validate' | 'revert';
-    reception: Reception;
-    targetStatus: PurchaseOrder['status'];
-  } | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ReceptionStatus | "ALL">("ALL");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedReception, setSelectedReception] = useState<Reception | null>(null);
 
-  const { data: receptions = [], isLoading } = useQuery<PurchaseOrder[]>({
-    queryKey: ['receptions'],
-    queryFn: async () => {
-      const res = await procurementService.getOrders({ limit: 200 });
-      return res.data;
-    },
+  // Liste
+  const { data: listResponse, isLoading } = useQuery({
+    queryKey: ["receptions", statusFilter, searchTerm],
+    queryFn: () =>
+      inventoryReceptionsService.list({
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+        search: searchTerm || undefined,
+        limit: 200,
+      }),
   });
 
-  const { data: validationHistoryResponse } = useQuery({
-    queryKey: [
-      'receptions-history',
-      historyActionFilter,
-      historyStatusFilter,
-      historyOrderFilter,
-      historyPage,
-    ],
-    queryFn: async () => {
-      const res = await procurementService.getOrderValidationHistory({
-        limit: historyLimit,
-        page: historyPage,
-        action: historyActionFilter === 'ALL' ? undefined : historyActionFilter,
-        fromStatus: historyStatusFilter === 'ALL' ? undefined : historyStatusFilter,
-        bonCommandeId: historyOrderFilter === 'ALL' ? undefined : historyOrderFilter,
-      });
-      return res;
-    },
+  // L'API renvoie un tableau brut. On accepte aussi le format ApiResponse pour compatibilité.
+  const receptions = (Array.isArray(listResponse) ? listResponse : listResponse?.data) ?? [];
+
+  // Détail
+  const { data: detail, isFetching: isDetailLoading } = useQuery({
+    queryKey: ["reception-detail", selectedId],
+    queryFn: () => inventoryReceptionsService.get(selectedId || "").then((res) => res.data),
+    enabled: !!selectedId,
   });
 
-  const validationHistory = validationHistoryResponse?.data || [];
-  const historyPagination = validationHistoryResponse?.meta?.pagination;
-
-  const { data: usersResponse } = useQuery({
-    queryKey: ['validation-users'],
-    queryFn: async () => adminService.users.getUsers({ limit: 200, page: 1 }),
-  });
-
-  const usersMap = useMemo(() => {
-    const map = new Map<number, AdminUser>();
-    (usersResponse?.data || []).forEach((user) => {
-      map.set(user.id, user);
-    });
-    return map;
-  }, [usersResponse]);
-
-  const resolveUserLabel = (createdById?: string | null) => {
-    if (!createdById) return 'N/A';
-    const parsedId = Number(createdById);
-    if (!Number.isFinite(parsedId)) return createdById;
-    const user = usersMap.get(parsedId);
-    if (!user) return `#${createdById}`;
-    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    return name || user.email || `#${createdById}`;
-  };
-
-  const mappedReceptions: Reception[] = useMemo(
+  const mapped = useMemo(
     () =>
-      receptions.map((order) => ({
-        id: order.id,
-        number: order.number,
-        supplier: order.supplier || '-',
-        date: order.date,
-        products: order.items ?? 0,
-        quantity:
-          order.itemsDetail?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0,
-        amount: order.amount,
-        status: (order.status === 'LIVRE'
-          ? 'checked'
-          : order.status === 'CONFIRME'
-          ? 'received'
-          : 'pending') as ReceptionStatus,
-        orderStatus: order.status,
-      })),
+      receptions.filter((r) => {
+        const search = searchTerm.toLowerCase();
+        const matchesSearch =
+          (r.numero || "").toLowerCase().includes(search) || (r.fournisseurId || "").toLowerCase().includes(search);
+        const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      }),
+    [receptions, searchTerm, statusFilter]
+  );
+
+  const stats = useMemo(
+    () => ({
+      total: receptions.length,
+      pending: receptions.filter((r) => r.status === "EN_ATTENTE" || r.status === "PARTIELLE").length,
+      verified: receptions.filter((r) => r.status === "VERIFIEE").length,
+      totalAmount: receptions.reduce((sum, r) => {
+        const lignes = r.lignes || [];
+        const montant = lignes.reduce((s, l) => {
+          const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
+          const tva = l.tva ? ht * (l.tva / 100) : 0;
+          return s + ht + tva;
+        }, 0);
+        return sum + montant;
+      }, 0),
+    }),
     [receptions]
   );
 
-  const filteredReceptions = mappedReceptions.filter((reception) => {
-    const matchesSearch =
-      reception.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reception.supplier.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || reception.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const stats = {
-    total: mappedReceptions.length,
-    pending: mappedReceptions.filter((r) => r.status === 'pending').length,
-    received: mappedReceptions.filter((r) => r.status === 'received').length,
-    totalAmount: mappedReceptions.reduce((sum, r) => sum + r.amount, 0),
-  };
-
-  const updateStatusMutation = useMutation({
-    mutationFn: ({
-      id,
-      status,
-      action,
-    }: {
-      id: string;
-      status: PurchaseOrder['status'];
-      action?: 'validate' | 'revert';
-    }) => procurementService.updateOrderStatus(id, status, action),
+  const validateMutation = useMutation({
+    mutationFn: () => inventoryReceptionsService.validate(selectedId || ""),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['receptions'] });
-      queryClient.invalidateQueries({ queryKey: ['receptions-history'] });
-    },
-    onError: (error: any) => {
-      toast.error(
-        error?.response?.data?.error || error?.message || 'Erreur lors de la mise a jour'
-      );
+      queryClient.invalidateQueries({ queryKey: ["receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["reception-detail", selectedId] });
     },
   });
 
-  const openConfirm = (type: 'validate' | 'revert', reception: Reception) => {
-    if (type === 'validate') {
-      const targetStatus = reception.status === 'pending' ? 'CONFIRME' : 'LIVRE';
-      setPendingAction({ type, reception, targetStatus });
-    } else {
-      const targetStatus = reception.status === 'checked' ? 'CONFIRME' : 'BROUILLON';
-      setPendingAction({ type, reception, targetStatus });
-    }
-    setConfirmOpen(true);
-  };
-
-  const confirmAction = () => {
-    if (!pendingAction) return;
-    const { reception, targetStatus, type } = pendingAction;
-    updateStatusMutation.mutate(
-      { id: reception.id, status: targetStatus, action: type },
-      {
-        onSuccess: () => {
-          toast.success(
-            type === 'validate'
-              ? 'Reception validee avec succes'
-              : 'Validation annulee avec succes'
-          );
-        },
-      }
-    );
-    setConfirmOpen(false);
-    setPendingAction(null);
-  };
+  const current = detail || selectedReception;
+  const lignes = current?.lignes || [];
+  const sousTotal = lignes.reduce((sum, l) => sum + (l.prixUnitaire || 0) * (l.quantiteRecue || 0), 0);
+  const totalTVA = lignes.reduce((sum, l) => {
+    const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
+    return sum + (l.tva ? ht * (l.tva / 100) : 0);
+  }, 0);
+  const totalTTC = sousTotal + totalTVA;
 
   return (
     <div className="space-y-6 p-6">
@@ -211,20 +108,14 @@ export default function ReceptionsPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats">Retour aux achats</Link>
           </Button>
-          <h1 className="mt-2 text-3xl font-bold">Receptions marchandises</h1>
+          <h1 className="mt-2 text-3xl font-bold">Réceptions</h1>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/achats/receptions/nouvelle">
-            <TruckIcon className="mr-2 h-4 w-4" />
-            Nouvelle reception
-          </Link>
-        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total receptions</CardTitle>
+            <CardTitle className="text-sm font-medium">Total</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -232,7 +123,7 @@ export default function ReceptionsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">En attente</CardTitle>
+            <CardTitle className="text-sm font-medium">En attente / Partielle</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
@@ -240,10 +131,10 @@ export default function ReceptionsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Recues</CardTitle>
+            <CardTitle className="text-sm font-medium">Vérifiées</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.received}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
           </CardContent>
         </Card>
         <Card>
@@ -251,244 +142,209 @@ export default function ReceptionsPage() {
             <CardTitle className="text-sm font-medium">Montant total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F
-            </div>
+            <div className="text-2xl font-bold">{stats.totalAmount.toLocaleString("fr-FR")} F</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Liste des receptions</CardTitle>
-          <CardDescription>Suivi des receptions fournisseurs.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher une reception..."
-                className="pl-9"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ReceptionStatus | 'ALL')}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="ALL">Tous les statuts</option>
-              <option value="pending">En attente</option>
-              <option value="received">Recue</option>
-              <option value="checked">Verifiee</option>
-            </select>
-          </div>
-
-          {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Spinner />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Numero</th>
-                    <th className="px-4 py-3 font-medium">Fournisseur</th>
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Produits</th>
-                    <th className="px-4 py-3 font-medium">Quantite</th>
-                    <th className="px-4 py-3 font-medium">Montant</th>
-                    <th className="px-4 py-3 font-medium">Statut</th>
-                    <th className="px-4 py-3 font-medium text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReceptions.map((reception) => (
-                    <tr key={reception.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-medium">{reception.number}</td>
-                      <td className="px-4 py-3">{reception.supplier}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {new Date(reception.date).toLocaleDateString('fr-FR')}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{reception.products}</td>
-                      <td className="px-4 py-3">{reception.quantity}</td>
-                      <td className="px-4 py-3 font-medium">
-                        {reception.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} F
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge className={statusColors[reception.status]}>
-                          {statusLabels[reception.status]}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          {reception.status !== 'checked' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openConfirm('validate', reception)}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              {reception.status === 'pending'
-                                ? 'Marquer recue'
-                                : 'Valider'}
-                            </Button>
-                          )}
-                          {reception.status !== 'pending' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openConfirm('revert', reception)}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              Annuler
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredReceptions.length === 0 && (
-                <div className="py-8 text-center text-muted-foreground">
-                  Aucune reception trouvee.
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Liste des réceptions</CardTitle>
+            <CardDescription>Suivi des réceptions de bons de commande.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="flex-1 min-w-[220px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Rechercher par numéro ou fournisseur..."
+                    className="pl-9"
+                  />
                 </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirmer l'action</DialogTitle>
-            <DialogDescription>
-              {pendingAction?.type === 'validate'
-                ? `Confirmer la validation de la reception ${pendingAction?.reception.number} ?`
-                : `Annuler la validation de la reception ${pendingAction?.reception.number} ?`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={confirmAction} disabled={updateStatusMutation.isPending}>
-              Confirmer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Historique des validations</CardTitle>
-          <CardDescription>Dernieres actions effectuees sur les receptions.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex flex-wrap gap-3">
-            <select
-              value={historyOrderFilter}
-              onChange={(e) => {
-                setHistoryOrderFilter(e.target.value);
-                setHistoryPage(1);
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="ALL">Tous les bons</option>
-              {receptions.map((order) => (
-                <option key={order.id} value={order.id}>
-                  {order.number}
-                </option>
-              ))}
-            </select>
-            <select
-              value={historyActionFilter}
-              onChange={(e) => {
-                setHistoryActionFilter(e.target.value as 'ALL' | 'validate' | 'revert');
-                setHistoryPage(1);
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="ALL">Toutes les actions</option>
-              <option value="validate">Validation</option>
-              <option value="revert">Annulation</option>
-            </select>
-            <select
-              value={historyStatusFilter}
-              onChange={(e) => {
-                setHistoryStatusFilter(e.target.value as 'ALL' | PurchaseOrder['status']);
-                setHistoryPage(1);
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="ALL">Tous les statuts</option>
-              <option value="BROUILLON">BROUILLON</option>
-              <option value="ENVOYE">ENVOYE</option>
-              <option value="CONFIRME">CONFIRME</option>
-              <option value="LIVRE">LIVRE</option>
-              <option value="ANNULE">ANNULE</option>
-            </select>
-          </div>
-          {validationHistory.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              Aucun historique pour cette session.
-            </div>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {validationHistory.slice(0, 10).map((entry, index) => (
-                <li key={`${entry.id}-${index}`} className="flex items-center gap-3">
-                  <Badge variant="outline">{entry.numeroBon || 'N/A'}</Badge>
-                  <span>
-                    {entry.action === 'validate' ? 'Validation' : 'Annulation'}:{' '}
-                    {entry.fromStatus} → {entry.toStatus}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Utilisateur: {resolveUserLabel(entry.createdById)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {new Date(entry.createdAt).toLocaleString('fr-FR')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {historyPagination && historyPagination.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setHistoryPage((prev) => Math.max(prev - 1, 1))}
-                disabled={historyPage === 1}
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ReceptionStatus | "ALL")}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                Precedent
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {historyPage} / {historyPagination.totalPages}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setHistoryPage((prev) =>
-                    historyPagination.totalPages ? Math.min(prev + 1, historyPagination.totalPages) : prev
-                  )
-                }
-                disabled={historyPage === historyPagination.totalPages}
-              >
-                Suivant
-              </Button>
+                <option value="ALL">Tous les statuts</option>
+                <option value="EN_ATTENTE">En attente</option>
+                <option value="PARTIELLE">Partielle</option>
+                <option value="COMPLETE">Complète</option>
+                <option value="VERIFIEE">Vérifiée</option>
+              </select>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Spinner />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b text-left text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Numéro</th>
+                      <th className="px-4 py-3 font-medium">Statut</th>
+                      <th className="px-4 py-3 font-medium">Lignes</th>
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium text-right">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mapped.map((r) => (
+                      <tr
+                        key={r.id}
+                        className={`border-b last:border-0 cursor-pointer hover:bg-slate-50 ${
+                          selectedId === r.id ? "bg-slate-100" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedId(r.id);
+                          setSelectedReception(r);
+                        }}
+                      >
+                        <td className="px-4 py-3 font-medium">{r.numero}</td>
+                        <td className="px-4 py-3">
+                          <Badge className={statusColors[r.status]}>{statusLabels[r.status]}</Badge>
+                        </td>
+                        <td className="px-4 py-3">{r.lignes?.length ?? 0}</td>
+                        <td className="px-4 py-3">
+                          {r.dateReception ? new Date(r.dateReception).toLocaleDateString("fr-FR") : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {(() => {
+                            const lignes = r.lignes || [];
+                            const montant = lignes.reduce((s, l) => {
+                              const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
+                              const tva = l.tva ? ht * (l.tva / 100) : 0;
+                              return s + ht + tva;
+                            }, 0);
+                            return montant.toLocaleString("fr-FR");
+                          })()}{" "}
+                          F
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {mapped.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground">Aucune réception.</div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Détails de la réception</CardTitle>
+            <CardDescription>Sélectionnez une réception dans la liste</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isDetailLoading ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Spinner />
+              </div>
+            ) : !current ? (
+              <div className="py-8 text-center text-muted-foreground">Aucune réception sélectionnée.</div>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-2 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Numéro</div>
+                    <div className="font-semibold">{current.numero}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Statut</div>
+                    <Badge className={statusColors[current.status]}>{statusLabels[current.status]}</Badge>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Date</div>
+                    <div className="font-semibold">
+                      {current.dateReception ? new Date(current.dateReception).toLocaleDateString("fr-FR") : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Bon de commande</div>
+                    <div className="font-semibold">{current.bonCommandeId}</div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Désignation</th>
+                        <th className="px-4 py-3 font-medium">Qté reçue</th>
+                        <th className="px-4 py-3 font-medium">PU</th>
+                        <th className="px-4 py-3 font-medium">TVA %</th>
+                        <th className="px-4 py-3 font-medium">Total TTC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lignes.map((l) => {
+                        const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
+                        const tva = l.tva ? ht * (l.tva / 100) : 0;
+                        return (
+                          <tr key={l.id} className="border-t">
+                            <td className="px-4 py-3">{l.designation || "-"}</td>
+                            <td className="px-4 py-3">{l.quantiteRecue}</td>
+                            <td className="px-4 py-3">{(l.prixUnitaire || 0).toLocaleString("fr-FR")} F</td>
+                            <td className="px-4 py-3">{l.tva ?? "—"}</td>
+                            <td className="px-4 py-3 font-medium">{(ht + tva).toLocaleString("fr-FR")} F</td>
+                          </tr>
+                        );
+                      })}
+                      {lignes.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                            Aucune ligne disponible.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid gap-2 rounded-md bg-slate-50 p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>Sous-total HT</span>
+                    <span>{sousTotal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>TVA</span>
+                    <span>{totalTVA.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>Total TTC</span>
+                    <span>{totalTTC.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {current.status !== "VERIFIEE" && (
+                    <Button disabled={validateMutation.isPending} onClick={() => validateMutation.mutate()}>
+                      {validateMutation.isPending ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                      )}
+                      Valider la réception
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => window.print()}>
+                    Imprimer
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

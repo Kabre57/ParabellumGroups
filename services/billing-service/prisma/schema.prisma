@@ -11,6 +11,8 @@ model Facture {
   id             String          @id @default(uuid())
   numeroFacture  String          @unique
   clientId       String
+  serviceId      String?
+  serviceLogoUrl String?
   dateEmission   DateTime        @default(now())
   dateEcheance   DateTime
   montantHT      Float
@@ -71,6 +73,8 @@ model Devis {
   id            String       @id @default(uuid())
   numeroDevis   String       @unique
   clientId      String
+  serviceId     String?
+  serviceLogoUrl String?
   dateEmission  DateTime     @default(now())
   dateValidite  DateTime
   montantHT     Float

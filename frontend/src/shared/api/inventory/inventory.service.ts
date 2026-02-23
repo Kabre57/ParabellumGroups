@@ -26,7 +26,8 @@ export const inventoryService = {
     categorie?: string;
     search?: string;
   }): Promise<ListResponse<InventoryArticle>> {
-    const response = await apiClient.get('/inventory/articles', { params });
+    // Ajout d'un cache-buster pour éviter les 304 sans corps qui laissent le modal vide
+    const response = await apiClient.get('/inventory/articles', { params: { ...params, _ts: Date.now() } });
     return response.data;
   },
 
@@ -68,4 +69,3 @@ export const inventoryService = {
     return response.data;
   },
 };
-

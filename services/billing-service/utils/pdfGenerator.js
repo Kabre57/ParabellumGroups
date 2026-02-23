@@ -2,6 +2,12 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const moment = require('moment');
+const axios = require('axios');
+
+async function fetchBuffer(url) {
+  const resp = await axios.get(url, { responseType: 'arraybuffer' });
+  return Buffer.from(resp.data);
+}
 
 /**
  * Génère un PDF de facture
@@ -16,6 +22,21 @@ function generateFacturePDF(facture, outputPath) {
       const stream = fs.createWriteStream(outputPath);
 
       doc.pipe(stream);
+
+      // Logo du service
+      (async () => {
+        if (facture.serviceLogoUrl) {
+          try {
+            const logoBuffer = await fetchBuffer(facture.serviceLogoUrl);
+            const tempPath = path.join(__dirname, '..', 'temp', `logo-${facture.id}.png`);
+            fs.writeFileSync(tempPath, logoBuffer);
+            doc.image(tempPath, 50, 40, { fit: [120, 60] });
+            fs.unlinkSync(tempPath);
+          } catch (e) {
+            console.warn('Logo facture non chargé', e.message);
+          }
+        }
+      })();
 
       // En-tête
       doc.fontSize(20).text('FACTURE', { align: 'center' });
@@ -104,6 +125,21 @@ function generateDevisPDF(devis, outputPath) {
       const stream = fs.createWriteStream(outputPath);
 
       doc.pipe(stream);
+
+      // Logo du service
+      (async () => {
+        if (devis.serviceLogoUrl) {
+          try {
+            const logoBuffer = await fetchBuffer(devis.serviceLogoUrl);
+            const tempPath = path.join(__dirname, '..', 'temp', `logo-${devis.id}.png`);
+            fs.writeFileSync(tempPath, logoBuffer);
+            doc.image(tempPath, 50, 40, { fit: [120, 60] });
+            fs.unlinkSync(tempPath);
+          } catch (e) {
+            console.warn('Logo devis non chargé', e.message);
+          }
+        }
+      })();
 
       // En-tête
       doc.fontSize(20).text('DEVIS', { align: 'center' });

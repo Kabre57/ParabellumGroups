@@ -4,6 +4,7 @@ const moment = require('moment');
 const { generateDevisNumber, generateFactureNumber } = require('../utils/billingNumberGenerator');
 const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateDevisPDF } = require('../utils/pdfGenerator');
+const axios = require('axios');
 const path = require('path');
 
 /**
@@ -66,6 +67,21 @@ exports.getDevisById = async (req, res) => {
 exports.createDevis = async (req, res) => {
   try {
     const { clientId, dateValidite } = req.body;
+    const serviceId = req.user?.serviceId || null;
+    let serviceLogoUrl = null;
+
+    // Récupérer le logo du service depuis auth-service si un serviceId est présent
+    if (serviceId) {
+      try {
+        const authBase = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
+        const resp = await axios.get(`${authBase}/api/services/${serviceId}`, {
+          headers: { authorization: req.headers.authorization || '' },
+        });
+        serviceLogoUrl = resp.data?.data?.imageUrl || null;
+      } catch (e) {
+        console.warn('Logo service non récupéré', e?.response?.status || e.message);
+      }
+    }
 
     // Générer le numéro de devis
     const currentYearMonth = moment().format('YYYYMM');
@@ -93,7 +109,9 @@ exports.createDevis = async (req, res) => {
         dateValidite: new Date(dateValidite),
         montantHT: 0,
         montantTVA: 0,
-        montantTTC: 0
+        montantTTC: 0,
+        serviceId,
+        serviceLogoUrl
       },
       include: {
         lignes: true
@@ -294,6 +312,8 @@ exports.convertToFacture = async (req, res) => {
         montantTVA: devis.montantTVA,
         montantTTC: devis.montantTTC,
         notes: notes || `Convertie du devis ${devis.numeroDevis}`,
+        serviceId: devis.serviceId,
+        serviceLogoUrl: devis.serviceLogoUrl,
         lignes: {
           create: devis.lignes.map(ligne => ({
             description: ligne.description,

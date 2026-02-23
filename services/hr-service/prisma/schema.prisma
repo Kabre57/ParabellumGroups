@@ -14,10 +14,22 @@ model Employe {
   prenom        String
   email         String      @unique
   telephone     String?
+  dateNaissance DateTime?
+  lieuNaissance String?
+  adresse       String?
+  nationalite   String?
+  cnpsNumber    String?
+  cnamNumber    String?
+  situationMatrimoniale String?
+  nombreEnfants Int?       @default(0)
+  partsFiscales Int        @default(1)
   dateEmbauche  DateTime
   poste         String
   departement   String
-  salaire       Decimal     @db.Decimal(10, 2)
+  categorie     String?
+  niveau        String?
+  salaire       Decimal     @db.Decimal(12, 2)
+  deviseSalaire String      @default("XOF")
   status        StatusEmploye @default(ACTIF)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -27,6 +39,8 @@ model Employe {
   presences     Presence[]
   evaluations   Evaluation[] @relation("EmployeEvaluations")
   evaluationsRealisees Evaluation[] @relation("EvaluateurEvaluations")
+  contrats      Contrat[]
+  bulletins     Payroll[]
 
   @@map("employes")
 }
@@ -113,4 +127,156 @@ model Evaluation {
   evaluateur      Employe     @relation("EvaluateurEvaluations", fields: [evaluateurId], references: [id])
 
   @@map("evaluations")
+}
+
+enum ContractType {
+  CDI
+  CDD
+  STAGE
+  INTERIM
+  PRESTATION
+}
+
+enum ContractStatus {
+  ACTIF
+  TERMINE
+  SUSPENDU
+  RUPTURE
+}
+
+model Contrat {
+  id              String         @id @default(uuid())
+  employeId       String
+  type            ContractType
+  statut          ContractStatus @default(ACTIF)
+  dateDebut       DateTime
+  dateFin         DateTime?
+  poste           String
+  departement     String
+  salaireBase     Decimal        @db.Decimal(12, 2)
+  devise          String         @default("XOF")
+  heuresHebdo     Int?
+  cnpsTauxSalarie Decimal?       @db.Decimal(5, 4)
+  cnpsTauxEmployeur Decimal?     @db.Decimal(5, 4)
+  cnamTauxEmployeur Decimal?     @db.Decimal(5, 4)
+  cnpsAT          Decimal?       @db.Decimal(5, 4)
+  riskBandId      String?
+  autresAvantages Json?
+  clauses         Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  employe         Employe        @relation(fields: [employeId], references: [id], onDelete: Cascade)
+  riskBand        RiskBand?      @relation(fields: [riskBandId], references: [id], onDelete: SetNull)
+
+  @@index([employeId])
+  @@index([riskBandId])
+  @@map("contrats")
+}
+
+enum PayrollStatus {
+  BROUILLON
+  GENERE
+  VALIDE
+  PAYE
+}
+
+model Payroll {
+  id                  String       @id @default(uuid())
+  employeId           String
+  mois                Int
+  annee               Int
+  periode             String?
+  devise              String       @default("XOF")
+  baseSalaire         Decimal      @db.Decimal(12, 2)
+  heuresSup           Decimal      @db.Decimal(12, 2) @default(0)
+  primes              Decimal      @db.Decimal(12, 2) @default(0)
+  indemnite           Decimal      @db.Decimal(12, 2) @default(0)
+  autresRetenues      Decimal      @db.Decimal(12, 2) @default(0)
+  deductions          Json?
+  partsFiscales       Int          @default(1)
+  brut                Decimal      @db.Decimal(12, 2)
+  cnpsSalarial        Decimal      @db.Decimal(12, 2)
+  cnpsPatronal        Decimal      @db.Decimal(12, 2)
+  cnpsATUtilise       Decimal      @db.Decimal(12, 2)
+  cnam                Decimal      @db.Decimal(12, 2)
+  fdfp                Decimal      @db.Decimal(12, 2)
+  igr                 Decimal      @db.Decimal(12, 2)
+  cotisationsSalariales Decimal    @db.Decimal(12, 2)
+  cotisationsPatronales Decimal    @db.Decimal(12, 2)
+  netImposable        Decimal      @db.Decimal(12, 2)
+  netAPayer           Decimal      @db.Decimal(12, 2)
+  statut              PayrollStatus @default(GENERE)
+  details             Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  employe             Employe      @relation(fields: [employeId], references: [id], onDelete: Cascade)
+
+  @@index([employeId, annee, mois], name: "payroll_periode")
+  @@map("payroll")
+}
+
+// --- Référentiels paie CI (paramétrables) ---
+
+enum TaxSettingType {
+  CNPS_RET_EMPLOYEE
+  CNPS_RET_EMPLOYER
+  CNPS_FAMILY
+  CNPS_AT
+  CNAM_EMPLOYER
+  FDFP_EMPLOYER
+  IS_EMPLOYER
+  AS_EMPLOYER
+}
+
+model TaxSetting {
+  id          String         @id @default(uuid())
+  code        String         @unique
+  label       String
+  type        TaxSettingType
+  rate        Decimal        @db.Decimal(10, 4)
+  ceiling     Decimal?       @db.Decimal(12, 2)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("tax_settings")
+}
+
+model PayrollConstant {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Decimal  @db.Decimal(14, 4)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payroll_constants")
+}
+
+model RiskBand {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  rate        Decimal  @db.Decimal(10, 4) // ex: 0.0200 = 2%
+  departement String?
+  secteur     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contrats    Contrat[]
+
+  @@map("risk_bands")
+}
+
+model IgrBracket {
+  id          String   @id @default(uuid())
+  min         Decimal  @db.Decimal(14, 2)
+  max         Decimal? @db.Decimal(14, 2) // null => pas de plafond
+  rate        Decimal  @db.Decimal(10, 4) // 0.35 = 35%
+  deduction   Decimal  @db.Decimal(14, 2) @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("igr_brackets")
 }

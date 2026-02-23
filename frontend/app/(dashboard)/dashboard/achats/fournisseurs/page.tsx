@@ -48,6 +48,9 @@ export default function SuppliersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
+  const resolveName = (supplier: Supplier) =>
+    supplier.name || (supplier as any).nom || supplier.email || 'Sans nom';
+
   const { data: suppliersResponse, isLoading } = useQuery<
     Awaited<ReturnType<typeof procurementService.getSuppliers>>
   >({
@@ -63,10 +66,11 @@ export default function SuppliersPage() {
   const suppliers = suppliersResponse?.data ?? [];
 
   const filteredSuppliers = useMemo(() => {
-    const search = searchTerm.toLowerCase();
+    const search = (searchTerm || '').toLowerCase();
     return suppliers.filter((supplier) => {
+      const name = resolveName(supplier);
       const matchesSearch =
-        supplier.name.toLowerCase().includes(search) ||
+        name.toLowerCase().includes(search) ||
         (supplier.email || '').toLowerCase().includes(search) ||
         (supplier.phone || '').toLowerCase().includes(search) ||
         (supplier.category || '').toLowerCase().includes(search);
@@ -101,13 +105,13 @@ export default function SuppliersPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, values }: { id: string; values: SupplierFormValues }) =>
       procurementService.updateSupplier(id, {
-        name: values.name,
+        nom: values.name,
         email: values.email,
-        phone: values.phone,
-        address: values.address,
-        category: values.category,
+        telephone: values.phone,
+        adresse: values.address,
+        categorie: values.category,
         status: values.status,
-      }),
+      } as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
@@ -135,7 +139,7 @@ export default function SuppliersPage() {
     if (!dialogOpen) return;
     if (editingSupplier) {
       form.reset({
-        name: editingSupplier.name || '',
+        name: resolveName(editingSupplier),
         email: editingSupplier.email || '',
         phone: editingSupplier.phone || '',
         address: editingSupplier.address || '',
@@ -299,7 +303,7 @@ export default function SuppliersPage() {
                 <tbody>
                   {filteredSuppliers.map((supplier) => (
                     <tr key={supplier.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-medium">{supplier.name}</td>
+                      <td className="px-4 py-3 font-medium">{resolveName(supplier)}</td>
                       <td className="px-4 py-3">{supplier.email || '-'}</td>
                       <td className="px-4 py-3">{supplier.phone || '-'}</td>
                       <td className="px-4 py-3">{supplier.category || '-'}</td>
