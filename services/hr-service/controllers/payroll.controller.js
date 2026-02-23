@@ -12,6 +12,8 @@ const DEFAULTS = {
   CNPS_FAMILY: parseFloat(process.env.CNPS_FAMILY || '0.0575'),
   CNPS_AT: parseFloat(process.env.CNPS_AT || '0.02'),
   CNAM_EMPLOYER: parseFloat(process.env.CNAM_EMPLOYER || '0.0333'),
+  CNAM_FORFAIT: parseFloat(process.env.CNAM_FORFAIT || '1000'),
+  CNAM_MODE: process.env.CNAM_MODE || 'FORFAIT', // FORFAIT ou TAUX
   FDFP_EMPLOYER: parseFloat(process.env.FDFP_EMPLOYER || '0.004'),
   IS_EMPLOYER: parseFloat(process.env.IS_EMPLOYER || '0.012'),
   AS_EMPLOYER: parseFloat(process.env.AS_EMPLOYER || '0.012'),
@@ -115,10 +117,15 @@ class PayrollController {
     };
   }
 
-  calculateCNAM(baseSalary, cfg) {
+  calculateCNAM(baseSalary, cfg, ayantsDroit = 0) {
+    if ((cfg.CNAM_MODE || '').toUpperCase() === 'FORFAIT') {
+      const personnes = Math.max(1 + (ayantsDroit || 0), 1);
+      const montant = personnes * (cfg.CNAM_FORFAIT || 1000);
+      return { salarial: montant, employer: montant };
+    }
     const assietteRaw = Math.max(baseSalary, cfg.SMIG);
     const assiette = cfg.CEILING_CNAM ? Math.min(assietteRaw, cfg.CEILING_CNAM) : assietteRaw;
-    return assiette * cfg.CNAM_EMPLOYER;
+    return { salarial: assiette * cfg.CNAM_EMPLOYER, employer: assiette * cfg.CNAM_EMPLOYER };
   }
 
   calculateFDFP(baseSalary, cfg) {
@@ -130,6 +137,68 @@ class PayrollController {
     const tranche = igrTranches.find(t => taxableIncome > t.min && taxableIncome <= t.max);
     if (!tranche) return 0;
     return tranche.fixed + (taxableIncome - tranche.min) * tranche.rate;
+  }
+
+  computeAyantsDroit(employe) {
+    if (!employe) return 0;
+    const enfants = employe.nombreEnfants || 0;
+    const marie = (employe.situationMatrimoniale || '').toLowerCase().startsWith('mari');
+    return enfants + (marie ? 1 : 0);
+  }
+
+  computePayrollAmounts({ baseSalaire, heuresSup = 0, heuresSupDetails = [], primes = 0, indemnite = 0, autresRetenues = 0, deductions = [], parts = 1, cnpsATValue, employe }, cfg, igr, riskBands) {
+    const base = Math.max(parseFloat(baseSalaire), cfg.SMIG);
+
+    // Heures sup éventuelles
+    let montantHeuresSup = parseFloat(heuresSup) || 0;
+    if (Array.isArray(heuresSupDetails) && heuresSupDetails.length > 0) {
+      const hourly = Math.max(parseFloat(baseSalaire), cfg.SMIG) / cfg.HOURS_BASE;
+      montantHeuresSup = heuresSupDetails.reduce((sum, hs) => {
+        const hrs = parseFloat(hs.hours || 0);
+        const rate = parseFloat(hs.rate || 1);
+        return sum + hrs * hourly * rate;
+      }, 0);
+    }
+
+    const cnps = this.calculateCNPS(base, cfg, cnpsATValue);
+    const ayantsDroit = this.computeAyantsDroit(employe);
+    const cnam = this.calculateCNAM(base, cfg, ayantsDroit);
+    const fdfp = this.calculateFDFP(base, cfg);
+
+    const brut = base + montantHeuresSup + parseFloat(primes) + parseFloat(indemnite);
+    const isAmount = brut * cfg.IS_EMPLOYER;
+    const asAmount = brut * cfg.AS_EMPLOYER;
+    const cotSal = cnps.employeeRet + isAmount + asAmount + cnam.salarial;
+    const cotPat = cnps.employerRet + cnps.employerFamily + cnps.employerAT + cnam.employer + fdfp;
+
+    const taxableBeforeAbattement = brut - cotSal;
+    const abattement = taxableBeforeAbattement * cfg.ABATTEMENT_PRO;
+    const taxableAfterAbattement = Math.max(taxableBeforeAbattement - abattement, 0);
+    const netImposablePart = taxableAfterAbattement / parts;
+    const igrAmount = this.calculateIGR(netImposablePart, igr) * parts;
+    const autresRet = parseFloat(autresRetenues) || 0;
+    const deductionsTotal = deductions.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
+    const netAPayer = brut - cotSal - igrAmount - autresRet - deductionsTotal;
+
+    return {
+      base,
+      brut,
+      cotSal,
+      cotPat,
+      igrAmount,
+      abattement,
+      taxableAfterAbattement,
+      netAPayer,
+      deductionsTotal,
+      autresRet,
+      cnps,
+      cnam,
+      fdfp,
+      isAmount,
+      asAmount,
+      montantHeuresSup,
+      ayantsDroit,
+    };
   }
 
   async getAllPayroll(req, res) {
@@ -269,21 +338,11 @@ class PayrollController {
         return res.status(400).json({ success: false, message: 'employeId, baseSalaire, mois, annee sont requis' });
       }
 
+      const employe = await prisma.employe.findUnique({ where: { id: employeId } });
+
       // parts fiscales max 5
-      const parts = Math.min(Math.max(parseInt(partsFiscales || 1, 10), 1), 5);
+      const parts = Math.min(Math.max(parseInt(partsFiscales || employe?.partsFiscales || 1, 10), 1), 5);
 
-      // Si heuresSupDetails fourni, on calcule
-      let montantHeuresSup = parseFloat(heuresSup) || 0;
-      if (Array.isArray(heuresSupDetails) && heuresSupDetails.length > 0) {
-        const hourly = Math.max(parseFloat(baseSalaire), cfg.SMIG) / cfg.HOURS_BASE;
-        montantHeuresSup = heuresSupDetails.reduce((sum, hs) => {
-          const hrs = parseFloat(hs.hours || 0);
-          const rate = parseFloat(hs.rate || 1);
-          return sum + hrs * hourly * rate;
-        }, 0);
-      }
-
-      const base = Math.max(parseFloat(baseSalaire), cfg.SMIG);
       // récupérer le contrat actif pour le taux AT s'il existe
       let cnpsATValue = cnpsAT;
       const lastContract = await prisma.contrat.findFirst({
@@ -299,24 +358,32 @@ class PayrollController {
       }
       if (!cnpsATValue) cnpsATValue = cfg.CNPS_AT;
 
-      const cnps = this.calculateCNPS(base, cfg, cnpsATValue);
-      const cnam = this.calculateCNAM(base, cfg);
-      const fdfp = this.calculateFDFP(base, cfg);
+      const loans = await prisma.loan.findMany({
+        where: { employeId, statut: 'EN_COURS' },
+      });
 
-      const brut = base + montantHeuresSup + parseFloat(primes) + parseFloat(indemnite);
-      const isAmount = brut * cfg.IS_EMPLOYER;
-      const asAmount = brut * cfg.AS_EMPLOYER;
-      const cotSal = cnps.employeeRet + isAmount + asAmount; // côté salarié
-      const cotPat = cnps.employerRet + cnps.employerFamily + cnps.employerAT + cnam + fdfp;
+      const amounts = this.computePayrollAmounts({
+        baseSalaire,
+        heuresSup,
+        heuresSupDetails,
+        primes,
+        indemnite,
+        autresRetenues,
+        deductions,
+        parts,
+        cnpsATValue,
+        employe,
+      }, cfg, igr, riskBands);
 
-      const taxableBeforeAbattement = brut - cotSal;
-      const abattement = taxableBeforeAbattement * cfg.ABATTEMENT_PRO;
-      const taxableAfterAbattement = Math.max(taxableBeforeAbattement - abattement, 0);
-      const netImposablePart = taxableAfterAbattement / parts;
-      const igrAmount = this.calculateIGR(netImposablePart, igr) * parts;
-      const autresRet = parseFloat(autresRetenues) || 0;
-      const deductionsTotal = deductions.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
-      const netAPayer = brut - cotSal - igrAmount - autresRet - deductionsTotal;
+      // Déductions prêts/avances
+      let loanDeduction = 0;
+      loans.forEach((l) => {
+        const mensualite = Math.min(parseFloat(l.deductionMensuelle || 0), parseFloat(l.restantDu || 0));
+        loanDeduction += mensualite;
+      });
+
+      const netAPayerAvecLoans = amounts.netAPayer - loanDeduction;
+      const deductionsTotalAvecLoans = amounts.deductionsTotal + loanDeduction;
 
       const payroll = await prisma.payroll.create({
         data: {
@@ -325,51 +392,66 @@ class PayrollController {
           mois: parseInt(mois, 10),
           annee: parseInt(annee, 10),
           devise,
-          baseSalaire: base,
+          baseSalaire: amounts.base,
           heuresSup,
           heuresSupDetails,
           primes,
           indemnite,
-          autresRetenues,
+          autresRetenues: parseFloat(autresRetenues || 0) + loanDeduction,
           deductions,
           partsFiscales: parts,
-          brut,
-          cnpsSalarial: cnps.employeeRet,
-          cnpsPatronal: cnps.employerRet + cnps.employerFamily + cnps.employerAT,
-          cnpsATUtilise: cnps.employerAT,
-          cnam,
-          fdfp,
-          igr: igrAmount,
-          cotisationsSalariales: cotSal,
-          cotisationsPatronales: cotPat,
-          netImposable: taxableAfterAbattement,
-          netAPayer,
+          brut: amounts.brut,
+          cnpsSalarial: amounts.cnps.employeeRet + amounts.cnam.salarial,
+          cnpsPatronal: amounts.cnps.employerRet + amounts.cnps.employerFamily + amounts.cnps.employerAT + amounts.cnam.employer,
+          cnpsATUtilise: amounts.cnps.employerAT,
+          cnam: amounts.cnam.salarial + amounts.cnam.employer,
+          fdfp: amounts.fdfp,
+          igr: amounts.igrAmount,
+          cotisationsSalariales: amounts.cotSal,
+          cotisationsPatronales: amounts.cotPat,
+          netImposable: amounts.taxableAfterAbattement,
+          netAPayer: netAPayerAvecLoans,
           statut,
           details: {
             params: { ...cfg, igr },
             breakdown: {
               cnps: {
-                employeeRet: cnps.employeeRet,
-                employerRet: cnps.employerRet,
-                employerFamily: cnps.employerFamily,
-                employerAT: cnps.employerAT,
+                employeeRet: amounts.cnps.employeeRet,
+                employerRet: amounts.cnps.employerRet,
+                employerFamily: amounts.cnps.employerFamily,
+                employerAT: amounts.cnps.employerAT,
               },
-              cnam,
-              fdfp,
-              isAmount,
-              asAmount,
-              abattement,
-              brut,
-              taxableBeforeAbattement,
-              taxableAfterAbattement,
+              cnam: amounts.cnam,
+              fdfp: amounts.fdfp,
+              isAmount: amounts.isAmount,
+              asAmount: amounts.asAmount,
+              abattement: amounts.abattement,
+              brut: amounts.brut,
+              taxableBeforeAbattement: amounts.brut - amounts.cotSal,
+              taxableAfterAbattement: amounts.taxableAfterAbattement,
               parts,
-              igr: igrAmount,
-              deductionsTotal,
-              autresRetenues: autresRet,
+              igr: amounts.igrAmount,
+              deductionsTotal: deductionsTotalAvecLoans,
+              autresRetenues: amounts.autresRet + loanDeduction,
+              ayantsDroit: amounts.ayantsDroit,
+              loans: loans.map(l => ({ id: l.id, deduction: Math.min(parseFloat(l.deductionMensuelle || 0), parseFloat(l.restantDu || 0)) })),
             },
           },
         },
       });
+
+      // Mettre à jour les prêts (restant dû, statut)
+      await Promise.all(loans.map(l => {
+        const mensualite = Math.min(parseFloat(l.deductionMensuelle || 0), parseFloat(l.restantDu || 0));
+        const nouveauRestant = parseFloat(l.restantDu || 0) - mensualite;
+        return prisma.loan.update({
+          where: { id: l.id },
+          data: {
+            restantDu: nouveauRestant,
+            statut: nouveauRestant <= 0 ? 'TERMINE' : l.statut,
+          },
+        });
+      }));
 
       res.status(201).json({ success: true, data: payroll });
     } catch (error) {
@@ -380,9 +462,69 @@ class PayrollController {
 
   async updatePayroll(req, res) {
     try {
+      const id = req.params.id;
+      const existing = await prisma.payroll.findUnique({
+        where: { id },
+        include: { employe: true },
+      });
+      if (!existing) return res.status(404).json({ success: false, message: 'Bulletin non trouvé' });
+
+      const primes = req.body.primes !== undefined ? Number(req.body.primes) : Number(existing.primes || 0);
+      const indemnite =
+        req.body.indemnite !== undefined ? Number(req.body.indemnite) : Number(existing.indemnite || 0);
+      const autresRetenues =
+        req.body.autresRetenues !== undefined ? Number(req.body.autresRetenues) : Number(existing.autresRetenues || 0);
+      const heuresSup = req.body.heuresSup !== undefined ? Number(req.body.heuresSup) : Number(existing.heuresSup || 0);
+      const heuresSupDetails = Array.isArray(req.body.heuresSupDetails) ? req.body.heuresSupDetails : [];
+
+      const { cfg, igr, riskBands } = await this.loadParams();
+      const cnpsATValue =
+        existing.cnpsATUtilise ||
+        existing.cnpsAT ||
+        riskBands.find((r) => r.departement?.toLowerCase() === existing.employe.departement?.toLowerCase())?.rate ||
+        cfg.CNPS_AT;
+
+      const amounts = this.computePayrollAmounts(
+        {
+          baseSalaire: Number(existing.baseSalaire || 0),
+          primes,
+          indemnite,
+          autresRetenues,
+          deductions: existing.deductions || [],
+          parts: Math.min(Math.max(existing.partsFiscales || 1, 1), 5),
+          cnpsATValue,
+          employe: existing.employe,
+          heuresSup,
+          heuresSupDetails,
+        },
+        cfg,
+        igr,
+        riskBands
+      );
+
+      const dataUpdate = {
+        ...req.body,
+        primes,
+        indemnite,
+        autresRetenues,
+        heuresSup,
+        deductions: existing.deductions || [],
+        brut: amounts.brut,
+        cnpsSalarial: amounts.cotSal,
+        cnpsPatronal: amounts.cotPat,
+        cnpsATUtilise: amounts.cnps.employerAT,
+        cnam: amounts.cnam.salarial + amounts.cnam.employer,
+        fdfp: amounts.fdfp,
+        igr: amounts.igrAmount,
+        cotisationsSalariales: amounts.cotSal,
+        cotisationsPatronales: amounts.cotPat,
+        netImposable: amounts.taxableAfterAbattement,
+        netAPayer: amounts.netAPayer,
+      };
+
       const payroll = await prisma.payroll.update({
-        where: { id: req.params.id },
-        data: req.body,
+        where: { id },
+        data: dataUpdate,
       });
       res.json({ success: true, data: payroll });
     } catch (error) {
@@ -426,6 +568,104 @@ class PayrollController {
     } catch (error) {
       console.error('Error generating payslip:', error);
       res.status(500).json({ success: false, message: 'Erreur lors de la génération du bulletin', error: error.message });
+    }
+  }
+
+  async generateAllCurrent(req, res) {
+    try {
+      const { cfg, igr, riskBands } = await this.loadParams();
+      const now = new Date();
+      const mois = parseInt(req.body?.mois || (now.getMonth() + 1), 10);
+      const annee = parseInt(req.body?.annee || now.getFullYear(), 10);
+
+      const employes = await prisma.employe.findMany({
+        where: { status: 'ACTIF' },
+        include: {
+          contrats: {
+            where: { statut: 'ACTIF' },
+            orderBy: { dateDebut: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      const created = [];
+      for (const emp of employes) {
+        const contrat = emp.contrats?.[0];
+        if (!contrat) continue;
+        const exists = await prisma.payroll.findFirst({
+          where: { employeId: emp.id, mois, annee },
+        });
+        if (exists) continue;
+
+        const cnpsATValue = contrat.cnpsAT || riskBands.find(r => r.departement?.toLowerCase() === contrat.departement.toLowerCase())?.rate || cfg.CNPS_AT;
+        const loans = await prisma.loan.findMany({ where: { employeId: emp.id, statut: 'EN_COURS' } });
+        const amounts = this.computePayrollAmounts({
+          baseSalaire: contrat.salaireBase,
+          primes: 0,
+          indemnite: 0,
+          autresRetenues: 0,
+          deductions: [],
+          parts: Math.min(Math.max(emp.partsFiscales || 1, 1), 5),
+          cnpsATValue,
+          employe: emp,
+        }, cfg, igr, riskBands);
+
+        let loanDeduction = 0;
+        loans.forEach(l => {
+          const mensualite = Math.min(parseFloat(l.deductionMensuelle || 0), parseFloat(l.restantDu || 0));
+          loanDeduction += mensualite;
+        });
+        const netAPayerAvecLoans = amounts.netAPayer - loanDeduction;
+
+        const payroll = await prisma.payroll.create({
+          data: {
+            employeId: emp.id,
+            periode: `${annee}-${String(mois).padStart(2, '0')}`,
+            mois,
+            annee,
+            devise: 'XOF',
+            baseSalaire: amounts.base,
+            heuresSup: 0,
+        // heuresSupDetails intentionally omitted (column absent in current schema)
+        primes: 0,
+        indemnite: 0,
+        autresRetenues: 0,
+        deductions: [],
+            partsFiscales: Math.min(Math.max(emp.partsFiscales || 1, 1), 5),
+            brut: amounts.brut,
+            cnpsSalarial: amounts.cnps.employeeRet + amounts.cnam.salarial,
+            cnpsPatronal: amounts.cnps.employerRet + amounts.cnps.employerFamily + amounts.cnps.employerAT + amounts.cnam.employer,
+            cnpsATUtilise: amounts.cnps.employerAT,
+            cnam: amounts.cnam.salarial + amounts.cnam.employer,
+            fdfp: amounts.fdfp,
+            igr: amounts.igrAmount,
+            cotisationsSalariales: amounts.cotSal,
+            cotisationsPatronales: amounts.cotPat,
+            netImposable: amounts.taxableAfterAbattement,
+            netAPayer: netAPayerAvecLoans,
+            statut: 'GENERE',
+          },
+        });
+        // update loans
+        await Promise.all(loans.map(l => {
+          const mensualite = Math.min(parseFloat(l.deductionMensuelle || 0), parseFloat(l.restantDu || 0));
+          const nouveauRestant = parseFloat(l.restantDu || 0) - mensualite;
+          return prisma.loan.update({
+            where: { id: l.id },
+            data: {
+              restantDu: nouveauRestant,
+              statut: nouveauRestant <= 0 ? 'TERMINE' : l.statut,
+            },
+          });
+        }));
+        created.push(payroll);
+      }
+
+      res.json({ success: true, data: { created: created.length } });
+    } catch (error) {
+      console.error('Error generating all payslips:', error);
+      res.status(500).json({ success: false, message: 'Erreur lors de la génération groupée', error: error.message });
     }
   }
 }

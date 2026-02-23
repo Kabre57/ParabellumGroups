@@ -101,21 +101,18 @@ export interface LeaveRequest {
 
 export interface Loan {
   id: string;
-  employeeId: string;
-  amount: number;
-  currency: string;
-  interestRate: number;
-  term: number;
-  monthlyPayment: number;
-  remainingBalance: number;
-  startDate: string;
-  endDate: string;
-  status: string;
-  purpose?: string;
-  approvedBy?: string;
-  approvedAt?: string;
+  employeId: string;
+  type: 'AVANCE' | 'PRET';
+  motif?: string;
+  montantInitial: number;
+  restantDu: number;
+  deductionMensuelle: number;
+  dateDebut: string;
+  dateFin?: string;
+  statut: string;
   createdAt: string;
   updatedAt: string;
+  employe?: { nom?: string; prenom?: string; departement?: string };
 }
 
 export interface CreateEmployeeRequest {
@@ -193,11 +190,11 @@ export interface CreateLeaveRequest {
 }
 
 export interface CreateLoanRequest {
-  employeeId: string;
-  amount: number;
-  currency: string;
-  interestRate: number;
-  term: number;
-  startDate: string;
-  purpose?: string;
+  employeId: string;
+  type: 'AVANCE' | 'PRET';
+  motif?: string;
+  montantInitial: number;
+  deductionMensuelle: number;
+  dateDebut: string;
+  dateFin?: string;
 }

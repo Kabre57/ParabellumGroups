@@ -75,7 +75,22 @@ exports.create = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { matricule, nom, prenom, email, telephone, dateEmbauche, poste, departement, salaire, status } = req.body;
+    const {
+      matricule,
+      nom,
+      prenom,
+      email,
+      telephone,
+      dateEmbauche,
+      poste,
+      departement,
+      salaire,
+      status,
+      adresse,
+      nationalite,
+      cnpsNumber,
+      cnamNumber,
+    } = req.body;
 
     const employe = await prisma.employe.create({
       data: {
@@ -88,7 +103,11 @@ exports.create = async (req, res) => {
         poste,
         departement,
         salaire,
-        status: status || 'ACTIF'
+        status: status || 'ACTIF',
+        adresse,
+        nationalite,
+        cnpsNumber,
+        cnamNumber,
       }
     });
 
@@ -153,7 +172,21 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { nom, prenom, email, telephone, poste, departement, salaire, status } = req.body;
+    const {
+      nom,
+      prenom,
+      email,
+      telephone,
+      poste,
+      departement,
+      salaire,
+      status,
+      dateEmbauche,
+      adresse,
+      nationalite,
+      cnpsNumber,
+      cnamNumber,
+    } = req.body;
 
     const employe = await prisma.employe.update({
       where: { id },
@@ -165,7 +198,12 @@ exports.update = async (req, res) => {
         poste,
         departement,
         salaire,
-        status
+        status,
+        dateEmbauche: dateEmbauche ? new Date(dateEmbauche) : undefined,
+        adresse,
+        nationalite,
+        cnpsNumber,
+        cnamNumber,
       }
     });
 

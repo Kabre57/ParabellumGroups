@@ -430,7 +430,7 @@ const forgotPassword = async (req, res) => {
       });
     }
 
-    // Ne pas rÃ©vÃ©ler si l'utilisateur existe
+    // Ne pas révéler si l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true },
@@ -453,13 +453,13 @@ const forgotPassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Si un compte existe, un email de rÃ©initialisation a Ã©tÃ© envoyÃ©',
+      message: 'Si un compte existe, un email de réinitialisation a été envoyé',
     });
   } catch (error) {
     console.error('Forgot password error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la demande de rÃ©initialisation',
+      message: 'Erreur lors de la demande de réinitialisation',
       errors: error.message,
     });
   }

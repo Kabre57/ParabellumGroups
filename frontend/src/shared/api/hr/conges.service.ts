@@ -171,7 +171,15 @@ export const congesService = {
   },
 
   async createConge(data: CreateCongeRequest): Promise<DetailResponse<Conge>> {
-    const response = await apiClient.post('/hr/leave-requests', data);
+    // le backend exige nbJours : on le calcule si non fourni
+    let payload = { ...data };
+    if (!payload.nbJours && payload.dateDebut && payload.dateFin) {
+      const start = new Date(payload.dateDebut);
+      const end = new Date(payload.dateFin);
+      const diff = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      payload = { ...payload, nbJours: diff };
+    }
+    const response = await apiClient.post('/hr/leave-requests', payload);
     return { success: true, data: mapCongeFromApi(response.data?.data || response.data) };
   },
 

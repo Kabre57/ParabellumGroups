@@ -17,7 +17,19 @@ const mapPayrollFromApi = (p: any): Payroll => ({
   status: (p.statut ?? p.status ?? 'GENERE').toLowerCase(),
   socialContributions: Number(p.cnpsPatronal ?? p.socialCharges ?? 0),
   taxAmount: Number(p.igr ?? p.taxAmount ?? 0),
-  employee: p.employe || p.employee,
+  employee: p.employe
+    ? {
+        ...p.employe,
+        firstName: p.employe.prenom ?? p.employe.firstName,
+        lastName: p.employe.nom ?? p.employe.lastName,
+      }
+    : p.employee
+    ? {
+        ...p.employee,
+        firstName: p.employee.firstName ?? p.employee.prenom,
+        lastName: p.employee.lastName ?? p.employee.nom,
+      }
+    : undefined,
 });
 
 export const payrollService = {
@@ -57,6 +69,16 @@ export const payrollService = {
 
   async deletePayroll(id: string): Promise<void> {
     await apiClient.delete(`/payrolls/${id}`);
+  },
+
+  async generatePayslip(data: { employeId: string; mois: number; annee: number }): Promise<Payroll> {
+    const response = await apiClient.post('/payroll/generate', data);
+    return mapPayrollFromApi(response.data?.data || response.data);
+  },
+
+  async generateAllPayslips(data: { mois: number; annee: number }): Promise<{ created: number }> {
+    const response = await apiClient.post('/payroll/generate-all', data);
+    return response.data?.data || response.data;
   },
 
   async downloadPayrollPdf(id: string): Promise<Blob> {

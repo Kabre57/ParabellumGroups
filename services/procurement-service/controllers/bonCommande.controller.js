@@ -265,7 +265,7 @@ exports.updateStatus = async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Bon de commande non trouvÃ©' });
+      return res.status(404).json({ error: 'Bon de commande non trouvé' });
     }
 
     const bon = await prisma.bonCommande.update({
@@ -327,7 +327,7 @@ exports.getValidationLogs = async (req, res) => {
     res.json({ data: logs });
   } catch (error) {
     console.error('Error fetching validation logs:', error);
-    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'historique' });
+    res.status(500).json({ error: 'Erreur lors de la récupération de l\'historique' });
   }
 };
 
@@ -394,7 +394,7 @@ exports.getValidationHistory = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching validation history:', error);
-    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'historique' });
+    res.status(500).json({ error: 'Erreur lors de la récupération de l\'historique' });
   }
 };
 

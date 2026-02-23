@@ -41,6 +41,7 @@ model Employe {
   evaluationsRealisees Evaluation[] @relation("EvaluateurEvaluations")
   contrats      Contrat[]
   bulletins     Payroll[]
+  loans         Loan[]
 
   @@map("employes")
 }
@@ -215,6 +216,37 @@ model Payroll {
 
   @@index([employeId, annee, mois], name: "payroll_periode")
   @@map("payroll")
+}
+
+enum LoanType {
+  AVANCE
+  PRET
+}
+
+enum LoanStatus {
+  EN_COURS
+  TERMINE
+  ANNULE
+}
+
+model Loan {
+  id                 String      @id @default(uuid())
+  employeId          String
+  type               LoanType
+  motif              String?
+  montantInitial     Decimal     @db.Decimal(12, 2)
+  restantDu          Decimal     @db.Decimal(12, 2)
+  deductionMensuelle Decimal     @db.Decimal(12, 2)
+  dateDebut          DateTime
+  dateFin            DateTime?
+  statut             LoanStatus  @default(EN_COURS)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  employe            Employe     @relation(fields: [employeId], references: [id], onDelete: Cascade)
+
+  @@index([employeId])
+  @@map("loans")
 }
 
 // --- Référentiels paie CI (paramétrables) ---

@@ -41,6 +41,16 @@ const hrPermissionRules = [
       PATCH: 'salaries.update',
       DELETE: 'salaries.delete'
     }
+  },
+  {
+    pattern: /^\/loans/,
+    permissions: {
+      GET: 'loans.read',
+      POST: 'loans.create',
+      PUT: 'loans.update',
+      PATCH: 'loans.update',
+      DELETE: 'loans.delete'
+    }
   }
 ];
 /**
@@ -91,6 +101,11 @@ const rewriteHrPath = (path) => {
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
+  if (normalizedPath.startsWith('/hr/loans')) {
+    const rewritten = normalizedPath.replace('/hr/loans', '/api/loans');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
   if (normalizedPath.startsWith('/payrolls')) {
     const rewritten = normalizedPath.replace('/payrolls', '/payroll');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
@@ -98,6 +113,11 @@ const rewriteHrPath = (path) => {
   }
   if (normalizedPath.startsWith('/api/payrolls')) {
     const rewritten = normalizedPath.replace('/api/payrolls', '/payroll');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/api/payroll')) {
+    const rewritten = normalizedPath.replace('/api/payroll', '/payroll');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
@@ -140,6 +160,12 @@ module.exports = {
     },
     {
       path: '/payrolls',
+      auth: true,
+      permissionByPath: hrPermissionRules,
+      pathRewrite: rewriteHrPath,
+    },
+    {
+      path: '/payroll',
       auth: true,
       permissionByPath: hrPermissionRules,
       pathRewrite: rewriteHrPath,
