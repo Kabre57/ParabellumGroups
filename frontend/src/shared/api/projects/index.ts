@@ -4,7 +4,7 @@ import { jalonsService } from './jalons.service';
 
 export * from './types';
 
-export { projectsService };
+export { projectsService, tachesService, jalonsService };
 export const projectService = projectsService;
 
 export default projectsService;

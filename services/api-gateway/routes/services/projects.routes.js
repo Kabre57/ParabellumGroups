@@ -12,6 +12,18 @@ const { projectsServiceLimiter } = require('../../middleware/serviceLimiters');
  */
 const rewriteProjectsPath = (path) => {
   console.log('[Projects Path Rewrite] Original path:', path);
+  // Liste globale des tâches
+  if (/^\/(?:api\/)?projects\/tasks/.test(path)) {
+    const rewritten = path.replace(/^\/(?:api\/)?projects\/tasks/, '/api/taches');
+    console.log('[Projects Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  // Jalons (milestones)
+  if (/^\/(?:api\/)?projects\/jalons/.test(path)) {
+    const rewritten = path.replace(/^\/(?:api\/)?projects\/jalons/, '/api/jalons');
+    console.log('[Projects Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
   // Gestion des routes taches imbriquées
   const tasksMatch = path.match(/^\/(?:api\/)?projects\/([^\/]+)\/tasks(\/[^?]*)?(\?.*)?$/);
   if (tasksMatch) {
