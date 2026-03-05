@@ -20,7 +20,7 @@ interface Role {
   id: number;
   name: string;
   code: string;
-  description?: string;
+  description: string | null;
   isSystem: boolean;
   isActive: boolean;
   _count?: {

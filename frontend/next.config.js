@@ -25,25 +25,6 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Accept',
-            value:
-              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-        ],
-      },
-    ];
-  },
-
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
   // Ajoutez ceci pour le problème de lockfile
   outputFileTracingRoot: __dirname,
 };

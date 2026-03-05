@@ -22,7 +22,7 @@ export default function GanttPage() {
 
   const { data: projectsResp } = useQuery({
     queryKey: ['projects-mini'],
-    queryFn: () => projectsService.getProjects({ pageSize: 100 }),
+    queryFn: () => projectsService.getProjects({ limit: 100 }),
   });
   const projects = projectsResp?.data ?? [];
 

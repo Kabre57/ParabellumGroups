@@ -133,7 +133,10 @@ const login = async (req, res) => {
       });
     }
 
-    const { email, password } = req.body;
+    const rawEmail = typeof req.body.email === 'string' ? req.body.email : '';
+    const rawPassword = typeof req.body.password === 'string' ? req.body.password : '';
+    const email = rawEmail.trim().toLowerCase();
+    const password = rawPassword.normalize('NFC').trim();
 
     // Find user
     const user = await prisma.user.findUnique({

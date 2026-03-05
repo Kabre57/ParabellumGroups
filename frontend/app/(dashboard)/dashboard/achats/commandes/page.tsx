@@ -165,7 +165,7 @@ export default function PurchaseOrdersPage() {
 
   const { data: articlesResponse } = useQuery({
     queryKey: ["inventory-articles-all"],
-    queryFn: () => inventoryService.getArticles({ limit: 200 }),
+    queryFn: () => inventoryService.getArticles(),
     staleTime: 5 * 60 * 1000,
   });
   const articles = articlesResponse?.data ?? [];
@@ -551,7 +551,9 @@ export default function PurchaseOrdersPage() {
                 tva: item.tva ?? 0,
               })),
             };
-            const lignesSansArticle = payload.lignes.filter((l) => !l.articleId);
+            const lignesSansArticle = payload.lignes.filter(
+              (l: { articleId: string | null }) => !l.articleId
+            );
 
             return (
               <div className="space-y-4">

@@ -177,14 +177,14 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
         resize: true,
       });
 
-      const compressedFiles = compressed.map((item) => {
+      const compressedFiles = compressed.map((item: { ext?: string; alt?: string; data: string }) => {
         const ext = item.ext || 'jpeg';
         const name = item.alt ? `${item.alt}.${ext}` : `photo.${ext}`;
         const mimeType = `image/${ext}`;
         return dataUrlToFile(item.data, name, mimeType);
       });
 
-      const tooLargeAfter = compressedFiles.find((file) => file.size > 5 * 1024 * 1024);
+      const tooLargeAfter = compressedFiles.find((file: File) => file.size > 5 * 1024 * 1024);
       if (tooLargeAfter) {
         alert('Un fichier compressé dépasse 5 Mo. Veuillez réduire la taille des images.');
         return;

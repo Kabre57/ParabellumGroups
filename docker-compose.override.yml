@@ -2,8 +2,8 @@ services:
   # En développement, expose tous les ports
   frontend:
     environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=/api
   
   api-gateway:
     environment:
@@ -18,4 +18,4 @@ services:
     command: postgres -c logging_collector=on -c log_statement=all
   
   redis:
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password_2026}

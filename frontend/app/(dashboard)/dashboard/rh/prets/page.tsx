@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Plus, Search, Calendar, Trash2, CheckSquare } from "lucide-react";
-import { hrService, LoanPayload, Employee } from "@/shared/api/hr";
+import { hrService, Employee } from "@/shared/api/hr";
+import { loansService, type LoanPayload } from "@/shared/api/hr/loans.service";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 
@@ -31,7 +32,7 @@ export default function PretsPage() {
   const { data: loans, isLoading } = useQuery<LoanPayload[]>({
     queryKey: ["loans"],
     queryFn: async () => {
-      const res = await hrService.getLoans();
+      const res = await loansService.list();
       return res.data || [];
     },
   });
@@ -56,7 +57,7 @@ export default function PretsPage() {
         dateDebut: form.dateDebut,
         dateFin: form.dateFin || null,
       };
-      return hrService.createLoan(payload);
+      return loansService.create(payload);
     },
     onSuccess: () => {
       toast.success("Avance/Prêt créé(e)");
@@ -68,7 +69,7 @@ export default function PretsPage() {
   });
 
   const terminateMutation = useMutation({
-    mutationFn: (id: string) => hrService.terminateLoan(id),
+    mutationFn: (id: string) => loansService.terminate(id),
     onSuccess: () => {
       toast.success("Prêt clôturé");
       queryClient.invalidateQueries({ queryKey: ["loans"] });
@@ -77,7 +78,7 @@ export default function PretsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => hrService.deleteLoan(id),
+    mutationFn: (id: string) => loansService.remove(id),
     onSuccess: () => {
       toast.success("Supprimé");
       queryClient.invalidateQueries({ queryKey: ["loans"] });

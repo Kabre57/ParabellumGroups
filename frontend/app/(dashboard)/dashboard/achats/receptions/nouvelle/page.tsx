@@ -154,7 +154,7 @@ export default function NouvelleReceptionPage() {
                   <option value="">Choisir un fournisseur</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
-                      {supplier.name || supplier.nom || supplier.email}
+                      {supplier.name || supplier.email}
                     </option>
                   ))}
                 </select>

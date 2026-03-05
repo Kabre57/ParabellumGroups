@@ -21,7 +21,7 @@ services:
         parabellum_Analytics,
         delices_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -35,10 +35,11 @@ services:
     image: redis:alpine
     container_name: parabellum-redis
     restart: always
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password_2026}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redis_secure_password_2026} ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -48,8 +49,8 @@ services:
     container_name: parabellum-minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -80,12 +81,28 @@ services:
     build: ./frontend
     container_name: parabellum-frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api-gateway:3001
+      - NEXT_PUBLIC_API_URL=/api
     depends_on:
       - api-gateway
+
+  nginx:
+    image: nginx:alpine
+    container_name: parabellum-nginx
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_started
+        restart: true
+      api-gateway:
+        condition: service_started
+        restart: true
 
   # ==================== API GATEWAY ====================
   api-gateway:
@@ -135,7 +152,7 @@ services:
       - NODE_ENV=development
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_auth?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -164,7 +181,7 @@ services:
       - PORT=4003
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_technical?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
@@ -219,7 +236,7 @@ services:
       - PORT=4006
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_projects?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -235,7 +252,7 @@ services:
       - PORT=4007
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_procurement?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -251,7 +268,7 @@ services:
       - PORT=4008
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_customers?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -267,7 +284,7 @@ services:
       - PORT=4009
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_hr?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -284,7 +301,7 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/parabellum_billing?schema=public
       - JWT_SECRET=${JWT_SECRET}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy

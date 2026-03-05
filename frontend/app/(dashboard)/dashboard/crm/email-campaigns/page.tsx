@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, type ComponentProps } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,8 @@ const formatDestinataires = (destinataires?: CampagneDestinataire[]) => {
   if (!Array.isArray(destinataires)) return '';
   return destinataires.map((d) => d.email).filter(Boolean).join('\n');
 };
+
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>;
 
 export default function EmailCampaignsPage() {
   const queryClient = useQueryClient();
@@ -178,7 +180,7 @@ export default function EmailCampaignsPage() {
     avgClickRate: totalOpened > 0 ? ((totalClicked / totalOpened) * 100).toFixed(1) : '0.0',
   };
 
-  const getStatusBadge = (status: CampagneStatus) => {
+  const getStatusBadge = (status: CampagneStatus): { label: string; variant: BadgeVariant } => {
     const labelMap: Record<CampagneStatus, string> = {
       BROUILLON: 'Brouillon',
       PROGRAMMEE: 'Programmee',
@@ -186,7 +188,8 @@ export default function EmailCampaignsPage() {
       TERMINEE: 'Terminee',
       ANNULEE: 'Annulee',
     };
-    const variant = status === 'EN_COURS' || status === 'PROGRAMMEE' ? 'default' : 'secondary';
+    const variant: BadgeVariant =
+      status === 'EN_COURS' || status === 'PROGRAMMEE' ? 'default' : 'secondary';
     return { label: labelMap[status] || status, variant };
   };
 

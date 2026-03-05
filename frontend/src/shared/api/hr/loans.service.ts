@@ -33,16 +33,34 @@ const mapLoan = (l: any): LoanPayload => ({
   employe: l.employe,
 });
 
+const buildPagination = (page: number, pageSize: number, totalItems: number, totalPages: number) => ({
+  currentPage: page,
+  totalPages,
+  pageSize,
+  totalItems,
+  hasNext: page < totalPages,
+  hasPrevious: page > 1,
+});
+
 export const loansService = {
   async list(params?: any): Promise<PaginatedResponse<LoanPayload>> {
     const response = await apiClient.get('/hr/loans', { params });
     const payload = response.data?.data || response.data;
     if (Array.isArray(payload)) {
-      return { data: payload.map(mapLoan), pagination: { total: payload.length, page: 1, limit: payload.length, totalPages: 1 } };
+      const totalItems = payload.length;
+      return {
+        data: payload.map(mapLoan),
+        pagination: buildPagination(1, totalItems || 10, totalItems, 1),
+      };
     }
     const rows = payload?.data || [];
-    const pagination = payload?.pagination || { total: rows.length, page: 1, limit: rows.length, totalPages: 1 };
-    return { data: rows.map(mapLoan), pagination };
+    const rawPagination = payload?.pagination || {};
+    const currentPage = rawPagination.currentPage ?? rawPagination.page ?? 1;
+    const pageSize = (rawPagination.pageSize ?? rawPagination.limit ?? rows.length) || 10;
+    const totalItems = rawPagination.totalItems ?? rawPagination.total ?? rows.length;
+    const totalPages = rawPagination.totalPages ?? Math.max(1, Math.ceil(totalItems / Math.max(1, pageSize)));
+
+    return { data: rows.map(mapLoan), pagination: buildPagination(currentPage, pageSize, totalItems, totalPages) };
   },
 
   async create(data: any): Promise<LoanPayload> {

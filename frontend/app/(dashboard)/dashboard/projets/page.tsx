@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsService } from '@/services/projects';
-import type { Project, ProjectStatus } from '@/shared/api/types';
+import { ProjectStatus, type Project } from '@/shared/api/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,7 +40,7 @@ export default function ProjectsPage() {
     endDate: '',
     budget: '',
     managerId: '',
-    status: 'PLANNING' as ProjectStatus,
+    status: ProjectStatus.PLANNING,
     priority: 'MEDIUM',
   });
 
@@ -121,7 +121,7 @@ export default function ProjectsPage() {
       endDate: '',
       budget: '',
       managerId: '',
-      status: 'PLANNING',
+      status: ProjectStatus.PLANNING,
       priority: 'MEDIUM',
     });
     setEditing({} as Project);

@@ -66,6 +66,7 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
 
   const createdAt = rapport.createdAt || rapport.dateCreation;
   const updatedAt = rapport.updatedAt || rapport.dateModification || createdAt;
+  const photos = rapport.photos ?? [];
 
   return (
     <div className="space-y-6">
@@ -235,17 +236,17 @@ export default function RapportInterventionView({ rapportId, onClose }: RapportI
         </Card>
       )}
 
-      {rapport.photos && rapport.photos.length > 0 && lightboxIndex !== null && (
+      {photos.length > 0 && lightboxIndex !== null && (
         <Lightbox
-          mainSrc={rapport.photos[lightboxIndex]}
-          nextSrc={rapport.photos[(lightboxIndex + 1) % rapport.photos.length]}
-          prevSrc={rapport.photos[(lightboxIndex + rapport.photos.length - 1) % rapport.photos.length]}
+          mainSrc={photos[lightboxIndex]}
+          nextSrc={photos[(lightboxIndex + 1) % photos.length]}
+          prevSrc={photos[(lightboxIndex + photos.length - 1) % photos.length]}
           onCloseRequest={() => setLightboxIndex(null)}
           onMovePrevRequest={() =>
-            setLightboxIndex((lightboxIndex + rapport.photos.length - 1) % rapport.photos.length)
+            setLightboxIndex((lightboxIndex + photos.length - 1) % photos.length)
           }
           onMoveNextRequest={() =>
-            setLightboxIndex((lightboxIndex + 1) % rapport.photos.length)
+            setLightboxIndex((lightboxIndex + 1) % photos.length)
           }
         />
       )}

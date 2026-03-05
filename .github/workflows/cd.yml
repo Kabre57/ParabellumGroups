@@ -1,0 +1,84 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy_migrations:
+    name: CD Deploy Migrations
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: services/auth-service
+            db: parabellum_auth
+          - service: services/communication-service
+            db: parabellum_communication
+          - service: services/technical-service
+            db: parabellum_technical
+          - service: services/commercial-service
+            db: parabellum_commercial
+          - service: services/inventory-service
+            db: parabellum_inventory
+          - service: services/project-service
+            db: parabellum_projects
+          - service: services/procurement-service
+            db: parabellum_procurement
+          - service: services/customer-service
+            db: parabellum_customers
+          - service: services/hr-service
+            db: parabellum_hr
+          - service: services/billing-service
+            db: parabellum_billing
+          - service: services/analytics-service
+            db: parabellum_Analytics
+          - service: services/notification-service
+            db: parabellum_notification
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ${{ secrets.DB_USER }} -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Ensure database exists
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          if ! psql -h localhost -U ${{ secrets.DB_USER }} -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${{ matrix.db }}'" | grep -q 1; then
+            psql -h localhost -U ${{ secrets.DB_USER }} -d postgres -c "CREATE DATABASE \"${{ matrix.db }}\";"
+          fi
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost:5432/${{ matrix.db }}?schema=public
+        run: npx prisma migrate deploy --schema=prisma/schema.prisma

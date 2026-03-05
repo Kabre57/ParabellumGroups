@@ -107,7 +107,7 @@ export default function PaiePage() {
   const filteredPayrolls = useMemo(
     () =>
       payrolls.filter((p: Payroll) =>
-        `${p.employee?.firstName ?? p.employee?.prenom ?? ''} ${p.employee?.lastName ?? p.employee?.nom ?? ''}`
+        `${p.employee?.firstName ?? ''} ${p.employee?.lastName ?? ''}`
           .toLowerCase()
           .includes(searchQuery.toLowerCase())
       ),
@@ -133,11 +133,11 @@ export default function PaiePage() {
           </Button>
           <Button
             className="flex items-center gap-2"
-            disabled={generateMutation.isLoading}
+            disabled={generateMutation.isPending}
             onClick={() => generateMutation.mutate()}
           >
             <Plus className="h-4 w-4" />
-            {generateMutation.isLoading ? 'Génération...' : 'Générer Paie'}
+            {generateMutation.isPending ? 'Génération...' : 'Générer Paie'}
           </Button>
         </div>
       </div>
@@ -238,10 +238,8 @@ export default function PaiePage() {
                     className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
                     <td className="py-3 px-4 font-medium">
-                      {payroll.employee?.firstName || payroll.employee?.prenom
-                        ? `${payroll.employee.firstName ?? payroll.employee.prenom} ${
-                            payroll.employee.lastName ?? payroll.employee.nom ?? ''
-                          }`
+                      {payroll.employee?.firstName
+                        ? `${payroll.employee.firstName} ${payroll.employee.lastName ?? ''}`
                         : payroll.employeeId}
                       {payroll.employee?.matricule && (
                         <div className="text-xs text-gray-500">Matricule {payroll.employee.matricule}</div>

@@ -1,4 +1,4 @@
-import { apiClient } from '../shared/client';
+// import { apiClient } from '../shared/client';
 import { Materiel, SortieMateriel } from './types';
 
 export interface ListResponse<T> {

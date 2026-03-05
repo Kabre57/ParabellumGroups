@@ -56,6 +56,7 @@ export interface TypeClient {
   id: string;
   code: string;
   libelle: string;
+  description?: string;
   couleur?: string;
   icone?: string;
   isActive?: boolean;

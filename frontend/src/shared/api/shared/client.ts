@@ -9,6 +9,16 @@ class ApiClient {
   private instance: AxiosInstance;
   private accessToken: string | null = null;
 
+  private isPublicAuthEndpoint(url?: string): boolean {
+    if (!url) return false;
+    return (
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/forgot-password') ||
+      url.includes('/auth/refresh')
+    );
+  }
+
   constructor() {
     // Utilisation de /api comme base URL par défaut pour le proxy ou le gateway
     // Si NEXT_PUBLIC_API_GATEWAY_URL est défini, on l'utilise, sinon on utilise /api
@@ -34,8 +44,9 @@ class ApiClient {
     // Intercepteur de requête - ajoute le token JWT
     this.instance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
+        const isPublicEndpoint = this.isPublicAuthEndpoint(config.url);
         const token = this.getToken();
-        if (token && config.headers) {
+        if (!isPublicEndpoint && token && config.headers) {
           // Use .set() method for Axios 1.x AxiosHeaders
           if (typeof config.headers.set === 'function') {
             config.headers.set('Authorization', `Bearer ${token}`);
@@ -184,7 +195,11 @@ class ApiClient {
   private shouldRetryWithRefresh(error: AxiosError): boolean {
     const config = error.config as any;
     // Ne pas retry si c'est déjà un retry ou si c'est l'appel de refresh lui-même
-    return !config?._retry && !config?.url?.includes('/auth/refresh');
+    return (
+      !config?._retry &&
+      !this.isPublicAuthEndpoint(config?.url) &&
+      !config?.url?.includes('/auth/refresh')
+    );
   }
 
   /**

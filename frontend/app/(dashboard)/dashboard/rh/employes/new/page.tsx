@@ -31,7 +31,7 @@ export default function NewEmployeePage() {
     isActive: true,
   });
 
-  const { mutate, isLoading } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: () =>
       hrService.createEmployee({
         ...form,
@@ -98,7 +98,7 @@ export default function NewEmployeePage() {
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => router.back()} disabled={isLoading}>
+          <Button variant="outline" onClick={() => router.back()} disabled={isPending}>
             Annuler
           </Button>
           <Button
@@ -119,9 +119,9 @@ export default function NewEmployeePage() {
               }
               mutate();
             }}
-            disabled={isLoading}
+            disabled={isPending}
           >
-            {isLoading ? <Spinner size="sm" /> : 'Créer'}
+            {isPending ? <Spinner size="sm" /> : 'Créer'}
           </Button>
         </div>
       </Card>

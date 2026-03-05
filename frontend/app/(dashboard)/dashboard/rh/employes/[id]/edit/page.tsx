@@ -61,7 +61,7 @@ export default function EditEmployeePage() {
     }
   }, [data]);
 
-  const { mutate, isLoading } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: () =>
       hrService.updateEmployee(id!, {
         ...form,
@@ -148,7 +148,7 @@ export default function EditEmployeePage() {
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => router.push(`/dashboard/rh/employes/${id}`)} disabled={isLoading}>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/rh/employes/${id}`)} disabled={isPending}>
             Annuler
           </Button>
           <Button
@@ -169,9 +169,9 @@ export default function EditEmployeePage() {
               }
               mutate();
             }}
-            disabled={isLoading}
+            disabled={isPending}
           >
-            {isLoading ? <Spinner size="sm" /> : 'Enregistrer'}
+            {isPending ? <Spinner size="sm" /> : 'Enregistrer'}
           </Button>
         </div>
       </Card>

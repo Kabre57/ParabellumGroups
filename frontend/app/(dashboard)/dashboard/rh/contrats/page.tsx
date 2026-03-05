@@ -27,7 +27,6 @@ export default function ContratsPage() {
         page: 1,
         limit: 200,
         contractType: typeFilter !== 'all' ? typeFilter : undefined,
-        search: searchQuery || undefined,
       }),
   });
 

@@ -37,7 +37,9 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setError('');
-      await login(data.email, data.password);
+      const sanitizedEmail = data.email.trim().toLowerCase();
+      const sanitizedPassword = data.password.normalize('NFC').trim();
+      await login(sanitizedEmail, sanitizedPassword);
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Échec de la connexion');
@@ -101,6 +103,9 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     {...register('email')}
                     className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                     placeholder="email@exemple.com"
@@ -126,6 +131,9 @@ export default function LoginPage() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     {...register('password')}
                     className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                     placeholder="Mot de passe"

@@ -18,7 +18,7 @@ export function TechnicalDashboard() {
   const { data: interventionsResponse, isLoading: isLoadingInterventions } = useQuery({
     queryKey: ['technical', 'interventions-performance'],
     queryFn: async () => {
-      const res = await technicalService.getInterventions({ pageSize: 500 });
+      const res = await technicalService.getInterventions({ limit: 500 });
       return res;
     },
   });

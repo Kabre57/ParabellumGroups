@@ -35,7 +35,7 @@ const mapEmployeeToApi = (payload: CreateEmployeeRequest | UpdateEmployeeRequest
   nationalite: payload.nationality,
   cnpsNumber: payload.cnpsNumber,
   cnamNumber: payload.cnamNumber,
-  dateEmbauche: payload.hireDate,
+  dateEmbauche: 'hireDate' in payload ? payload.hireDate : undefined,
   poste: payload.position,
   departement: payload.department,
   salaire: payload.salary ?? 0,

@@ -109,12 +109,12 @@ export default function InteractionsPage() {
   const deleteMutation = useDeleteInteraction();
 
   const clientMap = useMemo(() => {
-    const entries = clientsArray.map((c) => [c.id, c]);
+    const entries: Array<[string, Client]> = clientsArray.map((c): [string, Client] => [c.id, c]);
     return new Map(entries);
   }, [clientsArray]);
 
   const contactMap = useMemo(() => {
-    const entries = contactsArray.map((c) => [c.id, c]);
+    const entries: Array<[string, Contact]> = contactsArray.map((c): [string, Contact] => [c.id, c]);
     return new Map(entries);
   }, [contactsArray]);
 

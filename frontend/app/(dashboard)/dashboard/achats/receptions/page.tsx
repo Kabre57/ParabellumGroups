@@ -45,7 +45,7 @@ export default function ReceptionsPage() {
   });
 
   // L'API renvoie un tableau brut. On accepte aussi le format ApiResponse pour compatibilité.
-  const receptions = (Array.isArray(listResponse) ? listResponse : listResponse?.data) ?? [];
+  const receptions: Reception[] = (Array.isArray(listResponse) ? listResponse : listResponse?.data) ?? [];
 
   // Détail
   const { data: detail, isFetching: isDetailLoading } = useQuery({

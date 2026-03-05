@@ -39,7 +39,7 @@ export default function JalonsPage() {
 
   const { data: projectsResp } = useQuery({
     queryKey: ['projects-mini'],
-    queryFn: () => projectsService.getProjects({ pageSize: 100 }),
+    queryFn: () => projectsService.getProjects({ limit: 100 }),
   });
   const projects = projectsResp?.data ?? [];
 
@@ -205,7 +205,7 @@ export default function JalonsPage() {
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEdit(j)}>Éditer</Button>
-                    <Button variant="outline" size="sm" onClick={() => jalonsService.updateJalonStatus(j.id, { status: 'ATTEINT' }).then(() => { toast.success('Marqué atteint'); qc.invalidateQueries({ queryKey: ['jalons'] }); })}>
+                    <Button variant="outline" size="sm" onClick={() => jalonsService.updateJalonStatus(j.id, 'ATTEINT').then(() => { toast.success('Marqué atteint'); qc.invalidateQueries({ queryKey: ['jalons'] }); })}>
                       Marquer atteint
                     </Button>
                   </div>

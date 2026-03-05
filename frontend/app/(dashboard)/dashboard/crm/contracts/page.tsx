@@ -104,7 +104,7 @@ export default function ContractsPage() {
   const updateStatusMutation = useUpdateContratStatus();
 
   const clientMap = useMemo(() => {
-    const entries = clientsArray.map((c) => [c.id, c]);
+    const entries: Array<[string, Client]> = clientsArray.map((c): [string, Client] => [c.id, c]);
     return new Map(entries);
   }, [clientsArray]);
 

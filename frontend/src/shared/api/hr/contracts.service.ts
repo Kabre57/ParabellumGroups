@@ -57,7 +57,7 @@ const mapContractFromApi = (c: any): Contract => ({
 });
 
 const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) => ({
-  employeId: (c as any).employeeId ?? c.employeeId,
+  employeId: 'employeeId' in c ? c.employeeId : undefined,
   type: c.contractType,
   dateDebut: c.startDate,
   dateFin: c.endDate ?? null,
@@ -66,7 +66,7 @@ const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) => (
   heuresHebdo: c.workHoursPerWeek ?? 40,
   poste: c.position,
   departement: c.department,
-  statut: (c as any).status ?? 'ACTIF',
+  statut: 'status' in c ? (c.status ?? 'ACTIF') : 'ACTIF',
 });
 
 export const contractsService = {

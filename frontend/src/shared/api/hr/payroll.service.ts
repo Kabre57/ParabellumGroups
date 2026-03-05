@@ -10,6 +10,7 @@ const mapPayrollFromApi = (p: any): Payroll => ({
   year: p.annee ?? p.year,
   grossSalary: Number(p.brut ?? p.baseSalaire ?? p.grossSalary ?? 0),
   netSalary: Number(p.netAPayer ?? p.netSalary ?? 0),
+  totalPaid: Number(p.totalPaid ?? p.netAPayer ?? p.netSalary ?? 0),
   deductions: Number(p.cotisationsSalariales ?? p.deductions ?? 0),
   bonuses: Number(p.primes ?? p.bonuses ?? 0),
   currency: p.devise ?? p.currency ?? 'XOF',
@@ -17,6 +18,8 @@ const mapPayrollFromApi = (p: any): Payroll => ({
   status: (p.statut ?? p.status ?? 'GENERE').toLowerCase(),
   socialContributions: Number(p.cnpsPatronal ?? p.socialCharges ?? 0),
   taxAmount: Number(p.igr ?? p.taxAmount ?? 0),
+  createdAt: p.createdAt ?? '',
+  updatedAt: p.updatedAt ?? '',
   employee: p.employe
     ? {
         ...p.employe,
@@ -32,6 +35,15 @@ const mapPayrollFromApi = (p: any): Payroll => ({
     : undefined,
 });
 
+const buildPagination = (page: number, pageSize: number, totalItems: number, totalPages: number) => ({
+  currentPage: page,
+  totalPages,
+  pageSize,
+  totalItems,
+  hasNext: page < totalPages,
+  hasPrevious: page > 1,
+});
+
 export const payrollService = {
   async calculateSalary(data: CalculateSalaryRequest): Promise<SalaryCalculation> {
     const response = await apiClient.post('/payroll/calculate', data);
@@ -43,13 +55,11 @@ export const payrollService = {
     const payload = response.data?.data || response.data;
     const list = payload?.data ?? payload ?? [];
     const mapped = list.map(mapPayrollFromApi);
-    const pagination = {
-      total: payload?.total ?? mapped.length,
-      page: payload?.page ?? 1,
-      limit: payload?.pageSize ?? mapped.length,
-      totalPages: payload?.totalPages ?? 1,
-    };
-    return { data: mapped, pagination };
+    const page = payload?.currentPage ?? payload?.page ?? 1;
+    const pageSize = (payload?.pageSize ?? payload?.limit ?? mapped.length) || 10;
+    const totalItems = payload?.totalItems ?? payload?.total ?? mapped.length;
+    const totalPages = payload?.totalPages ?? Math.max(1, Math.ceil(totalItems / Math.max(1, pageSize)));
+    return { data: mapped, pagination: buildPagination(page, pageSize, totalItems, totalPages) };
   },
 
   async getPayroll(id: string): Promise<Payroll> {

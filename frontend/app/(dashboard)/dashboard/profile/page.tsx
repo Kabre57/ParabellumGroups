@@ -36,6 +36,14 @@ export default function ProfilePage() {
     MANAGER: 'Manager'
   };
 
+  const resolveRoleLabel = (role: AuthUser['role']) => {
+    if (typeof role === 'string') {
+      return roleLabels[role] || role;
+    }
+    const roleCode = role?.code || role?.name || '';
+    return roleLabels[roleCode] || roleCode || 'N/A';
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
     setFormData(userData);
@@ -148,7 +156,7 @@ export default function ProfilePage() {
             </h2>
             <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2 mt-1">
               <Shield className="w-4 h-4" />
-              {roleLabels[userData.role] || userData.role}
+              {resolveRoleLabel(userData.role)}
             </p>
           </div>
         </div>
@@ -255,7 +263,7 @@ export default function ProfilePage() {
               Rôle
             </label>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-              {roleLabels[userData.role] || userData.role}
+              {resolveRoleLabel(userData.role)}
             </span>
           </div>
 

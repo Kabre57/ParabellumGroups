@@ -14,7 +14,7 @@ export default function RHDashboardPage() {
   const { data: employees, isLoading: employeesLoading } = useQuery({
     queryKey: ['employees-stats'],
     queryFn: async () => {
-      const response = await hrService.getEmployees({ limit: 1000 });
+      const response = await hrService.getEmployees({ pageSize: 1000 });
       return response.data || [];
     },
   });
