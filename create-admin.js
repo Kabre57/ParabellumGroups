@@ -9,6 +9,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
+const jwtSecret = process.env.JWT_SECRET;
+
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET is required to run create-admin.js');
+}
 
 async function createTestAdmin() {
   try {
@@ -44,7 +49,7 @@ async function createTestAdmin() {
         email: user.email,
         role: 'ADMIN'
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
