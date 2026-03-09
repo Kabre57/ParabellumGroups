@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusProjet {
+  PLANIFIE
+  EN_COURS
+  SUSPENDU
+  TERMINE
+  ANNULE
+}
+
+enum Priorite {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+enum StatusTache {
+  A_FAIRE
+  EN_COURS
+  TERMINEE
+  BLOQUEE
+}
+
+enum StatusJalon {
+  PLANIFIE
+  ATTEINT
+  MANQUE
+}
+
+model Projet {
+  id            String        @id @default(uuid())
+  numeroProjet  String        @unique
+  nom           String
+  description   String?
+  clientId      String
+  dateDebut     DateTime
+  dateFin       DateTime?
+  budget        Decimal?      @db.Decimal(15, 2)
+  coutReel      Decimal?      @db.Decimal(15, 2) @default(0)
+  status        StatusProjet  @default(PLANIFIE)
+  priorite      Priorite      @default(MOYENNE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  taches        Tache[]
+  jalons        Jalon[]
+  
+  @@index([clientId])
+  @@index([status])
+  @@index([numeroProjet])
+}
+
+model Tache {
+  id              String        @id @default(uuid())
+  projetId        String
+  titre           String
+  description     String?
+  dateDebut       DateTime?
+  dateEcheance    DateTime?
+  dureeEstimee    Int?
+  dureeReelle     Int?
+  status          StatusTache   @default(A_FAIRE)
+  priorite        Priorite      @default(MOYENNE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  projet          Projet        @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  assignations    TacheAssignation[]
+  
+  @@index([projetId])
+  @@index([status])
+}
+
+model TacheAssignation {
+  id              String        @id @default(uuid())
+  tacheId         String
+  userId          String
+  role            String?
+  dateAssignation DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  tache           Tache         @relation(fields: [tacheId], references: [id], onDelete: Cascade)
+  
+  @@unique([tacheId, userId])
+  @@index([userId])
+  @@index([tacheId])
+}
+
+model Jalon {
+  id              String        @id @default(uuid())
+  projetId        String
+  nom             String
+  description     String?
+  dateEcheance    DateTime
+  status          StatusJalon   @default(PLANIFIE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  projet          Projet        @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  
+  @@index([projetId])
+  @@index([status])
+}

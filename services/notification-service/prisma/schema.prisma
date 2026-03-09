@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  data        Json?
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+  
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id          String   @id @default(uuid())
+  to          String
+  subject     String
+  body        String
+  status      String   @default("PENDING")
+  sentAt      DateTime?
+  errorMessage String?
+  createdAt   DateTime @default(now())
+
+  @@map("email_logs")
+  @@index([status])
+  @@index([createdAt])
+}

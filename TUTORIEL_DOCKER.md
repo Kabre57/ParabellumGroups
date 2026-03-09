@@ -167,3 +167,4 @@ Validation de la config Compose:
 ```bash
 docker compose config
 ```
+docker compose up -d nginx

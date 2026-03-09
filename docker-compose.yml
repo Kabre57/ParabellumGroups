@@ -96,7 +96,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx-parabellum.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       frontend:
         condition: service_started
