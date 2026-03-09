@@ -160,12 +160,6 @@ class ApiClient {
         throw this.formatError(429, 'Trop de requêtes, veuillez patienter');
 
       case 403:
-        if (typeof window !== 'undefined') {
-          const requiredPermission = (data as any)?.requiredPermission;
-          window.dispatchEvent(
-            new CustomEvent('auth:forbidden', { detail: { permission: requiredPermission } })
-          );
-        }
         throw this.formatError(403, 'Accès refusé');
 
       case 404:

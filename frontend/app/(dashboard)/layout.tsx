@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
 import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
-import { hasPermission } from '@/shared/permissions';
+import { hasPermission, isAdminRole } from '@/shared/permissions';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const requiredPermission = React.useMemo(() => {
+  const requiredPermission = useMemo(() => {
     if (!pathname) return undefined;
     const allItems = [...sidebarItems, ...adminNavigation].filter(item => item.href && item.permission);
     const matches = allItems.filter(item =>
@@ -28,10 +28,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     matches.sort((a, b) => (b.href?.length || 0) - (a.href?.length || 0));
     return matches[0]?.permission;
   }, [pathname]);
-  const isAuthorized = React.useMemo(() => {
+  const isAuthorized = useMemo(() => {
     if (!requiredPermission) return true;
     return hasPermission(user, requiredPermission);
   }, [requiredPermission, user]);
+  const fallbackRoute = useMemo(() => {
+    const visibleItems = [...sidebarItems, ...adminNavigation].filter((item) => {
+      if (!item.href) return false;
+      if (item.permission === 'admin') return isAdminRole(user);
+      return hasPermission(user, item.permission);
+    });
+
+    const sortedItems = visibleItems.sort((a, b) => (a.href?.length || 0) - (b.href?.length || 0));
+    return sortedItems[0]?.href || '/dashboard';
+  }, [user]);
 
   // Vérification d'authentification
   useEffect(() => {
@@ -47,40 +57,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [pathname]);
 
   useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail || {};
-      const requiredPermission = detail.permission;
-      const base = '/access-denied';
-      const target = requiredPermission
-        ? `${base}?permission=${encodeURIComponent(requiredPermission)}`
-        : base;
-
-      if (pathname !== base) {
-        router.push(target);
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('auth:forbidden', handler as EventListener);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('auth:forbidden', handler as EventListener);
-      }
-    };
-  }, [router, pathname]);
-
-  useEffect(() => {
     if (isLoading) return;
     if (!user) return;
     if (!requiredPermission) return;
-    if (pathname?.startsWith('/access-denied')) return;
     if (!isAuthorized) {
-      const target = `/access-denied?permission=${encodeURIComponent(requiredPermission)}`;
+      const target = fallbackRoute === pathname ? '/dashboard' : fallbackRoute;
       router.replace(target);
     }
-  }, [isLoading, user, requiredPermission, isAuthorized, router, pathname]);
+  }, [fallbackRoute, isLoading, isAuthorized, pathname, requiredPermission, router, user]);
 
   if (isLoading) {
     return (
