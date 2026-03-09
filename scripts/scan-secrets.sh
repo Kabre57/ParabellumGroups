@@ -4,14 +4,12 @@ set -euo pipefail
 tmp_matches="$(mktemp)"
 trap 'rm -f "$tmp_matches"' EXIT
 
-git ls-files -z \
-  | grep -zvx 'scripts/scan-secrets.sh' \
-  | xargs -0 rg -n -I \
-  -e 'BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY' \
-  -e '(JWT_SECRET|JWT_REFRESH_SECRET|DB_PASSWORD|POSTGRES_PASSWORD|REDIS_PASSWORD|MINIO_ROOT_PASSWORD|API_KEY|SECRET_KEY|ACCESS_KEY|TOKEN|PASSWORD)[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9_./:+-]{8,}' \
-  -e 'postgresql://[^:$[:space:]]+:[^$@[:space:]][^@[:space:]]*@' \
-  -e 'redis://:[^$@[:space:]][^@[:space:]]*@' \
-  -- . >"$tmp_matches" || true
+{
+  git grep -nI -E 'BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY' -- . ':(exclude)scripts/scan-secrets.sh' || true
+  git grep -nI -E '(JWT_SECRET|JWT_REFRESH_SECRET|DB_PASSWORD|POSTGRES_PASSWORD|REDIS_PASSWORD|MINIO_ROOT_PASSWORD|API_KEY|SECRET_KEY|ACCESS_KEY|TOKEN|PASSWORD)[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9_./:+-]{8,}' -- . ':(exclude)scripts/scan-secrets.sh' || true
+  git grep -nI -E 'postgresql://[^:$[:space:]]+:[^$@[:space:]][^@[:space:]]*@' -- . ':(exclude)scripts/scan-secrets.sh' || true
+  git grep -nI -E 'redis://:[^$@[:space:]][^@[:space:]]*@' -- . ':(exclude)scripts/scan-secrets.sh' || true
+} >"$tmp_matches"
 
 if [ ! -s "$tmp_matches" ]; then
   exit 0
