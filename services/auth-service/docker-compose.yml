@@ -1,0 +1,45 @@
+services:
+  auth-service:
+    build: .
+    container_name: auth-service
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - NODE_ENV=development
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-replace-with-a-strong-database-password}
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-replace-with-a-strong-database-password}@db:5432/parabellum_auth?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    container_name: auth-service-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-replace-with-a-strong-database-password}
+      POSTGRES_DB: parabellum_auth
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d parabellum_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - auth-service_db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    container_name: auth-service-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  auth-service_db_data:

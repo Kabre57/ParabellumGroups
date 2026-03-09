@@ -1,0 +1,25 @@
+services:
+  # En développement, expose tous les ports
+  auth-service:
+    volumes:
+      - ./services/auth-service/src:/app/src
+  
+  frontend:
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=/api
+  
+  api-gateway:
+    environment:
+      # Pour le développement, utilise localhost depuis le frontend
+      - AUTH_SERVICE_URL=http://auth-service:4001
+      # Mais depuis l'extérieur, utilise localhost
+    ports:
+      - "3001:3001"
+  
+  # Pour faciliter le debug, expose les logs
+  postgres:
+    command: postgres -c logging_collector=on -c log_statement=all
+  
+  redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-replace-with-a-strong-redis-password}

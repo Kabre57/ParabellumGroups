@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  prisma_migrate_deploy:
+    name: Prisma Migrate Deploy
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: services/auth-service
+            db: parabellum_auth
+          - service: services/communication-service
+            db: parabellum_communication
+          - service: services/technical-service
+            db: parabellum_technical
+          - service: services/commercial-service
+            db: parabellum_commercial
+          - service: services/inventory-service
+            db: parabellum_inventory
+          - service: services/project-service
+            db: parabellum_projects
+          - service: services/procurement-service
+            db: parabellum_procurement
+          - service: services/customer-service
+            db: parabellum_customers
+          - service: services/hr-service
+            db: parabellum_hr
+          - service: services/billing-service
+            db: parabellum_billing
+          - service: services/analytics-service
+            db: parabellum_Analytics
+          - service: services/notification-service
+            db: parabellum_notification
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Ensure database exists
+        env:
+          PGPASSWORD: password
+        run: |
+          if ! psql -h localhost -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${{ matrix.db }}'" | grep -q 1; then
+            psql -h localhost -U postgres -d postgres -c "CREATE DATABASE \"${{ matrix.db }}\";"
+          fi
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/${{ matrix.db }}?schema=public
+        run: npx prisma migrate deploy --schema=prisma/schema.prisma
+
+  frontend_quality:
+    name: Frontend Lint + Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+  backend_smoke_tests:
+    name: Backend Smoke Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/api-gateway
+          - services/auth-service
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run smoke tests
+        run: npm test -- --runInBand --passWithNoTests
+
+  docker_compose_build:
+    name: Docker Compose Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create CI .env
+        run: |
+          cat > .env <<'EOF'
+          DB_USER=postgres
+          DB_PASSWORD=password
+          JWT_SECRET=ci-jwt-secret
+          MINIO_ROOT_USER=minioadmin
+          MINIO_ROOT_PASSWORD=minioadmin
+          EOF
+
+      - name: Validate docker-compose
+        run: docker compose config
+
+      - name: Build docker-compose images
+        run: docker compose build --parallel

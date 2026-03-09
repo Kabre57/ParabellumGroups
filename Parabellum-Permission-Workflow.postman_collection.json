@@ -1,0 +1,414 @@
+{
+  "info": {
+    "_postman_id": "parabellum-permission-workflow-collection",
+    "name": "Parabellum - Permission Workflow API",
+    "description": "Complete API collection for testing permission change requests, role templates, and notifications",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearerToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login (Get Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@parabellum.com\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Roles - With Templates",
+      "item": [
+        {
+          "name": "List All Roles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Role WITH Template (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Manager\",\n  \"code\": \"MANAGER\",\n  \"description\": \"Service Manager with limited admin rights\",\n  \"isActive\": true,\n  \"template\": \"SERVICE_MANAGER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Role WITHOUT Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Custom Role\",\n  \"code\": \"CUSTOM_ROLE\",\n  \"description\": \"Custom role - permissions to be assigned manually\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Senior Manager\",\n  \"description\": \"Updated description\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", "3"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/roles/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", "3"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        {
+          "name": "List All Permissions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Permissions by Category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions?category=users",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "users"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Permission by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role Permissions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions/roles/ADMIN",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "roles", "ADMIN"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permission Change Requests - Workflow",
+      "item": [
+        {
+          "name": "List All Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Pending Requests ONLY",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests?status=PENDING",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Approved Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests?status=APPROVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "APPROVED"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CREATE Permission Change Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": 2,\n  \"permissionId\": 15,\n  \"canView\": true,\n  \"canCreate\": true,\n  \"canEdit\": false,\n  \"canDelete\": false,\n  \"canApprove\": false,\n  \"reason\": \"Employee needs to view and create reports for daily tasks\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "APPROVE Permission Change Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests/1/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests", "1", "approve"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REJECT Permission Change Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Not aligned with current security policies. Please resubmit after Q2 review.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permission-requests/2/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["permission-requests", "2", "reject"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Direct Permission Management",
+      "item": [
+        {
+          "name": "[REQUIRES WORKFLOW OFF] Update Role Permission Direct",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canView\": true,\n  \"canCreate\": true,\n  \"canEdit\": true,\n  \"canDelete\": false,\n  \"canApprove\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions/roles/ADMIN/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "roles", "ADMIN", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[REQUIRES WORKFLOW OFF] Delete Role Permission Direct",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/permissions/roles/EMPLOYEE/5",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "roles", "EMPLOYEE", "5"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["audit-logs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Audit Logs for Role Changes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs?entityType=RolePermission",
+              "host": ["{{baseUrl}}"],
+              "path": ["audit-logs"],
+              "query": [
+                {
+                  "key": "entityType",
+                  "value": "RolePermission"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4001/api",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}
