@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { hrService, Employee } from '@/shared/api/hr';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +24,7 @@ import { fr } from 'date-fns/locale';
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,6 +66,11 @@ export default function EmployeesPage() {
 
   const employees = data?.data || [];
   const pagination = data?.pagination;
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['employees.read', 'employees.read_all', 'employees.read_own', 'employees.read_team'],
+    create: ['employees.create'],
+    update: ['employees.update'],
+  });
 
   // Extract unique departments
   const departments = ['all', 'IT', 'RH', 'Finance', 'Commercial', 'Production', 'Logistique'];
@@ -80,9 +88,11 @@ export default function EmployeesPage() {
             Gérez vos employés et leurs informations
           </p>
         </div>
-        <Button onClick={() => router.push('/dashboard/rh/employes/new')}>
-          Nouvel employé
-        </Button>
+        {canCreate && (
+          <Button onClick={() => router.push('/dashboard/rh/employes/new')}>
+            Nouvel employé
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -189,13 +199,15 @@ export default function EmployeesPage() {
                         >
                           Voir profil
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => router.push(`/dashboard/rh/employes/${employee.id}/edit`)}
-                        >
-                          Modifier
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/dashboard/rh/employes/${employee.id}/edit`)}
+                          >
+                            Modifier
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

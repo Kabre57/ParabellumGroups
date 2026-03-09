@@ -19,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 type ProductStatus = 'active' | 'discontinued';
 
@@ -76,6 +78,7 @@ interface ProductFormValues {
 }
 
 export default function ProductsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -129,6 +132,12 @@ export default function ProductsPage() {
   };
 
   const categories = ['ALL', ...Array.from(new Set(products.map((p) => p.category)))];
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['products.read'],
+    create: ['products.create'],
+    update: ['products.update', 'products.manage_pricing'],
+    remove: ['products.delete'],
+  });
 
   const createMutation = useMutation({
     mutationFn: (values: ProductFormValues) =>
@@ -265,10 +274,12 @@ export default function ProductsPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Catalogue produits</h1>
         </div>
-        <Button onClick={openCreate}>
-          <Package className="mr-2 h-4 w-4" />
-          Nouveau produit
-        </Button>
+        {canCreate && (
+          <Button onClick={openCreate}>
+            <Package className="mr-2 h-4 w-4" />
+            Nouveau produit
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -391,20 +402,24 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(product.raw)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(product.raw)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          {canUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(product.raw)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(product.raw)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -421,6 +436,7 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -515,6 +531,7 @@ export default function ProductsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

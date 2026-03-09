@@ -27,9 +27,12 @@ import LeaveRequestForm from '@/components/hr/LeaveRequestForm';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function LeavesPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,6 +102,11 @@ export default function LeavesPage() {
 
   const leaveRequests = data?.data || [];
   const pagination = data?.meta?.pagination;
+  const { canCreate, canApprove } = getCrudVisibility(user, {
+    read: ['leaves.read', 'leaves.read_all', 'leaves.read_own', 'leaves.read_team'],
+    create: ['leaves.create'],
+    approve: ['leaves.approve', 'leaves.reject'],
+  });
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -150,9 +158,11 @@ export default function LeavesPage() {
             Gérez les demandes de congés des employés
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          Nouvelle demande
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            Nouvelle demande
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -255,7 +265,7 @@ export default function LeavesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {leave.statut === 'EN_ATTENTE' && (
+                        {canApprove && leave.statut === 'EN_ATTENTE' && (
                           <>
                             <Button
                               size="sm"
@@ -374,20 +384,22 @@ export default function LeavesPage() {
       </Card>
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nouvelle demande de congé</DialogTitle>
-          </DialogHeader>
-          <LeaveRequestForm
-            onSuccess={() => {
-              setIsCreateDialogOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
-            }}
-            onCancel={() => setIsCreateDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Nouvelle demande de congé</DialogTitle>
+            </DialogHeader>
+            <LeaveRequestForm
+              onSuccess={() => {
+                setIsCreateDialogOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+              }}
+              onCancel={() => setIsCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

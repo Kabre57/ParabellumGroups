@@ -24,6 +24,8 @@ import {
 import Link from 'next/link';
 import { AddTechnicianModal } from '@/components/technical/AddTechnicianModal';
 import { AddMaterielModal } from '@/components/technical/AddMaterielModal';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -40,6 +42,7 @@ const prioriteColors: Record<string, string> = {
 };
 
 export default function InterventionDetailPage() {
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -118,6 +121,15 @@ export default function InterventionDetailPage() {
     const m = Math.round((hours - h) * 60);
     return `${h}h${m > 0 ? ` ${m}min` : ''}`;
   };
+  const { canUpdate, canExport, canManageTechnicians, canManageMateriel } = getCrudVisibility(user, {
+    read: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned'],
+    update: ['interventions.update'],
+    export: ['interventions.create_report'],
+    extras: {
+      canManageTechnicians: ['interventions.assign_technician', 'interventions.update'],
+      canManageMateriel: ['interventions.assign_material', 'interventions.update'],
+    },
+  });
 
   return (
     <div className="p-6 space-y-6">
@@ -153,14 +165,18 @@ export default function InterventionDetailPage() {
 
       {/* Actions rapides */}
       <div className="flex items-center space-x-3">
-        <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/technical/interventions`)}>
-          <Edit className="w-4 h-4 mr-2" />
-          Modifier
-        </Button>
-        <Button variant="outline" size="sm">
-          <Printer className="w-4 h-4 mr-2" />
-          Imprimer
-        </Button>
+        {canUpdate && (
+          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/technical/interventions`)}>
+            <Edit className="w-4 h-4 mr-2" />
+            Modifier
+          </Button>
+        )}
+        {canExport && (
+          <Button variant="outline" size="sm">
+            <Printer className="w-4 h-4 mr-2" />
+            Imprimer
+          </Button>
+        )}
       </div>
 
       {/* Informations générales */}
@@ -237,7 +253,7 @@ export default function InterventionDetailPage() {
             <User className="w-5 h-5 mr-2 text-blue-600" />
             Techniciens Assignés ({techniciens.length})
           </h2>
-          {intervention.status !== 'TERMINEE' && intervention.status !== 'ANNULEE' && (
+          {canManageTechnicians && intervention.status !== 'TERMINEE' && intervention.status !== 'ANNULEE' && (
             <Button
               size="sm"
               onClick={() => setShowAddTechnicianModal(true)}
@@ -292,7 +308,7 @@ export default function InterventionDetailPage() {
             <Package className="w-5 h-5 mr-2 text-green-600" />
             Matériel Utilisé ({materiels.length})
           </h2>
-          {intervention.status !== 'TERMINEE' && intervention.status !== 'ANNULEE' && (
+          {canManageMateriel && intervention.status !== 'TERMINEE' && intervention.status !== 'ANNULEE' && (
             <Button
               size="sm"
               onClick={() => {
@@ -351,15 +367,17 @@ export default function InterventionDetailPage() {
       </div>
 
       {/* Modales */}
-      <AddTechnicianModal
-        isOpen={showAddTechnicianModal}
-        onClose={() => setShowAddTechnicianModal(false)}
-        interventionId={interventionId}
-        existingTechnicienIds={technicienIds}
-        onSuccess={handleRefresh}
-      />
+      {canManageTechnicians && (
+        <AddTechnicianModal
+          isOpen={showAddTechnicianModal}
+          onClose={() => setShowAddTechnicianModal(false)}
+          interventionId={interventionId}
+          existingTechnicienIds={technicienIds}
+          onSuccess={handleRefresh}
+        />
+      )}
 
-      {firstTechnicienId && (
+      {canManageMateriel && firstTechnicienId && (
         <AddMaterielModal
           isOpen={showAddMaterielModal}
           onClose={() => setShowAddMaterielModal(false)}

@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2, Printer, Loader2 } from 'lucide-react';
 import { SpecialiteForm } from '@/components/technical/SpecialiteForm';
 import SpecialitePrint from '@/components/printComponents/SpecialitePrint';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function SpecialitesPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedSpecialite, setSelectedSpecialite] = useState<Specialite | undefined>();
@@ -20,6 +23,13 @@ export default function SpecialitesPage() {
   const deleteMutation = useDeleteSpecialite();
   const createMutation = useCreateSpecialite();
   const updateMutation = useUpdateSpecialite();
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['specialites.read'],
+    create: ['specialites.create'],
+    update: ['specialites.update'],
+    remove: ['specialites.delete'],
+    export: ['specialites.read'],
+  });
 
   // S'assurer que specialites est un tableau
   const specialitesArray = Array.isArray(specialites) ? specialites : [];
@@ -98,10 +108,12 @@ export default function SpecialitesPage() {
             Gestion des spécialités des techniciens dans l'enteprise.
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreate}>
-          <Plus className="w-4 h-4" />
-          Nouvelle Spécialité
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={handleCreate}>
+            <Plus className="w-4 h-4" />
+            Nouvelle Spécialité
+          </Button>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -147,33 +159,39 @@ export default function SpecialitesPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => handleEdit(specialite)}>
-                      <Edit className="w-3 h-3" />
-                      Modifier
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      title="Imprimer"
-                      onClick={() => handlePrint(specialite)}
-                      disabled={isPrinting === specialite.id}
-                    >
-                      {isPrinting === specialite.id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Printer className="w-3 h-3" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(specialite.id)}
-                      disabled={deleteMutation.isPending}
-                      className="text-red-600 hover:bg-red-50"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+                    {canUpdate && (
+                      <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => handleEdit(specialite)}>
+                        <Edit className="w-3 h-3" />
+                        Modifier
+                      </Button>
+                    )}
+                    {canExport && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Imprimer"
+                        onClick={() => handlePrint(specialite)}
+                        disabled={isPrinting === specialite.id}
+                      >
+                        {isPrinting === specialite.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Printer className="w-3 h-3" />
+                        )}
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(specialite.id)}
+                        disabled={deleteMutation.isPending}
+                        className="text-red-600 hover:bg-red-50"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -185,15 +203,17 @@ export default function SpecialitesPage() {
       {filteredSpecialites.length === 0 && (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
           <p className="text-gray-500 dark:text-gray-400 mb-4">Aucune spécialité trouvée</p>
-          <Button onClick={handleCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Créer la première spécialité
-          </Button>
+          {canCreate && (
+            <Button onClick={handleCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Créer la première spécialité
+            </Button>
+          )}
         </div>
       )}
 
       {/* Form Modal */}
-      {showForm && (
+      {(canCreate || canUpdate) && showForm && (
         <SpecialiteForm
           specialite={selectedSpecialite}
           onSubmit={handleSubmit}

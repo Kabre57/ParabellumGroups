@@ -20,6 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 type AuditStatus = 'ok' | 'warning' | 'critical';
 
@@ -54,6 +56,7 @@ const statusIcons: Record<AuditStatus, any> = {
 };
 
 export default function AuditPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AuditStatus | 'ALL'>('ALL');
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
@@ -132,6 +135,10 @@ export default function AuditPage() {
     warning: auditItems.filter((a) => a.status === 'warning').length,
     critical: auditItems.filter((a) => a.status === 'critical').length,
   };
+  const { canCreate } = getCrudVisibility(user, {
+    read: ['inventory.read', 'inventory.read_all', 'inventory.count'],
+    create: ['inventory.count', 'inventory.adjust'],
+  });
 
   const getVarianceColor = (variance: number) => {
     if (variance === 0) return 'text-gray-600';
@@ -148,10 +155,12 @@ export default function AuditPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Audit stock</h1>
         </div>
-        <Button variant="outline" onClick={() => setAuditDialogOpen(true)}>
-          <ClipboardCheck className="mr-2 h-4 w-4" />
-          Nouvel audit
-        </Button>
+        {canCreate && (
+          <Button variant="outline" onClick={() => setAuditDialogOpen(true)}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Nouvel audit
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -295,6 +304,7 @@ export default function AuditPage() {
         </CardContent>
       </Card>
 
+      {canCreate && (
       <Dialog open={auditDialogOpen} onOpenChange={setAuditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -385,6 +395,7 @@ export default function AuditPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

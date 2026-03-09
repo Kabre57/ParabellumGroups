@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { Search, Filter, Plus, Edit, Trash2, Power, Tags } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface TypeClientFormValues {
   code: string;
@@ -31,10 +33,17 @@ interface TypeClientFormValues {
 }
 
 export default function TypeClientsPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<TypeClient | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    create: ['customers.update'],
+    update: ['customers.update'],
+    remove: ['customers.delete'],
+  });
 
   const { data: typeClients = [], isLoading } = useTypeClients();
   const typeClientsArray: TypeClient[] = Array.isArray(typeClients)
@@ -202,10 +211,12 @@ export default function TypeClientsPage() {
                 <option value="inactive">Inactifs</option>
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau type
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau type
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -216,7 +227,7 @@ export default function TypeClientsPage() {
                   <th className="text-left p-4 font-medium">Libelle</th>
                   <th className="text-left p-4 font-medium">Description</th>
                   <th className="text-left p-4 font-medium">Statut</th>
-                  <th className="text-left p-4 font-medium">Actions</th>
+                  {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -232,30 +243,38 @@ export default function TypeClientsPage() {
                         <Badge variant="secondary">Inactif</Badge>
                       )}
                     </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleToggle(typeClient)}>
-                          <Power className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => openEdit(typeClient)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600"
-                          onClick={() => handleDelete(typeClient)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {(canUpdate || canDelete) && (
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          {canUpdate && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => handleToggle(typeClient)}>
+                                <Power className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => openEdit(typeClient)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleDelete(typeClient)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filteredTypes.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={canUpdate || canDelete ? 5 : 4} className="text-center py-8 text-muted-foreground">
                       Aucun type trouve
                     </td>
                   </tr>
@@ -266,6 +285,7 @@ export default function TypeClientsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -306,6 +326,7 @@ export default function TypeClientsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

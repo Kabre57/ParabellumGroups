@@ -19,7 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/shared/hooks/useAuth';
 import { commercialService } from '@/shared/api/commercial';
+import { getCrudVisibility } from '@/shared/action-visibility';
 import type { Prospect, ProspectPriority, ProspectStage, ProspectionStats } from '@/shared/api/commercial/types';
 import CreateProspectModal from '@/components/commercial/CreateProspectModal';
 import EditProspectModal from '@/components/commercial/EditProspectModal';
@@ -66,6 +68,7 @@ const getPriorityBadge = (priority: ProspectPriority) => {
 };
 
 export default function ProspectionWorkflowPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<ProspectStage | 'all'>('all');
@@ -74,6 +77,12 @@ export default function ProspectionWorkflowPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['prospects.read', 'prospects.read_all', 'prospects.read_own'],
+    create: ['prospects.create'],
+    update: ['prospects.update'],
+    remove: ['prospects.delete'],
+  });
 
   const { data: prospectsData, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', stageFilter, searchQuery],
@@ -159,10 +168,12 @@ export default function ProspectionWorkflowPage() {
           <h1 className="text-3xl font-bold">Prospection</h1>
           <p className="text-muted-foreground">Pilotez votre prospection commerciale</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau prospect
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau prospect
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -266,7 +277,7 @@ export default function ProspectionWorkflowPage() {
                     <th className="text-left p-4 font-medium">Priorite</th>
                     <th className="text-left p-4 font-medium">Valeur potentielle</th>
                     <th className="text-left p-4 font-medium">Derniere mise a jour</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -294,26 +305,32 @@ export default function ProspectionWorkflowPage() {
                         <td className="p-4 text-sm text-muted-foreground">
                           {new Date(prospect.updatedAt).toLocaleDateString('fr-FR')}
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleView(prospect)}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              Voir
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(prospect)}>
-                              <Edit className="h-4 w-4 mr-1" />
-                              Modifier
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(prospect)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleView(prospect)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                Voir
+                              </Button>
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(prospect)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(prospect)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -330,19 +347,23 @@ export default function ProspectionWorkflowPage() {
         </CardContent>
       </Card>
 
-      <CreateProspectModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-      />
+      {canCreate && (
+        <CreateProspectModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
 
-      <EditProspectModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedProspect(null);
-        }}
-        prospect={selectedProspect}
-      />
+      {canUpdate && (
+        <EditProspectModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedProspect(null);
+          }}
+          prospect={selectedProspect}
+        />
+      )}
 
       <ViewProspectModal
         isOpen={showViewModal}

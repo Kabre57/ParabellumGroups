@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { BarChart, FileText, Download, Play, Plus, Edit, Trash2 } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface ReportFormValues {
   nom: string;
@@ -24,9 +26,17 @@ interface ReportFormValues {
 }
 
 export default function CRMReportsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<Dashboard | null>(null);
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['reports.read', 'reports.read_sales', 'reports.read_operations'],
+    create: ['reports.create_report'],
+    update: ['reports.create_report'],
+    remove: ['reports.create_report'],
+    export: ['reports.export'],
+  });
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['crm-reports'],
@@ -116,10 +126,12 @@ export default function CRMReportsPage() {
           <h1 className="text-3xl font-bold">Rapports CRM</h1>
           <p className="mt-2 text-sm text-muted-foreground">Analyses et rapports de performance commerciale</p>
         </div>
-        <Button onClick={openCreate}>
-          <BarChart className="mr-2 h-4 w-4" />
-          Nouveau rapport
-        </Button>
+        {canCreate && (
+          <Button onClick={openCreate}>
+            <BarChart className="mr-2 h-4 w-4" />
+            Nouveau rapport
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -140,7 +152,7 @@ export default function CRMReportsPage() {
                   <th className="text-left p-4 font-medium">Format</th>
                   <th className="text-left p-4 font-medium">Frequence</th>
                   <th className="text-left p-4 font-medium">Derniere mise a jour</th>
-                  <th className="text-left p-4 font-medium">Actions</th>
+                  {(canUpdate || canDelete || canExport) && <th className="text-left p-4 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -156,27 +168,35 @@ export default function CRMReportsPage() {
                     <td className="p-4">DASHBOARD</td>
                     <td className="p-4">MANUEL</td>
                     <td className="p-4">{new Date(report.updatedAt).toLocaleDateString('fr-FR')}</td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" title="Executer">
-                          <Play className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Telecharger">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Modifier" onClick={() => openEdit(report)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Supprimer" className="text-red-600" onClick={() => handleDelete(report)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {(canUpdate || canDelete || canExport) && (
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" title="Executer">
+                            <Play className="h-4 w-4" />
+                          </Button>
+                          {canExport && (
+                            <Button size="sm" variant="outline" title="Telecharger">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canUpdate && (
+                            <Button size="sm" variant="outline" title="Modifier" onClick={() => openEdit(report)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button size="sm" variant="outline" title="Supprimer" className="text-red-600" onClick={() => handleDelete(report)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {reports.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={canUpdate || canDelete || canExport ? 6 : 5} className="text-center py-8 text-muted-foreground">
                       Aucun rapport configure
                     </td>
                   </tr>
@@ -187,6 +207,7 @@ export default function CRMReportsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -220,6 +241,7 @@ export default function CRMReportsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

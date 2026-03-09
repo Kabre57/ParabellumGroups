@@ -12,6 +12,8 @@ import { MissionForm } from '@/components/technical/MissionForm';
 import { CreateMissionModal } from '@/components/technical/CreateMissionModal';
 import { toast } from 'sonner';
 import MissionPrint from '@/components/printComponents/MissionPrint';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -28,6 +30,7 @@ const prioriteColors: Record<string, string> = {
 };
 
 export default function MissionsPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -40,6 +43,14 @@ export default function MissionsPage() {
   const updateStatusMutation = useUpdateMissionStatus();
   const createMutation = useCreateMission();
   const updateMutation = useUpdateMission();
+  const { canCreate, canUpdate, canDelete, canExport, canApprove } = getCrudVisibility(user, {
+    read: ['missions.read', 'missions.read_all', 'missions.read_assigned'],
+    create: ['missions.create'],
+    update: ['missions.update', 'missions.assign'],
+    remove: ['missions.delete'],
+    approve: ['missions.change_status', 'missions.complete'],
+    export: ['missions.read'],
+  });
 
   const filteredMissions = missions.filter((mission: Mission) => {
     const matchesSearch =
@@ -193,12 +204,14 @@ export default function MissionsPage() {
             Gestion des missions et affectations
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreate}>
-          <Plus className="w-4 h-4" />
-          Nouvelle Mission
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={handleCreate}>
+            <Plus className="w-4 h-4" />
+            Nouvelle Mission
+          </Button>
+        )}
       </div>      {/* MODAL POUR LA CR?ATION */}
-      {showForm && !selectedMission && (
+      {canCreate && showForm && !selectedMission && (
         <CreateMissionModal
           isOpen={true}
           onClose={() => {
@@ -344,51 +357,59 @@ export default function MissionsPage() {
                           Voir
                         </Button>
                       </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        title="Imprimer"
-                        onClick={() => handlePrint(mission)}
-                        disabled={isPrinting === mission.id}
-                      >
-                        {isPrinting === mission.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Printer className="w-3 h-3" />
-                        )}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex items-center gap-1"
-                        onClick={() => handleEdit(mission)}
-                      >
-                        <Edit className="w-3 h-3" />
-                        Modifier
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleDelete(mission.id)}
-                        disabled={deleteMutation.isPending}
-                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                      {canExport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Imprimer"
+                          onClick={() => handlePrint(mission)}
+                          disabled={isPrinting === mission.id}
+                        >
+                          {isPrinting === mission.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Printer className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                      {canUpdate && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={() => handleEdit(mission)}
+                        >
+                          <Edit className="w-3 h-3" />
+                          Modifier
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleDelete(mission.id)}
+                          disabled={deleteMutation.isPending}
+                          className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                     {/* Sélecteur de statut rapide */}
-                    <div className="mt-2">
-                      <select
-                        value={mission.status}
-                        onChange={(e) => handleStatusChange(mission.id, e.target.value)}
-                        className="text-xs border rounded px-2 py-1 bg-transparent border-gray-300 dark:border-gray-600"
-                      >
-                        <option value="PLANIFIEE">Planifiée</option>
-                        <option value="EN_COURS">En cours</option>
-                        <option value="TERMINEE">Terminée</option>
-                        <option value="ANNULEE">Annulée</option>
-                      </select>
-                    </div>
+                    {canApprove && (
+                      <div className="mt-2">
+                        <select
+                          value={mission.status}
+                          onChange={(e) => handleStatusChange(mission.id, e.target.value)}
+                          className="text-xs border rounded px-2 py-1 bg-transparent border-gray-300 dark:border-gray-600"
+                        >
+                          <option value="PLANIFIEE">Planifiée</option>
+                          <option value="EN_COURS">En cours</option>
+                          <option value="TERMINEE">Terminée</option>
+                          <option value="ANNULEE">Annulée</option>
+                        </select>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -400,10 +421,12 @@ export default function MissionsPage() {
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {search || statusFilter ? 'Aucune mission ne correspond à votre recherche' : 'Aucune mission trouvée'}
               </p>
-              <Button onClick={handleCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Créer la première mission
-              </Button>
+              {canCreate && (
+                <Button onClick={handleCreate}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Créer la première mission
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -439,7 +462,7 @@ export default function MissionsPage() {
       </div>
 
       {/* FORMULAIRE POUR L'ÉDITION (MissionForm) */}
-      {showForm && selectedMission && (
+      {canUpdate && showForm && selectedMission && (
         <MissionForm
           item={selectedMission}
           onSubmit={handleSubmit}

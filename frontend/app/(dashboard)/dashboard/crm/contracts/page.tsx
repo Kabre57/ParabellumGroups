@@ -34,6 +34,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const STATUS_OPTIONS = [
   'BROUILLON',
@@ -83,11 +85,17 @@ interface ContratFormValues {
 }
 
 export default function ContractsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['contracts.read', 'contracts.read_all'],
+    create: ['contracts.create'],
+    update: ['contracts.update', 'contracts.approve', 'contracts.sign', 'contracts.terminate'],
+  });
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contrat | null>(null);
 
@@ -328,10 +336,12 @@ export default function ContractsPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau contrat
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau contrat
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -350,7 +360,7 @@ export default function ContractsPage() {
                     <th className="text-left p-4 font-medium">Montant TTC</th>
                     <th className="text-left p-4 font-medium">Statut</th>
                     <th className="text-left p-4 font-medium">Fin de contrat</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {canUpdate && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -367,19 +377,21 @@ export default function ContractsPage() {
                       <td className="p-4">
                         {contract.dateFin ? new Date(contract.dateFin).toLocaleDateString('fr-FR') : 'Indeterminee'}
                       </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openStatusEdit(contract)}>
-                            <Edit className="h-4 w-4 mr-1" />
-                            Statut
-                          </Button>
-                        </div>
-                      </td>
+                      {canUpdate && (
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openStatusEdit(contract)}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Statut
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {filteredContrats.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={canUpdate ? 8 : 7} className="text-center py-8 text-muted-foreground">
                         Aucun contrat trouve
                       </td>
                     </tr>
@@ -391,6 +403,7 @@ export default function ContractsPage() {
         </CardContent>
       </Card>
 
+      {canCreate && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -549,7 +562,9 @@ export default function ContractsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
 
+      {canUpdate && (
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -586,6 +601,7 @@ export default function ContractsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Package, Plus, Search, Wrench, AlertTriangle, CheckCircle, Edit, Trash2, Printer } from 'lucide-react';
 import { MaterielForm } from '@/components/technical/MaterielForm';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<string, { label: string; className: string; icon: any }> = {
   DISPONIBLE: { label: 'Disponible', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
@@ -18,6 +20,7 @@ const statusColors: Record<string, { label: string; className: string; icon: any
 };
 
 export default function EquipmentPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -30,6 +33,13 @@ export default function EquipmentPage() {
   const deleteMutation = useDeleteMateriel();
   const createMutation = useCreateMateriel();
   const updateMutation = useUpdateMateriel();
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['materiel.read'],
+    create: ['materiel.create'],
+    update: ['materiel.update', 'materiel.assign', 'materiel.maintenance'],
+    remove: ['materiel.delete'],
+    export: ['materiel.track_stock'],
+  });
 
   const handleDelete = (id: string) => {
     if (confirm('Etes-vous sur de vouloir supprimer ce materiel ?')) {
@@ -101,10 +111,12 @@ export default function EquipmentPage() {
             Gestion du materiel technique et equipements
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreate}>
-          <Plus className="h-4 w-4" />
-          Nouveau Materiel
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={handleCreate}>
+            <Plus className="h-4 w-4" />
+            Nouveau Materiel
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -245,20 +257,26 @@ export default function EquipmentPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2 justify-center">
-                          <Button size="sm" variant="outline" title="Modifier" onClick={() => handleEdit(item)}>
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="outline" title="Imprimer">
-                            <Printer className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(item.id)}
-                            title="Supprimer"
-                          >
-                            <Trash2 className="h-3 w-3 text-red-600" />
-                          </Button>
+                          {canUpdate && (
+                            <Button size="sm" variant="outline" title="Modifier" onClick={() => handleEdit(item)}>
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {canExport && (
+                            <Button size="sm" variant="outline" title="Imprimer">
+                              <Printer className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(item.id)}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-3 w-3 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -271,7 +289,7 @@ export default function EquipmentPage() {
       </Card>
 
       {/* Form Modal */}
-      {showForm && (
+      {(canCreate || canUpdate) && showForm && (
         <MaterielForm
           materiel={selectedMateriel}
           onSubmit={handleSubmit}

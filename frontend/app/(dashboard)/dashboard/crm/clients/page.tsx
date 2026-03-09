@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import CustomerForm from '@/components/customers/CustomerForm';
 import { Search, Filter, Users, UserCheck, UserMinus, Archive } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const STATUS_OPTIONS = [
   { value: 'PROSPECT', label: 'Prospect' },
@@ -28,11 +30,17 @@ const STATUS_OPTIONS = [
 ];
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { canCreate, canDelete } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    create: ['customers.create'],
+    remove: ['customers.delete'],
+  });
 
   const { data: clients = [], isLoading } = useClients({ pageSize: 200 });
   const clientsArray: Client[] = Array.isArray(clients)
@@ -175,7 +183,7 @@ export default function ClientsPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={() => setDialogOpen(true)}>Nouveau client</Button>
+            {canCreate && <Button onClick={() => setDialogOpen(true)}>Nouveau client</Button>}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -216,14 +224,16 @@ export default function ClientsPage() {
                         <Button variant="outline" size="sm" onClick={() => handleView(client.id)}>
                           Voir
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleArchive(client)}
-                          disabled={archiveMutation.isPending}
-                        >
-                          Archiver
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleArchive(client)}
+                            disabled={archiveMutation.isPending}
+                          >
+                            Archiver
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -241,6 +251,7 @@ export default function ClientsPage() {
         </CardContent>
       </Card>
 
+      {canCreate && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -256,6 +267,7 @@ export default function ClientsPage() {
           />
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

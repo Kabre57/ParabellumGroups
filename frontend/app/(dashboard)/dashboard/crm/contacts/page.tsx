@@ -35,6 +35,8 @@ import {
   Star,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const TYPE_OPTIONS = [
   { value: 'COMMERCIAL', label: 'Commercial' },
@@ -74,12 +76,19 @@ interface ContactFormValues {
 }
 
 export default function ContactsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statutFilter, setStatutFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    create: ['customers.manage_contacts', 'customers.update'],
+    update: ['customers.manage_contacts', 'customers.update'],
+    remove: ['customers.manage_contacts', 'customers.delete'],
+  });
 
   const { data: contacts = [], isLoading } = useContacts({ pageSize: 200 });
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -314,10 +323,12 @@ export default function ContactsPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nouveau Contact
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Nouveau Contact
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -336,7 +347,7 @@ export default function ContactsPage() {
                     <th className="text-left p-4 font-medium">Type</th>
                     <th className="text-left p-4 font-medium">Statut</th>
                     <th className="text-left p-4 font-medium">Principal</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -384,23 +395,29 @@ export default function ContactsPage() {
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEdit(contact)}>
-                              <Edit className="h-4 w-4 mr-1" />
-                              Modifier
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(contact)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => openEdit(contact)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(contact)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -417,6 +434,7 @@ export default function ContactsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -539,6 +557,7 @@ export default function ContactsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

@@ -12,13 +12,21 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import RapportPrint from '@/components/printComponents/RapportPrint';
 import { SearchParams } from '@/shared/api/types';
 import RapportInterventionForm from '@/components/technical/RapportInterventionForm';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function RapportsPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRapportId, setSelectedRapportId] = useState<string | null>(null);
   const [printingRapport, setPrintingRapport] = useState<any | null>(null);
   const [isPrinting, setIsPrinting] = useState<string | null>(null);
   const [showCreateRapport, setShowCreateRapport] = useState(false);
+  const { canCreate, canExport } = getCrudVisibility(user, {
+    read: ['reports.read', 'reports.read_technical'],
+    create: ['interventions.create_report', 'reports.create_report'],
+    export: ['reports.export', 'interventions.create_report'],
+  });
 
   // Créer des params de recherche corrects
   const searchParams: SearchParams = {};
@@ -90,10 +98,12 @@ export default function RapportsPage() {
             Consulter les rapports d&apos;intervention et leurs photos
           </p>
         </div>
-        <Button onClick={() => setShowCreateRapport(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouveau rapport
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowCreateRapport(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouveau rapport
+          </Button>
+        )}
       </div>
 
       <Card className="no-print">
@@ -165,18 +175,20 @@ export default function RapportsPage() {
                       <Eye className="h-4 w-4 mr-2" />
                       Voir
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => loadAndPrintRapport(rapport.id)}
-                      disabled={isPrinting === rapport.id}
-                    >
-                      {isPrinting === rapport.id ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      ) : (
-                        <Printer className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {canExport && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => loadAndPrintRapport(rapport.id)}
+                        disabled={isPrinting === rapport.id}
+                      >
+                        {isPrinting === rapport.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        ) : (
+                          <Printer className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -189,10 +201,12 @@ export default function RapportsPage() {
         <Card className="no-print">
           <CardContent className="text-center py-12">
             <p className="text-muted-foreground">Aucun rapport d&apos;intervention trouvé</p>
-            <Button onClick={() => setShowCreateRapport(true)} className="mt-4">
-              <Plus className="h-4 w-4 mr-2" />
-              Créer un rapport
-            </Button>
+            {canCreate && (
+              <Button onClick={() => setShowCreateRapport(true)} className="mt-4">
+                <Plus className="h-4 w-4 mr-2" />
+                Créer un rapport
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -209,22 +223,30 @@ export default function RapportsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCreateRapport} onOpenChange={setShowCreateRapport}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <RapportInterventionForm
-            onSuccess={() => setShowCreateRapport(false)}
-            onCancel={() => setShowCreateRapport(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={showCreateRapport} onOpenChange={setShowCreateRapport}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <RapportInterventionForm
+              onSuccess={() => setShowCreateRapport(false)}
+              onCancel={() => setShowCreateRapport(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
 
 function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string; onClose: () => void; onPrint: (rapport: any) => void }) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showPdf, setShowPdf] = useState(false);
   const [deletingPhotoUrl, setDeletingPhotoUrl] = useState<string | null>(null);
+  const { canDelete, canExport } = getCrudVisibility(user, {
+    read: ['reports.read', 'reports.read_technical'],
+    remove: ['reports.delete'],
+    export: ['reports.export', 'interventions.create_report'],
+  });
   const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],
     queryFn: () => technicalService.getRapport(rapportId),
@@ -349,27 +371,29 @@ function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string;
                   className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-800"
                   onClick={() => window.open(photo, '_blank')}
                 />
-                <button
-                  type="button"
-                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  disabled={deletingPhotoUrl === photo}
-                  onClick={async () => {
-                    if (!confirm('Supprimer cette photo ?')) return;
-                    setDeletingPhotoUrl(photo);
-                    try {
-                      await technicalService.deleteRapportPhoto(rapportId, photo);
-                      queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
-                    } catch (err) {
-                      console.error('Erreur suppression photo:', err);
-                      alert('Erreur lors de la suppression de la photo');
-                    } finally {
-                      setDeletingPhotoUrl(null);
-                    }
-                  }}
-                  title="Supprimer la photo"
-                >
-                  {deletingPhotoUrl === photo ? '…' : '×'}
-                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    disabled={deletingPhotoUrl === photo}
+                    onClick={async () => {
+                      if (!confirm('Supprimer cette photo ?')) return;
+                      setDeletingPhotoUrl(photo);
+                      try {
+                        await technicalService.deleteRapportPhoto(rapportId, photo);
+                        queryClient.invalidateQueries({ queryKey: ['rapport', rapportId] });
+                      } catch (err) {
+                        console.error('Erreur suppression photo:', err);
+                        alert('Erreur lors de la suppression de la photo');
+                      } finally {
+                        setDeletingPhotoUrl(null);
+                      }
+                    }}
+                    title="Supprimer la photo"
+                  >
+                    {deletingPhotoUrl === photo ? '…' : '×'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -377,13 +401,17 @@ function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string;
       )}
 
       <div className="flex gap-3 pt-4 border-t">
-        <Button className="flex-1" onClick={() => onPrint(rapport)}>
-          <Printer className="h-4 w-4 mr-2" />
-          Imprimer le Rapport
-        </Button>
-        <Button variant="outline" onClick={() => setShowPdf((v) => !v)}>
-          {showPdf ? 'Masquer PDF' : 'Aperçu PDF'}
-        </Button>
+        {canExport && (
+          <>
+            <Button className="flex-1" onClick={() => onPrint(rapport)}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimer le Rapport
+            </Button>
+            <Button variant="outline" onClick={() => setShowPdf((v) => !v)}>
+              {showPdf ? 'Masquer PDF' : 'Aperçu PDF'}
+            </Button>
+          </>
+        )}
         <Button variant="outline" onClick={onClose}>
           Fermer
         </Button>

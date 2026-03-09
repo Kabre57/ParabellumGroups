@@ -17,13 +17,25 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import CustomerForm from '@/components/customers/CustomerForm';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function CustomerDetailPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
   const customerId = params.id as string;
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { canUpdate, canDelete, canManageContacts, canManageAddresses } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    update: ['customers.update'],
+    remove: ['customers.delete'],
+    extras: {
+      canManageContacts: ['customers.manage_contacts', 'customers.update'],
+      canManageAddresses: ['customers.manage_addresses', 'customers.update'],
+    },
+  });
 
   const { data: customer, isLoading } = useQuery({
     queryKey: ['customer', customerId],
@@ -99,17 +111,21 @@ export default function CustomerDetailPage() {
           <Button variant="outline" onClick={() => router.back()}>
             Retour
           </Button>
-          <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
-            Modifier
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="text-red-600 hover:text-red-700"
-          >
-            Archiver
-          </Button>
+          {canUpdate && (
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+              Modifier
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="text-red-600 hover:text-red-700"
+            >
+              Archiver
+            </Button>
+          )}
         </div>
       </div>
 
@@ -232,7 +248,7 @@ export default function CustomerDetailPage() {
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Contacts ({customer.contacts?.length || 0})</h3>
-              <Button size="sm">Ajouter un contact</Button>
+              {canManageContacts && <Button size="sm">Ajouter un contact</Button>}
             </div>
             {customer.contacts && customer.contacts.length > 0 ? (
               <div className="space-y-4">
@@ -245,7 +261,7 @@ export default function CustomerDetailPage() {
                       <p className="text-sm text-gray-500">{contact.poste} - {contact.departement}</p>
                       <p className="text-xs text-gray-400">{contact.email} | {contact.mobile || contact.telephone}</p>
                     </div>
-                    <Button size="sm" variant="ghost">Modifier</Button>
+                    {canManageContacts && <Button size="sm" variant="ghost">Modifier</Button>}
                   </div>
                 ))}
               </div>
@@ -261,7 +277,7 @@ export default function CustomerDetailPage() {
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Adresses ({customer.adresses?.length || 0})</h3>
-              <Button size="sm">Ajouter une adresse</Button>
+              {canManageAddresses && <Button size="sm">Ajouter une adresse</Button>}
             </div>
             {customer.adresses && customer.adresses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,7 +304,7 @@ export default function CustomerDetailPage() {
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Dernieres interactions</h3>
-              <Button size="sm">Nouvelle interaction</Button>
+              {canUpdate && <Button size="sm">Nouvelle interaction</Button>}
             </div>
             {isLoadingInteractions ? (
               <div className="flex justify-center py-8"><Spinner /></div>
@@ -324,6 +340,7 @@ export default function CustomerDetailPage() {
         </TabsContent>
       </Tabs>
 
+      {canUpdate && (
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -342,6 +359,7 @@ export default function CustomerDetailPage() {
           />
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

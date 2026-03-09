@@ -12,8 +12,11 @@ import { hrService, Employee } from "@/shared/api/hr";
 import { loansService, type LoanPayload } from "@/shared/api/hr/loans.service";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { getCrudVisibility } from "@/shared/action-visibility";
 
 export default function PretsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
@@ -94,6 +97,12 @@ export default function PretsPage() {
       return matchesSearch && matchesType;
     });
   }, [loans, searchQuery, typeFilter]);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['loans.read', 'loans.read_all', 'loans.read_own'],
+    create: ['loans.create'],
+    update: ['loans.update', 'loans.manage_repayment', 'loans.approve'],
+    remove: ['loans.delete'],
+  });
 
   const getTypeBadge = (type: string) => {
     const badges: Record<string, { label: string; className: string }> = {
@@ -121,13 +130,15 @@ export default function PretsPage() {
           <h1 className="text-3xl font-bold">Avances & Prêts</h1>
           <p className="text-muted-foreground mt-2">Gestion des avances sur salaire et prêts aux employés</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-4 w-4" />
-          Nouvelle demande
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={() => setShowForm(!showForm)}>
+            <Plus className="h-4 w-4" />
+            Nouvelle demande
+          </Button>
+        )}
       </div>
 
-      {showForm && (
+      {canCreate && showForm && (
         <Card className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -249,12 +260,16 @@ export default function PretsPage() {
                   <td className="py-3 px-4">{loan.dateFin?.slice(0, 10) || '-'}</td>
                   <td className="py-3 px-4">{getStatusBadge(loan.statut)}</td>
                   <td className="py-3 px-4 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => terminateMutation.mutate(loan.id)} disabled={terminateMutation.isPending || loan.statut === 'TERMINE'}>
-                      <CheckSquare className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => deleteMutation.mutate(loan.id)} disabled={deleteMutation.isPending}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canUpdate && (
+                      <Button size="sm" variant="outline" onClick={() => terminateMutation.mutate(loan.id)} disabled={terminateMutation.isPending || loan.statut === 'TERMINE'}>
+                        <CheckSquare className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="sm" variant="destructive" onClick={() => deleteMutation.mutate(loan.id)} disabled={deleteMutation.isPending}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

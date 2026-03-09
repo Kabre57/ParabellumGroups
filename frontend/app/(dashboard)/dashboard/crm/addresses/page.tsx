@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/dialog';
 import { Search, Filter, Plus, Edit, Trash2, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const TYPE_OPTIONS = [
   'FACTURATION',
@@ -49,11 +51,18 @@ interface AddressFormValues {
 }
 
 export default function AddressesPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    create: ['customers.manage_addresses', 'customers.update'],
+    update: ['customers.manage_addresses', 'customers.update'],
+    remove: ['customers.manage_addresses', 'customers.delete'],
+  });
 
   const { data: adresses = [], isLoading } = useAdresses({ page: 1, limit: 200 });
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -221,10 +230,12 @@ export default function AddressesPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle adresse
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvelle adresse
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -242,7 +253,7 @@ export default function AddressesPage() {
                     <th className="text-left p-4 font-medium">Ville</th>
                     <th className="text-left p-4 font-medium">Pays</th>
                     <th className="text-left p-4 font-medium">Principal</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {canUpdate && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -262,30 +273,34 @@ export default function AddressesPage() {
                           <Badge variant="secondary">Non</Badge>
                         )}
                       </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEdit(adresse)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleSetPrincipal(adresse)}>
-                            <Star className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600"
-                            onClick={() => handleDelete(adresse)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
+                      {canUpdate && (
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(adresse)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleSetPrincipal(adresse)}>
+                              <Star className="h-4 w-4" />
+                            </Button>
+                            {canDelete && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600"
+                                onClick={() => handleDelete(adresse)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {filteredAddresses.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={canUpdate ? 7 : 6} className="text-center py-8 text-muted-foreground">
                         Aucune adresse trouvee
                       </td>
                     </tr>
@@ -297,6 +312,7 @@ export default function AddressesPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -398,6 +414,7 @@ export default function AddressesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

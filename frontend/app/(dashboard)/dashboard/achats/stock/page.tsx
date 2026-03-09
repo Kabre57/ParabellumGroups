@@ -24,8 +24,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function StockPage() {
+  const { user } = useAuth();
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'movements'>('items');
@@ -74,6 +77,11 @@ export default function StockPage() {
     (item: InventoryArticle) =>
       (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0)
   ).length;
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['inventory.read', 'inventory.read_all', 'inventory.read_warehouse'],
+    create: ['inventory.create'],
+    update: ['inventory.update', 'inventory.adjust', 'inventory.transfer', 'inventory.count'],
+  });
 
   const createMovementMutation = useMutation({
     mutationFn: (values: MovementFormValues) =>
@@ -178,13 +186,17 @@ export default function StockPage() {
           <h1 className="mt-2 text-3xl font-bold">Stock</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openAdjust()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Ajuster stock
-          </Button>
-          <Button variant="outline" onClick={() => setCreateDialogOpen(true)}>
-            Ajouter un article
-          </Button>
+          {canUpdate && (
+            <Button variant="outline" onClick={() => openAdjust()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ajuster stock
+            </Button>
+          )}
+          {canCreate && (
+            <Button variant="outline" onClick={() => setCreateDialogOpen(true)}>
+              Ajouter un article
+            </Button>
+          )}
         </div>
       </div>
 
@@ -333,13 +345,15 @@ export default function StockPage() {
                                 : '-'}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openAdjust(item)}
-                              >
-                                Ajuster
-                              </Button>
+                              {canUpdate && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openAdjust(item)}
+                                >
+                                  Ajuster
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -421,6 +435,7 @@ export default function StockPage() {
         </CardContent>
       </Card>
 
+      {canUpdate && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -487,7 +502,9 @@ export default function StockPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
 
+      {canCreate && (
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -562,6 +579,7 @@ export default function StockPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

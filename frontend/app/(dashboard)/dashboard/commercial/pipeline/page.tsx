@@ -28,6 +28,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'won' | 'lost';
 
@@ -95,12 +97,19 @@ const normalizeDate = (value?: string) => {
 };
 
 export default function PipelinePage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all');
   const [selectedOpportunity, setSelectedOpportunity] = useState<PipelineOpportunity | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['opportunities.read', 'opportunities.read_all', 'opportunities.read_own'],
+    create: ['opportunities.create'],
+    update: ['opportunities.update', 'opportunities.change_stage'],
+    remove: ['opportunities.delete'],
+  });
 
   const { data: opportunitiesResponse, isLoading } = useQuery({
     queryKey: ['opportunites'],
@@ -254,10 +263,12 @@ export default function PipelinePage() {
           <h1 className="text-3xl font-bold">Pipeline Commercial</h1>
           <p className="text-muted-foreground">Suivi des opportunites et previsions de vente</p>
         </div>
-        <Button>
-          <Users className="mr-2 h-4 w-4" />
-          Nouvelle opportunite
-        </Button>
+        {canCreate && (
+          <Button>
+            <Users className="mr-2 h-4 w-4" />
+            Nouvelle opportunite
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -352,7 +363,7 @@ export default function PipelinePage() {
                     <th className="text-left p-4 font-medium">Etape</th>
                     <th className="text-left p-4 font-medium">Probabilite</th>
                     <th className="text-left p-4 font-medium">Fermeture estimee</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -373,27 +384,33 @@ export default function PipelinePage() {
                           <Calendar className="inline h-4 w-4 mr-1" />
                           {formatDate(opp.expectedCloseDate)}
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openView(opp)}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              Voir
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
-                              <Edit className="h-4 w-4 mr-1" />
-                              Modifier
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(opp)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openView(opp)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                Voir
+                              </Button>
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(opp)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -431,6 +448,7 @@ export default function PipelinePage() {
         </DialogContent>
       </Dialog>
 
+      {canUpdate && (
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -495,6 +513,7 @@ export default function PipelinePage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

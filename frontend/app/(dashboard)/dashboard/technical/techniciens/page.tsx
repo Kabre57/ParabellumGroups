@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { TechnicienForm } from '@/components/technical/TechnicienForm';
 import { CreateTechnicienModal } from '@/components/technical/CreateTechnicienModal';
 import TechnicienPrint from '@/components/printComponents/TechnicienPrint';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<string, string> = {
   AVAILABLE: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
@@ -29,6 +31,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function TechniciensPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -40,6 +43,13 @@ export default function TechniciensPage() {
   const deleteMutation = useDeleteTechnicien();
   const createMutation = useCreateTechnicien();
   const updateMutation = useUpdateTechnicien();
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['techniciens.read'],
+    create: ['techniciens.create'],
+    update: ['techniciens.update', 'techniciens.manage_specialties'],
+    remove: ['techniciens.delete'],
+    export: ['techniciens.read_performance'],
+  });
 
   const filteredTechniciens = techniciens.filter((tech: Technicien) => {
     const matchesSearch =
@@ -138,16 +148,20 @@ export default function TechniciensPage() {
             Gestion de l'équipe technique
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreate}>
-          <Plus className="w-4 h-4" />
-          Nouveau Technicien
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={handleCreate}>
+            <Plus className="w-4 h-4" />
+            Nouveau Technicien
+          </Button>
+        )}
       </div>
 
-      <CreateTechnicienModal
-        isOpen={showForm && !selectedTechnicien}
-        onClose={() => setShowForm(false)}
-      />
+      {canCreate && (
+        <CreateTechnicienModal
+          isOpen={showForm && !selectedTechnicien}
+          onClose={() => setShowForm(false)}
+        />
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -246,32 +260,38 @@ export default function TechniciensPage() {
                   Voir
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => handleEdit(technicien)}>
-                <Edit className="w-3 h-3" />
-                Modifier
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                title="Imprimer"
-                onClick={() => handlePrint(technicien)}
-                disabled={isPrinting === technicien.id}
-              >
-                {isPrinting === technicien.id ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Printer className="w-3 h-3" />
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDelete(technicien.id)}
-                disabled={deleteMutation.isPending}
-                className="text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
+              {canUpdate && (
+                <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => handleEdit(technicien)}>
+                  <Edit className="w-3 h-3" />
+                  Modifier
+                </Button>
+              )}
+              {canExport && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Imprimer"
+                  onClick={() => handlePrint(technicien)}
+                  disabled={isPrinting === technicien.id}
+                >
+                  {isPrinting === technicien.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Printer className="w-3 h-3" />
+                  )}
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(technicien.id)}
+                  disabled={deleteMutation.isPending}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -280,15 +300,17 @@ export default function TechniciensPage() {
       {filteredTechniciens.length === 0 && (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
           <p className="text-gray-500 dark:text-gray-400 mb-4">Aucun technicien trouvé</p>
-          <Button onClick={handleCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter le premier technicien
-          </Button>
+          {canCreate && (
+            <Button onClick={handleCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter le premier technicien
+            </Button>
+          )}
         </div>
       )}
 
       {/* Form Modal */}
-      {showForm && selectedTechnicien && (
+      {canUpdate && showForm && selectedTechnicien && (
         <TechnicienForm
           item={selectedTechnicien}
           onSubmit={handleSubmit}

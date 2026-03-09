@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusLabels: Record<PurchaseOrderStatus, string> = {
   BROUILLON: 'Brouillon',
@@ -28,6 +30,7 @@ const statusColors: Record<PurchaseOrderStatus, string> = {
 };
 
 export default function ProcurementOverviewPage() {
+  const { user } = useAuth();
   const { data: stats, isLoading: statsLoading } = useQuery<ProcurementStats>({
     queryKey: ['procurement-stats'],
     queryFn: async () => {
@@ -44,6 +47,10 @@ export default function ProcurementOverviewPage() {
   });
 
   const recentOrders = recentOrdersResponse?.data ?? [];
+  const { canCreate } = getCrudVisibility(user, {
+    read: ['purchase_orders.read'],
+    create: ['purchase_orders.create'],
+  });
 
   return (
     <div className="space-y-6 p-6">
@@ -61,12 +68,14 @@ export default function ProcurementOverviewPage() {
           <Button asChild variant="outline">
             <Link href="/dashboard/achats/stock">Stock</Link>
           </Button>
-          <Button asChild>
-            <Link href="/dashboard/achats/commandes">
-              <PackagePlus className="mr-2 h-4 w-4" />
-              Nouvelle commande
-            </Link>
-          </Button>
+          {canCreate && (
+            <Button asChild>
+              <Link href="/dashboard/achats/commandes">
+                <PackagePlus className="mr-2 h-4 w-4" />
+                Nouvelle commande
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

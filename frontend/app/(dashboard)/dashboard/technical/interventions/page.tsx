@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { CreateInterventionModal } from '@/components/technical/CreateInterventionModal';
 import RapportPrint from '@/components/printComponents/RapportPrint';
 import InterventionPrint from '@/components/printComponents/InterventionPrint';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -20,6 +22,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function InterventionsPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -32,6 +35,14 @@ export default function InterventionsPage() {
   const { data: interventions = [], isLoading } = useInterventions({ pageSize: 100 });
   const deleteMutation = useDeleteIntervention();
   const completeMutation = useCompleteIntervention();
+  const { canCreate, canUpdate, canDelete, canExport, canApprove } = getCrudVisibility(user, {
+    read: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned'],
+    create: ['interventions.create'],
+    update: ['interventions.update'],
+    remove: ['interventions.delete'],
+    approve: ['interventions.complete'],
+    export: ['interventions.create_report'],
+  });
 
   const filteredInterventions = interventions.filter((intervention: Intervention) => {
     const matchesSearch =
@@ -155,20 +166,22 @@ export default function InterventionsPage() {
             Suivi des interventions techniques
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreate}>
-          <Plus className="w-4 h-4" />
-          Nouvelle Intervention
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={handleCreate}>
+            <Plus className="w-4 h-4" />
+            Nouvelle Intervention
+          </Button>
+        )}
       </div>
 
-      {showCreateModal && (
+      {canCreate && showCreateModal && (
         <CreateInterventionModal
           isOpen={true}
           onClose={() => setShowCreateModal(false)}
         />
       )}
 
-      {showEditModal && selectedIntervention && (
+      {canUpdate && showEditModal && selectedIntervention && (
         <CreateInterventionModal
           isOpen={true}
           onClose={() => {
@@ -280,7 +293,7 @@ export default function InterventionsPage() {
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
-                      {intervention.status !== 'TERMINEE' && (
+                      {canApprove && intervention.status !== 'TERMINEE' && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -301,38 +314,44 @@ export default function InterventionsPage() {
                           Voir
                         </Button>
                       </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => handlePrint(intervention)}
-                        disabled={isFetching === intervention.id}
-                        title="Imprimer l'intervention"
-                      >
-                        {isFetching === intervention.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Printer className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => handleEdit(intervention)}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Modifier
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-red-600 hover:text-red-700 border-red-200"
-                        onClick={() => handleDelete(intervention.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {canExport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => handlePrint(intervention)}
+                          disabled={isFetching === intervention.id}
+                          title="Imprimer l'intervention"
+                        >
+                          {isFetching === intervention.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Printer className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                      {canUpdate && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => handleEdit(intervention)}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Modifier
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-red-600 hover:text-red-700 border-red-200"
+                          onClick={() => handleDelete(intervention.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

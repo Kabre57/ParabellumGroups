@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Award, Plus, Search, Star, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface Evaluation {
   id: string;
@@ -26,8 +28,14 @@ interface Evaluation {
 }
 
 export default function EvaluationsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['evaluations.read', 'evaluations.read_all', 'evaluations.read_own', 'evaluations.read_team'],
+    create: ['evaluations.create'],
+    update: ['evaluations.update', 'evaluations.validate'],
+  });
 
   const { data: evaluations, isLoading } = useQuery<Evaluation[]>({
     queryKey: ['evaluations'],
@@ -76,10 +84,12 @@ export default function EvaluationsPage() {
             Évaluations annuelles et suivi des performances
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouvelle Évaluation
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouvelle Évaluation
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -199,7 +209,7 @@ export default function EvaluationsPage() {
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline">Voir</Button>
-                        {evaluation.status !== 'validated' && (
+                        {canUpdate && evaluation.status !== 'validated' && (
                           <Button size="sm" variant="outline">Modifier</Button>
                         )}
                       </div>

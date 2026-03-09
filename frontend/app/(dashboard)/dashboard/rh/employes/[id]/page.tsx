@@ -9,11 +9,18 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function EmployeeDetailsPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const { canUpdate } = getCrudVisibility(user, {
+    read: ['employees.read', 'employees.read_all', 'employees.read_own', 'employees.read_team'],
+    update: ['employees.update', 'employees.update_own'],
+  });
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['employee', id],
@@ -52,9 +59,11 @@ export default function EmployeeDetailsPage() {
           <p className="text-sm text-muted-foreground">{employee.email}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push(`/dashboard/rh/employes/${id}/edit`)}>
-            Modifier
-          </Button>
+          {canUpdate && (
+            <Button variant="outline" onClick={() => router.push(`/dashboard/rh/employes/${id}/edit`)}>
+              Modifier
+            </Button>
+          )}
           <Button onClick={() => router.push('/dashboard/rh/employes')}>Retour</Button>
         </div>
       </div>

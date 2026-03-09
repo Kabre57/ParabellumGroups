@@ -22,6 +22,8 @@ import {
   CampagneDestinataire,
   CampagneTemplate,
 } from '@/shared/api/communication';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface CampaignFormValues {
   nom: string;
@@ -67,11 +69,18 @@ const formatDestinataires = (destinataires?: CampagneDestinataire[]) => {
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>;
 
 export default function EmailCampaignsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CampagneStatus>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<CampagneMail | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['emails.read'],
+    create: ['emails.send', 'emails.manage_templates'],
+    update: ['emails.manage_templates', 'emails.send'],
+    remove: ['emails.manage_templates'],
+  });
 
   const { data: campaignsData = [], isLoading } = useQuery<CampagneMail[]>({
     queryKey: ['email-campaigns', statusFilter],
@@ -319,10 +328,12 @@ export default function EmailCampaignsPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle campagne
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvelle campagne
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -341,7 +352,7 @@ export default function EmailCampaignsPage() {
                     <th className="text-left p-4 font-medium">Ouvertures</th>
                     <th className="text-left p-4 font-medium">Rebonds</th>
                     <th className="text-left p-4 font-medium">Statut</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -376,23 +387,29 @@ export default function EmailCampaignsPage() {
                         <td className="p-4">
                           <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEdit(campaign)}>
-                              <Edit className="h-4 w-4 mr-1" />
-                              Modifier
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(campaign)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => openEdit(campaign)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(campaign)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -409,6 +426,7 @@ export default function EmailCampaignsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -490,6 +508,7 @@ export default function EmailCampaignsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

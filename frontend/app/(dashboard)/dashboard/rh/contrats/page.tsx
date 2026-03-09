@@ -12,8 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { hrService, Contract, Employee } from '@/shared/api/hr';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function ContratsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +80,13 @@ export default function ContratsPage() {
 
   const contracts = contractsData?.data ?? [];
   const employees: Employee[] = employeesData?.data ?? [];
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['contracts.read', 'contracts.read_all'],
+    create: ['contracts.create'],
+    update: ['contracts.update', 'contracts.approve', 'contracts.terminate'],
+    remove: ['contracts.delete'],
+    export: ['contracts.export'],
+  });
 
   const filteredContracts = useMemo(() => {
     return contracts.filter((c: Contract) => {
@@ -121,10 +131,12 @@ export default function ContratsPage() {
             Contrats de travail et avenants
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => setIsOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Nouveau Contrat
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2" onClick={() => setIsOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Nouveau Contrat
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -242,16 +254,18 @@ export default function ContratsPage() {
                         <Button size="sm" variant="outline">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadMutation.mutate(contract.id)}
-                          disabled={downloadMutation.isPending}
-                          title="Télécharger le PDF"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {contract.status !== 'ACTIF' && (
+                        {canExport && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadMutation.mutate(contract.id)}
+                            disabled={downloadMutation.isPending}
+                            title="Télécharger le PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canUpdate && contract.status !== 'ACTIF' && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -262,7 +276,7 @@ export default function ContratsPage() {
                             Valider
                           </Button>
                         )}
-                        {contract.status === 'ACTIF' && (
+                        {canUpdate && contract.status === 'ACTIF' && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -273,17 +287,19 @@ export default function ContratsPage() {
                             Terminer
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600"
-                          onClick={() => {
-                            if (confirm('Supprimer ce contrat ?')) deleteMutation.mutate(contract.id);
-                          }}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600"
+                            onClick={() => {
+                              if (confirm('Supprimer ce contrat ?')) deleteMutation.mutate(contract.id);
+                            }}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -301,21 +317,23 @@ export default function ContratsPage() {
       </Card>
 
       {/* Create Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Nouveau contrat</DialogTitle>
-          </DialogHeader>
-          <ContractForm
-            employees={employees}
-            onSuccess={() => {
-              setIsOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['contracts'] });
-            }}
-            onCancel={() => setIsOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Nouveau contrat</DialogTitle>
+            </DialogHeader>
+            <ContractForm
+              employees={employees}
+              onSuccess={() => {
+                setIsOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['contracts'] });
+              }}
+              onCancel={() => setIsOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

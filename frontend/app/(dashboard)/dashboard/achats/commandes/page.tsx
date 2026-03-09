@@ -27,6 +27,8 @@ import { ViewCommandeModal } from "@/components/achat/ViewCommandeModal";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception } from "@/shared/api/inventory/types";
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<PurchaseOrderStatus, string> = {
   BROUILLON: "bg-yellow-100 text-yellow-800",
@@ -45,6 +47,7 @@ const statusLabels: Record<PurchaseOrderStatus, string> = {
 };
 
 export default function PurchaseOrdersPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | "ALL">("ALL");
@@ -169,6 +172,13 @@ export default function PurchaseOrdersPage() {
     staleTime: 5 * 60 * 1000,
   });
   const articles = articlesResponse?.data ?? [];
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['purchase_orders.read'],
+    create: ['purchase_orders.create'],
+    update: ['purchase_orders.update', 'purchase_orders.approve', 'purchase_orders.receive', 'purchase_orders.send'],
+    remove: ['purchase_orders.delete', 'purchase_orders.cancel'],
+    export: ['purchase_orders.send'],
+  });
 
   useEffect(() => {
     // reset selections when closing modal or changing order
@@ -196,9 +206,11 @@ export default function PurchaseOrdersPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Commandes achat</h1>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Nouvelle commande
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nouvelle commande
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -318,20 +330,26 @@ export default function PurchaseOrdersPage() {
                             <Button variant="ghost" size="icon" onClick={() => setViewOrder(order)}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => setEditOrder(order)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(order)}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => setViewOrder(order)}>
-                              <Printer className="h-4 w-4" />
-                            </Button>
+                            {canUpdate && (
+                              <Button variant="ghost" size="icon" onClick={() => setEditOrder(order)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(order)}
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            )}
+                            {canExport && (
+                              <Button variant="ghost" size="icon" onClick={() => setViewOrder(order)}>
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -469,14 +487,16 @@ export default function PurchaseOrdersPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => setViewOrder(d)}>Voir / Imprimer</Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setShowReceptionModal(true)}
-                        disabled={!d?.id || lines.length === 0}
-                      >
-                        Créer une réception
-                      </Button>
+                      <Button onClick={() => setViewOrder(d)}>Voir</Button>
+                      {canUpdate && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => setShowReceptionModal(true)}
+                          disabled={!d?.id || lines.length === 0}
+                        >
+                          Créer une réception
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -486,23 +506,27 @@ export default function PurchaseOrdersPage() {
         </Card>
       </div>
 
-      <CreateCommandeModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        suppliers={suppliers}
-        onSubmit={(payload) => createMutation.mutate(payload)}
-      />
+      {canCreate && (
+        <CreateCommandeModal
+          isOpen={showCreate}
+          onClose={() => setShowCreate(false)}
+          suppliers={suppliers}
+          onSubmit={(payload) => createMutation.mutate(payload)}
+        />
+      )}
 
-      <EditCommandeModal
-        isOpen={!!editOrder}
-        onClose={() => setEditOrder(null)}
-        defaultStatus={editOrder?.status}
-        defaultAmount={editOrder?.amount}
-        onSubmit={(data) => {
-          if (!editOrder) return;
-          updateMutation.mutate({ id: editOrder.id, status: data.status, amount: data.amount });
-        }}
-      />
+      {canUpdate && (
+        <EditCommandeModal
+          isOpen={!!editOrder}
+          onClose={() => setEditOrder(null)}
+          defaultStatus={editOrder?.status}
+          defaultAmount={editOrder?.amount}
+          onSubmit={(data) => {
+            if (!editOrder) return;
+            updateMutation.mutate({ id: editOrder.id, status: data.status, amount: data.amount });
+          }}
+        />
+      )}
 
       <ViewCommandeModal
         isOpen={!!viewOrder}
@@ -510,6 +534,7 @@ export default function PurchaseOrdersPage() {
         order={viewOrder || selectedDetail || selectedOrder || undefined}
       />
 
+      {canUpdate && (
       <Dialog open={showReceptionModal} onOpenChange={setShowReceptionModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -626,6 +651,7 @@ export default function PurchaseOrdersPage() {
           })()}
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

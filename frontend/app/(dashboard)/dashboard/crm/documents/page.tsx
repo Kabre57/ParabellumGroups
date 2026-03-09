@@ -36,6 +36,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const TYPE_OPTIONS = [
   'CONTRAT',
@@ -64,11 +66,18 @@ interface DocumentFormValues {
 }
 
 const DocumentsPage = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<CrmDocument | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['documents.read', 'documents.read_all', 'customers.manage_documents'],
+    create: ['documents.upload', 'customers.manage_documents'],
+    update: ['documents.update', 'customers.manage_documents'],
+    remove: ['documents.delete', 'customers.manage_documents'],
+  });
 
   const { data: documents = [], isLoading } = useDocuments({ page: 1, limit: 200 });
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -326,10 +335,12 @@ const DocumentsPage = () => {
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
-            <Button onClick={openCreate}>
-              <Upload className="mr-2 h-4 w-4" />
-              Nouveau document
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Upload className="mr-2 h-4 w-4" />
+                Nouveau document
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">
@@ -342,7 +353,7 @@ const DocumentsPage = () => {
                   <th className="p-3 text-left font-medium">Taille</th>
                   <th className="p-3 text-left font-medium">Date</th>
                   <th className="p-3 text-left font-medium">Valide</th>
-                  <th className="p-3 text-left font-medium">Actions</th>
+                  {(canUpdate || canDelete) && <th className="p-3 text-left font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -369,34 +380,42 @@ const DocumentsPage = () => {
                         {document.estValide ? 'VALIDE' : 'BROUILLON'}
                       </Badge>
                     </td>
-                    <td className="p-3">
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(document)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleValidity(document, !document.estValide)}
-                        >
-                          {document.estValide ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600"
-                          onClick={() => handleDelete(document)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {(canUpdate || canDelete) && (
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                          {canUpdate && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => openEdit(document)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleValidity(document, !document.estValide)}
+                              >
+                                {document.estValide ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                              </Button>
+                            </>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleDelete(document)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filteredDocuments.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={canUpdate || canDelete ? 7 : 6} className="text-center py-8 text-muted-foreground">
                       Aucun document trouve
                     </td>
                   </tr>
@@ -407,6 +426,7 @@ const DocumentsPage = () => {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -509,6 +529,7 @@ const DocumentsPage = () => {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 };

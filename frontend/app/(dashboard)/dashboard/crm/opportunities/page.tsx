@@ -34,6 +34,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const STAGE_OPTIONS = [
   'PROSPECTION',
@@ -64,11 +66,18 @@ interface OpportuniteFormValues {
 }
 
 export default function OpportunitiesPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOpportunity, setEditingOpportunity] = useState<Opportunite | null>(null);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['opportunities.read', 'opportunities.read_all', 'opportunities.read_own'],
+    create: ['opportunities.create'],
+    update: ['opportunities.update', 'opportunities.change_stage'],
+    remove: ['opportunities.delete'],
+  });
 
   const { data: opportunites = [], isLoading } = useOpportunites({ page: 1, limit: 200 });
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -276,10 +285,12 @@ export default function OpportunitiesPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle opportunite
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvelle opportunite
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -297,7 +308,7 @@ export default function OpportunitiesPage() {
                     <th className="text-left p-4 font-medium">Probabilite</th>
                     <th className="text-left p-4 font-medium">Etape</th>
                     <th className="text-left p-4 font-medium">Fermeture prevue</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -323,27 +334,33 @@ export default function OpportunitiesPage() {
                           {opp.dateFermetureEstimee ? new Date(opp.dateFermetureEstimee).toLocaleDateString('fr-FR') : 'Non definie'}
                         </div>
                       </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600"
-                            onClick={() => handleDelete(opp)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
+                      {(canUpdate || canDelete) && (
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            {canUpdate && (
+                              <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600"
+                                onClick={() => handleDelete(opp)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {filteredOpportunities.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={canUpdate || canDelete ? 7 : 6} className="text-center py-8 text-muted-foreground">
                         Aucune opportunite trouvee
                       </td>
                     </tr>
@@ -355,6 +372,7 @@ export default function OpportunitiesPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -441,6 +459,7 @@ export default function OpportunitiesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

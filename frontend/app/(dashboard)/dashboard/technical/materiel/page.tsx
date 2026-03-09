@@ -27,6 +27,8 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const materielSchema = z.object({
   reference: z.string().min(1, 'Référence requise'),
@@ -45,6 +47,7 @@ const materielSchema = z.object({
 type MaterielFormData = z.infer<typeof materielSchema>;
 
 export default function MaterielPage() {
+  const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingMateriel, setEditingMateriel] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +56,12 @@ export default function MaterielPage() {
   const createMutation = useCreateMateriel();
   const updateMutation = useUpdateMateriel();
   const deleteMutation = useDeleteMateriel();
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['materiel.read'],
+    create: ['materiel.create'],
+    update: ['materiel.update', 'materiel.assign', 'materiel.maintenance'],
+    remove: ['materiel.delete'],
+  });
 
   const {
     register,
@@ -167,10 +176,12 @@ export default function MaterielPage() {
             Gérez votre stock de matériel technique
           </p>
         </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau matériel
-        </Button>
+        {canCreate && (
+          <Button onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau matériel
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -223,20 +234,24 @@ export default function MaterielPage() {
                   <TableCell>{getStockBadge(materiel)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(materiel)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(materiel.id, materiel.nom)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+                      {canUpdate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(materiel)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(materiel.id, materiel.nom)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -247,6 +262,7 @@ export default function MaterielPage() {
       </Card>
 
       {/* Create/Edit Dialog */}
+      {(canCreate || canUpdate) && (
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="materiel-dialog-description">
           <DialogHeader>
@@ -429,6 +445,7 @@ export default function MaterielPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

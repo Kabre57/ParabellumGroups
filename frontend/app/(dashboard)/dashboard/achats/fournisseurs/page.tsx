@@ -19,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const statusColors: Record<SupplierStatus, string> = {
   ACTIF: 'bg-green-100 text-green-800',
@@ -42,6 +44,7 @@ interface SupplierFormValues {
 }
 
 export default function SuppliersPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<SupplierStatus | 'ALL'>('ALL');
@@ -87,6 +90,12 @@ export default function SuppliersPage() {
       totalAmount: suppliers.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
     };
   }, [suppliers]);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['suppliers.read'],
+    create: ['suppliers.create'],
+    update: ['suppliers.update', 'suppliers.evaluate'],
+    remove: ['suppliers.delete'],
+  });
 
   const createMutation = useMutation({
     mutationFn: (values: SupplierFormValues) =>
@@ -209,10 +218,12 @@ export default function SuppliersPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Fournisseurs</h1>
         </div>
-        <Button onClick={openCreate}>
-          <Building2 className="mr-2 h-4 w-4" />
-          Nouveau fournisseur
-        </Button>
+        {canCreate && (
+          <Button onClick={openCreate}>
+            <Building2 className="mr-2 h-4 w-4" />
+            Nouveau fournisseur
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -319,12 +330,16 @@ export default function SuppliersPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(supplier)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(supplier)}>
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          {canUpdate && (
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(supplier)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(supplier)}>
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -341,6 +356,7 @@ export default function SuppliersPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -400,6 +416,7 @@ export default function SuppliersPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

@@ -11,8 +11,11 @@ import { hrService, Payroll, Employee } from '@/shared/api/hr';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function PaiePage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [periodFilter, setPeriodFilter] = useState('2026-01');
   const [editing, setEditing] = useState<Payroll | null>(null);
@@ -117,6 +120,13 @@ export default function PaiePage() {
   const totalGross = payrolls.reduce((sum, p: Payroll) => sum + (p.grossSalary || 0), 0);
   const totalNet = payrolls.reduce((sum, p: Payroll) => sum + (p.netSalary || 0), 0);
   const totalCharges = payrolls.reduce((sum, p: Payroll) => sum + (p.socialContributions || p.deductions || 0), 0);
+  const { canCreate, canUpdate, canApprove, canExport } = getCrudVisibility(user, {
+    read: ['payroll.read', 'payroll.read_all', 'payroll.read_own'],
+    create: ['payroll.create', 'payroll.process'],
+    update: ['payroll.update', 'payroll.process'],
+    approve: ['payroll.validate', 'payroll.process'],
+    export: ['payroll.export'],
+  });
 
   return (
     <>
@@ -127,18 +137,22 @@ export default function PaiePage() {
           <p className="text-muted-foreground mt-2">Gestion de la paie et bulletins de salaire</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Exporter
-          </Button>
-          <Button
-            className="flex items-center gap-2"
-            disabled={generateMutation.isPending}
-            onClick={() => generateMutation.mutate()}
-          >
-            <Plus className="h-4 w-4" />
-            {generateMutation.isPending ? 'Génération...' : 'Générer Paie'}
-          </Button>
+          {canExport && (
+            <Button variant="outline" className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Exporter
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              className="flex items-center gap-2"
+              disabled={generateMutation.isPending}
+              onClick={() => generateMutation.mutate()}
+            >
+              <Plus className="h-4 w-4" />
+              {generateMutation.isPending ? 'Génération...' : 'Générer Paie'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -270,30 +284,34 @@ export default function PaiePage() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadMutation.mutate(payroll)}
-                          disabled={downloadMutation.isPending}
-                          title="Télécharger le PDF"
-                        >
-                          <Download className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditing(payroll);
-                            setFormPrimes(String(payroll.bonuses ?? payroll.primes ?? 0));
-                            setFormIndemnite(String(payroll.indemnite ?? 0));
-                            setFormRetenues(String(payroll.autresRetenues ?? 0));
-                            setFormHeuresSup(String(payroll.heuresSup ?? 0));
-                          }}
-                          title="Ajuster / recalculer"
-                        >
-                          ⚙️
-                        </Button>
-                        {(payroll.status === 'draft' || payroll.status === 'genere') && (
+                        {canExport && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadMutation.mutate(payroll)}
+                            disabled={downloadMutation.isPending}
+                            title="Télécharger le PDF"
+                          >
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditing(payroll);
+                              setFormPrimes(String(payroll.bonuses ?? payroll.primes ?? 0));
+                              setFormIndemnite(String(payroll.indemnite ?? 0));
+                              setFormRetenues(String(payroll.autresRetenues ?? 0));
+                              setFormHeuresSup(String(payroll.heuresSup ?? 0));
+                            }}
+                            title="Ajuster / recalculer"
+                          >
+                            ⚙️
+                          </Button>
+                        )}
+                        {canApprove && (payroll.status === 'draft' || payroll.status === 'genere') && (
                           <Button
                             size="sm"
                             className="bg-blue-600 text-white"
@@ -303,7 +321,7 @@ export default function PaiePage() {
                             <CheckCircle className="h-3 w-3" />
                           </Button>
                         )}
-                        {payroll.status && ['valide', 'validated', 'validee'].includes(payroll.status) && (
+                        {canApprove && payroll.status && ['valide', 'validated', 'validee'].includes(payroll.status) && (
                           <Button
                             size="sm"
                             className="bg-green-600 text-white"
@@ -330,7 +348,7 @@ export default function PaiePage() {
         )}
       </Card>
     </div>
-    {editing && (
+    {canUpdate && editing && (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-lg p-6 space-y-4">
           <div className="flex justify-between items-center">

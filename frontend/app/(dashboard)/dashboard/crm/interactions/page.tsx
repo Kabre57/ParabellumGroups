@@ -31,6 +31,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 const TYPE_OPTIONS = [
   'APPEL',
@@ -84,10 +86,17 @@ interface InteractionFormValues {
 }
 
 export default function InteractionsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    create: ['customers.update', 'prospects.manage_activities'],
+    update: ['customers.update', 'prospects.manage_activities'],
+    remove: ['customers.delete', 'prospects.manage_activities'],
+  });
   const [editingInteraction, setEditingInteraction] = useState<Interaction | null>(null);
 
   const { data: interactions = [], isLoading } = useInteractions({ page: 1, limit: 200 });
@@ -265,10 +274,12 @@ export default function InteractionsPage() {
                 ))}
               </select>
             </div>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle interaction
-            </Button>
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvelle interaction
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -287,7 +298,7 @@ export default function InteractionsPage() {
                     <th className="text-left p-4 font-medium">Type</th>
                     <th className="text-left p-4 font-medium">Canal</th>
                     <th className="text-left p-4 font-medium">Resultat</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -312,28 +323,34 @@ export default function InteractionsPage() {
                         <td className="p-4">
                           <Badge className="bg-muted">{interaction.resultat || 'NEUTRE'}</Badge>
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEdit(interaction)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(interaction)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => openEdit(interaction)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(interaction)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
                   {filteredInteractions.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={canUpdate || canDelete ? 8 : 7} className="text-center py-8 text-muted-foreground">
                         Aucune interaction trouvee
                       </td>
                     </tr>
@@ -345,6 +362,7 @@ export default function InteractionsPage() {
         </CardContent>
       </Card>
 
+      {(canCreate || canUpdate) && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -459,6 +477,7 @@ export default function InteractionsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

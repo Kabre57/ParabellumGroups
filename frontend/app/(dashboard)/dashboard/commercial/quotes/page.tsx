@@ -29,6 +29,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
 
@@ -92,12 +94,20 @@ const normalizeDate = (value?: string) => {
 };
 
 export default function QuotesPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all');
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['quotes.read', 'quotes.read_all', 'quotes.read_own'],
+    create: ['quotes.create'],
+    update: ['quotes.update', 'quotes.approve'],
+    remove: ['quotes.delete'],
+    export: ['quotes.export', 'quotes.print'],
+  });
 
   const { data: quotesResponse, isLoading } = useQuery({
     queryKey: ['quotes'],
@@ -242,10 +252,12 @@ export default function QuotesPage() {
           <h1 className="text-3xl font-bold">Devis et Propositions</h1>
           <p className="text-muted-foreground">Creation, suivi et gestion de vos devis</p>
         </div>
-        <Button>
-          <FileText className="mr-2 h-4 w-4" />
-          Nouveau devis
-        </Button>
+        {canCreate && (
+          <Button>
+            <FileText className="mr-2 h-4 w-4" />
+            Nouveau devis
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -340,7 +352,7 @@ export default function QuotesPage() {
                     <th className="text-left p-4 font-medium">Statut</th>
                     <th className="text-left p-4 font-medium">Validite</th>
                     <th className="text-left p-4 font-medium">Cree le</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    {(canUpdate || canDelete || canExport) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -373,30 +385,38 @@ export default function QuotesPage() {
                         <td className="p-4 text-sm text-muted-foreground">
                           {quote.createdAt ? formatDate(quote.createdAt) : '-'}
                         </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openView(quote)}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              Voir
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => openEdit(quote)}>
-                              <Edit className="h-4 w-4 mr-1" />
-                              Modifier
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <FileDown className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleDelete(quote)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                        {(canUpdate || canDelete || canExport) && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openView(quote)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                Voir
+                              </Button>
+                              {canUpdate && (
+                                <Button variant="outline" size="sm" onClick={() => openEdit(quote)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                              )}
+                              {canExport && (
+                                <Button variant="outline" size="sm">
+                                  <FileDown className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(quote)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -432,6 +452,7 @@ export default function QuotesPage() {
         </DialogContent>
       </Dialog>
 
+      {canUpdate && (
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -470,6 +491,7 @@ export default function QuotesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }
