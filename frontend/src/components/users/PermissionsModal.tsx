@@ -11,9 +11,16 @@ interface PermissionsModalProps {
   onClose: () => void;
   user: any;
   onSuccess?: () => void;
+  canEdit?: boolean;
 }
 
-export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onClose, user, onSuccess }) => {
+export const PermissionsModal: React.FC<PermissionsModalProps> = ({
+  isOpen,
+  onClose,
+  user,
+  onSuccess,
+  canEdit = true,
+}) => {
   const [selectedPermissions, setSelectedPermissions] = useState<Set<number>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +99,8 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
   };
 
   const handleSubmit = async () => {
+    if (!canEdit) return;
+
     try {
       setIsSubmitting(true);
       
@@ -190,21 +199,25 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
                         </span>
                       </button>
                       <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => selectAllInCategory(key)}
-                          className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          Tout selectionner
-                        </button>
-                        <span className="text-gray-300 dark:text-gray-600">|</span>
-                        <button
-                          type="button"
-                          onClick={() => deselectAllInCategory(key)}
-                          className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          Tout deselectionner
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => selectAllInCategory(key)}
+                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Tout selectionner
+                            </button>
+                            <span className="text-gray-300 dark:text-gray-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => deselectAllInCategory(key)}
+                              className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              Tout deselectionner
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -222,6 +235,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => togglePermission(permission.id)}
+                                  disabled={!canEdit}
                                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
                               </div>
@@ -264,24 +278,26 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({ isOpen, onCl
               >
                 Annuler
               </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting || isLoading}
-                className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4 mr-2" />
-                    Enregistrer les permissions
-                  </>
-                )}
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || isLoading}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Enregistrer les permissions
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

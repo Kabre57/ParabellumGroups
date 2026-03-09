@@ -21,6 +21,7 @@ import {
   quickAccessItems,
   employeeProjectShortcuts
 } from './sidebarData';
+import { hasPermission, isAdminRole } from '@/shared/permissions';
 
 interface NavigationItem {
   name: string;
@@ -53,63 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     }));
   }, []);
 
-  const permissionSet = useMemo(() => {
-    const raw: string[] = [];
-    if (Array.isArray(user?.permissionsList)) {
-      raw.push(...user.permissionsList);
-    }
-    if (Array.isArray(user?.permissions)) {
-      raw.push(...user.permissions);
-    } else if (typeof user?.permissions === 'string') {
-      try {
-        const parsed = JSON.parse(user.permissions);
-        if (Array.isArray(parsed)) {
-          raw.push(...parsed);
-        }
-      } catch {
-        // Ignore invalid string payloads
-      }
-    }
-    return new Set(raw.map(p => p.toLowerCase()));
-  }, [user]);
-
-  const getPermissionAliases = useCallback((permission: string) => {
-    const normalized = permission.toLowerCase();
-    const aliases = new Set<string>([normalized]);
-
-    if (normalized.endsWith('.read')) {
-      aliases.add(normalized.replace(/\.read$/, '.view'));
-      aliases.add(normalized.replace(/\.read$/, '.view_all'));
-      aliases.add(normalized.replace(/\.read$/, '.view_assigned'));
-      aliases.add(normalized.replace(/\.read$/, '.read_all'));
-      aliases.add(normalized.replace(/\.read$/, '.read_assigned'));
-    }
-
-    if (normalized.endsWith('.view')) {
-      aliases.add(normalized.replace(/\.view$/, '.read'));
-    }
-
-    if (normalized.endsWith('.read_all')) {
-      aliases.add(normalized.replace(/\.read_all$/, '.read'));
-    }
-
-    if (normalized.endsWith('.read_assigned')) {
-      aliases.add(normalized.replace(/\.read_assigned$/, '.read'));
-    }
-
-    if (normalized === 'messages.read') {
-      aliases.add('messages.view');
-    }
-
-    if (normalized === 'inventory.read') {
-      aliases.add('inventory.view');
-      aliases.add('inventory.view_all');
-      aliases.add('inventory.view_warehouse');
-    }
-
-    return Array.from(aliases);
-  }, []);
-
   // CORRECTION 1: Vérification robuste du rôle avec typecasting approprié
   const isEmployee = useMemo(() => {
     if (!user?.role) return false;
@@ -137,43 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     return false;
   }, [user]);
 
-  const isAdmin = useMemo(() => {
-    if (!user?.role) return false;
-
-    const role = user.role;
-
-    if (typeof role === 'string') {
-      const upperRole = role.toUpperCase();
-      return upperRole === 'ADMIN' || upperRole === 'ADMINISTRATOR' || upperRole === 'ADMINISTRATEUR';
-    }
-
-    if (role && typeof role === 'object') {
-      const roleObj = role as any;
-
-      if (roleObj.code) {
-        const upperCode = roleObj.code.toUpperCase();
-        return upperCode === 'ADMIN' || upperCode === 'ADMINISTRATOR';
-      }
-
-      if (roleObj.name) {
-        const upperName = roleObj.name.toUpperCase();
-        return upperName === 'ADMIN' || upperName === 'ADMINISTRATOR' || upperName === 'ADMINISTRATEUR';
-      }
-
-      const roleValue = roleObj.value || roleObj.role;
-      if (roleValue && typeof roleValue === 'string') {
-        const upperValue = roleValue.toUpperCase();
-        return upperValue === 'ADMIN' || upperValue === 'ADMINISTRATOR' || upperValue === 'ADMINISTRATEUR';
-      }
-
-      if (roleObj.toString && typeof roleObj.toString === 'function') {
-        const strValue = roleObj.toString().toUpperCase();
-        return strValue.includes('ADMIN');
-      }
-    }
-
-    return false;
-  }, [user]);
+  const isAdmin = useMemo(() => isAdminRole(user), [user]);
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -186,12 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   // Fonction pour vérifier l'accès
   const hasAccess = useCallback((item: NavigationItem) => {
     if (!item.permission) return true;
-    if (isAdmin) return true;
-    const perm = item.permission.toLowerCase();
-    if (perm === 'admin') return false;
-    const aliases = getPermissionAliases(perm);
-    return aliases.some((alias) => permissionSet.has(alias));
-  }, [isAdmin, permissionSet, getPermissionAliases]);
+    return hasPermission(user, item.permission);
+  }, [user]);
 
   const toggleCategory = useCallback((categoryName: string) => {
     setExpandedCategories(prev => ({

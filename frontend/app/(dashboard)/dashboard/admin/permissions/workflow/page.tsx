@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,32 @@ import { permissionRequestService } from '@/services/permissionRequestService';
 import { PendingRequestsList } from '@/components/PermissionWorkflow/PendingRequestsList';
 import { CreatePermissionRequestForm } from '@/components/PermissionWorkflow/CreatePermissionRequestForm';
 import { CreateRoleWithTemplateForm } from '@/components/PermissionWorkflow/CreateRoleWithTemplateForm';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 
 export default function PermissionWorkflowPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('pending');
   const queryClient = useQueryClient();
+  const canManageRequests = hasPermission(user, 'permissions.manage');
+  const canCreateRequests = hasAnyPermission(user, ['permissions.read', 'permissions.manage']);
+  const canCreateRoles = hasPermission(user, 'roles.create');
+  const visibleTabs = useMemo(
+    () =>
+      [
+        canManageRequests ? 'pending' : null,
+        canCreateRequests ? 'create' : null,
+        canCreateRoles ? 'templates' : null,
+      ].filter(Boolean) as string[],
+    [canCreateRequests, canCreateRoles, canManageRequests]
+  );
+  const normalizedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || 'create';
+
+  useEffect(() => {
+    if (normalizedActiveTab !== activeTab) {
+      setActiveTab(normalizedActiveTab);
+    }
+  }, [activeTab, normalizedActiveTab]);
 
   // Récupérer les demandes en attente
   const { data: pendingRequests, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
@@ -158,26 +180,33 @@ export default function PermissionWorkflowPage() {
 
       {/* Contenu principal */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="pending" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Demandes en attente
-            {stats.pending > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {stats.pending}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="create" className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            Créer une demande
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <Workflow className="h-4 w-4" />
-            Rôles avec templates
-          </TabsTrigger>
+        <TabsList className={`grid w-full ${visibleTabs.length === 1 ? 'grid-cols-1' : visibleTabs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {canManageRequests && (
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Demandes en attente
+              {stats.pending > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {stats.pending}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+          {canCreateRequests && (
+            <TabsTrigger value="create" className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Créer une demande
+            </TabsTrigger>
+          )}
+          {canCreateRoles && (
+            <TabsTrigger value="templates" className="flex items-center gap-2">
+              <Workflow className="h-4 w-4" />
+              Rôles avec templates
+            </TabsTrigger>
+          )}
         </TabsList>
 
+        {canManageRequests && (
         <TabsContent value="pending" className="space-y-4">
           <Card>
             <CardHeader>
@@ -194,11 +223,14 @@ export default function PermissionWorkflowPage() {
                 onReject={handleReject}
                 approving={approveMutation.isPending}
                 rejecting={rejectMutation.isPending}
+                canManageRequests={canManageRequests}
               />
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
+        {canCreateRequests && (
         <TabsContent value="create" className="space-y-4">
           <Card>
             <CardHeader>
@@ -214,14 +246,16 @@ export default function PermissionWorkflowPage() {
                 onSuccess={() => {
                   refetchPending();
                   refetchAll();
-                  setActiveTab('pending');
+                  setActiveTab(canManageRequests ? 'pending' : normalizedActiveTab);
                   toast.success('Demande créée avec succès');
                 }}
               />
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
+        {canCreateRoles && (
         <TabsContent value="templates" className="space-y-4">
           <Card>
             <CardHeader>
@@ -239,6 +273,7 @@ export default function PermissionWorkflowPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );

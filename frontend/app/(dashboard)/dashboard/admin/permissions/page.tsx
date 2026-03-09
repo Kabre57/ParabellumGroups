@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Shield, Search, Plus, Edit, Trash2, Users, Workflow } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/shared/hooks/useAuth';
 import { adminPermissionsService, adminRolesService, type Permission } from '@/shared/api/admin';
 import { CreatePermissionModal } from '@/components/permissions/CreatePermissionModal';
 import { EditPermissionModal } from '@/components/permissions/EditPermissionModal';
+import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 
 export default function PermissionsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -21,6 +24,12 @@ export default function PermissionsPage() {
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
 
   const queryClient = useQueryClient();
+  const canCreatePermissions = hasPermission(user, 'permissions.create');
+  const canEditPermissions = hasPermission(user, 'permissions.update');
+  const canDeletePermissions = hasPermission(user, 'permissions.delete');
+  const canManagePermissionWorkflow = hasPermission(user, 'permissions.manage');
+  const canReadRoles = hasAnyPermission(user, ['roles.read', 'roles.read_own']);
+  const canReadUsers = hasAnyPermission(user, ['users.read', 'users.read_own', 'users.read_all']);
 
   const { data: permissionsData, isLoading: permissionsLoading, error } = useQuery({
     queryKey: ['admin-permissions'],
@@ -105,13 +114,15 @@ export default function PermissionsPage() {
             Configuration des droits d'acces et permissions systeme
           </p>
         </div>
-        <Button 
-          onClick={() => setShowCreateModal(true)} 
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Nouvelle Permission
-        </Button>
+        {canCreatePermissions && (
+          <Button 
+            onClick={() => setShowCreateModal(true)} 
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle Permission
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -127,9 +138,11 @@ export default function PermissionsPage() {
             <Shield className="h-6 w-6 text-blue-500" />
           </div>
           <div className="mt-4">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/admin/roles-management">Gérer par rôle</Link>
-            </Button>
+            {canReadRoles && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/admin/roles-management">Gérer par rôle</Link>
+              </Button>
+            )}
           </div>
         </Card>
         <Card className="p-4 border-l-4 border-amber-500">
@@ -144,9 +157,11 @@ export default function PermissionsPage() {
             <Users className="h-6 w-6 text-amber-500" />
           </div>
           <div className="mt-4">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/admin/users">Gérer par utilisateur</Link>
-            </Button>
+            {canReadUsers && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/admin/users">Gérer par utilisateur</Link>
+              </Button>
+            )}
           </div>
         </Card>
         <Card className="p-4 border-l-4 border-green-500">
@@ -161,9 +176,11 @@ export default function PermissionsPage() {
             <Workflow className="h-6 w-6 text-green-500" />
           </div>
           <div className="mt-4">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/admin/permissions/workflow">Accéder au workflow</Link>
-            </Button>
+            {canManagePermissionWorkflow && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/admin/permissions/workflow">Accéder au workflow</Link>
+              </Button>
+            )}
           </div>
         </Card>
       </div>
@@ -246,7 +263,9 @@ export default function PermissionsPage() {
                   <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Categorie</th>
                   <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Description</th>
                   <th className="text-left py-4 px-6 font-semibold text-xs uppercase tracking-wider">Roles Autorises</th>
-                  <th className="text-center py-4 px-6 font-semibold text-xs uppercase tracking-wider">Actions</th>
+                  {(canEditPermissions || canDeletePermissions) && (
+                    <th className="text-center py-4 px-6 font-semibold text-xs uppercase tracking-wider">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -277,26 +296,32 @@ export default function PermissionsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="flex justify-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleEditPermission(permission)}
-                          className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDeletePermission(permission)}
-                          className="h-8 w-8 text-red-600 border-red-100 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {(canEditPermissions || canDeletePermissions) && (
+                      <td className="py-4 px-6">
+                        <div className="flex justify-center gap-2">
+                          {canEditPermissions && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEditPermission(permission)}
+                              className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDeletePermissions && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDeletePermission(permission)}
+                              className="h-8 w-8 text-red-600 border-red-100 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -305,21 +330,25 @@ export default function PermissionsPage() {
         )}
       </Card>
 
-      <CreatePermissionModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {canCreatePermissions && (
+        <CreatePermissionModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
-      <EditPermissionModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedPermission(null);
-        }}
-        onSuccess={handleEditSuccess}
-        permission={selectedPermission}
-      />
+      {canEditPermissions && (
+        <EditPermissionModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedPermission(null);
+          }}
+          onSuccess={handleEditSuccess}
+          permission={selectedPermission}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ interface ListeDemandesEnAttenteProps {
   onReject?: (id: number, reason: string) => void;
   approving?: boolean;
   rejecting?: boolean;
+  canManageRequests?: boolean;
 }
 
 export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
@@ -20,6 +21,7 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
   onReject: externalOnReject,
   approving = false,
   rejecting = false,
+  canManageRequests = true,
 }) => {
   const [internalRequests, setInternalRequests] = useState<PermissionChangeRequest[]>([]);
   const [internalLoading, setInternalLoading] = useState(true);
@@ -158,22 +160,24 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
           </div>
 
           {/* Boutons d'action */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => handleApprove(req.id)}
-              disabled={approving}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-2 px-4 rounded transition"
-            >
-              {approving ? 'Approbation...' : '✓ Approuver'}
-            </button>
-            <button
-              onClick={() => handleReject(req.id)}
-              disabled={rejecting}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 px-4 rounded transition"
-            >
-              {rejecting ? 'Rejet...' : '✗ Rejeter'}
-            </button>
-          </div>
+          {canManageRequests && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleApprove(req.id)}
+                disabled={approving}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-2 px-4 rounded transition"
+              >
+                {approving ? 'Approbation...' : '✓ Approuver'}
+              </button>
+              <button
+                onClick={() => handleReject(req.id)}
+                disabled={rejecting}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 px-4 rounded transition"
+              >
+                {rejecting ? 'Rejet...' : '✗ Rejeter'}
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>

@@ -14,6 +14,7 @@ import {
   Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/shared/hooks/useAuth';
 import { 
   adminRolesService, 
   adminPermissionsService, 
@@ -21,6 +22,7 @@ import {
   type Permission 
 } from '@/shared/api/admin';
 import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
+import { hasPermission } from '@/shared/permissions';
 
 const roleColors: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-800',
@@ -34,12 +36,15 @@ const roleColors: Record<string, string> = {
 };
 
 export default function RolesPermissionsPage() {
+  const { user } = useAuth();
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const queryClient = useQueryClient();
+  const canCreateRoles = hasPermission(user, 'roles.create');
+  const canDeleteRoles = hasPermission(user, 'roles.delete');
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['admin-roles'],
@@ -127,13 +132,15 @@ export default function RolesPermissionsPage() {
             Configurez les permissions pour chaque role
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau Role
-        </button>
+        {canCreateRoles && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau Role
+          </button>
+        )}
       </div>
 
       <div className="bg-white shadow rounded-lg p-6">
@@ -172,7 +179,7 @@ export default function RolesPermissionsPage() {
                     )}
                   </div>
                 </button>
-                {!role.isSystem && (
+                {!role.isSystem && canDeleteRoles && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -318,14 +325,16 @@ export default function RolesPermissionsPage() {
         </>
       )}
 
-      <CreateRoleModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
-          setShowCreateModal(false);
-        }}
-      />
+      {canCreateRoles && (
+        <CreateRoleModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
+            setShowCreateModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -164,15 +164,15 @@ export default function PrintLayout({
       <div className="print-header">
         <div className="flex items-center" style={{ gap: 12 }}>
           <img
-            src="/parabellum.jpg"
-            alt="Parabellum Logo"
+            src="/progiteck.jpg"
+            alt="Progiteck Logo"
             className="print-logo"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
           />
           <div>
-            <div className="print-title">PARABELLUM GROUPS</div>
+            <div className="print-title">PROGITECK</div>
             <div className="print-subtitle">{title}</div>
             {subtitle && <div className="print-subtitle">{subtitle}</div>}
           </div>
@@ -184,9 +184,9 @@ export default function PrintLayout({
 
       {showFooter && (
         <div className="print-footer">
-          <div>PARABELLUM GROUPS • Service Technique Professionnel</div>
+          <div>PROGITECK • Service Technique Professionnel</div>
           <div>Siège Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
-          <div>Email : contact@parabellumgroup.ci • Tél : +225 27 20 21 22 23</div>
+          <div>Email : contact@progiteck.ci • Tél : +225 27 20 21 22 23</div>
           <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D&apos;IVOIRE</div>
         </div>
       )}

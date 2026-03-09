@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Users, 
@@ -21,7 +21,9 @@ import { toast } from 'sonner';
 import { CreateUserModal } from '@/components/users/CreateUserModal';
 import { EditUserModal } from '@/components/users/EditUserModal';
 import { PermissionsModal } from '@/components/users/PermissionsModal';
+import { useAuth } from '@/shared/hooks/useAuth';
 import { adminUsersService, adminRolesService, type AdminUser } from '@/shared/api/admin';
+import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 
 const roleColors: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-800',
@@ -35,6 +37,7 @@ const roleColors: Record<string, string> = {
 };
 
 export default function UsersManagementPage() {
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -47,6 +50,23 @@ export default function UsersManagementPage() {
   const [selectedPermissionsUser, setSelectedPermissionsUser] = useState<AdminUser | null>(null);
 
   const queryClient = useQueryClient();
+  const canReadUsers = hasAnyPermission(currentUser, ['users.read', 'users.read_own', 'users.read_all']);
+  const canCreateUsers = hasPermission(currentUser, 'users.create');
+  const canUpdateUsers = hasPermission(currentUser, 'users.update');
+  const canDeleteUsers = hasPermission(currentUser, 'users.delete');
+  const canManagePermissionOverrides = hasAnyPermission(currentUser, ['permissions.manage', 'users.update']);
+  const canManageUserActions = canUpdateUsers || canDeleteUsers || canManagePermissionOverrides;
+  const userTableColumnCount = canManageUserActions ? 6 : 5;
+  const visibleTabs = useMemo(
+    () =>
+      [
+        canReadUsers ? 'users' : null,
+        canManagePermissionOverrides ? 'permissions' : null,
+      ].filter(Boolean) as Array<'users' | 'permissions'>,
+    [canManagePermissionOverrides, canReadUsers]
+  );
+
+  const normalizedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || 'users';
 
   const { data: rolesData } = useQuery({
     queryKey: ['admin-roles'],
@@ -183,37 +203,43 @@ export default function UsersManagementPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
-              activeTab === 'users'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Utilisateurs
-          </button>
-          <button
-            onClick={() => setActiveTab('permissions')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
-              activeTab === 'permissions'
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Permissions utilisateur
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvel Utilisateur
-          </button>
+          {canReadUsers && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
+                normalizedActiveTab === 'users'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Utilisateurs
+            </button>
+          )}
+          {canManagePermissionOverrides && (
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border ${
+                normalizedActiveTab === 'permissions'
+                  ? 'bg-purple-600 text-white border-purple-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Permissions utilisateur
+            </button>
+          )}
+          {canCreateUsers && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvel Utilisateur
+            </button>
+          )}
         </div>
       </div>
 
-      {activeTab === 'users' && (
+      {normalizedActiveTab === 'users' && canReadUsers && (
         <div className="bg-white shadow rounded-lg p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
@@ -244,7 +270,7 @@ export default function UsersManagementPage() {
         </div>
       )}
 
-      {activeTab === 'permissions' && (
+      {normalizedActiveTab === 'permissions' && canManagePermissionOverrides && (
         <div className="bg-white shadow rounded-lg p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -277,18 +303,20 @@ export default function UsersManagementPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <button
-                onClick={() => {
-                  if (!selectedPermissionsUser) return;
-                  setSelectedUser(selectedPermissionsUser);
-                  setShowPermissionsModal(true);
-                }}
-                disabled={!selectedPermissionsUser}
-                className="w-full inline-flex items-center justify-center px-4 py-2 border border-purple-600 rounded-md text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Modifier les overrides
-              </button>
+              {canManagePermissionOverrides && (
+                <button
+                  onClick={() => {
+                    if (!selectedPermissionsUser) return;
+                    setSelectedUser(selectedPermissionsUser);
+                    setShowPermissionsModal(true);
+                  }}
+                  disabled={!selectedPermissionsUser}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 border border-purple-600 rounded-md text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Modifier les overrides
+                </button>
+              )}
             </div>
           </div>
 
@@ -331,7 +359,7 @@ export default function UsersManagementPage() {
         </div>
       )}
 
-      {activeTab === 'users' && (
+      {normalizedActiveTab === 'users' && canReadUsers && (
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -341,20 +369,22 @@ export default function UsersManagementPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Derniere connexion</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              {canManageUserActions && (
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center">
+                <td colSpan={userTableColumnCount} className="px-6 py-12 text-center">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   <p className="mt-2 text-sm text-gray-500">Chargement...</p>
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center">
+                <td colSpan={userTableColumnCount} className="px-6 py-12 text-center">
                   <Users className="mx-auto h-12 w-12 text-gray-400" />
                   <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun utilisateur</h3>
                 </td>
@@ -397,41 +427,51 @@ export default function UsersManagementPage() {
                       {user.isActive ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleEditUser(user)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                        title="Modifier"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleToggleStatus(user)}
-                        className={user.isActive ? "text-orange-600 hover:text-orange-900" : "text-green-600 hover:text-green-900"}
-                        title={user.isActive ? "Desactiver" : "Activer"}
-                      >
-                        {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowPermissionsModal(true);
-                        }}
-                        className="text-purple-600 hover:text-purple-900"
-                        title="Permissions"
-                      >
-                        <Shield className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteUser(user)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {canManageUserActions && (
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        {canUpdateUsers && (
+                          <button 
+                            onClick={() => handleEditUser(user)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Modifier"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canUpdateUsers && (
+                          <button 
+                            onClick={() => handleToggleStatus(user)}
+                            className={user.isActive ? "text-orange-600 hover:text-orange-900" : "text-green-600 hover:text-green-900"}
+                            title={user.isActive ? "Desactiver" : "Activer"}
+                          >
+                            {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                          </button>
+                        )}
+                        {canManagePermissionOverrides && (
+                          <button 
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowPermissionsModal(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-900"
+                            title="Permissions"
+                          >
+                            <Shield className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDeleteUsers && (
+                          <button 
+                            onClick={() => handleDeleteUser(user)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -464,25 +504,32 @@ export default function UsersManagementPage() {
       </div>
       )}
 
-      <CreateUserModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {canCreateUsers && (
+        <CreateUserModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
-      <EditUserModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        user={selectedUser}
-        onSuccess={handleEditSuccess}
-      />
+      {canUpdateUsers && (
+        <EditUserModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          user={selectedUser}
+          onSuccess={handleEditSuccess}
+        />
+      )}
 
-      <PermissionsModal
-        isOpen={showPermissionsModal}
-        onClose={() => setShowPermissionsModal(false)}
-        user={selectedUser}
-        onSuccess={handlePermissionsSuccess}
-      />
+      {canManagePermissionOverrides && (
+        <PermissionsModal
+          isOpen={showPermissionsModal}
+          onClose={() => setShowPermissionsModal(false)}
+          user={selectedUser}
+          onSuccess={handlePermissionsSuccess}
+          canEdit={canManagePermissionOverrides}
+        />
+      )}
     </div>
   );
 }

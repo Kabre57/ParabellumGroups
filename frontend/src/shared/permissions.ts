@@ -35,6 +35,8 @@ export const getPermissionAliases = (permission: string): string[] => {
     aliases.add(normalized.replace(/\.read$/, '.view_assigned'));
     aliases.add(normalized.replace(/\.read$/, '.read_all'));
     aliases.add(normalized.replace(/\.read$/, '.read_assigned'));
+    aliases.add(normalized.replace(/\.read$/, '.read_own'));
+    aliases.add(normalized.replace(/\.read$/, '.read_team'));
   }
 
   if (normalized.endsWith('.view')) {
@@ -47,6 +49,14 @@ export const getPermissionAliases = (permission: string): string[] => {
 
   if (normalized.endsWith('.read_assigned')) {
     aliases.add(normalized.replace(/\.read_assigned$/, '.read'));
+  }
+
+  if (normalized.endsWith('.read_own')) {
+    aliases.add(normalized.replace(/\.read_own$/, '.read'));
+  }
+
+  if (normalized.endsWith('.read_team')) {
+    aliases.add(normalized.replace(/\.read_team$/, '.read'));
   }
 
   if (normalized === 'messages.read') {
@@ -99,3 +109,8 @@ export const hasPermission = (
   const aliases = getPermissionAliases(perm);
   return aliases.some((alias) => permissionSet.has(alias));
 };
+
+export const hasAnyPermission = (
+  user: User | null | undefined,
+  permissions: string[]
+): boolean => permissions.some((permission) => hasPermission(user, permission));
