@@ -4,8 +4,9 @@ set -euo pipefail
 tmp_matches="$(mktemp)"
 trap 'rm -f "$tmp_matches"' EXIT
 
-git ls-files -z | xargs -0 rg -n -I \
-  --glob '!scripts/scan-secrets.sh' \
+git ls-files -z \
+  | grep -zvx 'scripts/scan-secrets.sh' \
+  | xargs -0 rg -n -I \
   -e 'BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY' \
   -e '(JWT_SECRET|JWT_REFRESH_SECRET|DB_PASSWORD|POSTGRES_PASSWORD|REDIS_PASSWORD|MINIO_ROOT_PASSWORD|API_KEY|SECRET_KEY|ACCESS_KEY|TOKEN|PASSWORD)[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9_./:+-]{8,}' \
   -e 'postgresql://[^:$[:space:]]+:[^$@[:space:]][^@[:space:]]*@' \
