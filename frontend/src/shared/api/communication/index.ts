@@ -43,7 +43,65 @@ export interface CampagneStats {
   tauxLecture: number;
 }
 
+export type MessageType = 'EMAIL' | 'SMS' | 'NOTIFICATION';
+export type MessageStatus = 'BROUILLON' | 'ENVOYE' | 'LU' | 'ARCHIVE';
+
+export interface CommunicationMessage {
+  id: string;
+  expediteurId: string;
+  destinataireId: string;
+  sujet: string;
+  contenu: string;
+  type: MessageType;
+  status: MessageStatus;
+  dateEnvoi?: string | null;
+  dateLu?: string | null;
+  pieceJointe: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const communicationService = {
+  async getMessages(params?: {
+    expediteurId?: string;
+    destinataireId?: string;
+    type?: MessageType;
+    status?: MessageStatus;
+  }): Promise<CommunicationMessage[]> {
+    const response = await apiClient.get('/communication/messages', { params });
+    return response.data || [];
+  },
+
+  async createMessage(data: {
+    expediteurId: string;
+    destinataireId: string;
+    sujet: string;
+    contenu: string;
+    type: MessageType;
+    pieceJointe?: string[];
+  }): Promise<CommunicationMessage> {
+    const response = await apiClient.post('/communication/messages', {
+      ...data,
+      pieceJointe: data.pieceJointe || [],
+    });
+    return response.data;
+  },
+
+  async sendMessage(id: string): Promise<CommunicationMessage> {
+    const response = await apiClient.post(`/communication/messages/${id}/send`);
+    return response.data;
+  },
+
+  async markMessageAsRead(id: string): Promise<CommunicationMessage> {
+    const response = await apiClient.put(`/communication/messages/${id}/read`);
+    return response.data;
+  },
+
+  async archiveMessage(id: string): Promise<CommunicationMessage> {
+    const response = await apiClient.put(`/communication/messages/${id}/archive`);
+    return response.data;
+  },
+
   async getTemplates(): Promise<CampagneTemplate[]> {
     const response = await apiClient.get('/communication/templates');
     return response.data || [];

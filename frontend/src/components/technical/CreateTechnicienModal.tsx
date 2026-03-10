@@ -29,15 +29,6 @@ interface CreateTechnicienModalProps {
 
 export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ isOpen, onClose }) => {
   const { data: specialites, isLoading: isLoadingSpecialites, error: specialitesError } = useSpecialites();
-  
-  // Debug
-  console.log('Specialites dans modal:', {
-    data: specialites,
-    isLoading: isLoadingSpecialites,
-    error: specialitesError,
-    isArray: Array.isArray(specialites),
-    length: Array.isArray(specialites) ? specialites.length : 'not array'
-  });
 
   const createMutation = useCreateTechnicien();
 
@@ -60,7 +51,6 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
         email: data.email || '',
         tauxHoraire: data.tauxHoraire ? parseFloat(data.tauxHoraire) : undefined
       };
-      console.log('📤 Payload envoyé au backend:', payload);
       await createMutation.mutateAsync(payload);
       toast.success('Technicien créé avec succès');
       reset();

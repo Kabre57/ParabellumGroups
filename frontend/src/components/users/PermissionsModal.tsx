@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Shield, Check, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { adminUsersService, adminPermissionsService } from '@/shared/api/admin/admin.service';
+import { groupPermissionsByService } from './permissionGrouping';
 
 interface PermissionsModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   canEdit = true,
 }) => {
   const [selectedPermissions, setSelectedPermissions] = useState<Set<number>>(new Set());
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,61 +42,80 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   const permissions = useMemo(() => permissionsData?.data || [], [permissionsData]);
   const userPermissions = useMemo(() => userPermissionsData?.data || [], [userPermissionsData]);
 
-  const permissionsByCategory = useMemo(() => {
-    return permissions.reduce((acc: Record<string, any[]>, perm: any) => {
-      const category = perm.category || 'Autre';
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(perm);
-      return acc;
-    }, {});
-  }, [permissions]);
+  const filteredPermissions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return permissions;
+
+    return permissions.filter((perm: any) =>
+      perm.name.toLowerCase().includes(query) ||
+      (perm.description && perm.description.toLowerCase().includes(query)),
+    );
+  }, [permissions, searchQuery]);
+
+  const permissionServices = useMemo(
+    () => groupPermissionsByService(filteredPermissions),
+    [filteredPermissions],
+  );
 
   useEffect(() => {
-    if (userPermissions.length > 0) {
-      const permIds = new Set(userPermissions.map((up: any) => up.permissionId || up.permission?.id));
-      setSelectedPermissions(permIds);
+    const permIds = new Set(
+      userPermissions
+        .map((up: any) => up.permissionId || up.permission?.id)
+        .filter(Boolean),
+    );
+    setSelectedPermissions(permIds);
+  }, [userPermissions]);
+
+  useEffect(() => {
+    if (permissionServices.length > 0) {
+      setExpandedServices(new Set(permissionServices.map((service) => service.id)));
     }
-    if (Object.keys(permissionsByCategory).length > 0) {
-      setExpandedCategories(new Set(Object.keys(permissionsByCategory)));
-    }
-  }, [userPermissions, permissions, permissionsByCategory]);
+  }, [permissionServices]);
 
   const togglePermission = (permissionId: number) => {
-    const newPermissions = new Set(selectedPermissions);
-    if (newPermissions.has(permissionId)) {
-      newPermissions.delete(permissionId);
-    } else {
-      newPermissions.add(permissionId);
-    }
-    setSelectedPermissions(newPermissions);
-  };
+    if (!canEdit) return;
 
-  const toggleCategory = (categoryKey: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryKey)) {
-      newExpanded.delete(categoryKey);
-    } else {
-      newExpanded.add(categoryKey);
-    }
-    setExpandedCategories(newExpanded);
-  };
-
-  const selectAllInCategory = (categoryKey: string) => {
-    const newPermissions = new Set(selectedPermissions);
-    permissionsByCategory[categoryKey]?.forEach((perm: any) => {
-      newPermissions.add(perm.id);
+    setSelectedPermissions((current) => {
+      const next = new Set(current);
+      if (next.has(permissionId)) next.delete(permissionId);
+      else next.add(permissionId);
+      return next;
     });
-    setSelectedPermissions(newPermissions);
   };
 
-  const deselectAllInCategory = (categoryKey: string) => {
-    const newPermissions = new Set(selectedPermissions);
-    permissionsByCategory[categoryKey]?.forEach((perm: any) => {
-      newPermissions.delete(perm.id);
+  const toggleService = (serviceId: string) => {
+    setExpandedServices((current) => {
+      const next = new Set(current);
+      if (next.has(serviceId)) next.delete(serviceId);
+      else next.add(serviceId);
+      return next;
     });
-    setSelectedPermissions(newPermissions);
+  };
+
+  const selectAllInService = (serviceId: string) => {
+    if (!canEdit) return;
+
+    const service = permissionServices.find((item) => item.id === serviceId);
+    if (!service) return;
+
+    setSelectedPermissions((current) => {
+      const next = new Set(current);
+      service.permissions.forEach((perm) => next.add(perm.id));
+      return next;
+    });
+  };
+
+  const deselectAllInService = (serviceId: string) => {
+    if (!canEdit) return;
+
+    const service = permissionServices.find((item) => item.id === serviceId);
+    if (!service) return;
+
+    setSelectedPermissions((current) => {
+      const next = new Set(current);
+      service.permissions.forEach((perm) => next.delete(perm.id));
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
@@ -103,11 +123,10 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      
       await adminUsersService.setUserPermissions(user.id, {
-        permissionIds: Array.from(selectedPermissions)
+        permissionIds: Array.from(selectedPermissions),
       });
-      
+
       toast.success('Permissions mises a jour avec succes');
       onSuccess?.();
       onClose();
@@ -121,45 +140,35 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const filteredCategories = Object.entries(permissionsByCategory).map(([key, perms]) => ({
-    key,
-    label: key,
-    permissions: (perms as any[]).filter((perm: any) =>
-      searchQuery === '' ||
-      perm.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (perm.description && perm.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-  })).filter(category => category.permissions.length > 0);
-
   const isLoading = permissionsLoading || userPermissionsLoading;
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-              <Shield className="h-5 w-5 mr-2 text-purple-600" />
+            <h3 className="flex items-center text-lg font-medium text-gray-900 dark:text-white">
+              <Shield className="mr-2 h-5 w-5 text-purple-600" />
               Gerer les Permissions
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {user?.firstName} {user?.lastName} - {user?.role?.name || user?.role}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" type="button">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher une permission..."
-              className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              placeholder="Rechercher une permission ou un sous-module..."
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pl-10 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </div>
         </div>
@@ -167,94 +176,109 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600"></div>
               <span className="ml-3 text-gray-500">Chargement des permissions...</span>
             </div>
-          ) : filteredCategories.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Aucune permission trouvee
-            </div>
+          ) : permissionServices.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">Aucune permission trouvee</div>
           ) : (
             <div className="space-y-4">
-              {filteredCategories.map(({ key, label, permissions: categoryPerms }) => {
-                const allSelected = categoryPerms.every((perm: any) => selectedPermissions.has(perm.id));
-                const isExpanded = expandedCategories.has(key);
+              {permissionServices.map((service) => {
+                const selectedCount = service.permissions.filter((perm) => selectedPermissions.has(perm.id)).length;
+                const isExpanded = expandedServices.has(service.id);
 
                 return (
-                  <div key={key} className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => toggleCategory(key)}
-                        className="flex items-center flex-1 text-left"
-                      >
+                  <div key={service.id} className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center justify-between bg-gray-50 px-4 py-3 dark:bg-gray-700">
+                      <button type="button" onClick={() => toggleService(service.id)} className="flex flex-1 items-center text-left">
                         {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-gray-400 mr-2" />
+                          <ChevronDown className="mr-2 h-5 w-5 text-gray-400" />
                         ) : (
-                          <ChevronRight className="h-5 w-5 text-gray-400 mr-2" />
+                          <ChevronRight className="mr-2 h-5 w-5 text-gray-400" />
                         )}
-                        <span className="font-medium text-gray-900 dark:text-white">{label}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{service.label}</span>
                         <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                          ({categoryPerms.filter((p: any) => selectedPermissions.has(p.id)).length}/{categoryPerms.length})
+                          ({selectedCount}/{service.permissions.length})
                         </span>
                       </button>
-                      <div className="flex items-center space-x-2">
-                        {canEdit && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => selectAllInCategory(key)}
-                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                              Tout selectionner
-                            </button>
-                            <span className="text-gray-300 dark:text-gray-600">|</span>
-                            <button
-                              type="button"
-                              onClick={() => deselectAllInCategory(key)}
-                              className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            >
-                              Tout deselectionner
-                            </button>
-                          </>
-                        )}
-                      </div>
+
+                      {canEdit && (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => selectAllInService(service.id)}
+                            className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            Tout selectionner
+                          </button>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => deselectAllInService(service.id)}
+                            className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            Tout deselectionner
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {isExpanded && (
-                      <div className="p-4 space-y-3">
-                        {categoryPerms.map((permission: any) => {
-                          const isSelected = selectedPermissions.has(permission.id);
-                          return (
-                            <label
-                              key={permission.id}
-                              className="flex items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded transition-colors"
-                            >
-                              <div className="flex items-center h-5">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => togglePermission(permission.id)}
-                                  disabled={!canEdit}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                />
-                              </div>
-                              <div className="ml-3">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {permission.name}
+                      <div className="space-y-5 p-4">
+                        {service.dashboards.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="border-b border-gray-100 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                              Dashboards associes
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {service.dashboards.map((dashboard) => (
+                                <span
+                                  key={dashboard.href}
+                                  className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+                                >
+                                  {dashboard.label}
                                 </span>
-                                {permission.description && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {permission.description}
-                                  </p>
-                                )}
-                              </div>
-                              {isSelected && (
-                                <Check className="ml-auto h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                              )}
-                            </label>
-                          );
-                        })}
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {service.subgroups.map((subgroup) => (
+                          <div key={subgroup.id} className="space-y-2">
+                            <div className="border-b border-gray-100 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                              {subgroup.label}
+                            </div>
+                            <div className="space-y-2">
+                              {subgroup.permissions.map((permission) => {
+                                const isSelected = selectedPermissions.has(permission.id);
+                                return (
+                                  <label
+                                    key={permission.id}
+                                    className="flex cursor-pointer items-start rounded p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                                  >
+                                    <div className="flex h-5 items-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => togglePermission(permission.id)}
+                                        disabled={!canEdit}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                    </div>
+                                    <div className="ml-3 min-w-0 flex-1">
+                                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {permission.name}
+                                      </span>
+                                      {permission.description && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{permission.description}</p>
+                                      )}
+                                    </div>
+                                    {isSelected && <Check className="ml-3 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -264,41 +288,39 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">{selectedPermissions.size}</span> permission(s) selectionnee(s)
-            </div>
-            <div className="flex space-x-3">
+        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-medium">{selectedPermissions.size}</span> permission(s) selectionnee(s)
+          </div>
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              disabled={isSubmitting}
+            >
+              Annuler
+            </button>
+            {canEdit && (
               <button
                 type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                disabled={isSubmitting}
+                onClick={handleSubmit}
+                disabled={isSubmitting || isLoading}
+                className="flex items-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Annuler
+                {isSubmitting ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Enregistrer les permissions
+                  </>
+                )}
               </button>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || isLoading}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="h-4 w-4 mr-2" />
-                      Enregistrer les permissions
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
