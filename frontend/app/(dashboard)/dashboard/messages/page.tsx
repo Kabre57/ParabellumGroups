@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Paperclip,
   RefreshCw,
+  Reply,
   Search,
   Send,
 } from 'lucide-react'
@@ -73,6 +74,8 @@ export default function MessagesPage() {
   } = useQuery<CommunicationMessage[]>({
     queryKey: ['communication-messages', currentUserId],
     enabled: isAuthenticated && Boolean(currentUserId),
+    retry: false,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const requests: Array<Promise<CommunicationMessage[]>> = [
         communicationService.getMessages({ destinataireId: currentUserId }),
@@ -163,7 +166,7 @@ export default function MessagesPage() {
   const stats = useMemo(() => {
     const isCurrentUserIdentifier = (value?: string | null) => {
       const normalized = String(value || '').trim().toLowerCase()
-      return normalized === currentUserId.toLowerCase() || (currentUserEmail && normalized === currentUserEmail)
+      return normalized === currentUserId.toLowerCase() || (!!currentUserEmail && normalized === currentUserEmail)
     }
 
     const inboxMessages = messages.filter((message) => isCurrentUserIdentifier(message.destinataireId))
@@ -180,6 +183,29 @@ export default function MessagesPage() {
   }, [currentUserEmail, currentUserId, messages])
 
   const canSend = composeForm.destinataireId.trim() && composeForm.sujet.trim() && composeForm.contenu.trim()
+
+  const prepareReply = (message: CommunicationMessage, isInbox: boolean) => {
+    const replyTarget = (isInbox ? message.expediteurId : message.destinataireId || '').trim()
+    if (!replyTarget) {
+      setComposeError('Impossible de déterminer le destinataire de la réponse')
+      return
+    }
+
+    const baseSubject = (message.sujet || '').trim()
+    const subject = /^re\s*:/i.test(baseSubject) ? baseSubject : `Re: ${baseSubject || 'Message'}`
+    const quotedLines = (message.contenu || '')
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n')
+
+    setComposeError(null)
+    setComposeForm({
+      destinataireId: replyTarget,
+      sujet: subject,
+      contenu: `\n\n--- Message original ---\n${quotedLines}`.trim(),
+    })
+    setShowComposer(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -360,7 +386,7 @@ export default function MessagesPage() {
                 const normalizedRecipient = String(message.destinataireId || '').trim().toLowerCase()
                 const isInbox =
                   normalizedRecipient === currentUserId.toLowerCase() ||
-                  (currentUserEmail && normalizedRecipient === currentUserEmail)
+                  (!!currentUserEmail && normalizedRecipient === currentUserEmail)
                 const displayFrom = isInbox ? message.expediteurId : 'Vous'
                 const displayTo = isInbox ? 'Vous' : message.destinataireId
                 const canMarkAsRead = isInbox && message.status !== 'LU' && message.status !== 'ARCHIVE'
@@ -392,6 +418,16 @@ export default function MessagesPage() {
                       </div>
 
                       <div className="flex gap-2">
+                        {canSendMessages && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => prepareReply(message, isInbox)}
+                          >
+                            <Reply className="mr-2 h-4 w-4" />
+                            Répondre
+                          </Button>
+                        )}
                         {canMarkAsRead && (
                           <Button
                             variant="outline"

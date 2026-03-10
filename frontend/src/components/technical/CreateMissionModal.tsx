@@ -553,11 +553,13 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               <input
                 {...register('adresse')}
                 type="text"
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="Adresse complete du lieu d'intervention"
-                disabled={createMutation.isPending || !selectedClient}
+                disabled={createMutation.isPending}
               />
+              {!errors.adresse && selectedClient && (
+                <p className="mt-1 text-xs text-gray-500">Adresse préremplie depuis le client CRM, modifiable si nécessaire.</p>
+              )}
               {errors.adresse && <p className="mt-1 text-sm text-red-600">{errors.adresse.message}</p>}
             </div>
           ) : (

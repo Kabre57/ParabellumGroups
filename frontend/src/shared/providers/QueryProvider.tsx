@@ -11,7 +11,7 @@ const queryClient = new QueryClient({
     queries: {
       // Nombre de tentatives en cas d'échec, sauf pour les erreurs d'auth
       retry: (failureCount, error: any) => {
-        if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
+        if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) {
           return false;
         }
         return failureCount < 2;

@@ -67,7 +67,10 @@ export function useNotifications() {
       };
     },
     enabled: isAuthenticated && canReadNotifications,
-    refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: 60000,
+    staleTime: 30000,
   });
 }
 
