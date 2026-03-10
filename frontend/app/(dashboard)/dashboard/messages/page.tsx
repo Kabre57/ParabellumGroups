@@ -61,6 +61,7 @@ export default function MessagesPage() {
   })
 
   const currentUserId = user?.id != null ? String(user.id) : user?.email ? String(user.email) : ''
+  const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : ''
   const currentUserLabel = user?.email || currentUserId || 'Vous'
   const canSendMessages = hasPermission(user, 'messages.send')
   const canLoadRecipients = isAdminRole(user) || hasPermission(user, 'users.read')
@@ -73,13 +74,20 @@ export default function MessagesPage() {
     queryKey: ['communication-messages', currentUserId],
     enabled: isAuthenticated && Boolean(currentUserId),
     queryFn: async () => {
-      const [inbox, sent] = await Promise.all([
+      const requests: Array<Promise<CommunicationMessage[]>> = [
         communicationService.getMessages({ destinataireId: currentUserId }),
         communicationService.getMessages({ expediteurId: currentUserId }),
-      ])
+      ]
+
+      if (currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()) {
+        requests.push(communicationService.getMessages({ destinataireId: currentUserEmail }))
+        requests.push(communicationService.getMessages({ expediteurId: currentUserEmail }))
+      }
+
+      const responses = await Promise.all(requests)
 
       const deduped = new Map<string, CommunicationMessage>()
-      ;[...sent, ...inbox].forEach((message) => deduped.set(message.id, message))
+      responses.flat().forEach((message) => deduped.set(message.id, message))
 
       return Array.from(deduped.values()).sort((a, b) => {
         const aTime = new Date(a.dateEnvoi || a.createdAt || 0).getTime()
@@ -153,8 +161,13 @@ export default function MessagesPage() {
   }, [messages, searchTerm, statusFilter])
 
   const stats = useMemo(() => {
-    const inboxMessages = messages.filter((message) => message.destinataireId === currentUserId)
-    const sentMessages = messages.filter((message) => message.expediteurId === currentUserId)
+    const isCurrentUserIdentifier = (value?: string | null) => {
+      const normalized = String(value || '').trim().toLowerCase()
+      return normalized === currentUserId.toLowerCase() || (currentUserEmail && normalized === currentUserEmail)
+    }
+
+    const inboxMessages = messages.filter((message) => isCurrentUserIdentifier(message.destinataireId))
+    const sentMessages = messages.filter((message) => isCurrentUserIdentifier(message.expediteurId))
     const today = new Date().toISOString().slice(0, 10)
 
     return {
@@ -164,7 +177,7 @@ export default function MessagesPage() {
       sentToday: sentMessages.filter((message) => (message.dateEnvoi || message.createdAt || '').startsWith(today)).length,
       withAttachments: messages.filter((message) => Array.isArray(message.pieceJointe) && message.pieceJointe.length > 0).length,
     }
-  }, [currentUserId, messages])
+  }, [currentUserEmail, currentUserId, messages])
 
   const canSend = composeForm.destinataireId.trim() && composeForm.sujet.trim() && composeForm.contenu.trim()
 
@@ -344,7 +357,10 @@ export default function MessagesPage() {
           ) : (
             <div className="space-y-3">
               {filteredMessages.map((message) => {
-                const isInbox = message.destinataireId === currentUserId
+                const normalizedRecipient = String(message.destinataireId || '').trim().toLowerCase()
+                const isInbox =
+                  normalizedRecipient === currentUserId.toLowerCase() ||
+                  (currentUserEmail && normalizedRecipient === currentUserEmail)
                 const displayFrom = isInbox ? message.expediteurId : 'Vous'
                 const displayTo = isInbox ? 'Vous' : message.destinataireId
                 const canMarkAsRead = isInbox && message.status !== 'LU' && message.status !== 'ARCHIVE'

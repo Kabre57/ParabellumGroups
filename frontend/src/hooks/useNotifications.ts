@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/shared/client';
 import { useAuth } from '@/hooks/useAuth';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
+import communicationService from '@/shared/api/communication';
 
 export interface Notification {
   id: string;
@@ -23,12 +24,47 @@ export function useNotifications() {
   const { user, isAuthenticated } = useAuth();
   const canReadNotifications =
     isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'messages.read']);
+  const currentUserId = user?.id != null ? String(user.id) : '';
+  const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
 
   return useQuery<NotificationsResponse>({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', currentUserId, currentUserEmail],
     queryFn: async () => {
-      const response = await apiClient.get('/notifications');
-      return response.data;
+      const [notificationResponse, inboxById, inboxByEmail] = await Promise.all([
+        apiClient.get('/notifications'),
+        currentUserId ? communicationService.getMessages({ destinataireId: currentUserId }) : Promise.resolve([]),
+        currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()
+          ? communicationService.getMessages({ destinataireId: currentUserEmail })
+          : Promise.resolve([]),
+      ]);
+
+      const systemNotifications = notificationResponse.data?.data || [];
+      const unreadCount = Number(notificationResponse.data?.unreadCount || 0);
+
+      const unreadMessages = [...inboxById, ...inboxByEmail]
+        .filter((message) => message.status !== 'LU' && message.status !== 'ARCHIVE')
+        .map((message) => ({
+          id: `message:${message.id}`,
+          title: message.sujet || 'Nouveau message',
+          message: message.contenu,
+          type: 'info' as const,
+          read: false,
+          createdAt: message.dateEnvoi || message.createdAt || new Date().toISOString(),
+          link: '/dashboard/messages',
+        }));
+
+      const merged = new Map<string, Notification>();
+      [...systemNotifications, ...unreadMessages].forEach((entry) => {
+        merged.set(entry.id, entry);
+      });
+
+      return {
+        success: true,
+        data: Array.from(merged.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ),
+        unreadCount: unreadCount + unreadMessages.length,
+      };
     },
     enabled: isAuthenticated && canReadNotifications,
     refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
@@ -37,12 +73,38 @@ export function useNotifications() {
 
 export function useMarkNotificationAsRead() {
   return async (notificationId: string) => {
+    if (notificationId.startsWith('message:')) {
+      const messageId = notificationId.replace(/^message:/, '');
+      await communicationService.markMessageAsRead(messageId);
+      return;
+    }
     await apiClient.patch(`/notifications/${notificationId}/read`);
   };
 }
 
 export function useMarkAllNotificationsAsRead() {
+  const { user } = useAuth();
+  const currentUserId = user?.id != null ? String(user.id) : '';
+  const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
+
   return async () => {
     await apiClient.patch('/notifications/mark-all-read');
+
+    const requests = [];
+    if (currentUserId) {
+      requests.push(communicationService.getMessages({ destinataireId: currentUserId }));
+    }
+    if (currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()) {
+      requests.push(communicationService.getMessages({ destinataireId: currentUserEmail }));
+    }
+
+    const messageGroups = await Promise.all(requests);
+    const unreadMessages = messageGroups
+      .flat()
+      .filter((message) => message.status !== 'LU' && message.status !== 'ARCHIVE');
+
+    await Promise.all(
+      unreadMessages.map((message) => communicationService.markMessageAsRead(message.id))
+    );
   };
 }
