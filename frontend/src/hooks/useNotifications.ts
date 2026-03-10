@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/shared/client';
+import { useAuth } from '@/hooks/useAuth';
+import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
 
 export interface Notification {
   id: string;
@@ -18,12 +20,17 @@ interface NotificationsResponse {
 }
 
 export function useNotifications() {
+  const { user, isAuthenticated } = useAuth();
+  const canReadNotifications =
+    isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'messages.read']);
+
   return useQuery<NotificationsResponse>({
     queryKey: ['notifications'],
     queryFn: async () => {
       const response = await apiClient.get('/notifications');
       return response.data;
     },
+    enabled: isAuthenticated && canReadNotifications,
     refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
   });
 }

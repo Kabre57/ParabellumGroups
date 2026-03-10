@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 import {
   Users,
   FileText,
@@ -21,6 +22,8 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { analyticsService, type OverviewDashboard } from '@/shared/api/analytics';
+import { isAdminRole } from '@/shared/permissions';
+import { getPreferredServiceRoute } from '@/shared/dashboard-routing';
 
 type ExtendedOverview = OverviewDashboard & {
   revenue_change?: number;
@@ -42,19 +45,29 @@ type ExtendedOverview = OverviewDashboard & {
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState('30d');
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const router = useRouter();
   const [hasToken, setHasToken] = useState(false);
+  const isAdmin = isAdminRole(user);
+  const preferredServiceRoute = getPreferredServiceRoute(user);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     setHasToken(!!token);
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user || isAdmin) return;
+    if (preferredServiceRoute !== '/dashboard') {
+      router.replace(preferredServiceRoute);
+    }
+  }, [authLoading, isAdmin, isAuthenticated, preferredServiceRoute, router, user]);
+
   const { data: overviewData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-overview', dateRange],
     queryFn: () => analyticsService.getOverviewDashboard({ period: dateRange }),
     staleTime: 1000 * 60 * 5,
-    enabled: isAuthenticated && hasToken,
+    enabled: isAuthenticated && hasToken && (isAdmin || preferredServiceRoute === '/dashboard'),
   });
 
   const handleRefresh = () => {
@@ -62,6 +75,14 @@ export default function DashboardPage() {
   };
 
   if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!isAdmin && preferredServiceRoute !== '/dashboard') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />

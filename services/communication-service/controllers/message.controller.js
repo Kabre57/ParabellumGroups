@@ -2,15 +2,40 @@ const { PrismaClient } = require('@prisma/client');
 const emailSender = require('../utils/emailSender');
 const prisma = new PrismaClient();
 
+const MESSAGE_TYPES = new Set(['EMAIL', 'SMS', 'NOTIFICATION']);
+
 const messageController = {
   // Créer un message
   async create(req, res) {
     try {
+      const expediteurId = req.body?.expediteurId != null ? String(req.body.expediteurId).trim() : '';
+      const destinataireId = req.body?.destinataireId != null ? String(req.body.destinataireId).trim() : '';
+      const sujet = req.body?.sujet != null ? String(req.body.sujet).trim() : '';
+      const contenu = req.body?.contenu != null ? String(req.body.contenu).trim() : '';
+      const type = req.body?.type ? String(req.body.type).toUpperCase() : 'NOTIFICATION';
+      const pieceJointe = Array.isArray(req.body?.pieceJointe) ? req.body.pieceJointe : [];
+
+      if (!expediteurId || !destinataireId || !sujet || !contenu) {
+        return res.status(400).json({ error: 'expediteurId, destinataireId, sujet et contenu sont requis' });
+      }
+
+      if (!MESSAGE_TYPES.has(type)) {
+        return res.status(400).json({ error: 'Type de message invalide' });
+      }
+
       const message = await prisma.message.create({
-        data: req.body
+        data: {
+          expediteurId,
+          destinataireId,
+          sujet,
+          contenu,
+          type,
+          pieceJointe,
+        }
       });
       res.status(201).json(message);
     } catch (error) {
+      console.error('Erreur creation message:', error);
       res.status(500).json({ error: error.message });
     }
   },

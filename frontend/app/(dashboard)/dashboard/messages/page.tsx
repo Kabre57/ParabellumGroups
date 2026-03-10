@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
-import { communicationService, type CommunicationMessage, type MessageStatus, type MessageType } from '@/shared/api/communication'
+import { adminUsersService, type AdminUser } from '@/shared/api/admin/admin.service'
+import { communicationService, type CommunicationMessage, type MessageStatus } from '@/shared/api/communication'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { hasPermission, isAdminRole } from '@/shared/permissions'
 import {
   Archive,
   Inbox,
@@ -56,11 +58,12 @@ export default function MessagesPage() {
     destinataireId: '',
     sujet: '',
     contenu: '',
-    type: 'NOTIFICATION' as MessageType,
   })
 
-  const currentUserId = user?.id || user?.email || ''
+  const currentUserId = user?.id != null ? String(user.id) : user?.email ? String(user.email) : ''
   const currentUserLabel = user?.email || currentUserId || 'Vous'
+  const canSendMessages = hasPermission(user, 'messages.send')
+  const canLoadRecipients = isAdminRole(user) || hasPermission(user, 'users.read')
 
   const {
     data: messages = [],
@@ -86,6 +89,16 @@ export default function MessagesPage() {
     },
   })
 
+  const { data: recipients = [] } = useQuery<AdminUser[]>({
+    queryKey: ['communication-recipients', currentUserId],
+    enabled: showComposer && isAuthenticated && canLoadRecipients,
+    retry: false,
+    queryFn: async () => {
+      const response = await adminUsersService.getUsers({ limit: 200, isActive: true })
+      return (response.data || []).filter((candidate) => String(candidate.id) !== currentUserId)
+    },
+  })
+
   const markAsReadMutation = useMutation({
     mutationFn: (id: string) => communicationService.markMessageAsRead(id),
     onSuccess: () => refetch(),
@@ -104,7 +117,7 @@ export default function MessagesPage() {
         destinataireId: composeForm.destinataireId.trim(),
         sujet: composeForm.sujet.trim(),
         contenu: composeForm.contenu.trim(),
-        type: composeForm.type,
+        type: 'NOTIFICATION',
       })
       return communicationService.sendMessage(message.id)
     },
@@ -113,7 +126,6 @@ export default function MessagesPage() {
         destinataireId: '',
         sujet: '',
         contenu: '',
-        type: 'NOTIFICATION',
       })
       setShowComposer(false)
       refetch()
@@ -168,14 +180,16 @@ export default function MessagesPage() {
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Actualiser
           </Button>
-          <Button onClick={() => setShowComposer((value) => !value)}>
-            <Send className="mr-2 h-4 w-4" />
-            {showComposer ? 'Fermer' : 'Nouveau Message'}
-          </Button>
+          {canSendMessages && (
+            <Button onClick={() => setShowComposer((value) => !value)}>
+              <Send className="mr-2 h-4 w-4" />
+              {showComposer ? 'Fermer' : 'Nouveau Message'}
+            </Button>
+          )}
         </div>
       </div>
 
-      {showComposer && (
+      {showComposer && canSendMessages && (
         <Card>
           <CardHeader>
             <CardTitle>Nouveau message</CardTitle>
@@ -185,23 +199,30 @@ export default function MessagesPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Destinataire</label>
-                <Input
-                  value={composeForm.destinataireId}
-                  onChange={(e) => setComposeForm((state) => ({ ...state, destinataireId: e.target.value }))}
-                  placeholder="email ou identifiant destinataire"
-                />
+                {recipients.length > 0 ? (
+                  <select
+                    value={composeForm.destinataireId}
+                    onChange={(e) => setComposeForm((state) => ({ ...state, destinataireId: e.target.value }))}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Selectionner un destinataire</option>
+                    {recipients.map((recipient) => (
+                      <option key={recipient.id} value={String(recipient.id)}>
+                        {recipient.firstName} {recipient.lastName} ({recipient.email})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    value={composeForm.destinataireId}
+                    onChange={(e) => setComposeForm((state) => ({ ...state, destinataireId: e.target.value }))}
+                    placeholder="Identifiant utilisateur destinataire"
+                  />
+                )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Type</label>
-                <select
-                  value={composeForm.type}
-                  onChange={(e) => setComposeForm((state) => ({ ...state, type: e.target.value as MessageType }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="NOTIFICATION">Notification</option>
-                  <option value="EMAIL">Email</option>
-                  <option value="SMS">SMS</option>
-                </select>
+                <label className="text-sm font-medium">Canal</label>
+                <Input value="Messagerie interne" disabled />
               </div>
             </div>
 
