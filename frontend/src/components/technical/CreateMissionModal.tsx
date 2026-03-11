@@ -10,7 +10,7 @@ import { useCreateMission } from '@/hooks/useTechnical';
 import { useClients } from '@/hooks/useCrm';
 import { crmService, type Address, type Client } from '@/shared/api/crm';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { hasPermission } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 import {
   Dialog,
   DialogContent,
@@ -57,7 +57,14 @@ const formatAddressValue = (address: Address) =>
 
 export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const canReadCustomers = hasPermission(user, 'customers.read');
+  const canReadCustomers = hasAnyPermission(user, [
+    'customers.read',
+    'customers.read_all',
+    'customers.read_assigned',
+    'missions.read',
+    'missions.create',
+    'missions.update',
+  ]);
   const createMutation = useCreateMission();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isLoadingClientDetail, setIsLoadingClientDetail] = useState(false);
@@ -169,7 +176,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
-      <div className="max-h-screen w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
+      <div className="max-h-screen w-full max-w-6xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <h3 className="flex items-center text-lg font-medium text-gray-900 dark:text-white">
             <FileText className="mr-2 h-5 w-5 text-blue-600" />
@@ -186,6 +193,8 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 py-4">
+          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-6">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Titre de la Mission *
@@ -233,7 +242,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
                     <button
                       type="button"
                       onClick={() => setIsClientPickerOpen(true)}
-                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                       disabled={createMutation.isPending || isLoadingClients}
                     >
                       <List className="mr-2 h-4 w-4" />
@@ -328,6 +337,30 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
             )}
           </div>
 
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+            <textarea
+              {...register('description')}
+              rows={6}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Description détaillée de la mission"
+              disabled={createMutation.isPending}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes</label>
+            <textarea
+              {...register('notes')}
+              rows={5}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Notes internes"
+              disabled={createMutation.isPending}
+            />
+          </div>
+            </div>
+
+            <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Début *</label>
@@ -375,27 +408,13 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               disabled={createMutation.isPending}
             />
           </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-            <textarea
-              {...register('description')}
-              rows={4}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Description détaillée de la mission"
-              disabled={createMutation.isPending}
-            />
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+            <p className="font-medium text-gray-900 dark:text-white">Rappel CRM</p>
+            <p className="mt-2">
+              Le client et l’adresse du chantier sont pilotés par le CRM. Cette mission réutilise ces informations sans créer de fiche client locale.
+            </p>
           </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes</label>
-            <textarea
-              {...register('notes')}
-              rows={3}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Notes internes"
-              disabled={createMutation.isPending}
-            />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">

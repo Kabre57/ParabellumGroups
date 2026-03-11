@@ -36,10 +36,13 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { canCreate, canDelete } = getCrudVisibility(user, {
+  const { canCreate, canDelete, canManageAddresses } = getCrudVisibility(user, {
     read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
     create: ['customers.create'],
     remove: ['customers.delete'],
+    extras: {
+      canManageAddresses: ['customers.manage_addresses', 'customers.update'],
+    },
   });
 
   const { data: clients = [], isLoading } = useClients({ pageSize: 200 });
@@ -224,6 +227,15 @@ export default function ClientsPage() {
                         <Button variant="outline" size="sm" onClick={() => handleView(client.id)}>
                           Voir
                         </Button>
+                        {canManageAddresses && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/crm/addresses?clientId=${client.id}`)}
+                          >
+                            Adresses
+                          </Button>
+                        )}
                         {canDelete && (
                           <Button
                             variant="outline"

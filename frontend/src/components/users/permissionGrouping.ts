@@ -70,7 +70,13 @@ export const serviceDefinitions: ServiceDefinition[] = [
       emails: 'Campagnes email',
       interactions: 'Interactions',
     },
-    dashboards: [{ label: 'Dashboard CRM', href: '/dashboard/crm' }],
+    dashboards: [
+      { label: 'Dashboard CRM', href: '/dashboard/crm' },
+      { label: 'Clients', href: '/dashboard/crm/clients' },
+      { label: 'Contacts', href: '/dashboard/crm/contacts' },
+      { label: 'Adresses', href: '/dashboard/crm/addresses' },
+      { label: 'Interactions', href: '/dashboard/crm/interactions' },
+    ],
   },
   {
     id: 'billing',
@@ -118,6 +124,8 @@ export const serviceDefinitions: ServiceDefinition[] = [
     dashboards: [
       { label: 'Dashboard technique', href: '/dashboard/technical' },
       { label: 'Analytics technique', href: '/dashboard/technical/analytics' },
+      { label: 'Gestion des missions', href: '/dashboard/technical/missions' },
+      { label: 'Planning interventions', href: '/dashboard/technical/interventions' },
     ],
   },
   {

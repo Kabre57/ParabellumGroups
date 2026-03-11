@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAdresses,
   useCreateAdresse,
@@ -52,7 +53,10 @@ interface AddressFormValues {
 
 export default function AddressesPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const clientFilter = searchParams.get('clientId') || '';
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -64,7 +68,11 @@ export default function AddressesPage() {
     remove: ['customers.manage_addresses', 'customers.delete'],
   });
 
-  const { data: adresses = [], isLoading } = useAdresses({ page: 1, limit: 200 });
+  const { data: adresses = [], isLoading } = useAdresses({
+    page: 1,
+    limit: 200,
+    ...(clientFilter ? { clientId: clientFilter } : {}),
+  });
   const { data: clients = [] } = useClients({ pageSize: 200 });
 
   const adressesArray: Address[] = Array.isArray(adresses)
@@ -95,10 +103,11 @@ export default function AddressesPage() {
         clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesType = typeFilter === 'all' || adresse.typeAdresse === typeFilter;
+      const matchesClient = !clientFilter || adresse.clientId === clientFilter;
 
-      return matchesSearch && matchesType;
+      return matchesSearch && matchesType && matchesClient;
     });
-  }, [adressesArray, clientMap, searchTerm, typeFilter]);
+  }, [adressesArray, clientMap, searchTerm, typeFilter, clientFilter]);
 
   const form = useForm<AddressFormValues>({
     defaultValues: {
@@ -198,7 +207,9 @@ export default function AddressesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Adresses Clients</h1>
-        <p className="text-muted-foreground">Gerez les adresses de vos clients</p>
+        <p className="text-muted-foreground">
+          {clientFilter ? 'Gérez les adresses du client sélectionné' : 'Gerez les adresses de vos clients'}
+        </p>
       </div>
 
       <Card>
@@ -234,6 +245,11 @@ export default function AddressesPage() {
               <Button onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nouvelle adresse
+              </Button>
+            )}
+            {clientFilter && (
+              <Button variant="outline" onClick={() => router.push('/dashboard/crm/clients')}>
+                Retour clients
               </Button>
             )}
           </div>

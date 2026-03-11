@@ -46,7 +46,7 @@ module.exports = {
       path: '/customers',
       auth: true,
       permission: {
-        GET: 'customers.read',
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'missions.read', 'missions.create', 'missions.update'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -58,7 +58,7 @@ module.exports = {
       path: '/clients',
       auth: true,
       permission: {
-        GET: 'customers.read',
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'missions.read', 'missions.create', 'missions.update'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -70,11 +70,11 @@ module.exports = {
       path: '/contacts',
       auth: true,
       permission: {
-        GET: 'customers.read',
-        POST: 'customers.create',
-        PUT: 'customers.update',
-        PATCH: 'customers.update',
-        DELETE: 'customers.delete'
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        POST: ['customers.manage_contacts', 'customers.update'],
+        PUT: ['customers.manage_contacts', 'customers.update'],
+        PATCH: ['customers.manage_contacts', 'customers.update'],
+        DELETE: ['customers.manage_contacts', 'customers.delete']
       },
       pathRewrite: { '^/contacts': '/api/contacts' },
     },
@@ -94,11 +94,11 @@ module.exports = {
       path: '/interactions',
       auth: true,
       permission: {
-        GET: 'customers.read',
-        POST: 'customers.create',
-        PUT: 'customers.update',
-        PATCH: 'customers.update',
-        DELETE: 'customers.delete'
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        POST: ['prospects.manage_activities', 'customers.update'],
+        PUT: ['prospects.manage_activities', 'customers.update'],
+        PATCH: ['prospects.manage_activities', 'customers.update'],
+        DELETE: ['prospects.manage_activities', 'customers.delete']
       },
       pathRewrite: { '^/interactions': '/api/interactions' },
     },
@@ -112,7 +112,7 @@ module.exports = {
       path: '/type-clients',
       auth: true,
       permission: {
-        GET: 'customers.read',
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -124,7 +124,7 @@ module.exports = {
       path: '/documents',
       auth: true,
       permission: {
-        GET: 'customers.read',
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -136,11 +136,11 @@ module.exports = {
       path: '/adresses',
       auth: true,
       permission: {
-        GET: 'customers.read',
-        POST: 'customers.create',
-        PUT: 'customers.update',
-        PATCH: 'customers.update',
-        DELETE: 'customers.delete'
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        POST: ['customers.manage_addresses', 'customers.update'],
+        PUT: ['customers.manage_addresses', 'customers.update'],
+        PATCH: ['customers.manage_addresses', 'customers.update'],
+        DELETE: ['customers.manage_addresses', 'customers.delete']
       },
       pathRewrite: { '^/adresses': '/api/adresses' },
     },
@@ -148,7 +148,7 @@ module.exports = {
       path: '/secteurs',
       auth: true,
       permission: {
-        GET: 'customers.read',
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
