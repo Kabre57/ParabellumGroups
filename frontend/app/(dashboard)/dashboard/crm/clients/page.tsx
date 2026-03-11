@@ -37,7 +37,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const { canCreate, canDelete, canManageAddresses } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     create: ['customers.create'],
     remove: ['customers.delete'],
     extras: {

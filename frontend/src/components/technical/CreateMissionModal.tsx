@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useCreateMission } from '@/hooks/useTechnical';
 import { useClients } from '@/hooks/useCrm';
 import { crmService, type Address, type Client } from '@/shared/api/crm';
+import { technicalService } from '@/shared/api/technical';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 import {
@@ -39,6 +40,7 @@ type CreateMissionFormData = z.infer<typeof createMissionSchema>;
 interface CreateMissionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: (mission: any) => void;
 }
 
 const formatAddressLabel = (address: Address) => {
@@ -55,15 +57,18 @@ const formatAddressValue = (address: Address) =>
     .filter(Boolean)
     .join(', ');
 
-export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose }) => {
+export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose, onCreated }) => {
   const { user } = useAuth();
   const canReadCustomers = hasAnyPermission(user, [
     'customers.read',
     'customers.read_all',
     'customers.read_assigned',
+    'customers.read_own',
+    'customers.read_team',
     'missions.read',
     'missions.create',
     'missions.update',
+    'missions.assign',
   ]);
   const createMutation = useCreateMission();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -149,7 +154,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
     }
 
     try {
-      await createMutation.mutateAsync({
+      const createdResponse = await createMutation.mutateAsync({
         titre: data.titre,
         description: data.description,
         clientId: data.clientId,
@@ -163,7 +168,20 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         notes: data.notes,
       } as any);
 
+      const createdMission = (createdResponse as any)?.data ?? createdResponse;
+      let printableMission = createdMission;
+
+      if (createdMission?.id) {
+        try {
+          const fullMissionResponse = await technicalService.getMission(createdMission.id);
+          printableMission = (fullMissionResponse as any)?.data ?? fullMissionResponse;
+        } catch (printLoadError) {
+          console.error('Erreur chargement mission pour impression:', printLoadError);
+        }
+      }
+
       toast.success('Mission créée avec succès');
+      onCreated?.(printableMission);
       reset();
       setSelectedClient(null);
       onClose();
@@ -176,7 +194,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
-      <div className="max-h-screen w-full max-w-6xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
+      <div className="max-h-screen w-full max-w-[1200px] overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <h3 className="flex items-center text-lg font-medium text-gray-900 dark:text-white">
             <FileText className="mr-2 h-5 w-5 text-blue-600" />
@@ -193,7 +211,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 py-4">
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-6">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">

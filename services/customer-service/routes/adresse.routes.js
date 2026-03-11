@@ -9,17 +9,30 @@ const router = express.Router();
 const createValidation = [
   body('clientId').notEmpty().withMessage('Le clientId est requis'),
   body('typeAdresse').isIn(['FACTURATION', 'LIVRAISON', 'SIEGE_SOCIAL', 'ETABLISSEMENT', 'CORRESPONDANCE']).withMessage('Type d\'adresse invalide'),
+  body('nomAdresse').optional({ checkFalsy: true }).isString().trim().withMessage('Le nom de l\'adresse est invalide'),
   body('ligne1').notEmpty().trim().withMessage('La ligne 1 est requise'),
+  body('ligne2').optional({ checkFalsy: true }).isString().trim().withMessage('La ligne 2 est invalide'),
+  body('ligne3').optional({ checkFalsy: true }).isString().trim().withMessage('La ligne 3 est invalide'),
   body('codePostal').optional({ checkFalsy: true }).isLength({ max: 20 }).withMessage('Code postal invalide'),
   body('ville').notEmpty().trim().withMessage('La ville est requise'),
-  body('pays').optional().isString().withMessage('Le pays doit être une chaîne de caractères')
+  body('region').optional({ checkFalsy: true }).isString().trim().withMessage('La région est invalide'),
+  body('pays').optional({ checkFalsy: true }).isString().trim().withMessage('Le pays doit être une chaîne de caractères'),
+  body('coordonneesGps').optional({ checkFalsy: true }).isString().trim().withMessage('Les coordonnées GPS sont invalides'),
+  body('informationsAcces').optional({ checkFalsy: true }).isString().trim().withMessage('Les informations d\'accès sont invalides')
 ];
 
 const updateValidation = [
   body('typeAdresse').optional().isIn(['FACTURATION', 'LIVRAISON', 'SIEGE_SOCIAL', 'ETABLISSEMENT', 'CORRESPONDANCE']).withMessage('Type d\'adresse invalide'),
+  body('nomAdresse').optional({ checkFalsy: true }).isString().trim().withMessage('Le nom de l\'adresse est invalide'),
   body('ligne1').optional().notEmpty().trim().withMessage('La ligne 1 ne peut pas être vide'),
+  body('ligne2').optional({ checkFalsy: true }).isString().trim().withMessage('La ligne 2 est invalide'),
+  body('ligne3').optional({ checkFalsy: true }).isString().trim().withMessage('La ligne 3 est invalide'),
   body('codePostal').optional({ checkFalsy: true }).isLength({ max: 20 }).withMessage('Code postal invalide'),
-  body('ville').optional().notEmpty().trim().withMessage('La ville ne peut pas être vide')
+  body('ville').optional().notEmpty().trim().withMessage('La ville ne peut pas être vide'),
+  body('region').optional({ checkFalsy: true }).isString().trim().withMessage('La région est invalide'),
+  body('pays').optional({ checkFalsy: true }).isString().trim().withMessage('Le pays est invalide'),
+  body('coordonneesGps').optional({ checkFalsy: true }).isString().trim().withMessage('Les coordonnées GPS sont invalides'),
+  body('informationsAcces').optional({ checkFalsy: true }).isString().trim().withMessage('Les informations d\'accès sont invalides')
 ];
 
 // Query validation

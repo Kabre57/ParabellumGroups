@@ -92,6 +92,11 @@ const formatAddress = (address: Address) =>
     .filter(Boolean)
     .join(', ');
 
+const compactPayload = <T extends Record<string, any>>(payload: T): T =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  ) as T;
+
 export default function CustomerDetailPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -106,7 +111,7 @@ export default function CustomerDetailPage() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [editingInteraction, setEditingInteraction] = useState<Interaction | null>(null);
   const { canUpdate, canDelete, canManageContacts, canManageAddresses } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     update: ['customers.update'],
     remove: ['customers.delete'],
     extras: {
@@ -320,11 +325,15 @@ export default function CustomerDetailPage() {
 
   const submitContact = contactForm.handleSubmit(async (values) => {
     try {
+      const payload = compactPayload({
+        ...values,
+        clientId: customerId,
+      });
       if (editingContact?.id) {
-        await updateContactMutation.mutateAsync({ id: editingContact.id, data: values });
+        await updateContactMutation.mutateAsync({ id: editingContact.id, data: payload });
         toast.success('Contact mis à jour');
       } else {
-        await createContactMutation.mutateAsync(values);
+        await createContactMutation.mutateAsync(payload);
         toast.success('Contact ajouté');
       }
       setContactDialogOpen(false);
@@ -337,18 +346,28 @@ export default function CustomerDetailPage() {
 
   const submitAddress = addressForm.handleSubmit(async (values) => {
     try {
+      const payload = compactPayload({
+        ...values,
+        clientId: customerId,
+        pays: values.pays || 'Cote d Ivoire',
+      });
       if (editingAddress?.id) {
-        await updateAddressMutation.mutateAsync({ id: editingAddress.id, data: values });
+        await updateAddressMutation.mutateAsync({ id: editingAddress.id, data: payload });
         toast.success('Adresse mise à jour');
       } else {
-        await createAddressMutation.mutateAsync(values);
+        await createAddressMutation.mutateAsync(payload);
         toast.success('Adresse ajoutée');
       }
       setAddressDialogOpen(false);
       setEditingAddress(null);
       refreshCustomer();
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Impossible d’enregistrer cette adresse');
+      const message =
+        error?.response?.data?.errors?.[0]?.msg ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Impossible d’enregistrer cette adresse';
+      toast.error(message);
     }
   });
 

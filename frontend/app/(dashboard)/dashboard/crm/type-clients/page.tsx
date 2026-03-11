@@ -39,7 +39,7 @@ export default function TypeClientsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<TypeClient | null>(null);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     create: ['customers.update'],
     update: ['customers.update'],
     remove: ['customers.delete'],

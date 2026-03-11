@@ -92,7 +92,7 @@ export default function InteractionsPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     create: ['customers.update', 'prospects.manage_activities'],
     update: ['customers.update', 'prospects.manage_activities'],
     remove: ['customers.delete', 'prospects.manage_activities'],

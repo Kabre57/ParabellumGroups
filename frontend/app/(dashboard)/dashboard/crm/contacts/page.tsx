@@ -84,7 +84,7 @@ export default function ContactsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     create: ['customers.manage_contacts', 'customers.update'],
     update: ['customers.manage_contacts', 'customers.update'],
     remove: ['customers.manage_contacts', 'customers.delete'],

@@ -28,6 +28,7 @@ import { Search, Filter, Plus, Edit, Trash2, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { toast } from 'sonner';
 
 const TYPE_OPTIONS = [
   'FACTURATION',
@@ -51,6 +52,11 @@ interface AddressFormValues {
   isPrincipal: boolean;
 }
 
+const compactPayload = <T extends Record<string, any>>(payload: T): T =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  ) as T;
+
 export default function AddressesPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -62,7 +68,7 @@ export default function AddressesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
-    read: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+    read: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
     create: ['customers.manage_addresses', 'customers.update'],
     update: ['customers.manage_addresses', 'customers.update'],
     remove: ['customers.manage_addresses', 'customers.delete'],
@@ -189,17 +195,27 @@ export default function AddressesPage() {
 
   const onSubmit = async (values: AddressFormValues) => {
     try {
+      const payload = compactPayload({
+        ...values,
+        pays: values.pays || 'Cote d Ivoire',
+      });
       if (editingAddress?.id) {
-        await updateMutation.mutateAsync({ id: editingAddress.id, data: values });
+        await updateMutation.mutateAsync({ id: editingAddress.id, data: payload });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
       }
 
       queryClient.invalidateQueries({ queryKey: ['crm', 'adresses'] });
       setDialogOpen(false);
       setEditingAddress(null);
-    } catch (error) {
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.errors?.[0]?.msg ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Impossible d’enregistrer cette adresse';
       console.error('Erreur adresse:', error);
+      toast.error(message);
     }
   };
 
@@ -385,7 +401,7 @@ export default function AddressesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Code postal *</label>
+                <label className="block text-sm font-medium mb-1">Code postal</label>
                 <Input {...form.register('codePostal')} />
               </div>
 

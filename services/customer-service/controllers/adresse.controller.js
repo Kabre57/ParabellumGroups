@@ -60,6 +60,12 @@ exports.create = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.warn('Validation adresse en échec', {
+        context: {
+          userId: req.user?.id,
+          errors: errors.array()
+        }
+      });
       return res.status(400).json({
         success: false,
         errors: errors.array()
@@ -82,9 +88,25 @@ exports.create = async (req, res) => {
       informationsAcces
     } = req.body;
 
+    const cleanData = {
+      clientId,
+      typeAdresse,
+      nomAdresse: nomAdresse || null,
+      ligne1,
+      ligne2: ligne2 || null,
+      ligne3: ligne3 || null,
+      codePostal: codePostal || '',
+      ville,
+      region: region || null,
+      pays: pays || 'Cote d Ivoire',
+      isPrincipal: Boolean(isPrincipal),
+      coordonneesGps: coordonneesGps || null,
+      informationsAcces: informationsAcces || null
+    };
+
     // Verify client exists
     const client = await prisma.client.findUnique({
-      where: { id: clientId }
+      where: { id: cleanData.clientId }
     });
 
     if (!client) {
@@ -98,8 +120,8 @@ exports.create = async (req, res) => {
     if (isPrincipal) {
       await prisma.adresseClient.updateMany({
         where: {
-          clientId,
-          typeAdresse,
+          clientId: cleanData.clientId,
+          typeAdresse: cleanData.typeAdresse,
           isPrincipal: true
         },
         data: {
@@ -108,28 +130,20 @@ exports.create = async (req, res) => {
       });
     }
 
+    const { clientId: relatedClientId, ...adresseData } = cleanData;
     const adresse = await prisma.adresseClient.create({
       data: {
-        clientId,
-        typeAdresse,
-        nomAdresse,
-        ligne1,
-        ligne2,
-        ligne3,
-        codePostal,
-        ville,
-        region,
-        pays: pays || '""',
-        isPrincipal: isPrincipal || false,
-        coordonneesGps,
-        informationsAcces
+        ...adresseData,
+        client: {
+          connect: { id: relatedClientId }
+        }
       }
     });
 
     // Create historique entry
     await prisma.historiqueClient.create({
       data: {
-        clientId,
+        clientId: cleanData.clientId,
         typeChangement: 'CREATION',
         entite: 'ADRESSE',
         entiteId: adresse.id,
@@ -153,7 +167,11 @@ exports.create = async (req, res) => {
       data: adresse
     });
   } catch (error) {
-    logger.error('Erreur lors de la création de l\'adresse:', error);
+    logger.error('Erreur lors de la création de l\'adresse:', {
+      message: error?.message,
+      stack: error?.stack,
+      body: req.body
+    });
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la création de l\'adresse'
@@ -210,6 +228,12 @@ exports.update = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.warn('Validation mise à jour adresse en échec', {
+        context: {
+          userId: req.user?.id,
+          errors: errors.array()
+        }
+      });
       return res.status(400).json({
         success: false,
         errors: errors.array()
@@ -217,7 +241,12 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = Object.fromEntries(
+      Object.entries(req.body || {}).map(([key, value]) => [
+        key,
+        value === '' ? (key === 'codePostal' ? '' : null) : value
+      ])
+    );
 
     const existingAdresse = await prisma.adresseClient.findUnique({
       where: { id }
