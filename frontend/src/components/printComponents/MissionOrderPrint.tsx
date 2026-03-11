@@ -31,7 +31,7 @@ const getDestination = (adresse?: string) => {
 
 const lineStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '170px 18px 1fr',
+  gridTemplateColumns: '220px 18px 1fr',
   gap: '8px',
   alignItems: 'baseline',
   marginBottom: '10px',
@@ -73,7 +73,7 @@ export default function MissionOrderPrint({
       onClose={onClose}
       showFooter={false}
     >
-      <div style={{ paddingTop: 12 }}>
+      <div style={{ paddingTop: 8, minHeight: '244mm', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, fontSize: 14 }}>
           <div style={{ fontStyle: 'italic' }}>Ordre de mission N° {missionNumber}</div>
           <div>Abidjan, le {formatPrintDate()}</div>
@@ -123,7 +123,7 @@ export default function MissionOrderPrint({
             <span style={valueStyle}>{qualite.toUpperCase()}</span>
           </div>
           <div style={lineStyle}>
-            <strong>De se rendre en mission à</strong>
+            <strong style={{ whiteSpace: 'nowrap' }}>De se rendre en mission à</strong>
             <span>:</span>
             <span style={valueStyle}>{destination}</span>
           </div>
@@ -153,7 +153,7 @@ export default function MissionOrderPrint({
           En foi de quoi, nous lui délivrons cet ordre de mission, pour servir et valoir ce que de droit.
         </p>
 
-        <div style={{ marginTop: 56, textAlign: 'right' }}>
+        <div style={{ marginTop: 'auto', paddingTop: 56, textAlign: 'right' }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 52 }}>LE DIRECTEUR</div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>M. AMOAKON ADADE</div>
         </div>

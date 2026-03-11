@@ -6,7 +6,7 @@ import { Mission, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2, FileText } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2, FileText, Download } from 'lucide-react';
 import Link from 'next/link';
 import { MissionForm } from '@/components/technical/MissionForm';
 import { CreateMissionModal } from '@/components/technical/CreateMissionModal';
@@ -173,6 +173,27 @@ export default function MissionsPage() {
     } catch (error) {
       console.error('Erreur impression fiche mission:', error);
       toast.error('Impossible de préparer la fiche mission');
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
+  const handleDownloadPdf = async (mission: Mission) => {
+    setIsPrinting(mission.id);
+    try {
+      const blob = await technicalService.downloadMissionPdf(mission.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `fiche-mission-${mission.numeroMission || mission.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF de la fiche mission télécharge');
+    } catch (error) {
+      console.error('Erreur export PDF mission:', error);
+      toast.error('Impossible d’exporter la fiche mission en PDF');
     } finally {
       setIsPrinting(null);
     }
@@ -507,6 +528,21 @@ export default function MissionsPage() {
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
                             <Printer className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                      {canExport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Exporter la fiche mission en PDF"
+                          onClick={() => handleDownloadPdf(mission)}
+                          disabled={isPrinting === mission.id}
+                        >
+                          {isPrinting === mission.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Download className="w-3 h-3" />
                           )}
                         </Button>
                       )}

@@ -13,6 +13,13 @@ export const missionsService = {
     return response.data;
   },
 
+  async downloadMissionPdf(id: string): Promise<Blob> {
+    const response = await apiClient.get(`/missions/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
   async createMission(data: any): Promise<Mission> {
     const response = await apiClient.post('/missions', data);
     return response.data;
@@ -28,8 +35,10 @@ export const missionsService = {
     return response.data;
   },
 
-  async deleteMission(id: string): Promise<void> {
-    await apiClient.delete(`/missions/${id}`);
+  async deleteMission(id: string, options?: { force?: boolean }): Promise<void> {
+    await apiClient.delete(`/missions/${id}`, {
+      params: options?.force ? { force: 'true' } : undefined,
+    });
   },
 
   async getMissionsStats(): Promise<{

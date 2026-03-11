@@ -5,7 +5,10 @@ const missionController = require('../controllers/mission.controller');
 router.get('/', missionController.getAll);
 router.get('/stats', missionController.getStats);
 router.post('/', missionController.create);
+router.get('/:id/pdf', missionController.getPdf);
 router.get('/:id', missionController.getById);
+router.put('/:id', missionController.update);
+router.delete('/:id', missionController.delete);
 router.post('/:id/techniciens', missionController.assignTechnicien);
 router.patch('/:id/status', missionController.updateStatus);
 

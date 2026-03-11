@@ -50,45 +50,50 @@ const buildMissionOrderHtml = (order) => {
           .title-box .title { display: inline-block; border: 2px solid #111; padding: 10px 28px; font-size: 28px; font-weight: 700; }
           .title-box .subtitle { margin-top: 14px; font-size: 22px; font-weight: 700; text-transform: uppercase; }
           .lead { text-align: center; font-size: 15px; font-weight: 700; margin-bottom: 28px; text-transform: uppercase; }
-          .line { display: grid; grid-template-columns: 210px 16px 1fr; gap: 8px; align-items: baseline; margin-bottom: 12px; }
-          .label { font-weight: 700; }
+          .page { min-height: 245mm; display: flex; flex-direction: column; }
+          .line { display: grid; grid-template-columns: 240px 16px 1fr; gap: 8px; align-items: baseline; margin-bottom: 12px; }
+          .label { font-weight: 700; white-space: nowrap; }
           .value { border-bottom: 1px dotted #222; min-height: 20px; padding-bottom: 2px; }
           .closing { margin-top: 28px; font-size: 13px; }
-          .signature { margin-top: 60px; text-align: right; }
+          .signature { margin-top: auto; padding-top: 60px; text-align: right; }
           .signature .role { font-size: 16px; font-weight: 700; margin-bottom: 48px; }
           .signature .name { font-size: 17px; font-weight: 700; }
         </style>
       </head>
       <body>
-        <div class="top">
-          <div class="meta" style="text-align:left;">Ordre de mission N° ${escapeHtml(order.numeroOrdre)}</div>
-          <div class="meta">Abidjan, le ${escapeHtml(new Date().toLocaleDateString('fr-FR'))}</div>
-        </div>
+        <div class="page">
+          <div>
+            <div class="top">
+              <div class="meta" style="text-align:left;">Ordre de mission N° ${escapeHtml(order.numeroOrdre)}</div>
+              <div class="meta">Abidjan, le ${escapeHtml(new Date().toLocaleDateString('fr-FR'))}</div>
+            </div>
 
-        <div class="title-box">
-          <div class="title">ORDRE DE MISSION</div>
-          <div class="subtitle">${escapeHtml(missionTitle)}</div>
-        </div>
+            <div class="title-box">
+              <div class="title">ORDRE DE MISSION</div>
+              <div class="subtitle">${escapeHtml(missionTitle)}</div>
+            </div>
 
-        <div class="lead">LE DIRECTEUR GENERAL DE LA SOCIETE PROGITECK SARL</div>
+            <div class="lead">LE DIRECTEUR GENERAL DE LA SOCIETE PROGITECK SARL</div>
 
-        <div class="line"><div class="label">Donne ordre à</div><div>:</div><div class="value">${escapeHtml(technicianName.toUpperCase())}</div></div>
-        <div class="line"><div class="label">Pièce d'identité</div><div>:</div><div class="value">${escapeHtml(order.pieceIdentite || 'NON RENSEIGNE')}</div></div>
-        <div class="line"><div class="label">Fonction</div><div>:</div><div class="value">${escapeHtml((order.fonction || '').toUpperCase())}</div></div>
-        <div class="line"><div class="label">En Qualité de</div><div>:</div><div class="value">${escapeHtml((order.qualite || '').toUpperCase())}</div></div>
-        <div class="line"><div class="label">De se rendre en mission à</div><div>:</div><div class="value">${escapeHtml(destination)}</div></div>
-        <div class="line"><div class="label">Objet de la mission</div><div>:</div><div class="value">${escapeHtml(order.objetMission || '')}</div></div>
-        <div class="line"><div class="label">Moyen de transport</div><div>:</div><div class="value">${escapeHtml((order.vehiculeLabel || order.vehiculeType || '').toUpperCase())}</div></div>
-        <div class="line"><div class="label">Date de départ</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateDepart))}</div></div>
-        <div class="line"><div class="label">Date de retour</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateRetour))}</div></div>
+            <div class="line"><div class="label">Donne ordre à</div><div>:</div><div class="value">${escapeHtml(technicianName.toUpperCase())}</div></div>
+            <div class="line"><div class="label">Pièce d'identité</div><div>:</div><div class="value">${escapeHtml(order.pieceIdentite || 'NON RENSEIGNE')}</div></div>
+            <div class="line"><div class="label">Fonction</div><div>:</div><div class="value">${escapeHtml((order.fonction || '').toUpperCase())}</div></div>
+            <div class="line"><div class="label">En Qualité de</div><div>:</div><div class="value">${escapeHtml((order.qualite || '').toUpperCase())}</div></div>
+            <div class="line"><div class="label">De se rendre en mission à</div><div>:</div><div class="value">${escapeHtml(destination)}</div></div>
+            <div class="line"><div class="label">Objet de la mission</div><div>:</div><div class="value">${escapeHtml(order.objetMission || '')}</div></div>
+            <div class="line"><div class="label">Moyen de transport</div><div>:</div><div class="value">${escapeHtml((order.vehiculeLabel || order.vehiculeType || '').toUpperCase())}</div></div>
+            <div class="line"><div class="label">Date de départ</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateDepart))}</div></div>
+            <div class="line"><div class="label">Date de retour</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateRetour))}</div></div>
 
-        <div class="closing">
-          En foi de quoi, nous lui délivrons cet ordre de mission, pour servir et valoir ce que de droit.
-        </div>
+            <div class="closing">
+              En foi de quoi, nous lui délivrons cet ordre de mission, pour servir et valoir ce que de droit.
+            </div>
+          </div>
 
-        <div class="signature">
-          <div class="role">LE DIRECTEUR</div>
-          <div class="name">M. AMOAKON ADADE</div>
+          <div class="signature">
+            <div class="role">LE DIRECTEUR</div>
+            <div class="name">M. AMOAKON ADADE</div>
+          </div>
         </div>
       </body>
     </html>
