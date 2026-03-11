@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { crmService, Client, TypeClient } from '@/shared/api/crm';
+import { crmService, Client } from '@/shared/api/crm';
 import { useTypeClients } from '@/hooks/useCrm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,13 +57,13 @@ interface CustomerFormProps {
 export default function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!customer;
-  
+
   const { data: typeClientsResponse = [], isLoading: isLoadingTypes } = useTypeClients();
   const typeClients = Array.isArray(typeClientsResponse)
     ? typeClientsResponse
     : Array.isArray((typeClientsResponse as any)?.data)
-    ? (typeClientsResponse as any).data
-    : [];
+      ? (typeClientsResponse as any).data
+      : [];
 
   const {
     register,
@@ -71,28 +71,31 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
     formState: { errors },
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
-    defaultValues: customer ? {
-      nom: customer.nom,
-      raisonSociale: customer.raisonSociale || '',
-      email: customer.email,
-      telephone: customer.telephone || '',
-      mobile: customer.mobile || '',
-      siteWeb: customer.siteWeb || '',
-      siret: customer.siret || '',
-      tvaIntra: customer.tvaIntra || '',
-      typeClientId: customer.typeClientId,
-      status: customer.status,
-      priorite: customer.priorite,
-    } : {
-      status: 'PROSPECT',
-      priorite: 'MOYENNE',
-    },
+    defaultValues: customer
+      ? {
+          nom: customer.nom,
+          raisonSociale: customer.raisonSociale || '',
+          email: customer.email,
+          telephone: customer.telephone || '',
+          mobile: customer.mobile || '',
+          siteWeb: customer.siteWeb || '',
+          siret: customer.siret || '',
+          tvaIntra: customer.tvaIntra || '',
+          typeClientId: customer.typeClientId,
+          status: customer.status,
+          priorite: customer.priorite,
+        }
+      : {
+          status: 'PROSPECT',
+          priorite: 'MOYENNE',
+        },
   });
 
   const createMutation = useMutation({
     mutationFn: (data: ClientFormData) => crmService.createClient(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'clients'] });
       onSuccess?.();
     },
   });
@@ -102,6 +105,8 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer', customer!.id] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'client', customer!.id] });
       onSuccess?.();
     },
   });
@@ -110,6 +115,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
     const payload = Object.fromEntries(
       Object.entries(data).filter(([, value]) => value !== undefined)
     ) as ClientFormData;
+
     if (isEditing) {
       updateMutation.mutate(payload);
     } else {
@@ -125,16 +131,14 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
         <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <Label htmlFor="nom">Nom / Nom de l'entreprise *</Label>
+            <Label htmlFor="nom">Nom / Nom de l&apos;entreprise *</Label>
             <Input
               id="nom"
               {...register('nom')}
               placeholder="Acme Corp ou Jean Dupont"
               className="mt-1"
             />
-            {errors.nom && (
-              <p className="text-sm text-red-500 mt-1">{errors.nom.message}</p>
-            )}
+            {errors.nom && <p className="text-sm text-red-500 mt-1">{errors.nom.message}</p>}
           </div>
 
           <div>
@@ -209,9 +213,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
               placeholder="contact@example.com"
               className="mt-1"
             />
-            {errors.email && (
-              <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
           </div>
 
           <div>

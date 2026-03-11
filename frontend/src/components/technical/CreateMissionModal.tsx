@@ -1,100 +1,37 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, FileText, Calendar, User, AlertCircle, Search, List } from 'lucide-react';
+import { X, FileText, Loader2, MapPin, Search, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateMission } from '@/hooks/useTechnical';
-import { useClients, useCreateClient, useCreateAdresse, useTypeClients } from '@/hooks/useCrm';
-import { Client } from '@/shared/api/crm/types';
+import { useClients } from '@/hooks/useCrm';
+import { crmService, type Address, type Client } from '@/shared/api/crm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { hasPermission } from '@/shared/permissions';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
-// Utiliser les mêmes valeurs que le backend: BASSE, MOYENNE, HAUTE, URGENTE
 const createMissionSchema = z.object({
   titre: z.string().min(1, 'Titre requis'),
   description: z.string().optional(),
-  clientId: z.string().optional(),
+  clientId: z.string().min(1, 'Sélectionnez un client CRM'),
   clientNom: z.string().min(1, 'Nom du client requis'),
   clientContact: z.string().optional(),
-  adresse: z.string().optional(),
+  adresseId: z.string().min(1, 'Sélectionnez l’adresse du chantier'),
+  adresse: z.string().min(1, 'Adresse du chantier requise'),
   dateDebut: z.string().min(1, 'Date de début requise'),
   dateFin: z.string().optional(),
   priorite: z.enum(['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE']).default('MOYENNE'),
   budgetEstime: z.string().optional(),
   notes: z.string().optional(),
-  useManualClient: z.boolean().default(false),
-  createInCrm: z.boolean().default(false),
-  manualContactName: z.string().optional(),
-  manualEmail: z.string().optional(),
-  manualPhone: z.string().optional(),
-  manualAddressLine1: z.string().optional(),
-  manualAddressLine2: z.string().optional(),
-  manualPostalCode: z.string().optional(),
-  manualCity: z.string().optional(),
-  manualCountry: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.useManualClient) {
-    if (!data.manualAddressLine1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Adresse requise',
-        path: ['manualAddressLine1'],
-      });
-    }
-    if (!data.manualPostalCode) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Code postal requis',
-        path: ['manualPostalCode'],
-      });
-    }
-    if (!data.manualCity) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Ville requise',
-        path: ['manualCity'],
-      });
-    }
-    if (!data.manualCountry) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Pays requis',
-        path: ['manualCountry'],
-      });
-    }
-    if (!data.manualEmail && !data.manualPhone) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Téléphone ou email requis',
-        path: ['manualPhone'],
-      });
-    }
-    if (data.createInCrm && !data.manualEmail) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Email requis pour créer le client dans le CRM',
-        path: ['manualEmail'],
-      });
-    }
-  } else {
-    if (!data.clientId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Sélectionnez un client du CRM',
-        path: ['clientNom'],
-      });
-    }
-    if (!data.adresse) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Adresse requise',
-        path: ['adresse'],
-      });
-    }
-  }
 });
 
 type CreateMissionFormData = z.infer<typeof createMissionSchema>;
@@ -104,198 +41,142 @@ interface CreateMissionModalProps {
   onClose: () => void;
 }
 
+const formatAddressLabel = (address: Address) => {
+  const header = [address.nomAdresse, address.typeAdresse].filter(Boolean).join(' - ');
+  const location = [address.ligne1, address.ligne2, address.codePostal, address.ville, address.pays]
+    .filter(Boolean)
+    .join(', ');
+
+  return header ? `${header}: ${location}` : location;
+};
+
+const formatAddressValue = (address: Address) =>
+  [address.ligne1, address.ligne2, address.codePostal, address.ville, address.pays]
+    .filter(Boolean)
+    .join(', ');
+
 export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const canReadCustomers = hasPermission(user, 'customers.read');
   const createMutation = useCreateMission();
-  const createClientMutation = useCreateClient();
-  const createAdresseMutation = useCreateAdresse();
-  const { data: typeClientsResponse } = useTypeClients({ enabled: canReadCustomers });
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [showClientTableModal, setShowClientTableModal] = useState(false);
-  const [tableSearch, setTableSearch] = useState('');
+  const [isLoadingClientDetail, setIsLoadingClientDetail] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+  const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
 
   const { data: clientsData, isLoading: isLoadingClients } = useClients(
     {
-      pageSize: 50,
-      ...(showClientTableModal && tableSearch ? { search: tableSearch } : {})
+      pageSize: 100,
+      ...(clientSearch.trim() ? { search: clientSearch.trim() } : {}),
     },
-    { enabled: canReadCustomers }
+    { enabled: canReadCustomers && isOpen }
   );
 
   const clients = Array.isArray(clientsData) ? clientsData : (clientsData as any)?.data || [];
-  const typeClients = typeClientsResponse?.data || [];
+  const addresses = useMemo(() => selectedClient?.adresses || [], [selectedClient]);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
     watch,
-    setValue
   } = useForm<CreateMissionFormData>({
     resolver: zodResolver(createMissionSchema),
     defaultValues: {
       priorite: 'MOYENNE',
       dateDebut: new Date().toISOString().split('T')[0],
-      useManualClient: false,
-      createInCrm: false,
-      manualContactName: '',
-      manualEmail: '',
-      manualPhone: '',
-      manualAddressLine1: '',
-      manualAddressLine2: '',
-      manualPostalCode: '',
-      manualCity: '',
-      manualCountry: 'Cote dIvoire'
-    }
+      clientId: '',
+      clientNom: '',
+      clientContact: '',
+      adresseId: '',
+      adresse: '',
+    },
   });
 
-  const useManualClient = watch('useManualClient');
-  const clientId = watch('clientId');
+  const selectedAddressId = watch('adresseId');
 
-  useEffect(() => {
-    if (!canReadCustomers) {
-      setValue('useManualClient', true);
-      setValue('createInCrm', false);
+  const handleClientSelect = async (clientId: string) => {
+    if (!clientId) {
       setSelectedClient(null);
-      setShowClientTableModal(false);
-    }
-
-    if (useManualClient) {
-      setSelectedClient(null);
-      setShowClientTableModal(false);
       setValue('clientId', '');
       setValue('clientNom', '');
       setValue('clientContact', '');
+      setValue('adresseId', '');
       setValue('adresse', '');
-    } else {
-      setValue('manualContactName', '');
-      setValue('manualEmail', '');
-      setValue('manualPhone', '');
-      setValue('manualAddressLine1', '');
-      setValue('manualAddressLine2', '');
-      setValue('manualPostalCode', '');
-      setValue('manualCity', '');
-      setValue('manualCountry', 'Cote dIvoire');
+      return;
     }
-  }, [useManualClient, setValue, canReadCustomers]);
 
-  const handleClientSelect = (client: Client) => {
-    setSelectedClient(client);
-    setShowClientTableModal(false);
-    setTableSearch('');
-    
-    setValue('useManualClient', false);
-    setValue('clientId', client.id);
-    setValue('clientNom', client.nom);
-    setValue('clientContact', client.telephone || client.mobile || client.email || '');
-    
-    if (client.adresses && client.adresses.length > 0) {
-      const principalAddr = client.adresses.find(a => a.isPrincipal) || client.adresses[0];
-      const adresseComplete = [
-        principalAddr.ligne1,
-        principalAddr.codePostal,
-        principalAddr.ville,
-        principalAddr.pays
-      ].filter(Boolean).join(', ');
-      setValue('adresse', adresseComplete);
+    try {
+      setIsLoadingClientDetail(true);
+      const response = await crmService.getClient(clientId);
+      const client = response?.data || (response as any);
+      const clientAddresses = client?.adresses || [];
+      const defaultAddress = clientAddresses.find((item: Address) => item.isPrincipal) || clientAddresses[0];
+
+      setSelectedClient(client);
+      setValue('clientId', client.id);
+      setValue('clientNom', client.nom);
+      setValue('clientContact', client.telephone || client.mobile || client.email || '');
+      setValue('adresseId', defaultAddress?.id || '');
+      setValue('adresse', defaultAddress ? formatAddressValue(defaultAddress) : '');
+      setIsClientPickerOpen(false);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Impossible de charger le client CRM sélectionné');
+    } finally {
+      setIsLoadingClientDetail(false);
     }
   };
 
+  const handleAddressSelect = (addressId: string) => {
+    const address = addresses.find((item) => item.id === addressId);
+    setValue('adresseId', addressId);
+    setValue('adresse', address ? formatAddressValue(address) : '');
+  };
 
   const onSubmit = async (data: CreateMissionFormData) => {
+    if (!canReadCustomers) {
+      toast.error('La création de mission exige l’accès CRM pour sélectionner un client et son adresse');
+      return;
+    }
+
     try {
-      let clientNom = data.clientNom;
-      let clientContact = data.clientContact || '';
-      let adresse = data.adresse;
-      let clientId = data.clientId;
-
-      if (data.useManualClient) {
-        const contactParts = [];
-        if (data.manualContactName) contactParts.push(data.manualContactName);
-        const phoneOrEmail = data.manualPhone || data.manualEmail;
-        if (phoneOrEmail) contactParts.push(phoneOrEmail);
-        clientContact = contactParts.join(' - ');
-
-        adresse = [
-          data.manualAddressLine1,
-          data.manualAddressLine2,
-          data.manualPostalCode,
-          data.manualCity,
-          data.manualCountry
-        ].filter(Boolean).join(', ');
-
-        clientId = undefined;
-
-        if (data.createInCrm) {
-          const typeClient = typeClients.find((item: any) => item?.isActive !== false) || typeClients[0];
-          if (!typeClient) {
-            toast.error('Aucun type de client disponible dans le CRM');
-            return;
-          }
-
-          const createdClient = await createClientMutation.mutateAsync({
-            nom: clientNom,
-            email: data.manualEmail,
-            telephone: data.manualPhone || undefined,
-            typeClientId: typeClient.id,
-          });
-
-          const createdClientId = (createdClient as any)?.data?.id;
-          if (createdClientId) {
-            await createAdresseMutation.mutateAsync({
-              clientId: createdClientId,
-              typeAdresse: 'ETABLISSEMENT',
-              ligne1: data.manualAddressLine1,
-              ligne2: data.manualAddressLine2 || undefined,
-              codePostal: data.manualPostalCode,
-              ville: data.manualCity,
-              pays: data.manualCountry || '',
-              isPrincipal: true,
-            });
-            clientId = createdClientId;
-          }
-        }
-      }
-
-      const payload = {
+      await createMutation.mutateAsync({
         titre: data.titre,
         description: data.description,
-        clientNom,
-        clientContact: clientContact || undefined,
-        adresse,
+        clientId: data.clientId,
+        clientNom: data.clientNom,
+        clientContact: data.clientContact || undefined,
+        adresse: data.adresse,
         dateDebut: data.dateDebut,
         dateFin: data.dateFin || undefined,
         priorite: data.priorite,
         budgetEstime: data.budgetEstime ? parseFloat(data.budgetEstime) : undefined,
         notes: data.notes,
-        clientId,
-      };
+      } as any);
 
-      await createMutation.mutateAsync(payload);
-      toast.success('Mission créee avec succès');
+      toast.success('Mission créée avec succès');
       reset();
+      setSelectedClient(null);
       onClose();
     } catch (error: any) {
-      console.error('Erreur détaillée création mission:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Erreur inconnue';
-      toast.error(`Erreur: ${errorMessage}`);
+      toast.error(error?.response?.data?.error || error?.message || 'Erreur lors de la création de la mission');
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-blue-600" />
-            Creer une Mission
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
+      <div className="max-h-screen w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <h3 className="flex items-center text-lg font-medium text-gray-900 dark:text-white">
+            <FileText className="mr-2 h-5 w-5 text-blue-600" />
+            Créer une Mission
           </h3>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             type="button"
             disabled={createMutation.isPending}
@@ -304,448 +185,242 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-4 space-y-6">
-          {/* Titre */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 py-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Titre de la Mission *
             </label>
             <input
               {...register('titre')}
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               placeholder="Ex: Installation électrique bâtiment A"
               disabled={createMutation.isPending}
             />
             {errors.titre && <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>}
           </div>
 
-          {/* Client */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-  <input
-    id="useManualClient"
-    type="checkbox"
-    {...register('useManualClient')}
-    disabled={createMutation.isPending || !canReadCustomers}
-  />
-  <label htmlFor="useManualClient" className="text-sm text-gray-700 dark:text-gray-300">
-    Ajouter un nouveau client (saisie manuelle)
-  </label>
-</div>
-{!canReadCustomers && (
-  <p className="text-xs text-amber-600">Acc?s CRM manquant: mode manuel uniquement.</p>
-)}
+          <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+            <div>
+              <h4 className="text-base font-semibold text-gray-900 dark:text-white">Client CRM</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Les clients et leurs adresses sont gérés uniquement dans le CRM. La mission réutilise ces données.
+              </p>
+            </div>
 
-            {useManualClient && canReadCustomers && (
-              <div className="flex items-center gap-2">
-                <input
-                  id="createInCrm"
-                  type="checkbox"
-                  {...register('createInCrm')}
-                  disabled={createMutation.isPending}
-                />
-                <label htmlFor="createInCrm" className="text-sm text-gray-700 dark:text-gray-300">
-                  Creer ce client dans le CRM
-                </label>
+            {!canReadCustomers ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                Accès CRM requis: vous devez sélectionner un client existant et l’une de ses adresses.
               </div>
-            )}
+            ) : (
+              <>
+                <input type="hidden" {...register('clientId')} />
+                <input type="hidden" {...register('clientNom')} />
+                <input type="hidden" {...register('adresseId')} />
 
-            <input type="hidden" {...register('clientId')} />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom du Client *
-                </label>
-
-                {useManualClient ? (
-                  <input
-                    {...register('clientNom')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Nom du client"
-                    disabled={createMutation.isPending}
-                  />
-                ) : (
-                  <div className="space-y-2">
-                    <input type="hidden" {...register('clientNom')} />
-                    <select
-                      value={selectedClient?.id || ''}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        if (!id) {
-                          setSelectedClient(null);
-                          setValue('clientId', '');
-                          setValue('clientNom', '');
-                          setValue('clientContact', '');
-                          setValue('adresse', '');
-                          return;
-                        }
-                        const client = clients.find((c: Client) => c.id === id);
-                        if (client) handleClientSelect(client);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/30">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {selectedClient ? selectedClient.nom : 'Aucun client CRM sélectionné'}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {selectedClient
+                          ? selectedClient.email || selectedClient.telephone || 'Aucun contact principal'
+                          : 'Choisissez un client existant dans le CRM'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsClientPickerOpen(true)}
+                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                       disabled={createMutation.isPending || isLoadingClients}
                     >
-                      <option value="">Sélectionner un client</option>
+                      <List className="mr-2 h-4 w-4" />
+                      Choisir dans la liste complète
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Client *
+                    </label>
+                    <select
+                      value={selectedClient?.id || ''}
+                      onChange={(event) => void handleClientSelect(event.target.value)}
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      disabled={createMutation.isPending || isLoadingClients || isLoadingClientDetail}
+                    >
+                      <option value="">Sélectionner un client CRM</option>
                       {clients.map((client: Client) => (
                         <option key={client.id} value={client.id}>
-                          {client.nom} {client.telephone || client.mobile || client.email ? `- ${client.telephone || client.mobile || client.email}` : ''}
+                          {client.nom} {client.email ? `(${client.email})` : ''}
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowClientTableModal(true)}
-                      className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                      disabled={createMutation.isPending}
-                    >
-                      <List className="h-4 w-4" />
-                      Choisir dans la liste complète
-                    </button>
-                    {showClientTableModal && (
-                      <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-[60]">
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-                          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <h4 className="text-lg font-medium text-gray-900 dark:text-white">Sélectionner un client</h4>
-                            <button
-                              type="button"
-                              onClick={() => { setShowClientTableModal(false); setTableSearch(''); }}
-                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <X className="h-6 w-6" />
-                            </button>
-                          </div>
-                          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                              <input
-                                type="text"
-                                value={tableSearch}
-                                onChange={(e) => setTableSearch(e.target.value)}
-                                placeholder="Rechercher un client..."
-                                className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex-1 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                              <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nom</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Contact</th>
-                                  <th className="px-4 py-2 w-20"></th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {clients.map((client: Client) => (
-                                  <tr
-                                    key={client.id}
-                                    onClick={() => handleClientSelect(client)}
-                                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                  >
-                                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{client.nom}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                      {client.telephone || client.mobile || client.email || '-'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <button type="button" className="text-blue-600 dark:text-blue-400 text-sm font-medium">
-                                        Sélectionner
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {clients.length === 0 && !isLoadingClients && (
-                                  <tr>
-                                    <td colSpan={3} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                      {tableSearch ? 'Aucun client trouvé' : 'Aucun client'}
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {errors.clientId && <p className="mt-1 text-sm text-red-600">{errors.clientId.message}</p>}
                   </div>
-                )}
 
-                {errors.clientNom && <p className="mt-1 text-sm text-red-600">{errors.clientNom.message}</p>}
-                {!useManualClient && !selectedClient && (
-                  <p className="mt-1 text-xs text-gray-500">Selectionnez un client dans la liste.</p>
-                )}
-              </div>
-
-                {!useManualClient ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Contact Client
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Contact client
                     </label>
-                  <input
-                    {...register('clientContact')}
-                    type="text"
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Telephone ou email"
-                    disabled={createMutation.isPending || !selectedClient}
-                  />
+                    <input
+                      {...register('clientContact')}
+                      type="text"
+                      readOnly
+                      className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      placeholder="Téléphone ou email"
+                    />
+                  </div>
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Contact Client
-                  </label>
-                  <input
-                    {...register('manualContactName')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Nom du contact"
-                    disabled={createMutation.isPending}
-                  />
-                </div>
-              )}
-            </div>
 
-            {useManualClient && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Telephone
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Adresse du Chantier *
                   </label>
-                  <input
-                    {...register('manualPhone')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Telephone"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualPhone && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualPhone.message}</p>
+                  <select
+                    value={selectedAddressId || ''}
+                    onChange={(event) => handleAddressSelect(event.target.value)}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    disabled={createMutation.isPending || !selectedClient || isLoadingClientDetail || addresses.length === 0}
+                  >
+                    <option value="">
+                      {selectedClient
+                        ? addresses.length > 0
+                          ? 'Sélectionner une adresse CRM'
+                          : 'Ce client n’a aucune adresse CRM'
+                        : 'Sélectionner d’abord un client CRM'}
+                    </option>
+                    {addresses.map((address) => (
+                      <option key={address.id} value={address.id}>
+                        {formatAddressLabel(address)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.adresseId && <p className="mt-1 text-sm text-red-600">{errors.adresseId.message}</p>}
+                  {selectedClient && addresses.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Ce client doit d’abord avoir une adresse enregistrée dans le CRM avant de pouvoir être utilisé dans une mission.
+                    </p>
                   )}
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Adresse retenue pour la mission
                   </label>
-                  <input
-                    {...register('manualEmail')}
-                    type="email"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Email"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualEmail && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualEmail.message}</p>
-                  )}
+                  <div className="flex items-start rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <MapPin className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+                    <textarea
+                      {...register('adresse')}
+                      readOnly
+                      rows={2}
+                      className="w-full resize-none bg-transparent outline-none"
+                      placeholder="L’adresse sélectionnée dans le CRM sera utilisée pour la mission"
+                    />
+                  </div>
+                  {errors.adresse && <p className="mt-1 text-sm text-red-600">{errors.adresse.message}</p>}
                 </div>
-              </div>
+              </>
             )}
           </div>
 
-          {/* Adresse */}
-              {!useManualClient ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Adresse du Chantier *
-                  </label>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Début *</label>
               <input
-                {...register('adresse')}
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Adresse complete du lieu d'intervention"
+                {...register('dateDebut')}
+                type="date"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={createMutation.isPending}
               />
-              {!errors.adresse && selectedClient && (
-                <p className="mt-1 text-xs text-gray-500">Adresse préremplie depuis le client CRM, modifiable si nécessaire.</p>
-              )}
-              {errors.adresse && <p className="mt-1 text-sm text-red-600">{errors.adresse.message}</p>}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Adresse du Chantier *
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <input
-                    {...register('manualAddressLine1')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Rue"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualAddressLine1 && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualAddressLine1.message}</p>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <input
-                    {...register('manualAddressLine2')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Complement d'adresse"
-                    disabled={createMutation.isPending}
-                  />
-                </div>
-                <div>
-                  <input
-                    {...register('manualPostalCode')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Code postal"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualPostalCode && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualPostalCode.message}</p>
-                  )}
-                </div>
-                <div>
-                  <input
-                    {...register('manualCity')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Ville"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualCity && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualCity.message}</p>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <input
-                    {...register('manualCountry')}
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Pays"
-                    disabled={createMutation.isPending}
-                  />
-                  {errors.manualCountry && (
-                    <p className="mt-1 text-sm text-red-600">{errors.manualCountry.message}</p>
-                  )}
-                </div>
-              </div>
-              <input type="hidden" {...register('adresse')} />
-              <input type="hidden" {...register('clientContact')} />
-            </div>
-          )}
-
-          {/* Dates et Priorité */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Date de Début *
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  {...register('dateDebut')}
-                  type="date"
-                  className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  disabled={createMutation.isPending}
-                />
-              </div>
               {errors.dateDebut && <p className="mt-1 text-sm text-red-600">{errors.dateDebut.message}</p>}
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Date de Fin
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Fin</label>
               <input
                 {...register('dateFin')}
                 type="date"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                min={watch('dateDebut')}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={createMutation.isPending}
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Priorité *
-              </label>
-              <div className="relative">
-                <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <select
-                  {...register('priorite')}
-                  className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  disabled={createMutation.isPending}
-                >
-                  <option value="BASSE">Basse</option>
-                  <option value="MOYENNE">Moyenne</option>
-                  <option value="HAUTE">Haute</option>
-                  <option value="URGENTE">Urgente</option>
-                </select>
-              </div>
-              {errors.priorite && <p className="mt-1 text-sm text-red-600">{errors.priorite.message}</p>}
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Priorité *</label>
+              <select
+                {...register('priorite')}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                disabled={createMutation.isPending}
+              >
+                <option value="BASSE">Basse</option>
+                <option value="MOYENNE">Moyenne</option>
+                <option value="HAUTE">Haute</option>
+                <option value="URGENTE">Urgente</option>
+              </select>
             </div>
           </div>
 
-          {/* Budget Estimé */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Budget Estimé (FCFA)
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Budget Estimé (FCFA)</label>
             <input
               {...register('budgetEstime')}
               type="number"
-              step="0.01"
-              min="0"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               placeholder="Montant estimé"
               disabled={createMutation.isPending}
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
             <textarea
               {...register('description')}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Description détaillée de la mission..."
+              rows={4}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Description détaillée de la mission"
               disabled={createMutation.isPending}
             />
           </div>
 
-          {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes Complémentaires
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes</label>
             <textarea
               {...register('notes')}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Notes, contraintes, informations supplémentaires..."
+              rows={3}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Notes internes"
               disabled={createMutation.isPending}
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createMutation.isPending}
             >
               Annuler
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending || (!useManualClient && !clientId)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={
+                createMutation.isPending ||
+                !canReadCustomers ||
+                isLoadingClientDetail ||
+                !selectedClient ||
+                addresses.length === 0
+              }
             >
               {createMutation.isPending ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin h-4 w-4 mr-2 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                <span className="inline-flex items-center">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Création...
                 </span>
               ) : (
@@ -753,17 +428,84 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               )}
             </button>
           </div>
-
-          {/* Debug info */}
-          {createMutation.isError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-700">
-                Erreur: {createMutation.error instanceof Error ? createMutation.error.message : 'Erreur inconnue'}
-              </p>
-            </div>
-          )}
         </form>
       </div>
+
+      <Dialog open={isClientPickerOpen} onOpenChange={setIsClientPickerOpen}>
+        <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sélectionner un client CRM</DialogTitle>
+            <DialogDescription>
+              Le client et l’adresse du chantier sont gérés dans le CRM. Sélectionnez ici le bon dossier client.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+                placeholder="Rechercher un client CRM"
+                className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">Client</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">Email</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">Téléphone</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">Adresses CRM</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoadingClients ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        Chargement des clients...
+                      </td>
+                    </tr>
+                  ) : clients.length > 0 ? (
+                    clients.map((client: Client) => (
+                      <tr key={client.id} className="border-t border-gray-200 dark:border-gray-700">
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{client.nom}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{client.email || '-'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                          {client.telephone || client.mobile || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                          {client.adresses?.length || 0}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => void handleClientSelect(client.id)}
+                            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            disabled={isLoadingClientDetail}
+                          >
+                            Sélectionner
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        Aucun client CRM trouvé pour cette recherche
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

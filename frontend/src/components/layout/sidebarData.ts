@@ -48,6 +48,7 @@ export interface SidebarItem {
   permission?: string;
   categoryId?: string;
   badge?: number;
+  isServiceDashboard?: boolean;
 }
 
 export const sidebarCategories: SidebarCategory[] = [
@@ -66,24 +67,30 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read', categoryId: 'dashboard' },
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart, permission: 'reports.read_financial', categoryId: 'dashboard' },
 
+  { name: 'Dashboard Commercial', href: '/dashboard/commercial/prospects', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
   { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Pipeline Commercial', href: '/dashboard/commercial/pipeline', icon: Workflow, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Devis & Propositions', href: '/dashboard/commercial/quotes', icon: FileText, permission: 'quotes.read', categoryId: 'commercial' },
 
+  { name: 'Dashboard CRM', href: '/dashboard/crm', icon: Home, permission: 'customers.read', categoryId: 'crm', isServiceDashboard: true },
   { name: 'CRM', href: '/dashboard/crm', icon: Users, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Clients', href: '/dashboard/crm/clients', icon: Users, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Types de Clients', href: '/dashboard/crm/type-clients', icon: Users, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Contacts', href: '/dashboard/crm/contacts', icon: PhoneCall, permission: 'customers.read', categoryId: 'crm' },
+  { name: 'Adresses', href: '/dashboard/crm/addresses', icon: Building2, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Contrats', href: '/dashboard/crm/contracts', icon: FileCheck, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Documents', href: '/dashboard/crm/documents', icon: FileText, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Historique Interactions', href: '/dashboard/crm/interactions', icon: MessageSquare, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Opportunités', href: '/dashboard/crm/opportunities', icon: TrendingUp, permission: 'opportunities.read', categoryId: 'crm' },
   { name: 'Rapports', href: '/dashboard/crm/reports', icon: BarChart, permission: 'reports.read', categoryId: 'crm' },
 
+  { name: 'Dashboard Facturation', href: '/dashboard/facturation', icon: Home, permission: 'invoices.read', categoryId: 'billing', isServiceDashboard: true },
   { name: 'Factures', href: '/dashboard/facturation', icon: Receipt, permission: 'invoices.read', categoryId: 'billing' },
   { name: 'Suivi Paiements', href: '/dashboard/facturation/paiements', icon: CreditCard, permission: 'payments.read', categoryId: 'billing' },
   { name: 'Avoirs & Remboursements', href: '/dashboard/facturation/avoirs', icon: FileText, permission: 'invoices.read', categoryId: 'billing' },
 
+  { name: 'Dashboard Technique', href: '/dashboard/technical', icon: Home, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
+  { name: 'Analytics Technique', href: '/dashboard/technical/analytics', icon: LineChart, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
   { name: 'Planning Interventions', href: '/dashboard/technical/interventions', icon: Calendar, permission: 'interventions.read', categoryId: 'technical' },
   { name: 'Gestion des Missions', href: '/dashboard/technical/missions', icon: ClipboardList, permission: 'missions.read', categoryId: 'technical' },
   { name: 'Équipe Technique', href: '/dashboard/technical/techniciens', icon: UserCheck, permission: 'techniciens.read', categoryId: 'technical' },
@@ -91,12 +98,14 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Gestion du Matériel', href: '/dashboard/technical/materiel', icon: Package, permission: 'materiel.read', categoryId: 'technical' },
   { name: 'Rapports Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'missions.read', categoryId: 'technical' },
 
+  { name: 'Dashboard Projets', href: '/dashboard/projets', icon: Home, permission: 'projects.read', categoryId: 'projects', isServiceDashboard: true },
   { name: 'Projets', href: '/dashboard/projets', icon: FolderKanban, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Tâches & Planning', href: '/dashboard/projets/taches', icon: ClipboardList, permission: 'tasks.read', categoryId: 'projects' },
   { name: 'Jalons', href: '/dashboard/projets/jalons', icon: Award, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Planning Gantt', href: '/dashboard/projets/planning', icon: CalendarDays, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Feuilles de Temps', href: '/dashboard/timesheets', icon: Clock, permission: 'attendance.read', categoryId: 'projects' },
 
+  { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchase_orders.read', categoryId: 'procurement', isServiceDashboard: true },
   { name: 'Catalogue Produits', href: '/dashboard/achats/produits', icon: Package, permission: 'products.read', categoryId: 'procurement' },
   { name: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', icon: Truck, permission: 'suppliers.read', categoryId: 'procurement' },
   { name: 'Commandes d\'Achat', href: '/dashboard/achats/commandes', icon: ShoppingCart, permission: 'purchase_orders.read', categoryId: 'procurement' },
@@ -104,6 +113,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Gestion des Stocks', href: '/dashboard/achats/stock', icon: Warehouse, permission: 'inventory.read', categoryId: 'procurement' },
   { name: 'Audit Stock', href: '/dashboard/achats/audit', icon: GitBranch, permission: 'inventory.count', categoryId: 'procurement' },
 
+  { name: 'Dashboard RH', href: '/dashboard/rh', icon: Home, permission: 'employees.read', categoryId: 'hr', isServiceDashboard: true },
   { name: 'Effectifs', href: '/dashboard/rh/employes', icon: Users, permission: 'employees.read', categoryId: 'hr' },
   { name: 'Contrats', href: '/dashboard/rh/contrats', icon: FileText, permission: 'contracts.read', categoryId: 'hr' },
   { name: 'Paie & Salaires', href: '/dashboard/rh/paie', icon: DollarSign, permission: 'payroll.read', categoryId: 'hr' },
@@ -111,6 +121,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Avances & Prêts', href: '/dashboard/rh/prets', icon: CreditCard, permission: 'loans.read', categoryId: 'hr' },
   { name: 'Évaluations', href: '/dashboard/rh/evaluations', icon: Award, permission: 'evaluations.read', categoryId: 'hr' },
 
+  { name: 'Dashboard Communication', href: '/dashboard/messages', icon: Home, permission: 'messages.read', categoryId: 'communication', isServiceDashboard: true },
   { name: 'Messagerie Interne', href: '/dashboard/messages', icon: MessageSquare, permission: 'messages.read', categoryId: 'communication' },
   { name: 'Contacts Clients', href: '/dashboard/contacts', icon: PhoneCall, permission: 'customers.read', categoryId: 'communication' },
   { name: 'Campagnes Email', href: '/dashboard/crm/email-campaigns', icon: Mail, permission: 'emails.read', categoryId: 'communication' },
