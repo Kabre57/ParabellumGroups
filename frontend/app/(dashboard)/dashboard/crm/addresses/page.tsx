@@ -44,7 +44,7 @@ interface AddressFormValues {
   ligne1: string;
   ligne2?: string;
   ligne3?: string;
-  codePostal: string;
+  codePostal?: string;
   ville: string;
   region?: string;
   pays: string;
@@ -143,7 +143,7 @@ export default function AddressesPage() {
       });
     } else {
       form.reset({
-        clientId: '',
+        clientId: clientFilter || '',
         typeAdresse: 'FACTURATION',
         nomAdresse: '',
         ligne1: '',
@@ -386,10 +386,7 @@ export default function AddressesPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Code postal *</label>
-                <Input {...form.register('codePostal', { required: true })} />
-                {form.formState.errors.codePostal && (
-                  <p className="text-xs text-red-600">Code postal requis</p>
-                )}
+                <Input {...form.register('codePostal')} />
               </div>
 
               <div>

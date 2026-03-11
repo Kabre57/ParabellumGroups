@@ -46,7 +46,7 @@ module.exports = {
       path: '/customers',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'missions.read', 'missions.create', 'missions.update'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team', 'missions.read', 'missions.create', 'missions.update'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -58,7 +58,7 @@ module.exports = {
       path: '/clients',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'missions.read', 'missions.create', 'missions.update'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team', 'missions.read', 'missions.create', 'missions.update'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -70,7 +70,7 @@ module.exports = {
       path: '/contacts',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: ['customers.manage_contacts', 'customers.update'],
         PUT: ['customers.manage_contacts', 'customers.update'],
         PATCH: ['customers.manage_contacts', 'customers.update'],
@@ -94,7 +94,7 @@ module.exports = {
       path: '/interactions',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: ['prospects.manage_activities', 'customers.update'],
         PUT: ['prospects.manage_activities', 'customers.update'],
         PATCH: ['prospects.manage_activities', 'customers.update'],
@@ -112,7 +112,7 @@ module.exports = {
       path: '/type-clients',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -124,7 +124,7 @@ module.exports = {
       path: '/documents',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',
@@ -136,7 +136,7 @@ module.exports = {
       path: '/adresses',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: ['customers.manage_addresses', 'customers.update'],
         PUT: ['customers.manage_addresses', 'customers.update'],
         PATCH: ['customers.manage_addresses', 'customers.update'],
@@ -148,7 +148,7 @@ module.exports = {
       path: '/secteurs',
       auth: true,
       permission: {
-        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned'],
+        GET: ['customers.read', 'customers.read_all', 'customers.read_assigned', 'customers.read_own', 'customers.read_team'],
         POST: 'customers.create',
         PUT: 'customers.update',
         PATCH: 'customers.update',

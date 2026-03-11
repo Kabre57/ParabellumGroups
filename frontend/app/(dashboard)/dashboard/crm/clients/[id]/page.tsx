@@ -62,7 +62,7 @@ type AddressFormValues = {
   nomAdresse?: string;
   ligne1: string;
   ligne2?: string;
-  codePostal: string;
+  codePostal?: string;
   ville: string;
   region?: string;
   pays: string;
@@ -900,7 +900,7 @@ export default function CustomerDetailPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Code postal</label>
-                <Input {...addressForm.register('codePostal', { required: true })} />
+                <Input {...addressForm.register('codePostal')} />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Ville</label>

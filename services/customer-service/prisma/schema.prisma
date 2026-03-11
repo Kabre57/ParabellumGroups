@@ -343,7 +343,7 @@ model AdresseClient {
   @@index([clientId])
   @@index([typeAdresse])
   @@index([isPrincipal])
-  @@unique([clientId, typeAdresse])
+  @@index([clientId, typeAdresse])
 }
 
 // Table des contrats

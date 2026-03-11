@@ -10,7 +10,7 @@ const createValidation = [
   body('clientId').notEmpty().withMessage('Le clientId est requis'),
   body('typeAdresse').isIn(['FACTURATION', 'LIVRAISON', 'SIEGE_SOCIAL', 'ETABLISSEMENT', 'CORRESPONDANCE']).withMessage('Type d\'adresse invalide'),
   body('ligne1').notEmpty().trim().withMessage('La ligne 1 est requise'),
-  body('codePostal').notEmpty().matches(/^[0-9]{5}$/).withMessage('Code postal invalide (5 chiffres)'),
+  body('codePostal').optional({ checkFalsy: true }).isLength({ max: 20 }).withMessage('Code postal invalide'),
   body('ville').notEmpty().trim().withMessage('La ville est requise'),
   body('pays').optional().isString().withMessage('Le pays doit être une chaîne de caractères')
 ];
@@ -18,7 +18,7 @@ const createValidation = [
 const updateValidation = [
   body('typeAdresse').optional().isIn(['FACTURATION', 'LIVRAISON', 'SIEGE_SOCIAL', 'ETABLISSEMENT', 'CORRESPONDANCE']).withMessage('Type d\'adresse invalide'),
   body('ligne1').optional().notEmpty().trim().withMessage('La ligne 1 ne peut pas être vide'),
-  body('codePostal').optional().matches(/^[0-9]{5}$/).withMessage('Code postal invalide (5 chiffres)'),
+  body('codePostal').optional({ checkFalsy: true }).isLength({ max: 20 }).withMessage('Code postal invalide'),
   body('ville').optional().notEmpty().trim().withMessage('La ville ne peut pas être vide')
 ];
 
