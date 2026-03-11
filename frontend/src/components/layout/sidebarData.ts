@@ -93,6 +93,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Analytics Technique', href: '/dashboard/technical/analytics', icon: LineChart, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
   { name: 'Planning Interventions', href: '/dashboard/technical/interventions', icon: Calendar, permission: 'interventions.read', categoryId: 'technical' },
   { name: 'Gestion des Missions', href: '/dashboard/technical/missions', icon: ClipboardList, permission: 'missions.read', categoryId: 'technical' },
+  { name: 'Ordres de Mission', href: '/dashboard/technical/ordres-mission', icon: FileCheck, permission: 'mission_orders.read', categoryId: 'technical' },
   { name: 'Équipe Technique', href: '/dashboard/technical/techniciens', icon: UserCheck, permission: 'techniciens.read', categoryId: 'technical' },
   { name: 'Spécialités', href: '/dashboard/technical/specialites', icon: Award, permission: 'specialites.read', categoryId: 'technical' },
   { name: 'Gestion du Matériel', href: '/dashboard/technical/materiel', icon: Package, permission: 'materiel.read', categoryId: 'technical' },

@@ -110,10 +110,11 @@ export const serviceDefinitions: ServiceDefinition[] = [
     id: 'technical',
     label: 'Services Techniques',
     order: 60,
-    categories: ['technical', 'missions', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
-    prefixes: ['missions', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
+    categories: ['technical', 'missions', 'mission_orders', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
+    prefixes: ['missions', 'mission_orders', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
     subgroupLabels: {
       missions: 'Missions',
+      mission_orders: 'Ordres de mission',
       interventions: 'Interventions',
       techniciens: 'Techniciens',
       specialites: 'Specialites',
@@ -126,6 +127,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
       { label: 'Analytics technique', href: '/dashboard/technical/analytics' },
       { label: 'Gestion des missions', href: '/dashboard/technical/missions' },
       { label: 'Planning interventions', href: '/dashboard/technical/interventions' },
+      { label: 'Ordres de mission', href: '/dashboard/technical/ordres-mission' },
     ],
   },
   {

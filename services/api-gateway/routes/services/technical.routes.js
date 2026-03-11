@@ -57,6 +57,15 @@ const technicalPermissionRules = [
     permissions: {
       GET: 'missions.read'
     }
+  },
+  {
+    pattern: /^\/ordres-mission/,
+    permissions: {
+      GET: ['mission_orders.read', 'missions.read'],
+      POST: ['mission_orders.create', 'missions.read'],
+      PATCH: ['mission_orders.update', 'missions.update'],
+      DELETE: ['mission_orders.delete', 'missions.delete']
+    }
   }
 ];
 
@@ -168,6 +177,17 @@ module.exports = {
         DELETE: 'materiel.delete'
       },
       pathRewrite: { '^/materiel': '/api/materiel' },
+    },
+    {
+      path: '/ordres-mission',
+      auth: true,
+      permission: {
+        GET: ['mission_orders.read', 'missions.read'],
+        POST: ['mission_orders.create', 'missions.read'],
+        PATCH: ['mission_orders.update', 'missions.update'],
+        DELETE: ['mission_orders.delete', 'missions.delete']
+      },
+      pathRewrite: { '^/ordres-mission': '/api/ordres-mission' },
     },
   ],
 };

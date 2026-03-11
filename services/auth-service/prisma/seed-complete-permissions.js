@@ -414,6 +414,17 @@ const completePermissions = {
     ]
   },
 
+  mission_orders: {
+    label: 'Ordres de Mission',
+    permissions: [
+      { name: 'mission_orders.read', description: 'Consulter les ordres de mission' },
+      { name: 'mission_orders.create', description: 'Generer des ordres de mission' },
+      { name: 'mission_orders.update', description: 'Mettre a jour les ordres de mission' },
+      { name: 'mission_orders.delete', description: 'Supprimer des ordres de mission' },
+      { name: 'mission_orders.print', description: 'Imprimer des ordres de mission' }
+    ]
+  },
+
   interventions: {
     label: 'Interventions',
     permissions: [
@@ -793,4 +804,3 @@ if (require.main === module) {
 }
 
 module.exports = { completePermissions, seedCompletePermissions };
-

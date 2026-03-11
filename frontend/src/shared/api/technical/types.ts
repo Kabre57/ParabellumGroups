@@ -2,6 +2,9 @@ export interface Specialite {
   id: string;
   nom: string;
   description?: string;
+  _count?: {
+    techniciens?: number;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -23,6 +26,12 @@ export interface Technicien {
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+  _count?: {
+    missions?: number;
+    interventions?: number;
+    rapportsRediges?: number;
+    sortiesMateriel?: number;
+  };
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;
@@ -48,6 +57,10 @@ export interface Mission {
   updatedAt?: string;
   techniciens?: MissionTechnicien[];
   interventions?: Intervention[];
+  _count?: {
+    interventions?: number;
+    techniciens?: number;
+  };
   title?: string;
   missionNum?: string;
   clientName?: string;
@@ -89,6 +102,7 @@ export interface Intervention {
   missionNum?: string;
   technician?: Technicien;
   priorite?: 'BASSE' | 'MOYENNE' | 'HAUTE' | 'URGENTE';
+  ordresMission?: MissionOrder[];
 }
 
 export interface InterventionTechnicien {
@@ -97,6 +111,32 @@ export interface InterventionTechnicien {
   technicienId: string;
   technicien?: Technicien;
   dateAssignation: string;
+}
+
+export interface MissionOrder {
+  id: string;
+  numeroOrdre: string;
+  missionId: string;
+  interventionId?: string | null;
+  technicienId: string;
+  mission?: Mission;
+  intervention?: Intervention;
+  technicien?: Technicien;
+  pieceIdentite?: string | null;
+  fonction?: string | null;
+  qualite?: string | null;
+  vehiculeType: 'VEHICULE_DE_SERVICE' | 'VEHICULE_DE_TRANSPORT';
+  vehiculeLabel?: string;
+  destination: string;
+  objetMission: string;
+  dateDepart: string;
+  dateRetour?: string | null;
+  status: 'GENERE' | 'IMPRIME' | 'ARCHIVE';
+  notes?: string | null;
+  createdByUserId?: string | null;
+  printedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Materiel {
@@ -126,6 +166,9 @@ export interface Materiel {
   emplacement?: string;
   enAlerte?: boolean;
   enRupture?: boolean;
+  _count?: {
+    sorties?: number;
+  };
 }
 
 export interface SortieMateriel {

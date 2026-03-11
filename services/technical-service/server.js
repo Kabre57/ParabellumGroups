@@ -11,6 +11,7 @@ const missionRoutes = require('./routes/mission.routes');
 const interventionRoutes = require('./routes/intervention.routes');
 const rapportRoutes = require('./routes/rapport.routes');
 const materielRoutes = require('./routes/materiel.routes');
+const ordreMissionRoutes = require('./routes/ordreMission.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4003;
@@ -45,6 +46,7 @@ app.use('/api/missions', authenticateUser, missionRoutes);
 app.use('/api/interventions', authenticateUser, interventionRoutes);
 app.use('/api/rapports', authenticateUser, rapportRoutes);
 app.use('/api/materiel', authenticateUser, materielRoutes);
+app.use('/api/ordres-mission', authenticateUser, ordreMissionRoutes);
 
 app.use(convertPagination);
 app.use(formatPaginationResponse);

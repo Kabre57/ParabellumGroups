@@ -11,8 +11,12 @@ import Link from 'next/link';
 import { CreateInterventionModal } from '@/components/technical/CreateInterventionModal';
 import RapportPrint from '@/components/printComponents/RapportPrint';
 import InterventionPrint from '@/components/printComponents/InterventionPrint';
+import MissionOrderPrint from '@/components/printComponents/MissionOrderPrint';
+import { GenerateMissionOrderDialog } from '@/components/technical/GenerateMissionOrderDialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -23,6 +27,7 @@ const statusColors: Record<string, string> = {
 
 export default function InterventionsPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,6 +35,8 @@ export default function InterventionsPage() {
   const [selectedIntervention, setSelectedIntervention] = useState<Intervention | undefined>();
   
   const [printingData, setPrintingData] = useState<{ type: 'rapport' | 'intervention'; data: any } | null>(null);
+  const [printingOrder, setPrintingOrder] = useState<{ mission: any; technicien: any; missionOrder?: any; interventionTitle?: string } | null>(null);
+  const [orderGenerationTarget, setOrderGenerationTarget] = useState<any | null>(null);
   const [isFetching, setIsFetching] = useState<string | null>(null);
 
   const { data: interventions = [], isLoading } = useInterventions({ pageSize: 100 });
@@ -52,9 +59,9 @@ export default function InterventionsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, force = false) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette intervention ?')) {
-      deleteMutation.mutate(id);
+      deleteMutation.mutate({ id, force });
     }
   };
 
@@ -101,6 +108,53 @@ export default function InterventionsPage() {
     } catch (error) {
       console.error("Erreur chargement impression intervention:", error);
       setPrintingData({ type: 'intervention', data: intervention });
+    } finally {
+      setIsFetching(null);
+    }
+  };
+
+  const handleMissionOrderPrint = async (intervention: Intervention) => {
+    setIsFetching(`order:${intervention.id}`);
+    try {
+      const interventionResp = await technicalService.getIntervention(intervention.id);
+      const fullIntervention = (interventionResp as any)?.data ?? interventionResp;
+      const printableIntervention = fullIntervention?.data ?? fullIntervention ?? intervention;
+
+      let printableMission = printableIntervention?.mission;
+      if (printableIntervention?.missionId) {
+        try {
+          const missionResp = await technicalService.getMission(printableIntervention.missionId);
+          const missionData = (missionResp as any)?.data ?? missionResp;
+          printableMission = missionData?.data ?? missionData ?? printableMission;
+        } catch (error) {
+          console.error("Erreur chargement mission pour ordre:", error);
+        }
+      }
+
+      const recipients = (printableIntervention?.techniciens || [])
+        .map((assignment: any) => {
+          const technicien = assignment?.technicien;
+          if (!technicien?.id) return null;
+          return {
+            key: technicien.id,
+            technicien,
+            interventionTitle: assignment?.role || printableIntervention?.titre,
+          };
+        })
+        .filter(Boolean) as Array<{ key: string; technicien: any; interventionTitle?: string }>;
+
+      if (recipients.length === 0) {
+        toast.error("Aucun technicien affecté à cette intervention. Affectez d'abord un technicien pour émettre l'ordre de mission.");
+        return;
+      }
+      setOrderGenerationTarget({
+        mission: printableMission || printableIntervention?.mission || intervention?.mission,
+        intervention: printableIntervention,
+        techniciens: printableIntervention?.techniciens || [],
+      });
+    } catch (error) {
+      console.error("Erreur préparation ordre de mission:", error);
+      toast.error("Impossible de préparer l'ordre de mission");
     } finally {
       setIsFetching(null);
     }
@@ -156,6 +210,44 @@ export default function InterventionsPage() {
         <InterventionPrint
           intervention={printingData.data}
           onClose={() => setPrintingData(null)}
+        />
+      )}
+      {printingOrder && (
+        <MissionOrderPrint
+          mission={printingOrder.mission}
+          technicien={printingOrder.technicien}
+          missionOrder={printingOrder.missionOrder}
+          interventionTitle={printingOrder.interventionTitle}
+          onClose={() => setPrintingOrder(null)}
+        />
+      )}
+      {orderGenerationTarget && (
+        <GenerateMissionOrderDialog
+          isOpen={!!orderGenerationTarget}
+          onClose={() => setOrderGenerationTarget(null)}
+          mission={orderGenerationTarget.mission}
+          intervention={orderGenerationTarget.intervention}
+          techniciens={orderGenerationTarget.techniciens}
+          onGenerated={(orders) => {
+            if (orders.length === 1) {
+              const order = orders[0];
+              setPrintingOrder({
+                mission: order.mission,
+                technicien: order.technicien,
+                missionOrder: order,
+                interventionTitle: order.intervention?.titre,
+              });
+            } else if (orders.length > 1) {
+              const first = orders[0];
+              setPrintingOrder({
+                mission: first.mission,
+                technicien: first.technicien,
+                missionOrder: first,
+                interventionTitle: first.intervention?.titre,
+              });
+              toast.success(`${orders.length} ordres de mission ont ete generes. Le premier s'ouvre pour impression.`);
+            }
+          }}
         />
       )}
 
@@ -248,7 +340,13 @@ export default function InterventionsPage() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredInterventions.map((intervention: Intervention) => (
+              {filteredInterventions.map((intervention: Intervention) => {
+                const interventionLocked = intervention.status === 'TERMINEE';
+                const canEditIntervention = canUpdate && !interventionLocked;
+                const canDeleteIntervention = canDelete && (isAdmin || !interventionLocked);
+                const canCompleteIntervention = canApprove && !interventionLocked;
+
+                return (
                 <tr key={intervention.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -293,7 +391,7 @@ export default function InterventionsPage() {
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
-                      {canApprove && intervention.status !== 'TERMINEE' && (
+                      {canCompleteIntervention && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -319,6 +417,23 @@ export default function InterventionsPage() {
                           variant="outline"
                           size="sm"
                           className="h-8"
+                          onClick={() => handleMissionOrderPrint(intervention)}
+                          disabled={isFetching === `order:${intervention.id}`}
+                          title="Imprimer l'ordre de mission nominatif"
+                        >
+                          {isFetching === `order:${intervention.id}` ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FileText className="w-4 h-4 mr-1" />
+                          )}
+                          Ordre
+                        </Button>
+                      )}
+                      {canExport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
                           onClick={() => handlePrint(intervention)}
                           disabled={isFetching === intervention.id}
                           title="Imprimer l'intervention"
@@ -330,7 +445,7 @@ export default function InterventionsPage() {
                           )}
                         </Button>
                       )}
-                      {canUpdate && (
+                      {canEditIntervention && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -341,21 +456,27 @@ export default function InterventionsPage() {
                           Modifier
                         </Button>
                       )}
-                      {canDelete && (
+                      {canDeleteIntervention && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-8 text-red-600 hover:text-red-700 border-red-200"
-                          onClick={() => handleDelete(intervention.id)}
+                          onClick={() => handleDelete(intervention.id, isAdmin)}
                           disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       )}
+                      {interventionLocked && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Verrouillee
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

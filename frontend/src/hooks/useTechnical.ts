@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { technicalService, Mission, Intervention, Technicien, Materiel, Rapport, Specialite } from '@/shared/api/technical';
+import { technicalService, Mission, Intervention, Technicien, Materiel, Rapport, Specialite, MissionOrder } from '@/shared/api/technical';
 import { SearchParams } from '@/shared/api/types';
 
 // === MISSIONS ===
@@ -98,7 +98,10 @@ export function useDeleteMission() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => technicalService.deleteMission(id),
+    mutationFn: (input: string | { id: string; force?: boolean }) =>
+      typeof input === 'string'
+        ? technicalService.deleteMission(input)
+        : technicalService.deleteMission(input.id, { force: input.force }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
       queryClient.invalidateQueries({ queryKey: ['missions-stats'] });
@@ -168,9 +171,73 @@ export function useDeleteIntervention() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => technicalService.deleteIntervention(id),
+    mutationFn: (input: string | { id: string; force?: boolean }) =>
+      typeof input === 'string'
+        ? technicalService.deleteIntervention(input)
+        : technicalService.deleteIntervention(input.id, { force: input.force }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['interventions'] });
+    },
+  });
+}
+
+// === ORDRES DE MISSION ===
+export function useMissionOrders(params?: SearchParams) {
+  return useQuery<MissionOrder[]>({
+    queryKey: ['mission-orders', params],
+    queryFn: async () => {
+      const response = await technicalService.getOrders(params as any);
+      return response.data ?? [];
+    },
+    placeholderData: [],
+  });
+}
+
+export function useCreateMissionOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Parameters<typeof technicalService.createOrder>[0]) =>
+      technicalService.createOrder(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mission-orders'] });
+    },
+  });
+}
+
+export function useCreateMissionOrdersBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Parameters<typeof technicalService.createOrdersBatch>[0]) =>
+      technicalService.createOrdersBatch(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mission-orders'] });
+    },
+  });
+}
+
+export function useUpdateMissionOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof technicalService.updateOrder>[1] }) =>
+      technicalService.updateOrder(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['mission-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['mission-order', variables.id] });
+    },
+  });
+}
+
+export function useMarkMissionOrderPrinted() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => technicalService.markPrinted(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['mission-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['mission-order', id] });
     },
   });
 }
@@ -259,7 +326,10 @@ export function useDeleteTechnicien() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => technicalService.deleteTechnicien(id),
+    mutationFn: (input: string | { id: string; force?: boolean }) =>
+      typeof input === 'string'
+        ? technicalService.deleteTechnicien(input)
+        : technicalService.deleteTechnicien(input.id, { force: input.force }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['techniciens'] });
       queryClient.invalidateQueries({ queryKey: ['available-techniciens'] });
@@ -341,7 +411,10 @@ export function useDeleteMateriel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => technicalService.deleteMateriel(id),
+    mutationFn: (input: string | { id: string; force?: boolean }) =>
+      typeof input === 'string'
+        ? technicalService.deleteMateriel(input)
+        : technicalService.deleteMateriel(input.id, { force: input.force }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materiel'] });
       queryClient.invalidateQueries({ queryKey: ['materiel-alertes'] });
@@ -472,7 +545,10 @@ export function useDeleteSpecialite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => technicalService.deleteSpecialite(id),
+    mutationFn: (input: string | { id: string; force?: boolean }) =>
+      typeof input === 'string'
+        ? technicalService.deleteSpecialite(input)
+        : technicalService.deleteSpecialite(input.id, { force: input.force }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specialites'] });
     },

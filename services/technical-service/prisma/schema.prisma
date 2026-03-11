@@ -39,6 +39,7 @@ model Technicien {
   specialite               Specialite                @relation(fields: [specialiteId], references: [id])
   missions                 MissionTechnicien[]
   interventions            InterventionTechnicien[]
+  ordresMission            OrdreMission[]
   sortiesMateriel          SortieMateriel[]
   rapportsRediges          Rapport[]
   
@@ -65,6 +66,7 @@ model Mission {
   
   techniciens         MissionTechnicien[]
   interventions       Intervention[]
+  ordresMission       OrdreMission[]
   
   @@map("missions")
 }
@@ -102,6 +104,7 @@ model Intervention {
   techniciens         InterventionTechnicien[]
   materielUtilise     SortieMateriel[]
   rapports            Rapport[]
+  ordresMission       OrdreMission[]
   
   @@map("interventions")
 }
@@ -177,4 +180,36 @@ model Rapport {
   redacteur           Technicien   @relation(fields: [redacteurId], references: [id])
   
   @@map("rapports")
+}
+
+model OrdreMission {
+  id                String       @id @default(uuid())
+  numeroOrdre       String       @unique
+  missionId         String
+  interventionId    String?
+  technicienId      String
+  pieceIdentite     String?
+  fonction          String?
+  qualite           String?
+  vehiculeType      String
+  vehiculeLabel     String?
+  destination       String
+  objetMission      String
+  dateDepart        DateTime
+  dateRetour        DateTime?
+  status            String       @default("GENERE")
+  notes             String?
+  createdByUserId   String?
+  printedAt         DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  mission           Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  intervention      Intervention? @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  technicien        Technicien   @relation(fields: [technicienId], references: [id])
+
+  @@index([missionId])
+  @@index([interventionId])
+  @@index([technicienId])
+  @@map("ordres_mission")
 }

@@ -26,6 +26,8 @@ import { AddTechnicianModal } from '@/components/technical/AddTechnicianModal';
 import { AddMaterielModal } from '@/components/technical/AddMaterielModal';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import MissionOrderPrint from '@/components/printComponents/MissionOrderPrint';
+import { GenerateMissionOrderDialog } from '@/components/technical/GenerateMissionOrderDialog';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -50,6 +52,8 @@ export default function InterventionDetailPage() {
 
   const [showAddTechnicianModal, setShowAddTechnicianModal] = useState(false);
   const [showAddMaterielModal, setShowAddMaterielModal] = useState(false);
+  const [printingOrder, setPrintingOrder] = useState<{ mission: any; technicien: any; missionOrder?: any; interventionTitle?: string } | null>(null);
+  const [showOrderGenerator, setShowOrderGenerator] = useState(false);
 
   const { data: interventionData, isLoading } = useQuery({
     queryKey: ['intervention', interventionId],
@@ -131,8 +135,66 @@ export default function InterventionDetailPage() {
     },
   });
 
+  const handleMissionOrderPrint = async () => {
+    try {
+      const recipients = (techniciens || [])
+        .map((assignment: any) => {
+          const technicien = assignment?.technicien;
+          if (!technicien?.id) return null;
+          return {
+            key: technicien.id,
+            technicien,
+            interventionTitle: assignment?.role || intervention?.titre,
+          };
+        })
+        .filter(Boolean) as Array<{ key: string; technicien: any; interventionTitle?: string }>;
+
+      if (recipients.length === 0) {
+        if (canManageTechnicians && intervention.status !== 'TERMINEE' && intervention.status !== 'ANNULEE') {
+          setShowAddTechnicianModal(true);
+        }
+        toast.error("Aucun technicien affecté à cette intervention. Affectez d'abord un technicien pour émettre l'ordre de mission.");
+        return;
+      }
+      setShowOrderGenerator(true);
+    } catch (error) {
+      console.error("Erreur préparation ordre de mission:", error);
+      toast.error("Impossible de préparer l'ordre de mission");
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
+      {printingOrder && (
+        <MissionOrderPrint
+          mission={printingOrder.mission}
+          technicien={printingOrder.technicien}
+          missionOrder={printingOrder.missionOrder}
+          interventionTitle={printingOrder.interventionTitle}
+          onClose={() => setPrintingOrder(null)}
+        />
+      )}
+      <GenerateMissionOrderDialog
+        isOpen={showOrderGenerator}
+        onClose={() => setShowOrderGenerator(false)}
+        mission={intervention?.mission}
+        intervention={intervention}
+        techniciens={techniciens}
+        onGenerated={(orders) => {
+          if (orders.length > 0) {
+            const first = orders[0];
+            setPrintingOrder({
+              mission: first.mission,
+              technicien: first.technicien,
+              missionOrder: first,
+              interventionTitle: first.intervention?.titre,
+            });
+            if (orders.length > 1) {
+              toast.success(`${orders.length} ordres de mission ont ete generes. Le premier s'ouvre pour impression.`);
+            }
+          }
+        }}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -169,6 +231,12 @@ export default function InterventionDetailPage() {
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/technical/interventions`)}>
             <Edit className="w-4 h-4 mr-2" />
             Modifier
+          </Button>
+        )}
+        {canExport && (
+          <Button variant="outline" size="sm" onClick={handleMissionOrderPrint}>
+            <FileText className="w-4 h-4 mr-2" />
+            Ordre de mission
           </Button>
         )}
         {canExport && (
