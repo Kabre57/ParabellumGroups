@@ -31,7 +31,8 @@ const formatDateFr = (date) => {
 
 const buildMissionOrderHtml = (order) => {
   const technicianName = [order.technicien?.prenom, order.technicien?.nom].filter(Boolean).join(' ').trim() || 'TECHNICIEN';
-  const missionTitle = (order.mission?.titre || order.objetMission || 'MISSION').toUpperCase();
+  const destination = (order.destination || 'DESTINATION A PRECISER').toUpperCase();
+  const missionTitle = `MISSION A ${destination}`;
 
   return `
     <!DOCTYPE html>
@@ -60,9 +61,8 @@ const buildMissionOrderHtml = (order) => {
       </head>
       <body>
         <div class="top">
-          <div class="brand">Progi-Teck</div>
-          <div class="meta">Abidjan, le ${escapeHtml(new Date().toLocaleDateString('fr-FR'))}
-N° Mission: ${escapeHtml(order.numeroOrdre)}</div>
+          <div class="meta" style="text-align:left;">Ordre de mission N° ${escapeHtml(order.numeroOrdre)}</div>
+          <div class="meta">Abidjan, le ${escapeHtml(new Date().toLocaleDateString('fr-FR'))}</div>
         </div>
 
         <div class="title-box">
@@ -76,8 +76,8 @@ N° Mission: ${escapeHtml(order.numeroOrdre)}</div>
         <div class="line"><div class="label">Pièce d'identité</div><div>:</div><div class="value">${escapeHtml(order.pieceIdentite || 'NON RENSEIGNE')}</div></div>
         <div class="line"><div class="label">Fonction</div><div>:</div><div class="value">${escapeHtml((order.fonction || '').toUpperCase())}</div></div>
         <div class="line"><div class="label">En Qualité de</div><div>:</div><div class="value">${escapeHtml((order.qualite || '').toUpperCase())}</div></div>
-        <div class="line"><div class="label">De se rendre en mission à</div><div>:</div><div class="value">${escapeHtml((order.destination || '').toUpperCase())}</div></div>
-        <div class="line"><div class="label">Objet de la mission</div><div>:</div><div class="value">${escapeHtml((order.objetMission || '').toUpperCase())}</div></div>
+        <div class="line"><div class="label">De se rendre en mission à</div><div>:</div><div class="value">${escapeHtml(destination)}</div></div>
+        <div class="line"><div class="label">Objet de la mission</div><div>:</div><div class="value">${escapeHtml(order.objetMission || '')}</div></div>
         <div class="line"><div class="label">Moyen de transport</div><div>:</div><div class="value">${escapeHtml((order.vehiculeLabel || order.vehiculeType || '').toUpperCase())}</div></div>
         <div class="line"><div class="label">Date de départ</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateDepart))}</div></div>
         <div class="line"><div class="label">Date de retour</div><div>:</div><div class="value">${escapeHtml(formatDateFr(order.dateRetour))}</div></div>
@@ -150,40 +150,49 @@ exports.getAll = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 20,
+      limit,
+      pageSize,
       missionId,
       interventionId,
       technicienId,
       status,
       search,
+      dateFrom,
+      dateTo,
     } = req.query;
 
+    const effectiveLimit = parseInt(limit || pageSize || 20, 10);
     const where = {};
 
     if (missionId) where.missionId = missionId;
     if (interventionId) where.interventionId = interventionId;
     if (technicienId) where.technicienId = technicienId;
     if (status && ORDER_STATUSES.includes(status)) where.status = status;
+    if (dateFrom || dateTo) {
+      where.dateDepart = {};
+      if (dateFrom) where.dateDepart.gte = new Date(dateFrom);
+      if (dateTo) where.dateDepart.lte = new Date(dateTo);
+    }
     if (search) {
       where.OR = [
         { numeroOrdre: { contains: search, mode: 'insensitive' } },
         { destination: { contains: search, mode: 'insensitive' } },
         { objetMission: { contains: search, mode: 'insensitive' } },
-        { mission: { titre: { contains: search, mode: 'insensitive' } } },
-        { technicien: { nom: { contains: search, mode: 'insensitive' } } },
-        { technicien: { prenom: { contains: search, mode: 'insensitive' } } },
+        { mission: { is: { titre: { contains: search, mode: 'insensitive' } } } },
+        { technicien: { is: { nom: { contains: search, mode: 'insensitive' } } } },
+        { technicien: { is: { prenom: { contains: search, mode: 'insensitive' } } } },
       ];
     }
 
-    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const skip = (parseInt(page, 10) - 1) * effectiveLimit;
 
     const [orders, total] = await Promise.all([
       prisma.ordreMission.findMany({
         where,
         skip,
-        take: parseInt(limit, 10),
+        take: effectiveLimit,
         include: includeOrderRelations,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ dateDepart: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.ordreMission.count({ where }),
     ]);
@@ -193,9 +202,9 @@ exports.getAll = async (req, res) => {
       message: 'Ordres de mission recuperes avec succes',
       data: orders,
       page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      limit: effectiveLimit,
       total,
-      pages: Math.ceil(total / parseInt(limit, 10)),
+      pages: Math.ceil(total / effectiveLimit),
     });
   } catch (error) {
     console.error('Error in getAll ordres mission:', error);

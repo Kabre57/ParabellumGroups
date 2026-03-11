@@ -6,14 +6,23 @@ import { Mission, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { MissionForm } from '@/components/technical/MissionForm';
 import { CreateMissionModal } from '@/components/technical/CreateMissionModal';
 import { toast } from 'sonner';
+import MissionOrderPrint from '@/components/printComponents/MissionOrderPrint';
 import MissionPrint from '@/components/printComponents/MissionPrint';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -31,11 +40,14 @@ const prioriteColors: Record<string, string> = {
 
 export default function MissionsPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedMission, setSelectedMission] = useState<Mission | undefined>();
   const [printingMission, setPrintingMission] = useState<Mission | null>(null);
+  const [printingOrder, setPrintingOrder] = useState<{ mission: Mission; technicien: any; interventionTitle?: string } | null>(null);
+  const [orderSelection, setOrderSelection] = useState<{ mission: Mission; recipients: Array<{ key: string; technicien: any; interventionTitle?: string }> } | null>(null);
   const [isPrinting, setIsPrinting] = useState<string | null>(null);
 
   const { data: missions = [], isLoading, error, refetch } = useMissions({ pageSize: 100 });
@@ -61,9 +73,15 @@ export default function MissionsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
+  const hasMissionInterventions = (mission: Mission) =>
+    (mission._count?.interventions || 0) > 0 || (mission.interventions?.length || 0) > 0;
+
+  const hasCompletedIntervention = (mission: Mission) =>
+    (mission.interventions || []).some((intervention) => intervention.status === 'TERMINEE');
+
+  const handleDelete = (id: string, force = false) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
-      deleteMutation.mutate(id, {
+      deleteMutation.mutate({ id, force }, {
         onSuccess: () => {
           toast.success('Mission supprimée avec succès');
           refetch();
@@ -150,10 +168,74 @@ export default function MissionsPage() {
     try {
       const missionResp = await technicalService.getMission(mission.id);
       const fullMission = (missionResp as any)?.data ?? missionResp;
-      setPrintingMission(fullMission?.data ?? fullMission ?? mission);
+      const printableMission = fullMission?.data ?? fullMission ?? mission;
+      setPrintingMission(printableMission);
     } catch (error) {
-      console.error('Erreur impression mission:', error);
-      setPrintingMission(mission);
+      console.error('Erreur impression fiche mission:', error);
+      toast.error('Impossible de préparer la fiche mission');
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
+  const handleMissionOrderPrint = async (mission: Mission) => {
+    setIsPrinting(mission.id);
+    try {
+      const missionResp = await technicalService.getMission(mission.id);
+      const fullMission = (missionResp as any)?.data ?? missionResp;
+      const printableMission = fullMission?.data ?? fullMission ?? mission;
+
+      const recipientsMap = new Map<string, { key: string; technicien: any; interventionTitle?: string }>();
+
+      (printableMission?.interventions || []).forEach((intervention: any) => {
+        (intervention?.techniciens || []).forEach((assignment: any) => {
+          const technicien = assignment?.technicien;
+          if (!technicien?.id) return;
+          if (!recipientsMap.has(technicien.id)) {
+            recipientsMap.set(technicien.id, {
+              key: technicien.id,
+              technicien,
+              interventionTitle: intervention?.titre,
+            });
+          }
+        });
+      });
+
+      (printableMission?.techniciens || []).forEach((assignment: any) => {
+        const technicien = assignment?.technicien;
+        if (!technicien?.id) return;
+        if (!recipientsMap.has(technicien.id)) {
+          recipientsMap.set(technicien.id, {
+            key: technicien.id,
+            technicien,
+            interventionTitle: assignment?.role,
+          });
+        }
+      });
+
+      const recipients = Array.from(recipientsMap.values());
+
+      if (recipients.length === 0) {
+        toast.error("Aucun technicien n'est encore affecté à une intervention de cette mission. Affectez d'abord un technicien sur l'intervention concernée.");
+        return;
+      }
+
+      if (recipients.length === 1) {
+        setPrintingOrder({
+          mission: printableMission,
+          technicien: recipients[0].technicien,
+          interventionTitle: recipients[0].interventionTitle,
+        });
+        return;
+      }
+
+      setOrderSelection({
+        mission: printableMission,
+        recipients,
+      });
+    } catch (error) {
+      console.error('Erreur impression ordre mission:', error);
+      toast.error('Impossible de préparer l’ordre de mission');
     } finally {
       setIsPrinting(null);
     }
@@ -191,12 +273,60 @@ export default function MissionsPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {printingOrder && (
+        <MissionOrderPrint
+          mission={printingOrder.mission}
+          technicien={printingOrder.technicien}
+          interventionTitle={printingOrder.interventionTitle}
+          onClose={() => setPrintingOrder(null)}
+        />
+      )}
       {printingMission && (
         <MissionPrint
           mission={printingMission}
           onClose={() => setPrintingMission(null)}
         />
       )}
+      <Dialog open={!!orderSelection} onOpenChange={(open) => !open && setOrderSelection(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Choisir le technicien</DialogTitle>
+            <DialogDescription>
+              Un ordre de mission nominatif sera imprimé pour le technicien sélectionné.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {orderSelection?.recipients.map((recipient) => (
+              <div
+                key={recipient.key}
+                className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+              >
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {[recipient.technicien?.prenom, recipient.technicien?.nom].filter(Boolean).join(' ') || recipient.technicien?.nom}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {recipient.technicien?.specialite?.nom || recipient.interventionTitle || 'Technicien d’intervention'}
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (!orderSelection) return;
+                    setPrintingOrder({
+                      mission: orderSelection.mission,
+                      technicien: recipient.technicien,
+                      interventionTitle: recipient.interventionTitle,
+                    });
+                    setOrderSelection(null);
+                  }}
+                >
+                  Imprimer
+                </Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Missions Techniques</h1>
@@ -214,6 +344,7 @@ export default function MissionsPage() {
       {canCreate && showForm && !selectedMission && (
         <CreateMissionModal
           isOpen={true}
+          onCreated={() => refetch()}
           onClose={() => {
             setShowForm(false);
             setSelectedMission(undefined);
@@ -287,7 +418,14 @@ export default function MissionsPage() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredMissions.map((mission: Mission) => (
+              {filteredMissions.map((mission: Mission) => {
+                const missionHasInterventions = hasMissionInterventions(mission);
+                const missionLocked = hasCompletedIntervention(mission);
+                const canEditMission = canUpdate && !missionLocked;
+                const canDeleteMission = canDelete && (isAdmin || (!missionHasInterventions && !missionLocked));
+                const canChangeStatus = canApprove && !missionLocked;
+
+                return (
                 <tr 
                   key={mission.id} 
                   className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -361,7 +499,7 @@ export default function MissionsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          title="Imprimer"
+                          title="Imprimer la fiche mission"
                           onClick={() => handlePrint(mission)}
                           disabled={isPrinting === mission.id}
                         >
@@ -372,7 +510,18 @@ export default function MissionsPage() {
                           )}
                         </Button>
                       )}
-                      {canUpdate && (
+                      {canExport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Générer un ordre de mission"
+                          onClick={() => handleMissionOrderPrint(mission)}
+                          disabled={isPrinting === mission.id}
+                        >
+                          <FileText className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {canEditMission && (
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -383,11 +532,11 @@ export default function MissionsPage() {
                           Modifier
                         </Button>
                       )}
-                      {canDelete && (
+                      {canDeleteMission && (
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          onClick={() => handleDelete(mission.id)}
+                          onClick={() => handleDelete(mission.id, isAdmin)}
                           disabled={deleteMutation.isPending}
                           className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
@@ -396,7 +545,7 @@ export default function MissionsPage() {
                       )}
                     </div>
                     {/* Sélecteur de statut rapide */}
-                    {canApprove && (
+                    {canChangeStatus && (
                       <div className="mt-2">
                         <select
                           value={mission.status}
@@ -410,9 +559,20 @@ export default function MissionsPage() {
                         </select>
                       </div>
                     )}
+                    {missionHasInterventions && !missionLocked && (
+                      <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                        Suppression bloquée: cette mission a déjà des interventions.
+                      </div>
+                    )}
+                    {missionLocked && (
+                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Mission verrouillée: une intervention terminée est liée à cette mission.
+                      </div>
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
 

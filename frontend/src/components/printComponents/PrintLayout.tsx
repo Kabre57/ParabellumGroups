@@ -8,18 +8,20 @@ interface PrintLayoutProps {
   meta?: string;
   onClose: () => void;
   showFooter?: boolean;
+  orientation?: 'portrait' | 'landscape';
   children: React.ReactNode;
 }
 
-const buildPrintDocument = (content: string) => `<!DOCTYPE html>
+const buildPrintDocument = (content: string, origin: string, orientation: 'portrait' | 'landscape') => `<!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="${origin}/" />
     <title></title>
     <style>
       @page {
-        size: A4 portrait;
+        size: A4 ${orientation};
         margin: 10mm;
       }
 
@@ -36,8 +38,8 @@ const buildPrintDocument = (content: string) => `<!DOCTYPE html>
       }
 
       .print-sheet {
-        width: 190mm;
-        min-height: 277mm;
+        width: ${orientation === 'landscape' ? '277mm' : '190mm'};
+        min-height: ${orientation === 'landscape' ? '190mm' : '277mm'};
         margin: 0 auto;
         box-sizing: border-box;
         display: flex;
@@ -133,6 +135,14 @@ const buildPrintDocument = (content: string) => `<!DOCTYPE html>
       .block {
         display: block;
       }
+
+      .flex {
+        display: flex;
+      }
+
+      .items-center {
+        align-items: center;
+      }
     </style>
   </head>
   <body>
@@ -146,48 +156,86 @@ export default function PrintLayout({
   meta,
   onClose,
   showFooter = true,
+  orientation = 'portrait',
   children,
 }: PrintLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const printDocument = async () => {
-      const node = containerRef.current;
-      if (!node) return;
+    const node = containerRef.current;
+    if (!node) {
+      return;
+    }
 
-      const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1200');
-      if (!printWindow) {
-        onClose();
+    const html = buildPrintDocument(node.outerHTML, window.location.origin, orientation);
+    let finalized = false;
+    let iframe: HTMLIFrameElement | null = document.createElement('iframe');
+
+    const finalize = () => {
+      if (finalized) return;
+      finalized = true;
+      if (iframe?.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+      iframe = null;
+      onClose();
+    };
+
+    const printFromIframe = () => {
+      if (!iframe) {
+        finalize();
         return;
       }
 
-      const html = buildPrintDocument(node.outerHTML);
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.document.title = '';
-
-      const finalize = () => {
-        printWindow.close();
-        onClose();
-      };
-
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.focus();
-          printWindow.print();
-          setTimeout(finalize, 300);
-        }, 250);
-      };
+      const printWindow = iframe.contentWindow;
+      if (!printWindow) {
+        finalize();
+        return;
+      }
 
       printWindow.onafterprint = finalize;
+      window.setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch {
+          finalize();
+        }
+      }, 250);
     };
 
-    const timer = window.setTimeout(printDocument, 150);
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.onload = printFromIframe;
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      finalize();
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const timeout = window.setTimeout(() => {
+      if (!finalized) {
+        printFromIframe();
+      }
+    }, 1200);
+
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(timeout);
+      finalize();
     };
-  }, [onClose, title]);
+  }, [onClose, title, orientation]);
 
   return (
     <div
@@ -196,7 +244,7 @@ export default function PrintLayout({
         position: 'fixed',
         left: '-99999px',
         top: 0,
-        width: '210mm',
+        width: orientation === 'landscape' ? '297mm' : '210mm',
         pointerEvents: 'none',
         opacity: 0,
       }}
@@ -226,9 +274,9 @@ export default function PrintLayout({
         {showFooter && (
           <div className="print-footer">
             <div>PROGITECK • Service Technique Professionnel</div>
-            <div>Siège Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
-            <div>Email : contact@progiteck.ci • Tél : +225 27 20 21 22 23</div>
-            <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D&apos;IVOIRE</div>
+            <div>Siege Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
+            <div>Email : contact@progiteck.ci • Tel : +225 27 20 21 22 23</div>
+            <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D'IVOIRE</div>
           </div>
         )}
       </div>

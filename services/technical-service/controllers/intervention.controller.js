@@ -1,7 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { isForceDelete } = require('../utils/authz');
 
 const VALID_STATUSES = ['PLANIFIEE', 'EN_COURS', 'TERMINEE', 'ANNULEE'];
+
+const getInterventionLockState = (id, includeRelations = false) =>
+  prisma.intervention.findUnique({
+    where: { id },
+    include: includeRelations ? { techniciens: true } : undefined,
+  });
+
+const isLockedIntervention = (intervention) => intervention?.status === 'TERMINEE';
 
 exports.getAll = async (req, res) => {
   try {
@@ -86,17 +95,19 @@ exports.addTechnicien = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        techniciens: true
-      }
-    });
+    const intervention = await getInterventionLockState(id, true);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -189,14 +200,19 @@ exports.addMateriel = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -486,6 +502,13 @@ exports.complete = async (req, res) => {
       });
     }
 
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
+      });
+    }
+
     const dateFin = new Date();
     const dureeReelle = intervention.dateDebut ? 
       (dateFin - intervention.dateDebut) / (1000 * 60 * 60) : null;
@@ -540,17 +563,19 @@ exports.addTechnicien = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        techniciens: true
-      }
-    });
+    const intervention = await getInterventionLockState(id, true);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -643,14 +668,19 @@ exports.addMateriel = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -758,7 +788,15 @@ exports.getById = async (req, res) => {
           select: {
             id: true,
             numeroMission: true,
-            titre: true
+            titre: true,
+            clientNom: true,
+            clientContact: true,
+            adresse: true,
+            dateDebut: true,
+            dateFin: true,
+            description: true,
+            status: true,
+            priorite: true,
           }
         },
         techniciens: {
@@ -849,17 +887,19 @@ exports.addTechnicien = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        techniciens: true
-      }
-    });
+    const intervention = await getInterventionLockState(id, true);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -952,14 +992,19 @@ exports.addMateriel = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1072,14 +1117,19 @@ exports.update = async (req, res) => {
     } = req.body;
 
     // Vérifier si l'intervention existe
-    const interventionExist = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const interventionExist = await getInterventionLockState(id);
 
     if (!interventionExist) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(interventionExist)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1165,17 +1215,19 @@ exports.addTechnicien = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        techniciens: true
-      }
-    });
+    const intervention = await getInterventionLockState(id, true);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1268,14 +1320,19 @@ exports.addMateriel = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1376,11 +1433,10 @@ exports.addMateriel = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
+    const forceDelete = isForceDelete(req);
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
@@ -1389,8 +1445,29 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.intervention.delete({
-      where: { id }
+    if (isLockedIntervention(intervention) && !forceDelete) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut pas être supprimée'
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (forceDelete) {
+        await tx.rapport.deleteMany({
+          where: { interventionId: id }
+        });
+        await tx.sortieMateriel.deleteMany({
+          where: { interventionId: id }
+        });
+        await tx.interventionTechnicien.deleteMany({
+          where: { interventionId: id }
+        });
+      }
+
+      await tx.intervention.delete({
+        where: { id }
+      });
     });
 
     res.json({
@@ -1422,17 +1499,19 @@ exports.addTechnicien = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        techniciens: true
-      }
-    });
+    const intervention = await getInterventionLockState(id, true);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1525,14 +1604,19 @@ exports.addMateriel = async (req, res) => {
     }
 
     // Vérifier si l'intervention existe
-    const intervention = await prisma.intervention.findUnique({
-      where: { id }
-    });
+    const intervention = await getInterventionLockState(id);
 
     if (!intervention) {
       return res.status(404).json({
         success: false,
         error: 'Intervention non trouvée'
+      });
+    }
+
+    if (isLockedIntervention(intervention)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Une intervention terminée ne peut plus être modifiée'
       });
     }
 
@@ -1625,6 +1709,3 @@ exports.addMateriel = async (req, res) => {
     });
   }
 };
-
-
-

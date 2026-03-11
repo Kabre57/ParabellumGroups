@@ -27,6 +27,7 @@ export default function MissionPrint({ mission, onClose }: MissionPrintProps) {
       title="Fiche de Mission"
       subtitle={mission?.titre || 'Mission'}
       meta={`N° Mission: ${mission?.numeroMission || '-'}\nDate: ${formatDate(mission?.dateDebut)}`}
+      orientation="landscape"
       onClose={onClose}
     >
       <div className="section-title">Informations générales</div>

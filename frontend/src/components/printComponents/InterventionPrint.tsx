@@ -31,7 +31,7 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
       meta={`Ref: ${intervention?.id?.slice?.(0, 8) || 'N/A'}\nDate: ${formatDateTime(intervention?.dateDebut)}`}
       onClose={onClose}
     >
-      <div className="section-title">Informations de l'Intervention</div>
+      <div className="section-title">Informations de l'Intervention et Mission associée</div>
       <table className="table-print">
         <tbody>
           <tr>
@@ -46,24 +46,6 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
             <th>Date fin</th>
             <td>{formatDateTime(intervention?.dateFin)}</td>
           </tr>
-          <tr>
-            <th>Description</th>
-            <td colSpan={3}>{intervention?.description || '-'}</td>
-          </tr>
-          <tr>
-            <th>Résultats</th>
-            <td colSpan={3}>{intervention?.resultats || '-'}</td>
-          </tr>
-          <tr>
-            <th>Observations</th>
-            <td colSpan={3}>{intervention?.observations || '-'}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="section-title">Mission associée</div>
-      <table className="table-print">
-        <tbody>
           <tr>
             <th>N° Mission</th>
             <td>{mission?.numeroMission || '-'}</td>
@@ -137,16 +119,20 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
         </tbody>
       </table>
 
-      <div className="section-title">Observations</div>
+      <div className="section-title">Résultats et Observations</div>
       <table className="table-print">
         <tbody>
           <tr>
-            <th>Observations</th>
-            <td>{intervention?.observations || '-'}</td>
+            <th>Description</th>
+            <td>{intervention?.description || '-'}</td>
           </tr>
           <tr>
             <th>Résultats</th>
             <td>{intervention?.resultats || '-'}</td>
+          </tr>
+          <tr>
+            <th>Observations</th>
+            <td>{intervention?.observations || '-'}</td>
           </tr>
         </tbody>
       </table>

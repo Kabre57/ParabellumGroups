@@ -26,8 +26,7 @@ const getTechnicienRole = (technicien: any) =>
 
 const getDestination = (adresse?: string) => {
   if (!adresse) return 'DESTINATION À PRÉCISER';
-  const parts = adresse.split(',').map((part) => part.trim()).filter(Boolean);
-  return (parts[parts.length - 1] || parts[parts.length - 2] || adresse).toUpperCase();
+  return adresse.toUpperCase();
 };
 
 const lineStyle: React.CSSProperties = {
@@ -57,7 +56,7 @@ export default function MissionOrderPrint({
   const technicianRole = getTechnicienRole(technicien);
   const missionNumber = missionOrder?.numeroOrdre || mission?.numeroMission || 'MISSION';
   const destination = getDestination(missionOrder?.destination || mission?.adresse);
-  const missionTitle = (mission?.titre || missionOrder?.objetMission || 'Mission').toUpperCase();
+  const missionTitle = `MISSION À ${destination}`;
   const vehiculeLabel = missionOrder?.vehiculeLabel || missionOrder?.vehiculeType || mission?.notes || 'VEHICULE DE SERVICE';
   const orderObject = missionOrder?.objetMission || mission?.description || mission?.titre || 'MISSION TECHNIQUE';
   const dateDepart = missionOrder?.dateDepart || mission?.dateDebut;
@@ -70,11 +69,16 @@ export default function MissionOrderPrint({
     <PrintLayout
       title="Ordre de mission"
       subtitle={`Ordre nominatif - ${technicianName}`}
-      meta={`Abidjan, le ${formatPrintDate()}\nN° Mission: ${missionNumber}`}
+      meta=""
       onClose={onClose}
       showFooter={false}
     >
       <div style={{ paddingTop: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, fontSize: 14 }}>
+          <div style={{ fontStyle: 'italic' }}>Ordre de mission N° {missionNumber}</div>
+          <div>Abidjan, le {formatPrintDate()}</div>
+        </div>
+
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
@@ -89,7 +93,7 @@ export default function MissionOrderPrint({
           >
             ORDRE DE MISSION
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 20, fontWeight: 500, textTransform: 'uppercase', marginBottom: 10 }}>
             {missionTitle}
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, textTransform: 'uppercase' }}>
@@ -126,7 +130,7 @@ export default function MissionOrderPrint({
           <div style={lineStyle}>
             <strong>Objet de la mission</strong>
             <span>:</span>
-            <span style={valueStyle}>{orderObject.toUpperCase()}</span>
+            <span style={valueStyle}>{orderObject}</span>
           </div>
           <div style={lineStyle}>
             <strong>Moyen de transport</strong>

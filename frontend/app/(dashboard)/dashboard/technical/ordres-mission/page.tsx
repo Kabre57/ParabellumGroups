@@ -25,6 +25,10 @@ export default function MissionOrdersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [missionFilter, setMissionFilter] = useState('');
+  const [technicienFilter, setTechnicienFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<MissionOrder | null>(null);
   const [editingOrder, setEditingOrder] = useState<MissionOrder | null>(null);
 
@@ -36,10 +40,45 @@ export default function MissionOrdersPage() {
     update: ['mission_orders.update'],
   });
 
+  const missionOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          orders
+            .filter((order) => order.mission?.id)
+            .map((order) => [order.mission!.id, { id: order.mission!.id, label: order.mission?.titre || order.numeroOrdre }]),
+        ).values(),
+      ),
+    [orders],
+  );
+
+  const technicienOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          orders
+            .filter((order) => order.technicien?.id)
+            .map((order) => [
+              order.technicien!.id,
+              {
+                id: order.technicien!.id,
+                label: [order.technicien?.prenom, order.technicien?.nom].filter(Boolean).join(' ') || order.technicien?.nom || order.numeroOrdre,
+              },
+            ]),
+        ).values(),
+      ),
+    [orders],
+  );
+
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
         const matchesStatus = !statusFilter || order.status === statusFilter;
+        const matchesMission = !missionFilter || order.mission?.id === missionFilter;
+        const matchesTechnicien = !technicienFilter || order.technicien?.id === technicienFilter;
+        const orderDate = order.dateDepart ? new Date(order.dateDepart) : null;
+        const matchesDateFrom = !dateFrom || (orderDate && orderDate >= new Date(`${dateFrom}T00:00:00`));
+        const matchesDateTo = !dateTo || (orderDate && orderDate <= new Date(`${dateTo}T23:59:59`));
         const haystack = [
           order.numeroOrdre,
           order.objetMission,
@@ -51,9 +90,9 @@ export default function MissionOrdersPage() {
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
-        return matchesStatus && haystack.includes(search.toLowerCase());
+        return matchesStatus && matchesMission && matchesTechnicien && matchesDateFrom && matchesDateTo && haystack.includes(search.toLowerCase());
       }),
-    [orders, search, statusFilter],
+    [orders, search, statusFilter, missionFilter, technicienFilter, dateFrom, dateTo],
   );
 
   const handlePrint = async (order: MissionOrder) => {
@@ -116,7 +155,7 @@ export default function MissionOrdersPage() {
       </div>
 
       <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="grid gap-4 lg:grid-cols-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <Input
@@ -127,6 +166,28 @@ export default function MissionOrdersPage() {
             />
           </div>
           <select
+            value={missionFilter}
+            onChange={(e) => setMissionFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-4 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">Toutes les missions</option>
+            {missionOptions.map((mission) => (
+              <option key={mission.id} value={mission.id}>{mission.label}</option>
+            ))}
+          </select>
+          <select
+            value={technicienFilter}
+            onChange={(e) => setTechnicienFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-4 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">Tous les techniciens</option>
+            {technicienOptions.map((technicien) => (
+              <option key={technicien.id} value={technicien.id}>{technicien.label}</option>
+            ))}
+          </select>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-gray-300 px-4 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -136,6 +197,19 @@ export default function MissionOrdersPage() {
             <option value="IMPRIME">Imprime</option>
             <option value="ARCHIVE">Archive</option>
           </select>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch('');
+              setMissionFilter('');
+              setTechnicienFilter('');
+              setDateFrom('');
+              setDateTo('');
+              setStatusFilter('');
+            }}
+          >
+            Réinitialiser
+          </Button>
         </div>
       </div>
 
