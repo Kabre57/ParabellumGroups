@@ -24,6 +24,8 @@ export interface CreateInterventionRequest {
   missionId: string;
   titre: string;
   description?: string;
+  resultats?: string;
+  observations?: string;
   dateDebut: string;
   dateFin?: string;
   dureeEstimee?: number;
@@ -89,8 +91,10 @@ export const interventionsService = {
     return response.data;
   },
 
-  async deleteIntervention(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/technical/interventions/${id}`);
+  async deleteIntervention(id: string, options?: { force?: boolean }): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/technical/interventions/${id}`, {
+      params: options?.force ? { force: 'true' } : undefined,
+    });
     return response.data;
   },
 

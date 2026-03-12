@@ -97,7 +97,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Équipe Technique', href: '/dashboard/technical/techniciens', icon: UserCheck, permission: 'techniciens.read', categoryId: 'technical' },
   { name: 'Spécialités', href: '/dashboard/technical/specialites', icon: Award, permission: 'specialites.read', categoryId: 'technical' },
   { name: 'Gestion du Matériel', href: '/dashboard/technical/materiel', icon: Package, permission: 'materiel.read', categoryId: 'technical' },
-  { name: 'Rapports Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'missions.read', categoryId: 'technical' },
+  { name: 'Rapports Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'interventions.create_report', categoryId: 'technical' },
 
   { name: 'Dashboard Projets', href: '/dashboard/projets', icon: Home, permission: 'projects.read', categoryId: 'projects', isServiceDashboard: true },
   { name: 'Projets', href: '/dashboard/projets', icon: FolderKanban, permission: 'projects.read', categoryId: 'projects' },

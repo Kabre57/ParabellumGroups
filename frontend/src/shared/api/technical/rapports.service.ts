@@ -26,6 +26,8 @@ export interface CreateRapportRequest {
   contenu: string;
   conclusions?: string;
   recommandations?: string;
+  resultats?: string;
+  observations?: string;
 }
 
 export interface UpdateRapportRequest {
@@ -33,6 +35,8 @@ export interface UpdateRapportRequest {
   contenu?: string;
   conclusions?: string;
   recommandations?: string;
+  resultats?: string;
+  observations?: string;
 }
 
 export interface UpdateRapportStatusRequest {

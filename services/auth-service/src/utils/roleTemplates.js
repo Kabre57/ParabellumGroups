@@ -8,7 +8,11 @@ const roleTemplates = {
     'dashboard.view',
     'users.read_own',
     'services.read_own',
-    // add more default rights for employees...
+    'interventions.read',
+    'interventions.create_report',
+    'rapports_techniques.read_own',
+    'rapports_techniques.create',
+    'rapports_techniques.update',
   ],
   SERVICE_MANAGER: [
     'dashboard.view',

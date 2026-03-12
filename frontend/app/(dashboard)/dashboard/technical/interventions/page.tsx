@@ -45,7 +45,7 @@ export default function InterventionsPage() {
   const { canCreate, canUpdate, canDelete, canExport, canApprove } = getCrudVisibility(user, {
     read: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned'],
     create: ['interventions.create'],
-    update: ['interventions.update'],
+    update: ['interventions.update', 'interventions.create_report'],
     remove: ['interventions.delete'],
     approve: ['interventions.complete'],
     export: ['interventions.create_report'],

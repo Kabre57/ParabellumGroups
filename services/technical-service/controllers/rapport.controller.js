@@ -71,7 +71,16 @@ exports.getAll = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { interventionId, titre, contenu, conclusions, recommandations, redacteurId: bodyRedacteurId } = req.body;
+    const {
+      interventionId,
+      titre,
+      contenu,
+      conclusions,
+      recommandations,
+      resultats,
+      observations,
+      redacteurId: bodyRedacteurId,
+    } = req.body;
     const headerRedacteurId = req.headers['x-user-id'];
 
     if (!interventionId || !titre || !contenu) {
@@ -117,36 +126,50 @@ exports.create = async (req, res) => {
       });
     }
 
-    const rapport = await prisma.rapport.create({
-      data: {
-        interventionId,
-        redacteurId,
-        titre,
-        contenu,
-        conclusions,
-        recommandations
-      },
-      include: {
-        intervention: {
-          select: {
-            id: true,
-            titre: true,
-            mission: {
-              select: {
-                numeroMission: true,
-                titre: true
+    const rapport = await prisma.$transaction(async (tx) => {
+      const createdRapport = await tx.rapport.create({
+        data: {
+          interventionId,
+          redacteurId,
+          titre,
+          contenu,
+          conclusions,
+          recommandations
+        },
+        include: {
+          intervention: {
+            select: {
+              id: true,
+              titre: true,
+              mission: {
+                select: {
+                  numeroMission: true,
+                  titre: true
+                }
               }
             }
-          }
-        },
-        redacteur: {
-          select: {
-            id: true,
-            nom: true,
-            prenom: true
+          },
+          redacteur: {
+            select: {
+              id: true,
+              nom: true,
+              prenom: true
+            }
           }
         }
+      });
+
+      if (typeof resultats === 'string' || typeof observations === 'string') {
+        await tx.intervention.update({
+          where: { id: interventionId },
+          data: {
+            ...(typeof resultats === 'string' ? { resultats } : {}),
+            ...(typeof observations === 'string' ? { observations } : {}),
+          }
+        });
       }
+
+      return createdRapport;
     });
 
     res.status(201).json({

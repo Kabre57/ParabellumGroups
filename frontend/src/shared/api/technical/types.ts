@@ -44,6 +44,7 @@ export interface Mission {
   titre: string;
   description?: string;
   clientNom: string;
+  nomAdresseChantier?: string;
   clientContact?: string;
   adresse: string;
   dateDebut: string;

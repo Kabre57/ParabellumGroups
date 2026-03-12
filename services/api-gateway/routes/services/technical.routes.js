@@ -5,17 +5,17 @@ const technicalPermissionRules = [
   {
     pattern: /^\/interventions/,
     permissions: {
-      GET: 'interventions.read',
+      GET: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned', 'interventions.create_report'],
       POST: 'interventions.create',
-      PUT: 'interventions.update',
-      PATCH: 'interventions.update',
+      PUT: ['interventions.update', 'interventions.create_report'],
+      PATCH: ['interventions.update', 'interventions.create_report'],
       DELETE: 'interventions.delete'
     }
   },
   {
     pattern: /^\/missions/,
     permissions: {
-      GET: 'missions.read',
+      GET: ['missions.read', 'missions.read_all', 'missions.read_assigned', 'interventions.create_report'],
       POST: 'missions.create',
       PUT: 'missions.update',
       PATCH: 'missions.update',
@@ -55,7 +55,11 @@ const technicalPermissionRules = [
   {
     pattern: /^\/rapports/,
     permissions: {
-      GET: 'missions.read'
+      GET: ['rapports_techniques.read', 'rapports_techniques.read_own', 'interventions.create_report'],
+      POST: ['rapports_techniques.create', 'interventions.create_report'],
+      PUT: ['rapports_techniques.update', 'interventions.create_report'],
+      PATCH: ['rapports_techniques.update', 'rapports_techniques.validate'],
+      DELETE: ['rapports_techniques.delete']
     }
   },
   {
@@ -128,7 +132,7 @@ module.exports = {
       path: '/missions',
       auth: true,
       permission: {
-        GET: 'missions.read',
+        GET: ['missions.read', 'missions.read_all', 'missions.read_assigned', 'interventions.create_report'],
         POST: 'missions.create',
         PUT: 'missions.update',
         PATCH: 'missions.update',
@@ -140,10 +144,10 @@ module.exports = {
       path: '/interventions',
       auth: true,
       permission: {
-        GET: 'interventions.read',
+        GET: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned', 'interventions.create_report'],
         POST: 'interventions.create',
-        PUT: 'interventions.update',
-        PATCH: 'interventions.update',
+        PUT: ['interventions.update', 'interventions.create_report'],
+        PATCH: ['interventions.update', 'interventions.create_report'],
         DELETE: 'interventions.delete'
       },
       pathRewrite: { '^/interventions': '/api/interventions' },
@@ -151,7 +155,13 @@ module.exports = {
     {
       path: '/rapports',
       auth: true,
-      permission: { GET: 'missions.read' },
+      permission: {
+        GET: ['rapports_techniques.read', 'rapports_techniques.read_own', 'interventions.create_report'],
+        POST: ['rapports_techniques.create', 'interventions.create_report'],
+        PUT: ['rapports_techniques.update', 'interventions.create_report'],
+        PATCH: ['rapports_techniques.update', 'rapports_techniques.validate'],
+        DELETE: ['rapports_techniques.delete']
+      },
       pathRewrite: { '^/rapports': '/api/rapports' },
     },
     {

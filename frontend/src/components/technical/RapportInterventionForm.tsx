@@ -19,6 +19,8 @@ const rapportSchema = z.object({
   interventionId: z.string().min(1, "L'intervention est requise"),
   redacteurId: z.string().optional(),
   workDone: z.string().min(10, 'Veuillez decrire les travaux effectues (min. 10 caracteres)'),
+  resultats: z.string().optional(),
+  observations: z.string().optional(),
   issuesFound: z.string().optional(),
   recommendations: z.string().optional(),
 });
@@ -51,6 +53,8 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
       interventionId: '',
       redacteurId: '',
       workDone: '',
+      resultats: '',
+      observations: '',
       issuesFound: '',
       recommendations: '',
     },
@@ -91,12 +95,22 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
   }, [assignedTechnicienId, interventionId, redacteurId, selectedIntervention, setValue, clearErrors]);
 
   const createMutation = useMutation({
-    mutationFn: (data: { interventionId: string; redacteurId: string; workDone: string; issuesFound?: string; recommendations?: string }) =>
+    mutationFn: (data: {
+      interventionId: string;
+      redacteurId: string;
+      workDone: string;
+      resultats?: string;
+      observations?: string;
+      issuesFound?: string;
+      recommendations?: string;
+    }) =>
       technicalService.createRapport({
         interventionId: data.interventionId,
         redacteurId: data.redacteurId,
         titre: 'Rapport intervention',
         contenu: data.workDone,
+        resultats: data.resultats,
+        observations: data.observations,
         conclusions: data.issuesFound,
         recommandations: data.recommendations,
       } as any),
@@ -122,6 +136,8 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
       interventionId: data.interventionId,
       redacteurId: data.redacteurId,
       workDone: data.workDone,
+      resultats: data.resultats,
+      observations: data.observations,
       issuesFound: data.issuesFound,
       recommendations: data.recommendations,
     });
@@ -331,6 +347,30 @@ export default function RapportInterventionForm({ onSuccess, onCancel }: Rapport
           {errors.workDone && (
             <p className="mt-1 text-sm text-red-600">{errors.workDone.message}</p>
           )}
+        </div>
+
+        <div>
+          <Label htmlFor="resultats">Resultats</Label>
+          <Textarea
+            id="resultats"
+            rows={3}
+            {...register('resultats')}
+            disabled={!!rapportId}
+            placeholder="Resultats de l'intervention..."
+            className="mt-1"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="observations">Observations</Label>
+          <Textarea
+            id="observations"
+            rows={3}
+            {...register('observations')}
+            disabled={!!rapportId}
+            placeholder="Observations terrain, remarques client, points de vigilance..."
+            className="mt-1"
+          />
         </div>
 
         {/* Problemes rencontres */}

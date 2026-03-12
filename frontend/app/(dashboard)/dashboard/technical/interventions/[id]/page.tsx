@@ -127,7 +127,7 @@ export default function InterventionDetailPage() {
   };
   const { canUpdate, canExport, canManageTechnicians, canManageMateriel } = getCrudVisibility(user, {
     read: ['interventions.read', 'interventions.read_all', 'interventions.read_assigned'],
-    update: ['interventions.update'],
+    update: ['interventions.update', 'interventions.create_report'],
     export: ['interventions.create_report'],
     extras: {
       canManageTechnicians: ['interventions.assign_technician', 'interventions.update'],

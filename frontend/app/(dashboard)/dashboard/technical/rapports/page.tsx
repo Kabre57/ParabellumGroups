@@ -23,9 +23,9 @@ export default function RapportsPage() {
   const [isPrinting, setIsPrinting] = useState<string | null>(null);
   const [showCreateRapport, setShowCreateRapport] = useState(false);
   const { canCreate, canExport } = getCrudVisibility(user, {
-    read: ['reports.read', 'reports.read_technical'],
-    create: ['interventions.create_report', 'reports.create_report'],
-    export: ['reports.export', 'interventions.create_report'],
+    read: ['rapports_techniques.read', 'rapports_techniques.read_own', 'reports.read', 'reports.read_technical', 'interventions.create_report'],
+    create: ['rapports_techniques.create', 'interventions.create_report', 'reports.create_report'],
+    export: ['rapports_techniques.export', 'reports.export', 'interventions.create_report'],
   });
 
   // Créer des params de recherche corrects
@@ -243,9 +243,9 @@ function RapportDetailView({ rapportId, onClose, onPrint }: { rapportId: string;
   const [showPdf, setShowPdf] = useState(false);
   const [deletingPhotoUrl, setDeletingPhotoUrl] = useState<string | null>(null);
   const { canDelete, canExport } = getCrudVisibility(user, {
-    read: ['reports.read', 'reports.read_technical'],
-    remove: ['reports.delete'],
-    export: ['reports.export', 'interventions.create_report'],
+    read: ['rapports_techniques.read', 'rapports_techniques.read_own', 'reports.read', 'reports.read_technical', 'interventions.create_report'],
+    remove: ['rapports_techniques.delete', 'reports.delete'],
+    export: ['rapports_techniques.export', 'reports.export', 'interventions.create_report'],
   });
   const { data: rapportResponse, isLoading, error } = useQuery<Awaited<ReturnType<typeof technicalService.getRapport>>>({
     queryKey: ['rapport', rapportId],

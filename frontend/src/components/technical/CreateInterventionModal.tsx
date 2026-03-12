@@ -15,6 +15,8 @@ const createInterventionSchema = z.object({
   dateHeureDebut: z.string().min(1, 'Date de début requise'),
   dateHeureFin: z.string().optional(),
   description: z.string().optional(),
+  resultats: z.string().optional(),
+  observations: z.string().optional(),
   priorite: z.enum(['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE']).default('MOYENNE')
 });
 
@@ -64,6 +66,8 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
       dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16),
+      resultats: '',
+      observations: '',
       priorite: 'MOYENNE'
     }
   });
@@ -95,6 +99,8 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
             dateDebut: data.dateHeureDebut,
             dateFin: data.dateHeureFin,
             description: data.description,
+            resultats: data.resultats,
+            observations: data.observations,
             priorite: data.priorite
           }
         });
@@ -108,6 +114,8 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
           dateDebut: data.dateHeureDebut,
           dateFin: data.dateHeureFin,
           description: data.description,
+          resultats: data.resultats,
+          observations: data.observations,
           priorite: data.priorite
         });
         
@@ -152,6 +160,8 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
               .slice(0, 16),
           dateHeureFin: toLocalInput(data.dateFin),
           description: data.description || '',
+          resultats: data.resultats || '',
+          observations: data.observations || '',
           priorite: data.priorite || 'MOYENNE',
         });
         return;
@@ -164,6 +174,8 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
       dateHeureDebut: new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16),
+      resultats: '',
+      observations: '',
       priorite: 'MOYENNE'
     });
   }, [isOpen, missionId, interventionId, currentIntervention, reset]);
@@ -280,6 +292,26 @@ export const CreateInterventionModal: React.FC<CreateInterventionModalProps> = (
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder="Instructions, objectifs spécifiques, contraintes..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Résultats</label>
+            <textarea
+              {...register('resultats')}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Résultats constatés ou attendus..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observations</label>
+            <textarea
+              {...register('observations')}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Observations de terrain, remarques client, points de vigilance..."
             />
           </div>
 
