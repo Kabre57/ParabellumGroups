@@ -29,9 +29,11 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
       style={{
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
-        overflowWrap: 'anywhere',
+        overflowWrap: 'break-word',
         lineHeight: 1.45,
         minHeight: '22px',
+        width: '100%',
+        display: 'block',
       }}
     >
       {value || '-'}
@@ -136,23 +138,30 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
           </table>
 
           <div className="section-title">Résultats et Observations</div>
-          <table className="table-print" style={{ tableLayout: 'fixed' }}>
+          <table
+            className="table-print"
+            style={{
+              tableLayout: 'fixed',
+              borderCollapse: 'collapse',
+              width: '100%',
+            }}
+          >
             <colgroup>
-              <col style={{ width: '140px' }} />
+              <col style={{ width: '150px' }} />
               <col />
             </colgroup>
             <tbody>
               <tr>
-                <th style={{ width: '140px', minWidth: '140px' }}>Description</th>
-                <td>{renderGrowingCell(intervention?.description)}</td>
+                <th style={{ width: '150px', minWidth: '150px', verticalAlign: 'top' }}>Description</th>
+                <td style={{ verticalAlign: 'top' }}>{renderGrowingCell(intervention?.description)}</td>
               </tr>
               <tr>
-                <th style={{ width: '140px', minWidth: '140px' }}>Résultats</th>
-                <td>{renderGrowingCell(intervention?.resultats)}</td>
+                <th style={{ width: '150px', minWidth: '150px', verticalAlign: 'top' }}>Résultats</th>
+                <td style={{ verticalAlign: 'top' }}>{renderGrowingCell(intervention?.resultats)}</td>
               </tr>
               <tr>
-                <th style={{ width: '140px', minWidth: '140px' }}>Observations</th>
-                <td>{renderGrowingCell(intervention?.observations)}</td>
+                <th style={{ width: '150px', minWidth: '150px', verticalAlign: 'top' }}>Observations</th>
+                <td style={{ verticalAlign: 'top' }}>{renderGrowingCell(intervention?.observations)}</td>
               </tr>
             </tbody>
           </table>
