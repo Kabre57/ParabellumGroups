@@ -43,6 +43,8 @@ export interface Mission {
   numeroMission: string;
   titre: string;
   description?: string;
+  crmClientId?: string;
+  crmAdresseId?: string;
   clientNom: string;
   nomAdresseChantier?: string;
   clientContact?: string;

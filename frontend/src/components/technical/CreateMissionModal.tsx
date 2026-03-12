@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, FileText, Loader2, MapPin, Search, List } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCreateMission } from '@/hooks/useTechnical';
+import { useCreateMission, useResyncMissionFromCrm, useUpdateMission } from '@/hooks/useTechnical';
 import { useClients } from '@/hooks/useCrm';
 import { crmService, type Address, type Client } from '@/shared/api/crm';
-import { technicalService } from '@/shared/api/technical';
+import { technicalService, type Mission } from '@/shared/api/technical';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { hasAnyPermission, hasPermission } from '@/shared/permissions';
+import { hasAnyPermission } from '@/shared/permissions';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ const createMissionSchema = z.object({
   description: z.string().optional(),
   clientId: z.string().min(1, 'Sélectionnez un client CRM'),
   clientNom: z.string().min(1, 'Nom du client requis'),
+  nomAdresseChantier: z.string().optional(),
   clientContact: z.string().optional(),
   adresseId: z.string().min(1, 'Sélectionnez l’adresse du chantier'),
   adresse: z.string().min(1, 'Adresse du chantier requise'),
@@ -41,6 +42,7 @@ interface CreateMissionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: (mission: any) => void;
+  item?: Mission;
 }
 
 const formatAddressLabel = (address: Address) => {
@@ -57,8 +59,17 @@ const formatAddressValue = (address: Address) =>
     .filter(Boolean)
     .join(', ');
 
-export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose, onCreated }) => {
+const getAddressSiteName = (address?: Address) =>
+  address?.nomAdresse?.trim() || [address?.ligne1, address?.ville].filter(Boolean).join(', ');
+
+const formatDateForInput = (dateString?: string) => {
+  if (!dateString) return '';
+  return new Date(dateString).toISOString().split('T')[0];
+};
+
+export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, onClose, onCreated, item }) => {
   const { user } = useAuth();
+  const isEditMode = Boolean(item?.id);
   const canReadCustomers = hasAnyPermission(user, [
     'customers.read',
     'customers.read_all',
@@ -70,10 +81,15 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
     'missions.update',
     'missions.assign',
   ]);
+
   const createMutation = useCreateMission();
+  const updateMutation = useUpdateMission();
+  const resyncMutation = useResyncMissionFromCrm();
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isLoadingClientDetail, setIsLoadingClientDetail] = useState(false);
-  const [clientSearch, setClientSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState(item?.clientNom || '');
   const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
 
   const { data: clientsData, isLoading: isLoadingClients } = useClients(
@@ -101,19 +117,46 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
       dateDebut: new Date().toISOString().split('T')[0],
       clientId: '',
       clientNom: '',
+      nomAdresseChantier: '',
       clientContact: '',
       adresseId: '',
       adresse: '',
+      description: '',
+      dateFin: '',
+      budgetEstime: '',
+      notes: '',
+      titre: '',
     },
   });
 
   const selectedAddressId = watch('adresseId');
+
+  const resetEmpty = () => {
+    reset({
+      priorite: 'MOYENNE',
+      dateDebut: new Date().toISOString().split('T')[0],
+      clientId: '',
+      clientNom: '',
+      nomAdresseChantier: '',
+      clientContact: '',
+      adresseId: '',
+      adresse: '',
+      description: '',
+      dateFin: '',
+      budgetEstime: '',
+      notes: '',
+      titre: '',
+    });
+    setSelectedClient(null);
+    setClientSearch('');
+  };
 
   const handleClientSelect = async (clientId: string) => {
     if (!clientId) {
       setSelectedClient(null);
       setValue('clientId', '');
       setValue('clientNom', '');
+      setValue('nomAdresseChantier', '');
       setValue('clientContact', '');
       setValue('adresseId', '');
       setValue('adresse', '');
@@ -125,11 +168,12 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
       const response = await crmService.getClient(clientId);
       const client = response?.data || (response as any);
       const clientAddresses = client?.adresses || [];
-      const defaultAddress = clientAddresses.find((item: Address) => item.isPrincipal) || clientAddresses[0];
+      const defaultAddress = clientAddresses.find((entry: Address) => entry.isPrincipal) || clientAddresses[0];
 
       setSelectedClient(client);
       setValue('clientId', client.id);
       setValue('clientNom', client.nom);
+      setValue('nomAdresseChantier', getAddressSiteName(defaultAddress));
       setValue('clientContact', client.telephone || client.mobile || client.email || '');
       setValue('adresseId', defaultAddress?.id || '');
       setValue('adresse', defaultAddress ? formatAddressValue(defaultAddress) : '');
@@ -142,23 +186,140 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
   };
 
   const handleAddressSelect = (addressId: string) => {
-    const address = addresses.find((item) => item.id === addressId);
+    const address = addresses.find((entry) => entry.id === addressId);
     setValue('adresseId', addressId);
+    setValue('nomAdresseChantier', getAddressSiteName(address));
     setValue('adresse', address ? formatAddressValue(address) : '');
   };
 
+  const handleResyncFromCrm = async () => {
+    if (!item?.id) return;
+
+    try {
+      const response = await resyncMutation.mutateAsync(item.id);
+      const syncedMission = (response as any)?.data ?? response;
+      setValue('clientId', syncedMission?.crmClientId || '');
+      setValue('clientNom', syncedMission?.clientNom || '');
+      setValue('nomAdresseChantier', syncedMission?.nomAdresseChantier || '');
+      setValue('clientContact', syncedMission?.clientContact || '');
+      setValue('adresseId', syncedMission?.crmAdresseId || '');
+      setValue('adresse', syncedMission?.adresse || '');
+      toast.success('Mission resynchronisée depuis le CRM');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Impossible de resynchroniser la mission depuis le CRM');
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!item) {
+      resetEmpty();
+      return;
+    }
+
+    reset({
+      titre: item.titre || '',
+      description: item.description || '',
+      clientId: item.crmClientId || '',
+      clientNom: item.clientNom || '',
+      nomAdresseChantier: item.nomAdresseChantier || '',
+      clientContact: item.clientContact || '',
+      adresseId: item.crmAdresseId || '',
+      adresse: item.adresse || '',
+      dateDebut: formatDateForInput(item.dateDebut),
+      dateFin: formatDateForInput(item.dateFin),
+      priorite: item.priorite || 'MOYENNE',
+      budgetEstime: item.budgetEstime ? String(item.budgetEstime) : '',
+      notes: item.notes || '',
+    });
+    setSelectedClient(null);
+    setClientSearch(item.clientNom || '');
+  }, [isOpen, item, reset]);
+
+  useEffect(() => {
+    if (!isOpen || !item || !canReadCustomers) return;
+
+    let cancelled = false;
+
+    const loadClientFromMission = async () => {
+      try {
+        setIsLoadingClientDetail(true);
+        let client = null;
+
+        if (item.crmClientId) {
+          const detailResponse = await crmService.getClient(item.crmClientId);
+          client = (detailResponse as any)?.data || detailResponse;
+        }
+
+        if (!client) {
+          const response = await crmService.getClients({ pageSize: 100, search: item.clientNom || '' });
+          const list = Array.isArray((response as any)?.data)
+            ? (response as any).data
+            : Array.isArray(response)
+              ? response
+              : [];
+
+          const matchedClient =
+            list.find((entry: Client) => entry.id === item.crmClientId) ||
+            list.find((entry: Client) => entry.nom === item.clientNom) ||
+            list.find((entry: Client) => entry.nom?.toLowerCase() === item.clientNom?.toLowerCase()) ||
+            list[0];
+
+          if (!matchedClient?.id || cancelled) return;
+
+          const detailResponse = await crmService.getClient(matchedClient.id);
+          client = (detailResponse as any)?.data || detailResponse;
+        }
+
+        if (!client || cancelled) return;
+
+        const clientAddresses = Array.isArray(client.adresses) ? client.adresses : [];
+        const matchedAddress =
+          clientAddresses.find((address: Address) => address.id === item.crmAdresseId) ||
+          clientAddresses.find((address: Address) => address.nomAdresse === item.nomAdresseChantier) ||
+          clientAddresses.find((address: Address) => formatAddressValue(address) === item.adresse) ||
+          clientAddresses.find((address: Address) => getAddressSiteName(address) === item.nomAdresseChantier) ||
+          clientAddresses.find((address: Address) => address.isPrincipal) ||
+          clientAddresses[0];
+
+        setSelectedClient(client);
+        setValue('clientId', client.id);
+        setValue('clientNom', client.nom || item.clientNom || '');
+        setValue('clientContact', client.telephone || client.mobile || client.email || item.clientContact || '');
+        setValue('nomAdresseChantier', matchedAddress ? getAddressSiteName(matchedAddress) : item.nomAdresseChantier || '');
+        setValue('adresseId', matchedAddress?.id || '');
+        setValue('adresse', matchedAddress ? formatAddressValue(matchedAddress) : item.adresse || '');
+      } catch (error) {
+        console.error('Impossible de rattacher la mission à son client CRM courant:', error);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingClientDetail(false);
+        }
+      }
+    };
+
+    void loadClientFromMission();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, item, canReadCustomers, setValue]);
+
   const onSubmit = async (data: CreateMissionFormData) => {
     if (!canReadCustomers) {
-      toast.error('La création de mission exige l’accès CRM pour sélectionner un client et son adresse');
+      toast.error('La mission doit sélectionner un client et une adresse depuis le CRM');
       return;
     }
 
     try {
-      const createdResponse = await createMutation.mutateAsync({
+      const payload = {
         titre: data.titre,
         description: data.description,
         clientId: data.clientId,
+        adresseId: data.adresseId,
         clientNom: data.clientNom,
+        nomAdresseChantier: data.nomAdresseChantier || undefined,
         clientContact: data.clientContact || undefined,
         adresse: data.adresse,
         dateDebut: data.dateDebut,
@@ -166,27 +327,34 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         priorite: data.priorite,
         budgetEstime: data.budgetEstime ? parseFloat(data.budgetEstime) : undefined,
         notes: data.notes,
-      } as any);
+      } as any;
 
-      const createdMission = (createdResponse as any)?.data ?? createdResponse;
-      let printableMission = createdMission;
+      const response = isEditMode && item?.id
+        ? await updateMutation.mutateAsync({ id: item.id, data: payload })
+        : await createMutation.mutateAsync(payload);
 
-      if (createdMission?.id) {
+      const savedMission = (response as any)?.data ?? response;
+      let fullMission = savedMission;
+
+      if (savedMission?.id) {
         try {
-          const fullMissionResponse = await technicalService.getMission(createdMission.id);
-          printableMission = (fullMissionResponse as any)?.data ?? fullMissionResponse;
+          const fullMissionResponse = await technicalService.getMission(savedMission.id);
+          fullMission = (fullMissionResponse as any)?.data ?? fullMissionResponse;
         } catch (printLoadError) {
-          console.error('Erreur chargement mission pour impression:', printLoadError);
+          console.error('Erreur chargement mission après sauvegarde:', printLoadError);
         }
       }
 
-      toast.success('Mission créée avec succès');
-      onCreated?.(printableMission);
-      reset();
-      setSelectedClient(null);
+      toast.success(isEditMode ? 'Mission mise à jour avec succès' : 'Mission créée avec succès');
+      onCreated?.(fullMission);
+      resetEmpty();
       onClose();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || error?.message || 'Erreur lors de la création de la mission');
+      toast.error(
+        error?.response?.data?.error ||
+        error?.message ||
+        (isEditMode ? 'Erreur lors de la mise à jour de la mission' : 'Erreur lors de la création de la mission')
+      );
     }
   };
 
@@ -198,13 +366,13 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <h3 className="flex items-center text-lg font-medium text-gray-900 dark:text-white">
             <FileText className="mr-2 h-5 w-5 text-blue-600" />
-            Créer une Mission
+            {isEditMode ? `Modifier la mission: ${item?.numeroMission}` : 'Créer une Mission'}
           </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             type="button"
-            disabled={createMutation.isPending}
+            disabled={isSubmitting}
           >
             <X className="h-6 w-6" />
           </button>
@@ -213,225 +381,230 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 py-4">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-6">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Titre de la Mission *
-            </label>
-            <input
-              {...register('titre')}
-              type="text"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Ex: Installation électrique bâtiment A"
-              disabled={createMutation.isPending}
-            />
-            {errors.titre && <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>}
-          </div>
-
-          <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-            <div>
-              <h4 className="text-base font-semibold text-gray-900 dark:text-white">Client CRM</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Les clients et leurs adresses sont gérés uniquement dans le CRM. La mission réutilise ces données.
-              </p>
-            </div>
-
-            {!canReadCustomers ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                Accès CRM requis: vous devez sélectionner un client existant et l’une de ses adresses.
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Titre de la Mission *</label>
+                <input
+                  {...register('titre')}
+                  type="text"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Ex: Installation électrique bâtiment A"
+                  disabled={isSubmitting}
+                />
+                {errors.titre && <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>}
               </div>
-            ) : (
-              <>
-                <input type="hidden" {...register('clientId')} />
-                <input type="hidden" {...register('clientNom')} />
-                <input type="hidden" {...register('adresseId')} />
 
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/30">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {selectedClient ? selectedClient.nom : 'Aucun client CRM sélectionné'}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {selectedClient
-                          ? selectedClient.email || selectedClient.telephone || 'Aucun contact principal'
-                          : 'Choisissez un client existant dans le CRM'}
-                      </p>
-                    </div>
+              <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                  <h4 className="text-base font-semibold text-gray-900 dark:text-white">Client CRM</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Les clients et leurs adresses sont gérés uniquement dans le CRM. La mission réutilise ces données.
+                  </p>
+                  </div>
+                  {isEditMode && item?.id ? (
                     <button
                       type="button"
-                      onClick={() => setIsClientPickerOpen(true)}
-                  className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                      disabled={createMutation.isPending || isLoadingClients}
+                      onClick={() => void handleResyncFromCrm()}
+                      className="inline-flex shrink-0 items-center rounded-md border border-blue-300 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                      disabled={isSubmitting || resyncMutation.isPending}
                     >
-                      <List className="mr-2 h-4 w-4" />
-                      Choisir dans la liste complète
+                      {resyncMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                      Resynchroniser depuis le CRM
                     </button>
-                  </div>
+                  ) : null}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Client *
-                    </label>
-                    <select
-                      value={selectedClient?.id || ''}
-                      onChange={(event) => void handleClientSelect(event.target.value)}
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      disabled={createMutation.isPending || isLoadingClients || isLoadingClientDetail}
-                    >
-                      <option value="">Sélectionner un client CRM</option>
-                      {clients.map((client: Client) => (
-                        <option key={client.id} value={client.id}>
-                          {client.nom} {client.email ? `(${client.email})` : ''}
+                {!canReadCustomers ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    Accès CRM requis: vous devez sélectionner un client existant et l’une de ses adresses.
+                  </div>
+                ) : (
+                  <>
+                    <input type="hidden" {...register('clientId')} />
+                    <input type="hidden" {...register('clientNom')} />
+                    <input type="hidden" {...register('nomAdresseChantier')} />
+                    <input type="hidden" {...register('adresseId')} />
+
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/30">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {selectedClient ? selectedClient.nom : 'Aucun client CRM sélectionné'}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedClient
+                              ? selectedClient.email || selectedClient.telephone || 'Aucun contact principal'
+                              : 'Choisissez un client existant dans le CRM'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsClientPickerOpen(true)}
+                          className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                          disabled={isSubmitting || isLoadingClients}
+                        >
+                          <List className="mr-2 h-4 w-4" />
+                          Choisir dans la liste complète
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Client *</label>
+                        <select
+                          value={selectedClient?.id || ''}
+                          onChange={(event) => void handleClientSelect(event.target.value)}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          disabled={isSubmitting || isLoadingClients || isLoadingClientDetail}
+                        >
+                          <option value="">Sélectionner un client CRM</option>
+                          {clients.map((client: Client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.nom} {client.email ? `(${client.email})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.clientId && <p className="mt-1 text-sm text-red-600">{errors.clientId.message}</p>}
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Contact client</label>
+                        <input
+                          {...register('clientContact')}
+                          type="text"
+                          readOnly
+                          className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          placeholder="Téléphone ou email"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Adresse du Chantier *</label>
+                      <select
+                        value={selectedAddressId || ''}
+                        onChange={(event) => handleAddressSelect(event.target.value)}
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        disabled={isSubmitting || !selectedClient || isLoadingClientDetail || addresses.length === 0}
+                      >
+                        <option value="">
+                          {selectedClient
+                            ? addresses.length > 0
+                              ? 'Sélectionner une adresse CRM'
+                              : 'Ce client n’a aucune adresse CRM'
+                            : 'Sélectionner d’abord un client CRM'}
                         </option>
-                      ))}
-                    </select>
-                    {errors.clientId && <p className="mt-1 text-sm text-red-600">{errors.clientId.message}</p>}
-                  </div>
+                        {addresses.map((address) => (
+                          <option key={address.id} value={address.id}>
+                            {formatAddressLabel(address)}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.adresseId && <p className="mt-1 text-sm text-red-600">{errors.adresseId.message}</p>}
+                      {selectedClient && addresses.length === 0 && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Ce client doit d’abord avoir une adresse enregistrée dans le CRM avant de pouvoir être utilisé dans une mission.
+                        </p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Contact client
-                    </label>
-                    <input
-                      {...register('clientContact')}
-                      type="text"
-                      readOnly
-                      className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      placeholder="Téléphone ou email"
-                    />
-                  </div>
-                </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Adresse retenue pour la mission</label>
+                      <div className="flex items-start rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                        <MapPin className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+                        <textarea
+                          {...register('adresse')}
+                          readOnly
+                          rows={2}
+                          className="w-full resize-none bg-transparent outline-none"
+                          placeholder="L’adresse sélectionnée dans le CRM sera utilisée pour la mission"
+                        />
+                      </div>
+                      {errors.adresse && <p className="mt-1 text-sm text-red-600">{errors.adresse.message}</p>}
+                    </div>
+                  </>
+                )}
+              </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Adresse du Chantier *
-                  </label>
-                  <select
-                    value={selectedAddressId || ''}
-                    onChange={(event) => handleAddressSelect(event.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    disabled={createMutation.isPending || !selectedClient || isLoadingClientDetail || addresses.length === 0}
-                  >
-                    <option value="">
-                      {selectedClient
-                        ? addresses.length > 0
-                          ? 'Sélectionner une adresse CRM'
-                          : 'Ce client n’a aucune adresse CRM'
-                        : 'Sélectionner d’abord un client CRM'}
-                    </option>
-                    {addresses.map((address) => (
-                      <option key={address.id} value={address.id}>
-                        {formatAddressLabel(address)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.adresseId && <p className="mt-1 text-sm text-red-600">{errors.adresseId.message}</p>}
-                  {selectedClient && addresses.length === 0 && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Ce client doit d’abord avoir une adresse enregistrée dans le CRM avant de pouvoir être utilisé dans une mission.
-                    </p>
-                  )}
-                </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                <textarea
+                  {...register('description')}
+                  rows={6}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Description détaillée de la mission"
+                  disabled={isSubmitting}
+                />
+              </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Adresse retenue pour la mission
-                  </label>
-                  <div className="flex items-start rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                    <MapPin className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
-                    <textarea
-                      {...register('adresse')}
-                      readOnly
-                      rows={2}
-                      className="w-full resize-none bg-transparent outline-none"
-                      placeholder="L’adresse sélectionnée dans le CRM sera utilisée pour la mission"
-                    />
-                  </div>
-                  {errors.adresse && <p className="mt-1 text-sm text-red-600">{errors.adresse.message}</p>}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-            <textarea
-              {...register('description')}
-              rows={6}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Description détaillée de la mission"
-              disabled={createMutation.isPending}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes</label>
-            <textarea
-              {...register('notes')}
-              rows={5}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Notes internes"
-              disabled={createMutation.isPending}
-            />
-          </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes</label>
+                <textarea
+                  {...register('notes')}
+                  rows={5}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Notes internes"
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
 
             <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Début *</label>
-              <input
-                {...register('dateDebut')}
-                type="date"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                disabled={createMutation.isPending}
-              />
-              {errors.dateDebut && <p className="mt-1 text-sm text-red-600">{errors.dateDebut.message}</p>}
-            </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Début *</label>
+                  <input
+                    {...register('dateDebut')}
+                    type="date"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    disabled={isSubmitting}
+                  />
+                  {errors.dateDebut && <p className="mt-1 text-sm text-red-600">{errors.dateDebut.message}</p>}
+                </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Fin</label>
-              <input
-                {...register('dateFin')}
-                type="date"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                disabled={createMutation.isPending}
-              />
-            </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de Fin</label>
+                  <input
+                    {...register('dateFin')}
+                    type="date"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    disabled={isSubmitting}
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Priorité *</label>
-              <select
-                {...register('priorite')}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                disabled={createMutation.isPending}
-              >
-                <option value="BASSE">Basse</option>
-                <option value="MOYENNE">Moyenne</option>
-                <option value="HAUTE">Haute</option>
-                <option value="URGENTE">Urgente</option>
-              </select>
-            </div>
-          </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Priorité *</label>
+                  <select
+                    {...register('priorite')}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    disabled={isSubmitting}
+                  >
+                    <option value="BASSE">Basse</option>
+                    <option value="MOYENNE">Moyenne</option>
+                    <option value="HAUTE">Haute</option>
+                    <option value="URGENTE">Urgente</option>
+                  </select>
+                </div>
+              </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Budget Estimé (FCFA)</label>
-            <input
-              {...register('budgetEstime')}
-              type="number"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              placeholder="Montant estimé"
-              disabled={createMutation.isPending}
-            />
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
-            <p className="font-medium text-gray-900 dark:text-white">Rappel CRM</p>
-            <p className="mt-2">
-              Le client et l’adresse du chantier sont pilotés par le CRM. Cette mission réutilise ces informations sans créer de fiche client locale.
-            </p>
-          </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Budget Estimé (FCFA)</label>
+                <input
+                  {...register('budgetEstime')}
+                  type="number"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Montant estimé"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+                <p className="font-medium text-gray-900 dark:text-white">Rappel CRM</p>
+                <p className="mt-2">
+                  Le client et l’adresse du chantier sont pilotés par le CRM. Cette mission réutilise ces informations sans créer de fiche client locale.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -440,7 +613,7 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               type="button"
               onClick={onClose}
               className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={createMutation.isPending}
+              disabled={isSubmitting}
             >
               Annuler
             </button>
@@ -448,20 +621,20 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
               type="submit"
               className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={
-                createMutation.isPending ||
+                isSubmitting ||
                 !canReadCustomers ||
                 isLoadingClientDetail ||
                 !selectedClient ||
                 addresses.length === 0
               }
             >
-              {createMutation.isPending ? (
+              {isSubmitting ? (
                 <span className="inline-flex items-center">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Création...
+                  {isEditMode ? 'Mise à jour...' : 'Création...'}
                 </span>
               ) : (
-                'Créer la mission'
+                isEditMode ? 'Mettre à jour la mission' : 'Créer la mission'
               )}
             </button>
           </div>
@@ -512,12 +685,8 @@ export const CreateMissionModal: React.FC<CreateMissionModalProps> = ({ isOpen, 
                       <tr key={client.id} className="border-t border-gray-200 dark:border-gray-700">
                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{client.nom}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{client.email || '-'}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {client.telephone || client.mobile || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {client.adresses?.length || 0}
-                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{client.telephone || client.mobile || '-'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{client.adresses?.length || 0}</td>
                         <td className="px-4 py-3 text-right">
                           <button
                             type="button"

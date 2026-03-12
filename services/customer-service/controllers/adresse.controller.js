@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const winston = require('winston');
+const { syncMissionsFromClientAddress } = require('../services/technicalMissionSync');
 
 const prisma = new PrismaClient();
 const logger = winston.createLogger({
@@ -161,6 +162,8 @@ exports.create = async (req, res) => {
       userId: req.user.id
     });
 
+    await syncMissionsFromClientAddress(req, cleanData.clientId, { addressId: adresse.id });
+
     res.status(201).json({
       success: true,
       message: 'Adresse créée avec succès',
@@ -300,6 +303,8 @@ exports.update = async (req, res) => {
       userId: req.user.id
     });
 
+    await syncMissionsFromClientAddress(req, existingAdresse.clientId, { addressId: id });
+
     res.json({
       success: true,
       message: 'Adresse mise à jour avec succès',
@@ -367,6 +372,8 @@ exports.delete = async (req, res) => {
       userId: req.user.id
     });
 
+    await syncMissionsFromClientAddress(req, adresse.clientId, { deletedAddressId: id });
+
     res.status(204).send();
   } catch (error) {
     logger.error('Erreur lors de la suppression de l\'adresse:', error);
@@ -423,6 +430,8 @@ exports.setPrincipal = async (req, res) => {
         data: { isPrincipal: true }
       });
     });
+
+    await syncMissionsFromClientAddress(req, adresse.clientId, { addressId: id });
 
     res.json({
       success: true,

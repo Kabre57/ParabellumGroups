@@ -30,6 +30,11 @@ export const missionsService = {
     return response.data;
   },
 
+  async resyncMissionFromCrm(id: string): Promise<Mission> {
+    const response = await apiClient.patch(`/missions/${id}/resync-crm`);
+    return response.data;
+  },
+
   async updateMissionStatus(id: string, status: string): Promise<Mission> {
     const response = await apiClient.patch(`/missions/${id}/status`, { status });
     return response.data;

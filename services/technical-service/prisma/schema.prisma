@@ -51,7 +51,10 @@ model Mission {
   numeroMission       String   @unique
   titre               String
   description         String?
+  crmClientId         String?
+  crmAdresseId        String?
   clientNom           String
+  nomAdresseChantier  String?
   clientContact       String?
   adresse             String
   dateDebut           DateTime

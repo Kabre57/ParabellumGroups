@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const winston = require('winston');
+const { syncMissionsFromClientAddress } = require('../services/technicalMissionSync');
 
 const prisma = new PrismaClient();
 const logger = winston.createLogger({
@@ -11,6 +12,30 @@ const logger = winston.createLogger({
   ),
   transports: [new winston.transports.Console()]
 });
+
+const normalizeOptionalValue = (value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+const toJsonSafe = (value) =>
+  JSON.parse(
+    JSON.stringify(value, (_, nestedValue) => {
+      if (nestedValue instanceof Date) {
+        return nestedValue.toISOString();
+      }
+
+      if (nestedValue && typeof nestedValue === 'object' && typeof nestedValue.toJSON === 'function') {
+        return nestedValue.toJSON();
+      }
+
+      return nestedValue;
+    })
+  );
 
 /**
  * Generate unique client reference in format CLI-YYYYMM-NNNN
@@ -451,7 +476,9 @@ exports.update = async (req, res) => {
     }
 
     // Prepare update data
-    const dataToUpdate = { ...updateData };
+    const dataToUpdate = Object.fromEntries(
+      Object.entries(updateData).map(([key, value]) => [key, normalizeOptionalValue(value)])
+    );
     if (dataToUpdate.chiffreAffaireAnnuel) {
       dataToUpdate.chiffreAffaireAnnuel = parseFloat(dataToUpdate.chiffreAffaireAnnuel);
     }
@@ -486,9 +513,9 @@ exports.update = async (req, res) => {
             clientId: id,
             typeChangement: 'MODIFICATION',
             entite: 'CLIENT',
-            ancienneValeur: oldClient,
-            nouvelleValeur: updatedClient,
-            differences,
+            ancienneValeur: toJsonSafe(oldClient),
+            nouvelleValeur: toJsonSafe(updatedClient),
+            differences: toJsonSafe(differences),
             modifieParId: req.user.id,
             modifieLe: new Date(),
             ipAddress: req.ip,
@@ -505,6 +532,8 @@ exports.update = async (req, res) => {
       userId: req.user.id,
       fieldsUpdated: Object.keys(updateData)
     });
+
+    await syncMissionsFromClientAddress(req, id);
 
     res.json({
       success: true,

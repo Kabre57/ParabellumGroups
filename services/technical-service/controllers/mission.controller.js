@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer-core');
 const { getNextMissionNumber } = require('../utils/missionNumberGenerator');
 const prisma = new PrismaClient();
 const { isForceDelete } = require('../utils/authz');
+const { syncMissionById, syncMissionsByClient } = require('../services/crmMissionSync');
 
 const VALID_STATUSES = ['PLANIFIEE', 'EN_COURS', 'SUSPENDUE', 'TERMINEE', 'ANNULEE'];
 const VALID_PRIORITIES = ['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE'];
@@ -133,10 +134,9 @@ const buildMissionPdfHtml = (mission) => {
           </table>
 
           <div class="footer">
-            <div>PROGITECK • Service Technique Professionnel</div>
-            <div>Siege Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
-            <div>Email : contact@progiteck.ci • Tel : +225 27 20 21 22 23</div>
-            <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D'IVOIRE</div>
+            <div>SARL au capital de 5 000 000 FCFA Siège Social Abengourou/Treichville RCCM N° CI-ABG-2021-M2-104</div>
+            <div>N°CC : 2029843Z- Email : progiteck31@gmail.com – TEL : 225 0576208494/0142649927/0143859286</div>
+            <div>N° de compte Bancaire : n°CI121 01302 034304800201 24 ORABANK</div>
           </div>
         </div>
       </body>
@@ -223,7 +223,10 @@ exports.create = async (req, res) => {
     const {
       titre,
       description,
+      clientId,
+      adresseId,
       clientNom,
+      nomAdresseChantier,
       clientContact,
       adresse,
       dateDebut,
@@ -254,7 +257,10 @@ exports.create = async (req, res) => {
         numeroMission,
         titre,
         description,
+        crmClientId: clientId || null,
+        crmAdresseId: adresseId || null,
         clientNom,
+        nomAdresseChantier,
         clientContact,
         adresse,
         dateDebut: new Date(dateDebut),
@@ -531,7 +537,10 @@ exports.update = async (req, res) => {
     const {
       titre,
       description,
+      clientId,
+      adresseId,
       clientNom,
+      nomAdresseChantier,
       clientContact,
       adresse,
       dateDebut,
@@ -577,7 +586,10 @@ exports.update = async (req, res) => {
       data: {
         titre,
         description,
+        crmClientId: clientId || undefined,
+        crmAdresseId: adresseId || undefined,
         clientNom,
+        nomAdresseChantier,
         clientContact,
         adresse,
         dateDebut: dateDebut ? new Date(dateDebut) : undefined,
@@ -613,6 +625,55 @@ exports.update = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la mise à jour de la mission'
+    });
+  }
+};
+
+exports.resyncFromCrm = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await syncMissionById(id, req);
+
+    if (!result.updated) {
+      return res.status(400).json({
+        success: false,
+        error: result.reason || 'Impossible de resynchroniser la mission depuis le CRM',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Mission resynchronisée depuis le CRM',
+      data: result.mission,
+    });
+  } catch (error) {
+    console.error('Error in resyncFromCrm:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la resynchronisation CRM de la mission',
+    });
+  }
+};
+
+exports.resyncFromCrmByClient = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { addressId, deletedAddressId } = req.body || {};
+    const result = await syncMissionsByClient({ clientId, addressId, deletedAddressId }, req);
+
+    res.json({
+      success: true,
+      message: 'Missions resynchronisées depuis le CRM',
+      data: {
+        updated: result.updated,
+        missions: result.missions,
+      },
+    });
+  } catch (error) {
+    console.error('Error in resyncFromCrmByClient:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la resynchronisation CRM des missions',
     });
   }
 };

@@ -67,6 +67,19 @@ export function useUpdateMission() {
   });
 }
 
+export function useResyncMissionFromCrm() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => technicalService.resyncMissionFromCrm(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['mission', id] });
+      queryClient.invalidateQueries({ queryKey: ['interventions'] });
+    },
+  });
+}
+
 export function useUpdateMissionStatus() {
   const queryClient = useQueryClient();
 

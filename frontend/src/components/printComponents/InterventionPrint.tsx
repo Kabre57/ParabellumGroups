@@ -24,6 +24,20 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
     });
   };
 
+  const renderGrowingCell = (value?: string) => (
+    <div
+      style={{
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+        lineHeight: 1.45,
+        minHeight: '22px',
+      }}
+    >
+      {value || '-'}
+    </div>
+  );
+
   return (
     <PrintLayout
       title="Fiche d'Intervention"
@@ -56,7 +70,7 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
               </tr>
               <tr>
                 <th>Client</th>
-                <td>{mission?.clientNom || '-'}</td>
+                <td>{mission?.nomAdresseChantier || mission?.adresse?.split?.(',')?.[0]?.trim?.() || mission?.adresse || mission?.clientNom || '-'}</td>
                 <th>Contact</th>
                 <td>{mission?.clientContact || '-'}</td>
               </tr>
@@ -122,19 +136,23 @@ export default function InterventionPrint({ intervention, onClose }: Interventio
           </table>
 
           <div className="section-title">Résultats et Observations</div>
-          <table className="table-print">
+          <table className="table-print" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '140px' }} />
+              <col />
+            </colgroup>
             <tbody>
               <tr>
-                <th>Description</th>
-                <td>{intervention?.description || '-'}</td>
+                <th style={{ width: '140px', minWidth: '140px' }}>Description</th>
+                <td>{renderGrowingCell(intervention?.description)}</td>
               </tr>
               <tr>
-                <th>Résultats</th>
-                <td>{intervention?.resultats || '-'}</td>
+                <th style={{ width: '140px', minWidth: '140px' }}>Résultats</th>
+                <td>{renderGrowingCell(intervention?.resultats)}</td>
               </tr>
               <tr>
-                <th>Observations</th>
-                <td>{intervention?.observations || '-'}</td>
+                <th style={{ width: '140px', minWidth: '140px' }}>Observations</th>
+                <td>{renderGrowingCell(intervention?.observations)}</td>
               </tr>
             </tbody>
           </table>
