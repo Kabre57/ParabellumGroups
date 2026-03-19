@@ -1,4 +1,4 @@
-# 🎨 PARABELLUM ERP - FRONTEND
+# 🎨 Parabellum Groups - FRONTEND
 
 **Framework** : Next.js 16.1.6 avec App Router  
 **Langage** : TypeScript 5.7.2  
@@ -569,7 +569,7 @@ npm start
 **Créer `.env.production`** :
 ```env
 NEXT_PUBLIC_API_GATEWAY_URL=https://api.votredomaine.com
-NEXT_PUBLIC_APP_NAME=Parabellum ERP
+NEXT_PUBLIC_APP_NAME=Parabellum Groups
 NODE_ENV=production
 ```
 
@@ -789,6 +789,6 @@ if (!mounted) return null;
 
 ---
 
-**🎉 Frontend Parabellum ERP - Production Ready !**
+**🎉 Frontend Parabellum Groups - Production Ready !**
 
 _Documentation complète - Frontend Next.js 16 - Version 1.0.0 - Mars 2026_ ✨

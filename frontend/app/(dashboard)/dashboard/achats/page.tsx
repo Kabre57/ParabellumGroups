@@ -63,6 +63,9 @@ export default function ProcurementOverviewPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
+            <Link href="/dashboard/achats/devis">Devis d&apos;achat</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/dashboard/achats/commandes">Commandes</Link>
           </Button>
           <Button asChild variant="outline">
@@ -79,7 +82,7 @@ export default function ProcurementOverviewPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Commandes ce mois</CardTitle>
@@ -104,6 +107,20 @@ export default function ProcurementOverviewPage() {
               <Spinner size="sm" />
             ) : (
               <div className="text-2xl font-bold text-amber-600">{stats?.pendingOrders || 0}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Devis à valider</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Spinner size="sm" />
+            ) : (
+              <div className="text-2xl font-bold text-blue-600">{stats?.pendingApproval || 0}</div>
             )}
           </CardContent>
         </Card>

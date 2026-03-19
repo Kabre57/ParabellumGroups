@@ -9,6 +9,11 @@ import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
 import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
 import { hasPermission, isAdminRole } from '@/shared/permissions';
+import {
+  getFallbackDashboardRoute,
+  getPreferredAnalyticsRoute,
+  getPreferredServiceRoute,
+} from '@/shared/dashboard-routing';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -32,16 +37,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (!requiredPermission) return true;
     return hasPermission(user, requiredPermission);
   }, [requiredPermission, user]);
-  const fallbackRoute = useMemo(() => {
-    const visibleItems = [...sidebarItems, ...adminNavigation].filter((item) => {
-      if (!item.href) return false;
-      if (item.permission === 'admin') return isAdminRole(user);
-      return hasPermission(user, item.permission);
-    });
-
-    const sortedItems = visibleItems.sort((a, b) => (a.href?.length || 0) - (b.href?.length || 0));
-    return sortedItems[0]?.href || '/dashboard';
-  }, [user]);
+  const isAdmin = useMemo(() => isAdminRole(user), [user]);
+  const preferredServiceRoute = useMemo(() => getPreferredServiceRoute(user), [user]);
+  const preferredAnalyticsRoute = useMemo(() => getPreferredAnalyticsRoute(user), [user]);
+  const fallbackRoute = useMemo(() => getFallbackDashboardRoute(user), [user]);
 
   // Vérification d'authentification
   useEffect(() => {
@@ -55,6 +54,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (isLoading || !user || isAdmin) return;
+    if (pathname === '/dashboard' && preferredServiceRoute !== '/dashboard') {
+      router.replace(preferredServiceRoute);
+    }
+    if (pathname === '/dashboard/analytics' && preferredAnalyticsRoute !== '/dashboard/analytics') {
+      router.replace(preferredAnalyticsRoute);
+    }
+  }, [isAdmin, isLoading, pathname, preferredAnalyticsRoute, preferredServiceRoute, router, user]);
 
   useEffect(() => {
     if (isLoading) return;

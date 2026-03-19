@@ -313,6 +313,26 @@ export const adminRolesService = {
     return response.data;
   },
 
+  updateRolePermission: async (
+    id: number,
+    permissionId: number,
+    data: {
+      canView?: boolean;
+      canCreate?: boolean;
+      canEdit?: boolean;
+      canDelete?: boolean;
+      canApprove?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    const response = await apiClient.put<{ success: boolean }>(`/auth/permissions/roles/${id}/${permissionId}`, data);
+    return response.data;
+  },
+
+  deleteRolePermission: async (id: number, permissionId: number): Promise<{ success: boolean }> => {
+    const response = await apiClient.delete<{ success: boolean }>(`/auth/permissions/roles/${id}/${permissionId}`);
+    return response.data;
+  },
+
   setRolePermissions: async (id: number, data: SetPermissionsRequest): Promise<{ success: boolean }> => {
     const response = await apiClient.put<{ success: boolean }>(`/auth/permissions/roles/${id}`, data);
     return response.data;

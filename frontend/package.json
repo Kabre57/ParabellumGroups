@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "node scripts/custom-build.js",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "node ../scripts/run-frontend-lint.mjs",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

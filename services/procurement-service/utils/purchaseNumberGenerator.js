@@ -1,15 +1,15 @@
 /**
  * Generate unique purchase numbers in formats:
- * - DA-YYYYMM-NNNN for Demande Achat
- * - BC-YYYYMM-NNNN for Bon Commande
- * Examples: DA-202601-0001, BC-202601-0001
+ * - DPA-YYYYMM-NNNN for Devis / Demande Achat
+ * - BCA-YYYYMM-NNNN for Bon Commande
+ * Examples: DPA-202601-0001, BCA-202601-0001
  */
 
 async function generateDemandeAchatNumber(prisma) {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const prefix = `DA-${year}${month}`;
+  const prefix = `DPA-${year}${month}`;
 
   // Find the last demande achat number for this month
   const lastDemande = await prisma.demandeAchat.findFirst({
@@ -41,7 +41,7 @@ async function generateBonCommandeNumber(prisma) {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const prefix = `BC-${year}${month}`;
+  const prefix = `BCA-${year}${month}`;
 
   // Find the last bon commande number for this month
   const lastBon = await prisma.bonCommande.findFirst({

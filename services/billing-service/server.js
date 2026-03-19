@@ -14,10 +14,14 @@ app.use(express.urlencoded({ extended: true }));
 const factureRoutes = require('./routes/facture.routes');
 const paiementRoutes = require('./routes/paiement.routes');
 const devisRoutes = require('./routes/devis.routes');
+const purchaseCommitmentRoutes = require('./routes/purchaseCommitment.routes');
+const internalProcurementEventRoutes = require('./routes/internalProcurementEvent.routes');
 
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
 app.use('/api/devis', devisRoutes);
+app.use('/api/purchase-commitments', purchaseCommitmentRoutes);
+app.use('/api/internal/procurement-events', internalProcurementEventRoutes);
 
 // Route de santé
 app.get('/health', (req, res) => {
@@ -38,6 +42,7 @@ app.get('/', (req, res) => {
       factures: '/api/factures',
       paiements: '/api/paiements',
       devis: '/api/devis',
+      purchaseCommitments: '/api/purchase-commitments',
       health: '/health'
     }
   });

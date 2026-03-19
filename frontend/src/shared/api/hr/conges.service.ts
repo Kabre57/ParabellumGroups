@@ -129,6 +129,31 @@ const mapCongeFromApi = (c: any): Conge => ({
   updatedAt: c.updatedAt,
 });
 
+const buildCongeParams = (params?: {
+  page?: number;
+  limit?: number;
+  employeId?: string;
+  typeConge?: TypeConge;
+  statut?: StatutConge;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) =>
+  Object.fromEntries(
+    Object.entries({
+      page: params?.page,
+      limit: params?.limit,
+      employeId: params?.employeId,
+      typeConge: params?.typeConge,
+      status: params?.statut,
+      startDate: params?.startDate,
+      endDate: params?.endDate,
+      sortBy: params?.sortBy,
+      sortOrder: params?.sortOrder,
+    }).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  );
+
 export const congesService = {
   async getConges(params?: {
     page?: number;
@@ -141,13 +166,14 @@ export const congesService = {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Conge>> {
-    const response = await apiClient.get('/hr/leave-requests', { params });
+    const response = await apiClient.get('/hr/leave-requests', { params: buildCongeParams(params) });
     const payload = response.data?.data ?? response.data;
     const list = payload?.data ?? payload ?? [];
+    const pagination = response.data?.pagination ?? payload?.pagination;
     return {
       success: true,
       data: list.map(mapCongeFromApi),
-      meta: payload?.meta,
+      meta: pagination ? { pagination } : payload?.meta,
     };
   },
 

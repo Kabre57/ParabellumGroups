@@ -4,8 +4,16 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Plus } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function AvoirsPage() {
+  const { user } = useAuth();
+  const { canCreate } = getCrudVisibility(user, {
+    read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
+    create: ['invoices.credit_note'],
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -13,10 +21,12 @@ export default function AvoirsPage() {
           <h1 className="text-3xl font-bold">Avoirs</h1>
           <p className="text-gray-600 mt-1">Gestion des avoirs et notes de crédit</p>
         </div>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Nouvel Avoir
-        </Button>
+        {canCreate && (
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvel Avoir
+          </Button>
+        )}
       </div>
       
       <Card className="p-8 text-center">

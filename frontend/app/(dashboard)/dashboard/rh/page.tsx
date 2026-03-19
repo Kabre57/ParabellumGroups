@@ -39,9 +39,10 @@ export default function RHDashboardPage() {
     queryFn: async () => {
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
-      const response = await hrService.getPayrolls({ 
+      const response = await hrService.getPayrolls({
         pageSize: 1000,
-        filters: { month: currentMonth, year: currentYear }
+        month: currentMonth,
+        year: currentYear,
       });
       return response.data || [];
     },

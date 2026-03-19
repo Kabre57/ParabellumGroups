@@ -44,6 +44,7 @@ const authenticateToken = (req, res, next) => {
       role: decoded.role || decoded.roleCode,
       roleCode: decoded.roleCode,
       serviceId: decoded.serviceId,
+      serviceName: decoded.serviceName || decoded.service?.name || null,
       permissions: decoded.permissions || decoded.permissionsList || []
     };
     next();
@@ -68,6 +69,7 @@ const optionalAuth = (req, res, next) => {
         role: decoded.role || decoded.roleCode,
         roleCode: decoded.roleCode,
         serviceId: decoded.serviceId,
+        serviceName: decoded.serviceName || decoded.service?.name || null,
         permissions: decoded.permissions || decoded.permissionsList || []
       };
     }

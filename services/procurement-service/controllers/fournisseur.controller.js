@@ -3,10 +3,29 @@ const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
 
+const toNumber = (value, fallback = null) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const computeSupplierTotals = (bonsCommande = []) =>
+  bonsCommande.reduce((sum, bon) => sum + Number(bon.montantTotal || 0), 0);
+
+const serializeFournisseur = (fournisseur) => ({
+  ...fournisseur,
+  name: fournisseur.nom,
+  phone: fournisseur.telephone,
+  address: fournisseur.adresse,
+  category: fournisseur.categorieActivite,
+  ordersCount: fournisseur.ordersCount ?? fournisseur.bonsCommande?.length ?? 0,
+  totalAmount: fournisseur.totalAmount ?? computeSupplierTotals(fournisseur.bonsCommande),
+});
+
 // Get all fournisseurs with pagination and filters
 exports.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, categorieActivite, search } = req.query;
+    const { page = 1, limit = 10, status, categorieActivite, categorie, search } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
@@ -16,8 +35,9 @@ exports.getAll = async (req, res) => {
       where.status = status;
     }
     
-    if (categorieActivite) {
-      where.categorieActivite = categorieActivite;
+    const categoryFilter = categorieActivite || categorie;
+    if (categoryFilter) {
+      where.categorieActivite = categoryFilter;
     }
     
     if (search) {
@@ -49,7 +69,7 @@ exports.getAll = async (req, res) => {
     ]);
 
     res.json({
-      data: fournisseurs,
+      data: fournisseurs.map(serializeFournisseur),
       pagination: {
         total,
         page: parseInt(page),
@@ -71,24 +91,35 @@ exports.create = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { nom, email, telephone, adresse, categorieActivite, status, rating } = req.body;
+    const {
+      nom,
+      email,
+      telephone,
+      phone,
+      adresse,
+      address,
+      categorieActivite,
+      categorie,
+      status,
+      rating,
+    } = req.body;
 
     const fournisseur = await prisma.fournisseur.create({
       data: {
         nom,
         email,
-        telephone,
-        adresse,
-        categorieActivite,
+        telephone: telephone || phone || null,
+        adresse: adresse || address || null,
+        categorieActivite: categorieActivite || categorie || null,
         status: status || 'ACTIF',
-        rating
+        rating: toNumber(rating),
       },
       include: {
         bonsCommande: true
       }
     });
 
-    res.status(201).json(fournisseur);
+    res.status(201).json(serializeFournisseur(fournisseur));
   } catch (error) {
     console.error('Error creating fournisseur:', error);
     if (error.code === 'P2002') {
@@ -116,7 +147,7 @@ exports.getById = async (req, res) => {
       return res.status(404).json({ error: 'Fournisseur non trouvé' });
     }
 
-    res.json(fournisseur);
+    res.json(serializeFournisseur(fournisseur));
   } catch (error) {
     console.error('Error fetching fournisseur:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération du fournisseur' });
@@ -132,23 +163,36 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { nom, email, telephone, adresse, categorieActivite } = req.body;
+    const {
+      nom,
+      email,
+      telephone,
+      phone,
+      adresse,
+      address,
+      categorieActivite,
+      categorie,
+      status,
+      rating,
+    } = req.body;
 
     const fournisseur = await prisma.fournisseur.update({
       where: { id },
       data: {
         nom,
         email,
-        telephone,
-        adresse,
-        categorieActivite
+        telephone: telephone ?? phone ?? undefined,
+        adresse: adresse ?? address ?? undefined,
+        categorieActivite: categorieActivite ?? categorie ?? undefined,
+        status,
+        rating: rating !== undefined ? toNumber(rating) : undefined,
       },
       include: {
         bonsCommande: true
       }
     });
 
-    res.json(fournisseur);
+    res.json(serializeFournisseur(fournisseur));
   } catch (error) {
     console.error('Error updating fournisseur:', error);
     if (error.code === 'P2002') {
@@ -179,7 +223,7 @@ exports.updateRating = async (req, res) => {
       }
     });
 
-    res.json(fournisseur);
+    res.json(serializeFournisseur(fournisseur));
   } catch (error) {
     console.error('Error updating fournisseur rating:', error);
     if (error.code === 'P2025') {
@@ -207,7 +251,10 @@ exports.getStats = async (req, res) => {
 
     const stats = {
       totalCommandes: fournisseur.bonsCommande.length,
-      montantTotal: fournisseur.bonsCommande.reduce((sum, bc) => sum + parseFloat(bc.montantTotal), 0),
+      ordersCount: fournisseur.bonsCommande.length,
+      montantTotal: computeSupplierTotals(fournisseur.bonsCommande),
+      totalAmount: computeSupplierTotals(fournisseur.bonsCommande),
+      rating: fournisseur.rating ?? 0,
       commandesParStatus: {
         BROUILLON: fournisseur.bonsCommande.filter(bc => bc.status === 'BROUILLON').length,
         ENVOYE: fournisseur.bonsCommande.filter(bc => bc.status === 'ENVOYE').length,

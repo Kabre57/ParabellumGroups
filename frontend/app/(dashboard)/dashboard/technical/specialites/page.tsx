@@ -10,9 +10,12 @@ import { SpecialiteForm } from '@/components/technical/SpecialiteForm';
 import SpecialitePrint from '@/components/printComponents/SpecialitePrint';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import { toast } from 'sonner';
 
 export default function SpecialitesPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedSpecialite, setSelectedSpecialite] = useState<Specialite | undefined>();
@@ -38,9 +41,14 @@ export default function SpecialitesPage() {
     spec.nom?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string, force = false) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette spécialité ?')) {
-      deleteMutation.mutate(id);
+      try {
+        await deleteMutation.mutateAsync({ id, force });
+        toast.success('Spécialité supprimée');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.error || error?.message || 'Erreur lors de la suppression');
+      }
     }
   };
 
@@ -145,7 +153,11 @@ export default function SpecialitesPage() {
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredSpecialites.map((specialite: Specialite) => (
+            {filteredSpecialites.map((specialite: Specialite) => {
+              const linkedTechniciens = specialite._count?.techniciens ?? 0;
+              const canDeleteSpecialite = canDelete && (isAdmin || linkedTechniciens === 0);
+
+              return (
               <tr key={specialite.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -153,8 +165,13 @@ export default function SpecialitesPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                     {specialite.description || '-'}
+                    {linkedTechniciens > 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Utilisée par {linkedTechniciens} technicien{linkedTechniciens > 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -180,11 +197,11 @@ export default function SpecialitesPage() {
                         )}
                       </Button>
                     )}
-                    {canDelete && (
+                    {canDeleteSpecialite && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(specialite.id)}
+                        onClick={() => handleDelete(specialite.id, isAdmin)}
                         disabled={deleteMutation.isPending}
                         className="text-red-600 hover:bg-red-50"
                         title="Supprimer"
@@ -193,9 +210,14 @@ export default function SpecialitesPage() {
                       </Button>
                     )}
                   </div>
+                  {canDelete && !canDeleteSpecialite && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                      Suppression impossible: spécialité déjà affectée
+                    </p>
+                  )}
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

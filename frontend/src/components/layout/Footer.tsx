@@ -10,7 +10,7 @@ export const Footer = () => {
         <div className="flex flex-col items-center justify-between space-y-2 sm:flex-row sm:space-y-0">
           <div className="text-center sm:text-left">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              © {currentYear} Parabellum ERP • Version 1.0.0
+              © {currentYear} Parabellum Groups • Version 1.0.0
             </p>
           </div>
           

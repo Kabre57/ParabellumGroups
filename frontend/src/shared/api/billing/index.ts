@@ -16,6 +16,9 @@ export interface Invoice {
   id: string;
   numeroFacture: string;
   clientId: string;
+  serviceId?: string;
+  serviceName?: string;
+  serviceLogoUrl?: string;
   client?: {
     nom: string;
     email?: string;
@@ -39,6 +42,9 @@ export interface Quote {
   id: string;
   numeroDevis: string;
   clientId: string;
+  serviceId?: string;
+  serviceName?: string;
+  serviceLogoUrl?: string;
   client?: {
     nom: string;
     email?: string;
@@ -86,6 +92,35 @@ export interface QuoteStats {
   tauxConversion: number;
 }
 
+export interface PurchaseCommitment {
+  id: string;
+  sourceType: 'PURCHASE_QUOTE' | 'PURCHASE_ORDER';
+  sourceId: string;
+  sourceNumber: string;
+  serviceId?: number | null;
+  serviceName?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  amountHT: number;
+  amountTVA: number;
+  amountTTC: number;
+  currency: string;
+  status: string;
+  createdAt?: string | null;
+}
+
+export interface PurchaseCommitmentStats {
+  totalPurchases: number;
+  pendingQuotes: number;
+  draftQuotes: number;
+  rejectedQuotes: number;
+  draftOrders: number;
+  confirmedOrders: number;
+  receivedOrders: number;
+  cancelledOrders: number;
+  totalCommittedAmount: number;
+}
+
 export interface ListResponse<T> {
   success: boolean;
   data: T[];
@@ -105,6 +140,55 @@ export interface DetailResponse<T> {
   message?: string;
 }
 
+const normalizeListResponse = <T>(payload: any): ListResponse<T> => {
+  if (Array.isArray(payload)) {
+    return { success: true, data: payload };
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data,
+      meta: payload.meta ?? (payload.pagination ? { pagination: payload.pagination } : undefined),
+    };
+  }
+
+  return {
+    success: payload?.success ?? true,
+    data: [],
+    meta: payload?.meta ?? (payload?.pagination ? { pagination: payload.pagination } : undefined),
+  };
+};
+
+const normalizeDetailResponse = <T>(payload: any): DetailResponse<T> => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data as T,
+      message: payload.message,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as T,
+  };
+};
+
+const normalizeStatsResponse = <T>(payload: any): { success: boolean; data: T } => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data as T,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as T,
+  };
+};
+
 export const billingService = {
   async getInvoices(params?: {
     page?: number;
@@ -118,22 +202,22 @@ export const billingService = {
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Invoice>> {
     const response = await apiClient.get('/billing/invoices', { params });
-    return response.data;
+    return normalizeListResponse<Invoice>(response.data);
   },
 
   async getInvoice(id: string): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.get(`/billing/invoices/${id}`);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async getInvoiceStats(): Promise<{ success: boolean; data: InvoiceStats }> {
     const response = await apiClient.get('/billing/invoices/stats');
-    return response.data;
+    return normalizeStatsResponse<InvoiceStats>(response.data);
   },
 
   async getRetards(): Promise<ListResponse<Invoice>> {
     const response = await apiClient.get('/billing/invoices/retards');
-    return response.data;
+    return normalizeListResponse<Invoice>(response.data);
   },
 
   async createInvoice(data: {
@@ -144,12 +228,12 @@ export const billingService = {
     notes?: string;
   }): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.post('/billing/invoices', data);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async updateInvoice(id: string, data: Partial<Invoice>): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.put(`/billing/invoices/${id}`, data);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async deleteInvoice(id: string): Promise<{ success: boolean; message?: string }> {
@@ -159,12 +243,12 @@ export const billingService = {
 
   async addInvoiceLine(id: string, ligne: InvoiceItem): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.post(`/billing/invoices/${id}/lignes`, ligne);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async sendInvoice(id: string): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.post(`/billing/invoices/${id}/send`);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async getInvoicePDF(id: string): Promise<Blob> {
@@ -186,12 +270,12 @@ export const billingService = {
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Quote>> {
     const response = await apiClient.get('/billing/quotes', { params });
-    return response.data;
+    return normalizeListResponse<Quote>(response.data);
   },
 
   async getQuote(id: string): Promise<DetailResponse<Quote>> {
     const response = await apiClient.get(`/billing/quotes/${id}`);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async createQuote(data: {
@@ -202,12 +286,12 @@ export const billingService = {
     notes?: string;
   }): Promise<DetailResponse<Quote>> {
     const response = await apiClient.post('/billing/quotes', data);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async updateQuote(id: string, data: Partial<Quote>): Promise<DetailResponse<Quote>> {
     const response = await apiClient.put(`/billing/quotes/${id}`, data);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async deleteQuote(id: string): Promise<{ success: boolean; message?: string }> {
@@ -217,27 +301,27 @@ export const billingService = {
 
   async addQuoteLine(id: string, ligne: InvoiceItem): Promise<DetailResponse<Quote>> {
     const response = await apiClient.post(`/billing/quotes/${id}/lignes`, ligne);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async acceptQuote(id: string): Promise<DetailResponse<Quote>> {
     const response = await apiClient.post(`/billing/quotes/${id}/accept`);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async refuseQuote(id: string, raison?: string): Promise<DetailResponse<Quote>> {
     const response = await apiClient.post(`/billing/quotes/${id}/refuse`, { raison });
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async convertQuoteToInvoice(id: string): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.post(`/billing/quotes/${id}/convert-to-facture`);
-    return response.data;
+    return normalizeDetailResponse<Invoice>(response.data);
   },
 
   async sendQuote(id: string): Promise<DetailResponse<Quote>> {
     const response = await apiClient.post(`/billing/quotes/${id}/send`);
-    return response.data;
+    return normalizeDetailResponse<Quote>(response.data);
   },
 
   async getQuotePDF(id: string): Promise<Blob> {
@@ -256,7 +340,7 @@ export const billingService = {
     endDate?: string;
   }): Promise<ListResponse<Payment>> {
     const response = await apiClient.get('/billing/payments', { params });
-    return response.data;
+    return normalizeListResponse<Payment>(response.data);
   },
 
   async getPaymentsByInvoice(factureId: string): Promise<ListResponse<Payment>> {
@@ -284,6 +368,16 @@ export const billingService = {
   async deletePayment(id: string): Promise<{ success: boolean; message?: string }> {
     const response = await apiClient.delete(`/billing/payments/${id}`);
     return response.data;
+  },
+
+  async getPurchaseCommitments(): Promise<ListResponse<PurchaseCommitment>> {
+    const response = await apiClient.get('/billing/purchase-commitments');
+    return normalizeListResponse<PurchaseCommitment>(response.data);
+  },
+
+  async getPurchaseCommitmentsStats(): Promise<{ success: boolean; data: PurchaseCommitmentStats }> {
+    const response = await apiClient.get('/billing/purchase-commitments/stats');
+    return normalizeStatsResponse<PurchaseCommitmentStats>(response.data);
   },
 };
 

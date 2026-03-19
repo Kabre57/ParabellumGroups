@@ -8,6 +8,7 @@ router.get('/:id/stats', technicienController.getStats);
 router.post('/', technicienController.create);
 router.get('/:id', technicienController.getById);
 router.put('/:id', technicienController.update);
+router.delete('/:id', technicienController.delete);
 router.patch('/:id/status', technicienController.updateStatus);
 
 module.exports = router;

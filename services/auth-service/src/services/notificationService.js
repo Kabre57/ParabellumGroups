@@ -45,7 +45,7 @@ async function sendSlackNotification(message) {
     await slackClient.chat.postMessage({
       channel,
       text: message,
-      username: 'Parabellum ERP Bot',
+      username: 'Parabellum Groups Bot',
       icon_emoji: ':shield:',
     });
 

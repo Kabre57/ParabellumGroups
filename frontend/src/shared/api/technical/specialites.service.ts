@@ -57,8 +57,10 @@ export const specialitesService = {
     return response.data;
   },
 
-  async deleteSpecialite(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/technical/specialites/${id}`);
+  async deleteSpecialite(id: string, options?: { force?: boolean }): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/technical/specialites/${id}`, {
+      params: options?.force ? { force: 'true' } : undefined,
+    });
     return response.data;
   },
 };

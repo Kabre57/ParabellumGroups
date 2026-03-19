@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
     try {
       setIsLoading(true);
       
-      // Appel à l'API pour envoyer l'email de réinitialisation
+ 
       const rawBaseUrl =
         process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
         process.env.NEXT_PUBLIC_API_URL ||

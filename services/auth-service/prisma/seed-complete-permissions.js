@@ -486,20 +486,31 @@ const completePermissions = {
   },
 
   tasks: {
-    label: 'TÃ¢ches Projet',
+    label: 'Tâches Projet',
     permissions: [
-      { name: 'tasks.read', description: 'Consulter les tÃ¢ches' },
-      { name: 'tasks.read_all', description: 'Voir toutes les tÃ¢ches' },
-      { name: 'tasks.read_assigned', description: 'Voir uniquement ses tÃ¢ches' },
-      { name: 'tasks.create', description: 'Créer des tÃ¢ches' },
-      { name: 'tasks.update', description: 'Modifier les tÃ¢ches' },
-      { name: 'tasks.delete', description: 'Supprimer des tÃ¢ches' },
-      { name: 'tasks.assign', description: 'Assigner des tÃ¢ches' },
-      { name: 'tasks.change_status', description: 'Changer le statut des tÃ¢ches' },
-      { name: 'tasks.comment', description: 'Commenter les tÃ¢ches' }
+      { name: 'tasks.read', description: 'Consulter les tâches' },
+      { name: 'tasks.read_all', description: 'Voir toutes les tâches' },
+      { name: 'tasks.read_assigned', description: 'Voir uniquement ses tâches' },
+      { name: 'tasks.create', description: 'Créer des tâches' },
+      { name: 'tasks.update', description: 'Modifier les tâches' },
+      { name: 'tasks.delete', description: 'Supprimer des tâches' },
+      { name: 'tasks.assign', description: 'Assigner des tâches' },
+      { name: 'tasks.change_status', description: 'Changer le statut des tâches' },
+      { name: 'tasks.comment', description: 'Commenter les tâches' }
     ]
   },
 
+
+  purchases: {
+    label: 'Achats',
+    permissions: [
+      { name: 'purchases.read', description: 'Consulter le dashboard achats' },
+      { name: 'purchases.create', description: 'Créer des devis d achat' },
+      { name: 'purchases.update', description: 'Modifier des devis d achat' },
+      { name: 'purchases.delete', description: 'Supprimer des devis d achat' },
+      { name: 'purchases.approve', description: 'Approuver ou rejeter des devis d achat' }
+    ]
+  },
 
   suppliers: {
     label: 'Fournisseurs',
@@ -710,13 +721,13 @@ async function seedCompletePermissions() {
 
     for (const perm of categoryData.permissions) {
       try {
-        // Vérifier si la permission existe déjÃ 
+        // Vérifier si la permission existe déjâ 
         const existing = await prisma.permission.findUnique({
           where: { name: perm.name }
         });
 
         if (existing) {
-          console.log(`   â­ï¸  ${perm.name.padEnd(50)} [existe déjÃ ]`);
+          console.log(`   â­ï¸  ${perm.name.padEnd(50)} [existe déjâ ]`);
           totalSkipped++;
         } else {
           await prisma.permission.create({
@@ -740,7 +751,7 @@ async function seedCompletePermissions() {
   console.log('ðŸ“Š RÃ‰SUMÃ‰ DE L\'INITIALISATION');
   console.log('â•'.repeat(70));
   console.log(`   âœ… Permissions créées:           ${totalCreated.toString().padStart(4)}`);
-  console.log(`   â­ï¸  Permissions ignorées:         ${totalSkipped.toString().padStart(4)} (déjÃ  existantes)`);
+  console.log(`   â­ï¸  Permissions ignorées:         ${totalSkipped.toString().padStart(4)} (déjâ  existantes)`);
   console.log(`   âŒ Erreurs rencontrées:           ${totalErrors.toString().padStart(4)}`);
   console.log(`   â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
   console.log(`   ðŸ“ Total traité:                  ${(totalCreated + totalSkipped + totalErrors).toString().padStart(4)}`);

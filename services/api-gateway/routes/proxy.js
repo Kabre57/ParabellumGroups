@@ -22,6 +22,12 @@ const createProxy = (target, pathRewriteConfig = {}) => {
         if (userId) {
           proxyReq.setHeader('X-User-Id', userId.toString());
         }
+        if (req.user.serviceId) {
+          proxyReq.setHeader('X-Service-Id', req.user.serviceId.toString());
+        }
+        if (req.user.serviceName) {
+          proxyReq.setHeader('X-Service-Name', req.user.serviceName);
+        }
         if (req.user.role) {
           proxyReq.setHeader('X-User-Role', req.user.role);
         }

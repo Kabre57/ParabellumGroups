@@ -18,7 +18,12 @@ const emptyToUndefined = (value: unknown) => {
   return trimmed === '' ? undefined : trimmed;
 };
 
-const phoneRegex = /^(?:\+33|0)[1-9](?:\d{2}){4}$/;
+const phoneRegex = /^[+\d][\d\s().-]{5,}$/;
+
+const sanitizeClientPayload = (data: ClientFormData) =>
+  Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  ) as ClientFormData;
 
 const clientSchema = z.object({
   nom: z.string().min(1, 'Le nom est requis'),
@@ -26,11 +31,11 @@ const clientSchema = z.object({
   email: z.string().email('Email invalide'),
   telephone: z.preprocess(
     emptyToUndefined,
-    z.string().regex(phoneRegex, 'Numéro de téléphone invalide (format FR)').optional()
+    z.string().regex(phoneRegex, 'Numéro de téléphone invalide').optional()
   ),
   mobile: z.preprocess(
     emptyToUndefined,
-    z.string().regex(phoneRegex, 'Numéro de mobile invalide (format FR)').optional()
+    z.string().regex(phoneRegex, 'Numéro de mobile invalide').optional()
   ),
   siteWeb: z.preprocess(emptyToUndefined, z.string().optional()),
   siret: z.preprocess(
@@ -112,9 +117,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   });
 
   const onSubmit = (data: ClientFormData) => {
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([, value]) => value !== undefined)
-    ) as ClientFormData;
+    const payload = sanitizeClientPayload(data);
 
     if (isEditing) {
       updateMutation.mutate(payload);

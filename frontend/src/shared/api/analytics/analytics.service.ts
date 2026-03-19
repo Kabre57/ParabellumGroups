@@ -212,42 +212,42 @@ export const analyticsService = {
 
   // --- Dashboards ---
   async getDashboards(): Promise<Dashboard[]> {
-    const response = await apiClient.get('/dashboards');
+    const response = await apiClient.get('/analytics/dashboards');
     return response.data;
   },
 
   async getDashboard(id: string): Promise<Dashboard> {
-    const response = await apiClient.get(`/dashboards/${id}`);
+    const response = await apiClient.get(`/analytics/dashboards/${id}`);
     return response.data;
   },
 
   async getDashboardData(id: string): Promise<Record<string, unknown>> {
-    const response = await apiClient.get(`/dashboards/${id}/data`);
+    const response = await apiClient.get(`/analytics/dashboards/${id}/data`);
     return response.data;
   },
 
   async createDashboard(data: { nom: string; description?: string }): Promise<Dashboard> {
-    const response = await apiClient.post('/dashboards', data);
+    const response = await apiClient.post('/analytics/dashboards', data);
     return response.data;
   },
 
   async updateDashboard(id: string, data: Partial<Dashboard>): Promise<Dashboard> {
-    const response = await apiClient.put(`/dashboards/${id}`, data);
+    const response = await apiClient.put(`/analytics/dashboards/${id}`, data);
     return response.data;
   },
 
   async deleteDashboard(id: string): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(`/dashboards/${id}`);
+    const response = await apiClient.delete(`/analytics/dashboards/${id}`);
     return response.data;
   },
 
   async setDefaultDashboard(id: string): Promise<Dashboard> {
-    const response = await apiClient.put(`/dashboards/${id}/set-default`);
+    const response = await apiClient.put(`/analytics/dashboards/${id}/set-default`);
     return response.data;
   },
 
   async duplicateDashboard(id: string): Promise<Dashboard> {
-    const response = await apiClient.post(`/dashboards/${id}/duplicate`);
+    const response = await apiClient.post(`/analytics/dashboards/${id}/duplicate`);
     return response.data;
   },
 

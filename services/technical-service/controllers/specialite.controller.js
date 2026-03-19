@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { isForceDelete } = require('../utils/authz');
 
 exports.getAll = async (req, res) => {
   try {
@@ -155,6 +156,47 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
+    const forceDelete = isForceDelete(req);
+
+    const specialite = await prisma.specialite.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { techniciens: true }
+        }
+      }
+    });
+
+    if (!specialite) {
+      return res.status(404).json({
+        success: false,
+        error: 'Spécialité non trouvée'
+      });
+    }
+
+    if ((specialite._count?.techniciens || 0) > 0 && !forceDelete) {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer une spécialité déjà affectée à un ou plusieurs techniciens'
+      });
+    }
+
+    if ((specialite._count?.techniciens || 0) > 0 && forceDelete) {
+      const fallback = await prisma.specialite.create({
+        data: {
+          nom:
+            specialite.nom === 'Spécialité non assignée'
+              ? `Spécialité non assignée ${Date.now()}`
+              : 'Spécialité non assignée',
+          description: 'Spécialité de réaffectation automatique après suppression administrateur'
+        }
+      });
+
+      await prisma.technicien.updateMany({
+        where: { specialiteId: id },
+        data: { specialiteId: fallback.id }
+      });
+    }
 
     await prisma.specialite.delete({
       where: { id }
@@ -169,6 +211,12 @@ exports.delete = async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Spécialité non trouvée'
+      });
+    }
+    if (error.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer une spécialité encore utilisée'
       });
     }
     console.error('Error in delete specialite:', error);

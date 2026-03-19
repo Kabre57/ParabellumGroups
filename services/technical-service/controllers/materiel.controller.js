@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { isForceDelete } = require('../utils/authz');
 
 exports.getAll = async (req, res) => {
   try {
@@ -316,16 +317,37 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
+    const forceDelete = isForceDelete(req);
 
     // Vérifier si le matériel existe
     const materiel = await prisma.materiel.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            sorties: true
+          }
+        }
+      }
     });
 
     if (!materiel) {
       return res.status(404).json({
         success: false,
         error: 'Matériel non trouvé'
+      });
+    }
+
+    if ((materiel._count?.sorties || 0) > 0 && !forceDelete) {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer un matériel déjà utilisé dans une ou plusieurs sorties'
+      });
+    }
+
+    if ((materiel._count?.sorties || 0) > 0 && forceDelete) {
+      await prisma.sortieMateriel.deleteMany({
+        where: { materielId: id }
       });
     }
 
@@ -338,6 +360,12 @@ exports.delete = async (req, res) => {
       message: 'Matériel supprimé avec succès'
     });
   } catch (error) {
+    if (error.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer un matériel encore référencé'
+      });
+    }
     console.error('Error in delete materiel:', error);
     res.status(500).json({
       success: false,

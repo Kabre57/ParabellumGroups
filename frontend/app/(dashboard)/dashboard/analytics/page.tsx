@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { OverviewDashboard } from '@/components/dashboard/OverviewDashboard';
@@ -8,6 +8,10 @@ import { FinancialDashboard } from '@/components/dashboard/FinancialDashboard';
 import { TechnicalDashboard } from '@/components/dashboard/TechnicalDashboard';
 import { HRDashboard } from '@/components/dashboard/HRDashboard';
 import { CustomerDashboard } from '@/components/dashboard/CustomerDashboard';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { getPreferredAnalyticsRoute } from '@/shared/dashboard-routing';
+import { hasPermission, isAdminRole } from '@/shared/permissions';
 import { 
   BarChart3, 
   DollarSign, 
@@ -22,18 +26,40 @@ interface Tab {
   id: DashboardType;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  permission: string;
 }
 
 const tabs: Tab[] = [
-  { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
-  { id: 'financial', label: 'Financier', icon: DollarSign },
-  { id: 'technical', label: 'Technique', icon: Wrench },
-  { id: 'hr', label: 'Ressources Humaines', icon: Users },
-  { id: 'customer', label: 'Clients', icon: Building2 },
+  { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3, permission: 'dashboard.read' },
+  { id: 'financial', label: 'Financier', icon: DollarSign, permission: 'reports.read_financial' },
+  { id: 'technical', label: 'Technique', icon: Wrench, permission: 'missions.read' },
+  { id: 'hr', label: 'Ressources Humaines', icon: Users, permission: 'employees.read' },
+  { id: 'customer', label: 'Clients', icon: Building2, permission: 'customers.read' },
 ];
 
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const isAdmin = isAdminRole(user);
+  const preferredAnalyticsRoute = getPreferredAnalyticsRoute(user);
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => isAdmin || hasPermission(user, tab.permission)),
+    [isAdmin, user]
+  );
   const [activeTab, setActiveTab] = useState<DashboardType>('overview');
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user || isAdmin) return;
+    if (preferredAnalyticsRoute !== '/dashboard/analytics') {
+      router.replace(preferredAnalyticsRoute);
+    }
+  }, [isAdmin, isAuthenticated, isLoading, preferredAnalyticsRoute, router, user]);
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(visibleTabs[0]?.id || 'technical');
+    }
+  }, [activeTab, visibleTabs]);
 
   const renderDashboard = () => {
     switch (activeTab) {
@@ -52,6 +78,10 @@ export default function AnalyticsPage() {
     }
   };
 
+  if (!isAdmin && preferredAnalyticsRoute !== '/dashboard/analytics') {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -68,7 +98,7 @@ export default function AnalyticsPage() {
       <Card>
         <CardContent className="p-2">
           <div className="flex flex-wrap gap-2">
-            {tabs.map((tab) => {
+            {visibleTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               

@@ -4,9 +4,16 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, Download, Calendar, TrendingUp, TrendingDown, DollarSign, FileText } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function RapportsPage() {
+  const { user } = useAuth();
   const [period, setPeriod] = useState('month');
+  const { canExport } = getCrudVisibility(user, {
+    read: ['reports.read_financial'],
+    export: ['reports.export'],
+  });
 
   return (
     <div className="space-y-6">
@@ -27,10 +34,12 @@ export default function RapportsPage() {
             <option value="quarter">Ce trimestre</option>
             <option value="year">Cette année</option>
           </select>
-          <Button className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Exporter PDF
-          </Button>
+          {canExport && (
+            <Button className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Exporter PDF
+            </Button>
+          )}
         </div>
       </div>
 
@@ -39,9 +48,7 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <BarChart3 className="h-8 w-8 text-blue-500" />
-            <Button size="sm" variant="outline">
-              <Download className="h-3 w-3" />
-            </Button>
+            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
           </div>
           <h3 className="font-semibold mb-1">Bilan Comptable</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">Actifs / Passifs</p>
@@ -50,9 +57,7 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <TrendingUp className="h-8 w-8 text-green-500" />
-            <Button size="sm" variant="outline">
-              <Download className="h-3 w-3" />
-            </Button>
+            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
           </div>
           <h3 className="font-semibold mb-1">Compte de Résultat</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">Produits / Charges</p>
@@ -61,9 +66,7 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <DollarSign className="h-8 w-8 text-purple-500" />
-            <Button size="sm" variant="outline">
-              <Download className="h-3 w-3" />
-            </Button>
+            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
           </div>
           <h3 className="font-semibold mb-1">Tableau de Trésorerie</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">Flux de trésorerie</p>
@@ -72,9 +75,7 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <FileText className="h-8 w-8 text-orange-500" />
-            <Button size="sm" variant="outline">
-              <Download className="h-3 w-3" />
-            </Button>
+            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
           </div>
           <h3 className="font-semibold mb-1">Analyse Financière</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">Ratios & KPIs</p>

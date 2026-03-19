@@ -2,6 +2,22 @@ import { Request, Response } from 'express'
 import prisma from '../prisma'
 import nodemailer from 'nodemailer'
 
+const isNotificationStorageUnavailable = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false
+
+  const maybeError = error as { name?: string; message?: string; code?: string }
+  const message = maybeError.message || ''
+  const name = maybeError.name || ''
+
+  return (
+    name.includes('PrismaClientInitializationError') ||
+    name.includes('PrismaClientKnownRequestError') ||
+    message.includes('does not exist on the database server') ||
+    message.includes('Can\'t reach database server') ||
+    message.includes('ECONNREFUSED')
+  )
+}
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
@@ -89,6 +105,13 @@ export const getUserNotifications = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get notifications error:', error);
+    if (isNotificationStorageUnavailable(error)) {
+      return res.json({
+        success: true,
+        data: [],
+        unreadCount: 0,
+      });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -105,6 +128,9 @@ export const markAsRead = async (req: Request, res: Response) => {
     res.json(notification)
   } catch (error) {
     console.error('Mark as read error:', error)
+    if (isNotificationStorageUnavailable(error)) {
+      return res.json({ message: 'Notification storage unavailable, operation skipped' })
+    }
     res.status(500).json({ error: 'Internal server error' })
   }
 }
@@ -121,6 +147,9 @@ export const markAllAsRead = async (req: Request, res: Response) => {
     res.json({ message: 'All notifications marked as read' })
   } catch (error) {
     console.error('Mark all as read error:', error)
+    if (isNotificationStorageUnavailable(error)) {
+      return res.json({ message: 'Notification storage unavailable, operation skipped' })
+    }
     res.status(500).json({ error: 'Internal server error' })
   }
 }

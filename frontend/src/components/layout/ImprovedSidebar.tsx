@@ -128,7 +128,7 @@ export default function ImprovedSidebar({ isOpen = true, onClose }: ImprovedSide
                   />
                   <div>
                     <h1 className="text-lg font-bold text-gray-900">Parabellum</h1>
-                    <p className="text-xs text-gray-500">ERP</p>
+                    <p className="text-xs text-gray-500">Groups</p>
                   </div>
                 </div>
                 <button

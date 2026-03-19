@@ -5,23 +5,29 @@ const { authMiddleware, requireManager } = require('../middleware/auth');
 
 const router = express.Router();
 
+const isGenericPhone = (value) => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return /^[+\d][\d\s().-]{5,}$/.test(trimmed);
+};
+
 // Validation rules
 const createValidation = [
   body('nom').notEmpty().trim().withMessage('Le nom est requis'),
   body('email').isEmail().normalizeEmail().withMessage('Email invalide'),
   body('typeClientId').notEmpty().withMessage('Le type de client est requis'),
-  body('telephone').optional().isMobilePhone('fr-FR').withMessage('Numéro de téléphone invalide'),
-  body('siret').optional().isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
-  body('tvaIntra').optional().matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
+  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numéro de téléphone invalide'),
+  body('siret').optional({ checkFalsy: true }).isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
+  body('tvaIntra').optional({ checkFalsy: true }).matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
 ];
 
 const updateValidation = [
   body('nom').optional().notEmpty().trim().withMessage('Le nom ne peut pas être vide'),
   body('email').optional().isEmail().normalizeEmail().withMessage('Email invalide'),
   body('typeClientId').optional().notEmpty().withMessage('Le type de client est requis'),
-  body('telephone').optional().isMobilePhone('fr-FR').withMessage('Numéro de téléphone invalide'),
-  body('siret').optional().isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
-  body('tvaIntra').optional().matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
+  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numéro de téléphone invalide'),
+  body('siret').optional({ checkFalsy: true }).isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
+  body('tvaIntra').optional({ checkFalsy: true }).matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
 ];
 
 const statusValidation = [

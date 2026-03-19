@@ -2,6 +2,15 @@ import { apiClient } from '../shared/client';
 import { PaginatedResponse } from '../shared/types';
 import { Payroll, CreatePayrollRequest, CalculateSalaryRequest, SalaryCalculation } from './types';
 
+type PayrollListParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  employeeId?: string;
+  month?: number;
+  year?: number;
+}
+
 const mapPayrollFromApi = (p: any): Payroll => ({
   id: p.id,
   employeeId: p.employeId ?? p.employeeId,
@@ -44,14 +53,35 @@ const buildPagination = (page: number, pageSize: number, totalItems: number, tot
   hasPrevious: page > 1,
 });
 
+const buildPayrollParams = (params?: any): Record<string, any> => {
+  const source = params || {};
+  const month = source.month ?? source.filters?.month;
+  const year = source.year ?? source.filters?.year;
+  const page = source.page;
+  const pageSize = source.pageSize ?? source.limit;
+  const search = typeof source.search === 'string' ? source.search.trim() : '';
+  const employeeId = source.employeeId ?? source.employeId;
+
+  return Object.fromEntries(
+    Object.entries({
+      page,
+      pageSize,
+      search: search || undefined,
+      employeeId,
+      month,
+      year,
+    }).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  );
+};
+
 export const payrollService = {
   async calculateSalary(data: CalculateSalaryRequest): Promise<SalaryCalculation> {
     const response = await apiClient.post('/payroll/calculate', data);
     return response.data;
   },
 
-  async getPayrolls(params?: any): Promise<PaginatedResponse<Payroll>> {
-    const response = await apiClient.get('/payrolls', { params });
+  async getPayrolls(params?: PayrollListParams): Promise<PaginatedResponse<Payroll>> {
+    const response = await apiClient.get('/payrolls', { params: buildPayrollParams(params) });
     const payload = response.data?.data || response.data;
     const list = payload?.data ?? payload ?? [];
     const mapped = list.map(mapPayrollFromApi);

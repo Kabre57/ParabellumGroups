@@ -32,6 +32,7 @@ interface NavigationItem {
 }
 
 interface CategoryItem extends NavigationItem {
+  id: string;
   children?: NavigationItem[];
 }
 
@@ -140,6 +141,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
   const visibleCategories = useMemo(() => {
     return professionalCategories.filter(category => {
+      if (!isAdmin && category.id === 'dashboard') {
+        return false;
+      }
       if (isAdmin) return true;
       if (hasAccess(category)) return true;
       if (category.children) {
@@ -238,7 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                 />
                 <div className="flex flex-col">
                   <h1 className="text-gray-900 dark:text-gray-100 text-base font-bold leading-tight">Parabellum</h1>
-                  <span className="text-gray-500 dark:text-gray-400 text-xs">ERP</span>
+                  <span className="text-gray-500 dark:text-gray-400 text-xs">Groups</span>
                 </div>
               </div>
               <button

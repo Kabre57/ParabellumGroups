@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { isForceDelete } = require('../utils/authz');
 
 const VALID_STATUSES = ['AVAILABLE', 'ON_MISSION', 'ON_LEAVE', 'SICK', 'TRAINING'];
 
@@ -33,7 +34,9 @@ exports.getAll = async (req, res) => {
           _count: {
             select: {
               missions: true,
-              interventions: true
+              interventions: true,
+              rapportsRediges: true,
+              sortiesMateriel: true
             }
           }
         },
@@ -268,6 +271,91 @@ exports.updateStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+};
+
+exports.delete = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const forceDelete = isForceDelete(req);
+
+    const technicien = await prisma.technicien.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            missions: true,
+            interventions: true,
+            rapportsRediges: true,
+            sortiesMateriel: true
+          }
+        }
+      }
+    });
+
+    if (!technicien) {
+      return res.status(404).json({
+        success: false,
+        error: 'Technicien non trouvé'
+      });
+    }
+
+    const references =
+      (technicien._count?.missions || 0) +
+      (technicien._count?.interventions || 0) +
+      (technicien._count?.rapportsRediges || 0) +
+      (technicien._count?.sortiesMateriel || 0);
+
+    if (references > 0 && !forceDelete) {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer un technicien déjà lié à des missions, interventions, rapports ou sorties de matériel'
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (forceDelete) {
+        await tx.rapport.deleteMany({
+          where: { redacteurId: id }
+        });
+        await tx.sortieMateriel.deleteMany({
+          where: { technicienId: id }
+        });
+        await tx.interventionTechnicien.deleteMany({
+          where: { technicienId: id }
+        });
+        await tx.missionTechnicien.deleteMany({
+          where: { technicienId: id }
+        });
+      }
+
+      await tx.technicien.delete({
+        where: { id }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Technicien supprimé avec succès'
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: 'Technicien non trouvé'
+      });
+    }
+    if (error.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        error: 'Impossible de supprimer un technicien encore référencé'
+      });
+    }
+    console.error('Error in delete technicien:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression du technicien'
     });
   }
 };

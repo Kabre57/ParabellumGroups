@@ -203,7 +203,7 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Valeur potentielle (€)</label>
+                  <label className="block text-sm font-medium text-gray-700">Valeur potentielle (F CFA)</label>
                   <input
                     type="number"
                     value={formData.potentialValue || ''}

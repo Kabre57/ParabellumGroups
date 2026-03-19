@@ -58,7 +58,7 @@ export const sidebarCategories: SidebarCategory[] = [
   { id: 'billing', name: 'Facturation', icon: Receipt, permission: 'invoices.read' },
   { id: 'technical', name: 'Services Techniques', icon: Wrench, permission: 'missions.read' },
   { id: 'projects', name: 'Gestion de Projets', icon: FolderKanban, permission: 'projects.read' },
-  { id: 'procurement', name: 'Achats & Logistique', icon: ShoppingCart, permission: 'purchase_orders.read' },
+  { id: 'procurement', name: 'Achats & Logistique', icon: ShoppingCart, permission: 'purchases.read' },
   { id: 'hr', name: 'Ressources Humaines', icon: UserCheck, permission: 'employees.read' },
   { id: 'communication', name: 'Communication', icon: MessageSquare, permission: 'messages.read' },
 ];
@@ -106,7 +106,8 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Planning Gantt', href: '/dashboard/projets/planning', icon: CalendarDays, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Feuilles de Temps', href: '/dashboard/timesheets', icon: Clock, permission: 'attendance.read', categoryId: 'projects' },
 
-  { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchase_orders.read', categoryId: 'procurement', isServiceDashboard: true },
+  { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchases.read', categoryId: 'procurement', isServiceDashboard: true },
+  { name: 'Devis d\'Achat', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
   { name: 'Catalogue Produits', href: '/dashboard/achats/produits', icon: Package, permission: 'products.read', categoryId: 'procurement' },
   { name: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', icon: Truck, permission: 'suppliers.read', categoryId: 'procurement' },
   { name: 'Commandes d\'Achat', href: '/dashboard/achats/commandes', icon: ShoppingCart, permission: 'purchase_orders.read', categoryId: 'procurement' },

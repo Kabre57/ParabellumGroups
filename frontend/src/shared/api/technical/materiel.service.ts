@@ -108,8 +108,10 @@ export const materielService = {
     return response.data;
   },
 
-  async deleteMateriel(id: string): Promise<{ success: boolean; message?: string }> {
-    const response = await apiClient.delete(`/technical/materiel/${id}`);
+  async deleteMateriel(id: string, options?: { force?: boolean }): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/technical/materiel/${id}`, {
+      params: options?.force ? { force: 'true' } : undefined,
+    });
     return response.data;
   },
 

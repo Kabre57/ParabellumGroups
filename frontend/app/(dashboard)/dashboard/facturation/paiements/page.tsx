@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 import {
   Table,
   TableBody,
@@ -27,105 +29,96 @@ import PaymentForm from '@/components/billing/PaymentForm';
 
 export default function PaiementsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  const { canCreate } = getCrudVisibility(user, {
+    read: ['payments.read', 'payments.read_all', 'payments.read_own'],
+    create: ['payments.create'],
+  });
 
   const { data: paymentsResponse, isLoading } = useQuery({
     queryKey: ['payments', searchQuery, methodFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
       if (searchQuery) params.query = searchQuery;
-      if (methodFilter !== 'all') params.method = methodFilter;
-      const data = await billingService.getPayments(params);
-      return data;
+      if (methodFilter !== 'all') params.modePaiement = methodFilter;
+      return billingService.getPayments(params);
     },
   });
 
+  const payments = paymentsResponse?.data ?? [];
+
   const getMethodBadge = (method: string) => {
     const methodConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
-      ESPECES: { label: 'Espèces', variant: 'success' },
+      ESPECES: { label: 'Especes', variant: 'success' },
       VIREMENT: { label: 'Virement', variant: 'default' },
-      CHEQUE: { label: 'Chèque', variant: 'outline' },
+      CHEQUE: { label: 'Cheque', variant: 'outline' },
       CARTE: { label: 'Carte bancaire', variant: 'secondary' },
+      PRELEVEMENT: { label: 'Prelevement', variant: 'warning' },
     };
 
     const config = methodConfig[method] || { label: method, variant: 'outline' as const };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(amount);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR');
-  };
-
-  const payments = paymentsResponse?.data ?? [];
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('fr-FR');
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Paiements
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Gérez vos paiements reçus
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Paiements</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Gerez vos paiements recus</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          Enregistrer un paiement
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            Enregistrer un paiement
+          </Button>
+        )}
       </div>
 
-      {/* Filtres */}
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Input
-              placeholder="Rechercher par numéro, facture..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <div>
-            <select
-              className="w-full h-10 px-3 rounded-md border border-input bg-background"
-              value={methodFilter}
-              onChange={(e) => setMethodFilter(e.target.value)}
-            >
-              <option value="all">Toutes les méthodes</option>
-              <option value="ESPECES">Espèces</option>
-              <option value="VIREMENT">Virement</option>
-              <option value="CHEQUE">Chèque</option>
-              <option value="CARTE">Carte bancaire</option>
-            </select>
-          </div>
+          <Input
+            placeholder="Rechercher par numero, facture..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <select
+            className="w-full h-10 px-3 rounded-md border border-input bg-background"
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+          >
+            <option value="all">Toutes les methodes</option>
+            <option value="ESPECES">Especes</option>
+            <option value="VIREMENT">Virement</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="CARTE">Carte bancaire</option>
+            <option value="PRELEVEMENT">Prelevement</option>
+          </select>
         </div>
       </Card>
 
-      {/* Table */}
       <Card>
         {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Spinner />
-          </div>
+          <div className="flex justify-center items-center py-12"><Spinner /></div>
         ) : payments.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Numéro</TableHead>
+                <TableHead>Numero</TableHead>
                 <TableHead>Facture</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Méthode</TableHead>
-                <TableHead>Référence</TableHead>
+                <TableHead>Methode</TableHead>
+                <TableHead>Reference</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -133,35 +126,25 @@ export default function PaiementsPage() {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="font-medium">
-                    PAY-{payment.id}
-                  </TableCell>
+                  <TableCell className="font-medium">PAY-{payment.id}</TableCell>
                   <TableCell>
                     {payment.factureId ? (
                       <Button
                         variant="link"
-                        className="p-0 h-auto"
+                        className="h-auto p-0"
                         onClick={() => router.push(`/dashboard/facturation/factures/${payment.factureId}`)}
                       >
                         {payment.facture?.numeroFacture || payment.factureId}
                       </Button>
-                    ) : (
-                      '-'
-                    )}
+                    ) : '-'}
                   </TableCell>
                   <TableCell>{formatDate(payment.datePaiement)}</TableCell>
                   <TableCell>{getMethodBadge(payment.modePaiement)}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.montant)}
-                  </TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(payment.montant)}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => alert('Détails du paiement à implémenter')}
-                    >
-                      Voir
+                    <Button size="sm" variant="outline" onClick={() => alert('Details du paiement a implementer')}>
+                      Details
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -169,27 +152,20 @@ export default function PaiementsPage() {
             </TableBody>
           </Table>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">
-              Aucun paiement trouvé
-            </p>
-          </div>
+          <div className="py-12 text-center text-gray-500 dark:text-gray-400">Aucun paiement trouve</div>
         )}
       </Card>
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Enregistrer un paiement</DialogTitle>
-          </DialogHeader>
-          <PaymentForm
-            onSuccess={() => setIsCreateDialogOpen(false)}
-            onCancel={() => setIsCreateDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Enregistrer un paiement</DialogTitle>
+            </DialogHeader>
+            <PaymentForm onSuccess={() => setIsCreateDialogOpen(false)} onCancel={() => setIsCreateDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-

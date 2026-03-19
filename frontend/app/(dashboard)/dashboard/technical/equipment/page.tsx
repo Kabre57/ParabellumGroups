@@ -11,6 +11,8 @@ import { Package, Plus, Search, Wrench, AlertTriangle, CheckCircle, Edit, Trash2
 import { MaterielForm } from '@/components/technical/MaterielForm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, { label: string; className: string; icon: any }> = {
   DISPONIBLE: { label: 'Disponible', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
@@ -21,6 +23,7 @@ const statusColors: Record<string, { label: string; className: string; icon: any
 
 export default function EquipmentPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -41,9 +44,14 @@ export default function EquipmentPage() {
     export: ['materiel.track_stock'],
   });
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string, force = false) => {
     if (confirm('Etes-vous sur de vouloir supprimer ce materiel ?')) {
-      deleteMutation.mutate(id);
+      try {
+        await deleteMutation.mutateAsync({ id, force });
+        toast.success('Matériel supprimé');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.error || error?.message || 'Erreur lors de la suppression');
+      }
     }
   };
 
@@ -213,6 +221,8 @@ export default function EquipmentPage() {
                   const available = item.availableQuantity ?? item.quantiteDisponible ?? 0;
                   const total = item.quantity ?? item.quantiteTotale ?? item.quantiteStock ?? 0;
                   const statusValue = item.statut || item.status || 'DISPONIBLE';
+                  const linkedSorties = item._count?.sorties ?? 0;
+                  const canDeleteMateriel = canDelete && (isAdmin || linkedSorties === 0);
 
                   return (
                     <tr
@@ -248,7 +258,14 @@ export default function EquipmentPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                        {item.emplacement || item.emplacementStock || '-'}
+                        <div className="space-y-1">
+                          <div>{item.emplacement || item.emplacementStock || '-'}</div>
+                          {linkedSorties > 0 && (
+                            <div className="text-xs text-amber-600 dark:text-amber-400">
+                              Déjà utilisé dans {linkedSorties} sortie{linkedSorties > 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right font-semibold">
                         {item.prixUnitaire !== undefined && item.prixUnitaire !== null
@@ -267,17 +284,22 @@ export default function EquipmentPage() {
                               <Printer className="h-3 w-3" />
                             </Button>
                           )}
-                          {canDelete && (
+                          {canDeleteMateriel && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => handleDelete(item.id, isAdmin)}
                               title="Supprimer"
                             >
                               <Trash2 className="h-3 w-3 text-red-600" />
                             </Button>
                           )}
                         </div>
+                        {canDelete && !canDeleteMateriel && (
+                          <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 text-center">
+                            Suppression impossible: matériel déjà utilisé
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

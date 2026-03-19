@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Plus, Search, Edit } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface Account {
   id: string;
@@ -18,8 +20,14 @@ interface Account {
 }
 
 export default function ComptesPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['reports.read_financial', 'invoices.read'],
+    create: ['expenses.create'],
+    update: ['expenses.update', 'invoices.update'],
+  });
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
     queryKey: ['accounts'],
@@ -65,10 +73,12 @@ export default function ComptesPage() {
             Gestion du plan comptable et comptes généraux
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouveau Compte
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouveau Compte
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -178,9 +188,11 @@ export default function ComptesPage() {
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline">Détails</Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-3 w-3" />
-                        </Button>
+                        {canUpdate && (
+                          <Button size="sm" variant="outline">
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

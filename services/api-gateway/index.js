@@ -39,7 +39,7 @@ app.get('/health', express.json(), (req, res) => {
 app.get('/api-docs', express.json(), (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Parabellum ERP API Gateway',
+    message: 'Parabellum Groups API Gateway',
     version: '1.0.0',
     services: {
       auth: `${config.SERVICES.AUTH}/api-docs`,

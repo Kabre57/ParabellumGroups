@@ -7,7 +7,8 @@ const authMiddleware = require('../middleware/auth');
 // Validation rules
 const validateFournisseur = [
   body('nom').notEmpty().withMessage('Le nom est requis'),
-  body('email').isEmail().withMessage('Email invalide')
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Email invalide'),
+  body('rating').optional({ checkFalsy: true }).isFloat({ min: 0, max: 5 }).withMessage('La note doit etre comprise entre 0 et 5')
 ];
 
 // Apply auth middleware to all routes

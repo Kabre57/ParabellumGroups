@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Plus, Search, Calendar, Receipt } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface Expense {
   id: string;
@@ -21,8 +23,14 @@ interface Expense {
 }
 
 export default function DepensesPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { canCreate, canApprove } = getCrudVisibility(user, {
+    read: ['expenses.read', 'expenses.read_all', 'expenses.read_own'],
+    create: ['expenses.create'],
+    approve: ['expenses.approve', 'expenses.reject', 'expenses.reimburse'],
+  });
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: ['expenses'],
@@ -63,10 +71,12 @@ export default function DepensesPage() {
             Suivi et validation des dépenses de l'entreprise
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouvelle Dépense
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouvelle Dépense
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -182,7 +192,7 @@ export default function DepensesPage() {
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline">Détails</Button>
-                        {expense.status === 'pending' && (
+                        {canApprove && expense.status === 'pending' && (
                           <Button size="sm" className="bg-green-600 text-white">Approuver</Button>
                         )}
                       </div>

@@ -28,7 +28,9 @@ export const techniciensService = {
     return response.data;
   },
 
-  async deleteTechnicien(id: string): Promise<void> {
-    await apiClient.delete(`/techniciens/${id}`);
+  async deleteTechnicien(id: string, options?: { force?: boolean }): Promise<void> {
+    await apiClient.delete(`/techniciens/${id}`, {
+      params: options?.force ? { force: 'true' } : undefined,
+    });
   }
 };

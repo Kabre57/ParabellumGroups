@@ -1,14 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsService } from '@/services/projects';
 import { ProjectStatus, type Project } from '@/shared/api/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,33 +23,41 @@ const statusColors: Record<ProjectStatus, string> = {
 };
 
 const statusLabels: Record<ProjectStatus, string> = {
-  PLANNING: 'Planifié',
+  PLANNING: 'Planifie',
   ACTIVE: 'En cours',
   ON_HOLD: 'Suspendu',
-  COMPLETED: 'Terminé',
-  CANCELLED: 'Annulé',
+  COMPLETED: 'Termine',
+  CANCELLED: 'Annule',
+};
+
+const emptyForm = {
+  name: '',
+  description: '',
+  customerId: '',
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: '',
+  budget: '',
+  managerId: '',
+  status: ProjectStatus.PLANNING,
+  priority: 'MEDIUM',
 };
 
 export default function ProjectsPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
   const [clientFilter, setClientFilter] = useState('');
-  const [editing, setEditing] = useState<Project | null>(null); // null=fermé, {}=création, projet=édition
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    customerId: '',
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: '',
-    budget: '',
-    managerId: '',
-    status: ProjectStatus.PLANNING,
-    priority: 'MEDIUM',
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const { canCreate, canUpdate } = getCrudVisibility(user, {
+    read: ['projects.read', 'projects.read_all', 'projects.read_assigned'],
+    create: ['projects.create'],
+    update: ['projects.update', 'projects.change_status', 'projects.manage_budget', 'projects.manage_team'],
   });
 
-  const qc = useQueryClient();
-
   const { data: response, isLoading } = useQuery({
-    queryKey: ['projects', statusFilter, clientFilter],
+    queryKey: ['projects', statusFilter],
     queryFn: () =>
       projectsService.getProjects({
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
@@ -55,20 +65,10 @@ export default function ProjectsPage() {
   });
 
   const projects = response?.data ?? [];
-
   const filteredProjects = projects.filter((project) => {
     const clientLabel = (project.clientName || project.customer?.companyName || project.customerId || '').toLowerCase();
-    const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
-    const matchesClient = !clientFilter || clientLabel.includes(clientFilter.toLowerCase());
-    return matchesStatus && matchesClient;
+    return !clientFilter || clientLabel.includes(clientFilter.toLowerCase());
   });
-
-  const stats = {
-    total: projects.length,
-    active: projects.filter((p) => p.status === 'ACTIVE').length,
-    completed: projects.filter((p) => p.status === 'COMPLETED').length,
-    totalBudget: projects.reduce((sum, p) => sum + (p.budget || 0), 0),
-  };
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -84,11 +84,12 @@ export default function ProjectsPage() {
         priority: form.priority as any,
       }),
     onSuccess: () => {
-      toast.success('Projet créé');
+      toast.success('Projet cree');
       qc.invalidateQueries({ queryKey: ['projects'] });
       setEditing(null);
+      setForm(emptyForm);
     },
-    onError: () => toast.error('Création impossible'),
+    onError: () => toast.error('Creation impossible'),
   });
 
   const updateMutation = useMutation({
@@ -105,202 +106,162 @@ export default function ProjectsPage() {
         priority: form.priority as any,
       }),
     onSuccess: () => {
-      toast.success('Projet mis à jour');
+      toast.success('Projet mis a jour');
       qc.invalidateQueries({ queryKey: ['projects'] });
       setEditing(null);
     },
-    onError: () => toast.error('Mise à jour impossible'),
+    onError: () => toast.error('Mise a jour impossible'),
   });
 
   const openCreate = () => {
-    setForm({
-      name: '',
-      description: '',
-      customerId: '',
-      startDate: new Date().toISOString().slice(0, 10),
-      endDate: '',
-      budget: '',
-      managerId: '',
-      status: ProjectStatus.PLANNING,
-      priority: 'MEDIUM',
-    });
+    setForm(emptyForm);
     setEditing({} as Project);
   };
 
-  const openEdit = (p: Project) => {
+  const openEdit = (project: Project) => {
     setForm({
-      name: p.name || '',
-      description: p.description || '',
-      customerId: p.customerId || '',
-      startDate: p.startDate ? p.startDate.slice(0, 10) : '',
-      endDate: p.endDate ? p.endDate.slice(0, 10) : '',
-      budget: p.budget ? String(p.budget) : '',
-      managerId: p.managerId || '',
-      status: p.status,
-      priority: (p.priority as any) || 'MEDIUM',
+      name: project.name || '',
+      description: project.description || '',
+      customerId: project.customerId || '',
+      startDate: project.startDate ? project.startDate.slice(0, 10) : '',
+      endDate: project.endDate ? project.endDate.slice(0, 10) : '',
+      budget: project.budget ? String(project.budget) : '',
+      managerId: project.managerId || '',
+      status: project.status,
+      priority: (project.priority as string) || 'MEDIUM',
     });
-    setEditing(p);
+    setEditing(project);
   };
 
   const save = () => {
     if (!form.name || !form.customerId || !form.managerId || !form.startDate) {
-      toast.error('Nom, client, manager et date de début sont requis');
+      toast.error('Nom, client, manager et date de debut sont requis');
       return;
     }
-    if (editing && editing.id) updateMutation.mutate();
-    else createMutation.mutate();
+
+    if (editing?.id) {
+      updateMutation.mutate();
+      return;
+    }
+
+    createMutation.mutate();
   };
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Projets</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={openCreate}>
-          Nouveau projet
-        </button>
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Total</div>
-          <div className="text-2xl font-bold">{stats.total}</div>
+      <div className="flex justify-between items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Projets</h1>
+          <p className="text-sm text-gray-600">Suivi global des projets, budgets et responsables.</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Actifs</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Terminés</div>
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm text-gray-600">Budget total</div>
-          <div className="text-2xl font-bold">{stats.totalBudget.toLocaleString()} F</div>
-        </div>
-      </div>
-
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <div className="flex gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'ALL')}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="ALL">Tous</option>
-              <option value="PLANNING">Planifié</option>
-              <option value="ACTIVE">En cours</option>
-              <option value="ON_HOLD">Suspendu</option>
-              <option value="COMPLETED">Terminé</option>
-              <option value="CANCELLED">Annulé</option>
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-            <input
-              type="text"
-              value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-              placeholder="Rechercher un client..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-8 text-gray-500">Chargement...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numéro</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Budget</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progression</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredProjects.map((project) => {
-                  const projectNumber = project.projectNumber || project.id.slice(0, 8);
-                  const clientLabel = project.clientName || project.customer?.companyName || project.customerId || '—';
-                  const startDateLabel = project.startDate ? new Date(project.startDate).toLocaleDateString() : '—';
-                  const endDateLabel = project.endDate ? new Date(project.endDate).toLocaleDateString() : '—';
-                  const budgetValue = project.budget ?? 0;
-                  const completion = project.completion ?? 0;
-
-                  return (
-                    <tr key={project.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{projectNumber}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{project.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{clientLabel}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {startDateLabel} - {endDateLabel}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{budgetValue.toLocaleString()} F</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[project.status]}`}>
-                          {statusLabels[project.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${completion}%` }}></div>
-                          </div>
-                          <span className="text-sm text-gray-600 w-12">{completion}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <a
-                            href={`/dashboard/projets/${project.id}`}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            Voir
-                          </a>
-                          <button className="text-sm text-gray-600 hover:text-gray-900" onClick={() => openEdit(project)}>
-                            Éditer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {filteredProjects.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Aucun projet trouvé</div>
-            )}
-          </div>
+        {canCreate && (
+          <Button onClick={openCreate}>Nouveau projet</Button>
         )}
       </div>
 
-      {editing && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-3xl p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">{editing.id ? 'Éditer le projet' : 'Nouveau projet'}</h3>
+      <div className="bg-white p-4 rounded-lg shadow space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Statut</Label>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ProjectStatus | 'ALL')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tous</SelectItem>
+                <SelectItem value={ProjectStatus.PLANNING}>Planifie</SelectItem>
+                <SelectItem value={ProjectStatus.ACTIVE}>En cours</SelectItem>
+                <SelectItem value={ProjectStatus.ON_HOLD}>Suspendu</SelectItem>
+                <SelectItem value={ProjectStatus.COMPLETED}>Termine</SelectItem>
+                <SelectItem value={ProjectStatus.CANCELLED}>Annule</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Client</Label>
+            <Input
+              placeholder="Filtrer par client"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-4 py-3 text-left">Projet</th>
+              <th className="px-4 py-3 text-left">Client</th>
+              <th className="px-4 py-3 text-left">Manager</th>
+              <th className="px-4 py-3 text-left">Budget</th>
+              <th className="px-4 py-3 text-left">Statut</th>
+              <th className="px-4 py-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {isLoading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center">Chargement...</td>
+              </tr>
+            )}
+            {!isLoading && filteredProjects.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Aucun projet</td>
+              </tr>
+            )}
+            {filteredProjects.map((project) => (
+              <tr key={project.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <div className="font-medium">{project.name}</div>
+                  <div className="text-xs text-gray-500">{project.projectNumber || project.id.slice(0, 8)}</div>
+                </td>
+                <td className="px-4 py-3 text-gray-600">{project.clientName || project.customer?.companyName || project.customerId || '-'}</td>
+                <td className="px-4 py-3 text-gray-600">{project.manager ? `${project.manager.firstName} ${project.manager.lastName}` : project.managerId}</td>
+                <td className="px-4 py-3 text-gray-600">{project.budget ? `${project.budget.toLocaleString()} ${project.currency || 'F'}` : '-'}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[project.status]}`}>
+                    {statusLabels[project.status]}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-3 text-sm">
+                    <Link href={`/dashboard/projets/${project.id}`} className="text-blue-600 hover:text-blue-800">
+                      Voir
+                    </Link>
+                    {canUpdate && (
+                      <button className="text-gray-600 hover:text-gray-900" onClick={() => openEdit(project)}>
+                        Editer
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {(canCreate || canUpdate) && editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{editing.id ? 'Editer le projet' : 'Nouveau projet'}</h3>
               <button onClick={() => setEditing(null)} className="p-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Nom *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <Label>Client / customerId *</Label>
+                <Label>Client *</Label>
                 <Input value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })} />
               </div>
               <div>
-                <Label>ManagerId *</Label>
+                <Label>Manager *</Label>
                 <Input value={form.managerId} onChange={(e) => setForm({ ...form, managerId: e.target.value })} />
               </div>
               <div>
@@ -308,29 +269,29 @@ export default function ProjectsPage() {
                 <Input type="number" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
               </div>
               <div>
-                <Label>Début *</Label>
+                <Label>Date de debut *</Label>
                 <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
               </div>
               <div>
-                <Label>Fin</Label>
+                <Label>Date de fin</Label>
                 <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
               </div>
               <div>
                 <Label>Statut</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ProjectStatus })}>
+                <Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value as ProjectStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PLANNING">Planifié</SelectItem>
-                    <SelectItem value="ACTIVE">En cours</SelectItem>
-                    <SelectItem value="ON_HOLD">Suspendu</SelectItem>
-                    <SelectItem value="COMPLETED">Terminé</SelectItem>
-                    <SelectItem value="CANCELLED">Annulé</SelectItem>
+                    <SelectItem value={ProjectStatus.PLANNING}>Planifie</SelectItem>
+                    <SelectItem value={ProjectStatus.ACTIVE}>En cours</SelectItem>
+                    <SelectItem value={ProjectStatus.ON_HOLD}>Suspendu</SelectItem>
+                    <SelectItem value={ProjectStatus.COMPLETED}>Termine</SelectItem>
+                    <SelectItem value={ProjectStatus.CANCELLED}>Annule</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Priorité</Label>
-                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                <Label>Priorite</Label>
+                <Select value={form.priority} onValueChange={(value) => setForm({ ...form, priority: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="LOW">Basse</SelectItem>
@@ -340,15 +301,16 @@ export default function ProjectsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <Label>Description</Label>
                 <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="mt-6 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditing(null)}>Annuler</Button>
               <Button onClick={save} disabled={createMutation.isPending || updateMutation.isPending}>
-                {editing.id ? 'Mettre à jour' : 'Créer'}
+                {editing.id ? 'Mettre a jour' : 'Creer'}
               </Button>
             </div>
           </div>

@@ -31,6 +31,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { CreateQuoteDialog } from '@/components/commercial/CreateQuoteDialog';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
 
@@ -42,6 +43,7 @@ interface Quote {
   title: string;
   company: string;
   contact: string;
+  serviceName?: string;
   amount: number;
   status: QuoteStatus;
   validUntil: string;
@@ -101,10 +103,12 @@ export default function QuotesPage() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+  const [createOpen, setCreateOpen] = useState(false);
+  const { canCreate, canUpdate, canDelete, canExport, canApprove } = getCrudVisibility(user, {
     read: ['quotes.read', 'quotes.read_all', 'quotes.read_own'],
     create: ['quotes.create'],
     update: ['quotes.update', 'quotes.approve'],
+    approve: ['quotes.approve', 'quotes.convert', 'invoices.create'],
     remove: ['quotes.delete'],
     export: ['quotes.export', 'quotes.print'],
   });
@@ -133,6 +137,14 @@ export default function QuotesPage() {
     },
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => billingService.acceptQuote(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+  });
+
   const quotes: Quote[] = useMemo(() => {
     const list = quotesResponse?.data || [];
     return list.map((q) => ({
@@ -142,6 +154,7 @@ export default function QuotesPage() {
       company: q.client?.nom || q.clientId || 'Client',
       contact: (q.client as any)?.contact || '-',
       amount: q.montantTTC ?? q.montantHT ?? 0,
+      serviceName: q.serviceName || undefined,
       status: STATUS_MAP[(q.status as BackendQuoteStatus) || 'BROUILLON'] || 'draft',
       validUntil: q.dateValidite || '',
       sentAt: q.dateDevis || '',
@@ -238,6 +251,20 @@ export default function QuotesPage() {
     }
   };
 
+  const handleApprove = async (quote: Quote) => {
+    if (!confirm(`Approuver le devis ${quote.number} et le transformer en facture ?`)) {
+      return;
+    }
+
+    const response = await approveMutation.mutateAsync(quote.id);
+    const invoice = (response as any)?.data?.invoice;
+
+    if (invoice?.numeroFacture) {
+      const serviceSuffix = invoice?.serviceName ? ` pour le service ${invoice.serviceName}` : '';
+      alert(`Devis approuve${serviceSuffix}. Facture creee: ${invoice.numeroFacture}`);
+    }
+  };
+
   const onSubmit = async (values: QuoteFormValues) => {
     if (!selectedQuote) return;
     await updateMutation.mutateAsync({ id: selectedQuote.id, data: values });
@@ -253,7 +280,7 @@ export default function QuotesPage() {
           <p className="text-muted-foreground">Creation, suivi et gestion de vos devis</p>
         </div>
         {canCreate && (
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <FileText className="mr-2 h-4 w-4" />
             Nouveau devis
           </Button>
@@ -352,7 +379,7 @@ export default function QuotesPage() {
                     <th className="text-left p-4 font-medium">Statut</th>
                     <th className="text-left p-4 font-medium">Validite</th>
                     <th className="text-left p-4 font-medium">Cree le</th>
-                    {(canUpdate || canDelete || canExport) && <th className="text-left p-4 font-medium">Actions</th>}
+                    {(canUpdate || canDelete || canExport || canApprove) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -385,13 +412,24 @@ export default function QuotesPage() {
                         <td className="p-4 text-sm text-muted-foreground">
                           {quote.createdAt ? formatDate(quote.createdAt) : '-'}
                         </td>
-                        {(canUpdate || canDelete || canExport) && (
+                        {(canUpdate || canDelete || canExport || canApprove) && (
                           <td className="p-4">
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm" onClick={() => openView(quote)}>
                                 <Eye className="h-4 w-4 mr-1" />
                                 Voir
                               </Button>
+                              {canApprove && (quote.status === 'draft' || quote.status === 'sent') && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => void handleApprove(quote)}
+                                  disabled={approveMutation.isPending}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Approuver
+                                </Button>
+                              )}
                               {canUpdate && (
                                 <Button variant="outline" size="sm" onClick={() => openEdit(quote)}>
                                   <Edit className="h-4 w-4 mr-1" />
@@ -443,6 +481,7 @@ export default function QuotesPage() {
             <div className="space-y-2 text-sm">
               <div><strong>Numero:</strong> {selectedQuote.number}</div>
               <div><strong>Client:</strong> {selectedQuote.company}</div>
+              <div><strong>Service emetteur:</strong> {selectedQuote.serviceName || '-'}</div>
               <div><strong>Montant:</strong> {formatCurrency(selectedQuote.amount)}</div>
               <div><strong>Statut:</strong> {selectedQuote.status}</div>
               <div><strong>Validite:</strong> {selectedQuote.validUntil ? formatDate(selectedQuote.validUntil) : '-'}</div>
@@ -492,6 +531,8 @@ export default function QuotesPage() {
         </DialogContent>
       </Dialog>
       )}
+
+      <CreateQuoteDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

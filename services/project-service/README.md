@@ -1,4 +1,4 @@
-# Project Service - Parabellum ERP
+# Project Service - Parabellum Groups
 
 Service de gestion de projets, tâches et jalons pour l'ERP Parabellum.
 

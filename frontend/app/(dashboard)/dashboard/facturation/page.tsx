@@ -48,6 +48,16 @@ export default function FacturationPage() {
     queryFn: () => analyticsService.getOverviewDashboard(),
   });
 
+  const { data: purchaseCommitmentsResponse, isLoading: isLoadingPurchases } = useQuery({
+    queryKey: ['purchaseCommitments'],
+    queryFn: () => billingService.getPurchaseCommitments(),
+  });
+
+  const { data: purchaseStatsResponse } = useQuery({
+    queryKey: ['purchaseCommitmentStats'],
+    queryFn: () => billingService.getPurchaseCommitmentsStats(),
+  });
+
   const monthLabels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
   const monthlyRevenue = (overviewResponse?.data?.monthly_revenue || []).map((value: number, idx: number) => ({
     month: monthLabels[idx % 12],
@@ -83,6 +93,8 @@ export default function FacturationPage() {
 
   const stats = statsResponse?.data;
   const invoices = invoicesResponse?.data ?? [];
+  const purchaseStats = purchaseStatsResponse?.data;
+  const purchaseCommitments = purchaseCommitmentsResponse?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -270,9 +282,91 @@ export default function FacturationPage() {
           </div>
         )}
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="p-6">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Achats en attente</p>
+          <p className="mt-2 text-2xl font-bold text-orange-600">
+            {purchaseStats?.pendingQuotes || 0}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">BC brouillon</p>
+          <p className="mt-2 text-2xl font-bold text-blue-600">
+            {purchaseStats?.draftOrders || 0}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">BC livrés</p>
+          <p className="mt-2 text-2xl font-bold text-green-600">
+            {purchaseStats?.receivedOrders || 0}
+          </p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Engagement achats</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+            {formatCurrency(purchaseStats?.totalCommittedAmount || 0)}
+          </p>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="p-6 border-b">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Achats et engagements
+            </h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Devis d&apos;achat en attente et bons de commande
+            </span>
+          </div>
+        </div>
+
+        {isLoadingPurchases ? (
+          <div className="flex justify-center items-center py-12">
+            <Spinner />
+          </div>
+        ) : purchaseCommitments.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Numéro</TableHead>
+                <TableHead>Service</TableHead>
+                <TableHead>Fournisseur</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Montant</TableHead>
+                <TableHead>Statut</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {purchaseCommitments.slice(0, 8).map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Badge variant={item.sourceType === 'PURCHASE_ORDER' ? 'default' : 'outline'}>
+                      {item.sourceType === 'PURCHASE_ORDER' ? 'Bon de commande' : 'Devis achat'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-medium">{item.sourceNumber}</TableCell>
+                  <TableCell>{item.serviceName || '-'}</TableCell>
+                  <TableCell>{item.supplierName || '-'}</TableCell>
+                  <TableCell>{formatDate(item.createdAt || undefined)}</TableCell>
+                  <TableCell>{formatCurrency(item.amountTTC || 0)}</TableCell>
+                  <TableCell>{getStatusBadge(item.status)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400">
+              Aucun engagement d&apos;achat trouvé
+            </p>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
-
 
 

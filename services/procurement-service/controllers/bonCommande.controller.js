@@ -1,8 +1,39 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const { generateBonCommandeNumber } = require('../utils/purchaseNumberGenerator');
+const { serializeOrder, fetchServiceMeta } = require('../utils/purchaseQuoteHelpers');
+const { enqueueProcurementEvent } = require('../utils/outbox');
 
 const prisma = new PrismaClient();
+
+const getCorrelationId = (req) => req.headers['x-correlation-id'] || null;
+
+const purchaseOrderCreatedPayload = (order) => ({
+  purchaseOrderId: order.id,
+  purchaseOrderNumber: order.numeroBon,
+  sourcePurchaseQuoteId: order.sourceDevisAchatId || null,
+  sourcePurchaseQuoteNumber: order.requestNumber || null,
+  serviceId: order.serviceId || null,
+  serviceName: order.serviceName || null,
+  supplierId: order.supplierId || null,
+  supplierName: order.fournisseurNom || order.supplier || null,
+  amountHT: order.montantHT || 0,
+  amountTVA: order.montantTVA || 0,
+  amountTTC: order.montantTotal || order.amount || 0,
+  currency: 'XOF',
+  status: order.status,
+  createdAt: order.createdAt,
+});
+
+const purchaseOrderStatusChangedPayload = (order, fromStatus) => ({
+  purchaseOrderId: order.id,
+  purchaseOrderNumber: order.numeroBon,
+  fromStatus,
+  toStatus: order.status,
+  serviceId: order.serviceId || null,
+  serviceName: order.serviceName || null,
+  amountTTC: order.montantTotal || order.amount || 0,
+});
 
 const buildLignePayload = (ligne) => {
   const quantite = parseInt(ligne.quantite, 10) || 0;
@@ -12,7 +43,10 @@ const buildLignePayload = (ligne) => {
   const montantTTC = montantHT * (1 + tva / 100);
 
   return {
+    articleId: ligne.articleId ? String(ligne.articleId) : null,
+    referenceArticle: ligne.referenceArticle || ligne.reference || null,
     designation: ligne.designation,
+    categorie: ligne.categorie || ligne.category || null,
     quantite,
     prixUnitaire,
     tva,
@@ -71,7 +105,8 @@ exports.getAll = async (req, res) => {
     ]);
 
     res.json({
-      data: bons,
+      success: true,
+      data: bons.map(serializeOrder),
       pagination: {
         total,
         page: parseInt(page),
@@ -103,6 +138,23 @@ exports.create = async (req, res) => {
       lignes = [],
     } = req.body;
 
+    let sourceDemande = null;
+    if (demandeAchatId) {
+      sourceDemande = await prisma.demandeAchat.findUnique({
+        where: { id: demandeAchatId },
+        select: {
+          id: true,
+          serviceId: true,
+          serviceName: true,
+        },
+      });
+    }
+
+    const serviceMeta =
+      req.user?.serviceId && !sourceDemande?.serviceName
+        ? await fetchServiceMeta(req, req.user.serviceId, req.user?.serviceName || null)
+        : { serviceName: sourceDemande?.serviceName || req.user?.serviceName || null };
+
     // Generate unique numero bon
     const numeroBon = await generateBonCommandeNumber(prisma);
 
@@ -115,33 +167,52 @@ exports.create = async (req, res) => {
         ? lignesData.reduce((sum, l) => sum + l.montantTTC, 0)
         : montantTotal || 0;
 
-    const bon = await prisma.bonCommande.create({
-      data: {
-        numeroBon,
-        demandeAchatId,
-        fournisseurId,
-        dateCommande: dateCommande ? new Date(dateCommande) : new Date(),
-        dateLivraison: dateLivraison ? new Date(dateLivraison) : null,
-        montantTotal: totalTTC,
-        status: status || 'BROUILLON',
-        ...(lignesData.length
-          ? {
-              lignes: {
-                createMany: {
-                  data: lignesData,
+    const bon = await prisma.$transaction(async (tx) => {
+      const created = await tx.bonCommande.create({
+        data: {
+          numeroBon,
+          demandeAchatId,
+          fournisseurId,
+          serviceId: sourceDemande?.serviceId ?? req.user?.serviceId ?? null,
+          serviceName: sourceDemande?.serviceName || serviceMeta.serviceName,
+          dateCommande: dateCommande ? new Date(dateCommande) : new Date(),
+          dateLivraison: dateLivraison ? new Date(dateLivraison) : null,
+          montantHT: lignesData.reduce((sum, ligne) => sum + ligne.montantHT, 0),
+          montantTVA: lignesData.reduce((sum, ligne) => sum + (ligne.montantTTC - ligne.montantHT), 0),
+          montantTotal: totalTTC,
+          status: status || 'BROUILLON',
+          ...(lignesData.length
+            ? {
+                lignes: {
+                  createMany: {
+                    data: lignesData,
+                  },
                 },
-              },
-            }
-          : {}),
-      },
-      include: {
-        fournisseur: true,
-        demandeAchat: true,
-        lignes: true,
-      },
+              }
+            : {}),
+        },
+        include: {
+          fournisseur: true,
+          demandeAchat: true,
+          lignes: true,
+        },
+      });
+
+      await enqueueProcurementEvent(tx, {
+        eventType: 'procurement.purchase_order.created',
+        aggregateType: 'PURCHASE_ORDER',
+        aggregateId: created.id,
+        correlationId: getCorrelationId(req),
+        payload: purchaseOrderCreatedPayload(serializeOrder(created)),
+      });
+
+      return created;
     });
 
-    res.status(201).json(bon);
+    res.status(201).json({
+      success: true,
+      data: serializeOrder(bon),
+    });
   } catch (error) {
     console.error('Error creating bon commande:', error);
     res.status(500).json({ error: 'Erreur lors de la création du bon de commande' });
@@ -168,7 +239,10 @@ exports.getById = async (req, res) => {
       return res.status(404).json({ error: 'Bon de commande non trouvé' });
     }
 
-    res.json(bon);
+    res.json({
+      success: true,
+      data: serializeOrder(bon),
+    });
   } catch (error) {
     console.error('Error fetching bon commande:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération du bon de commande' });
@@ -200,7 +274,10 @@ exports.update = async (req, res) => {
       }
     });
 
-    res.json(bon);
+    res.json({
+      success: true,
+      data: serializeOrder(bon),
+    });
   } catch (error) {
     console.error('Error updating bon commande:', error);
     if (error.code === 'P2025') {
@@ -268,43 +345,57 @@ exports.updateStatus = async (req, res) => {
       return res.status(404).json({ error: 'Bon de commande non trouvé' });
     }
 
-    const bon = await prisma.bonCommande.update({
-      where: { id },
-      data: { status },
-      include: {
-        fournisseur: true,
-        demandeAchat: true,
-        lignes: true
-      }
-    });
-
-    if (existing.status !== status) {
-      const resolvedAction =
-        action ||
-        (status === 'BROUILLON' || status === 'ENVOYE' || status === 'ANNULE'
-          ? 'revert'
-          : 'validate');
-
-      await prisma.bonCommandeValidationLog.create({
-        data: {
-          bonCommandeId: id,
-          action: resolvedAction,
-          fromStatus: existing.status,
-          toStatus: status,
-          createdById: req.userId || null
+    const bon = await prisma.$transaction(async (tx) => {
+      const updated = await tx.bonCommande.update({
+        where: { id },
+        data: { status },
+        include: {
+          fournisseur: true,
+          demandeAchat: true,
+          lignes: true
         }
       });
-    }
 
-    // If status is LIVRE, update demande achat status to COMMANDEE
-    if (status === 'LIVRE' && bon.demandeAchatId) {
-      await prisma.demandeAchat.update({
-        where: { id: bon.demandeAchatId },
-        data: { status: 'COMMANDEE' }
-      });
-    }
+      if (existing.status !== status) {
+        const resolvedAction =
+          action ||
+          (status === 'BROUILLON' || status === 'ENVOYE' || status === 'ANNULE'
+            ? 'revert'
+            : 'validate');
 
-    res.json(bon);
+        await tx.bonCommandeValidationLog.create({
+          data: {
+            bonCommandeId: id,
+            action: resolvedAction,
+            fromStatus: existing.status,
+            toStatus: status,
+            createdById: req.userId || null
+          }
+        });
+
+        await enqueueProcurementEvent(tx, {
+          eventType: 'procurement.purchase_order.status_changed',
+          aggregateType: 'PURCHASE_ORDER',
+          aggregateId: updated.id,
+          correlationId: getCorrelationId(req),
+          payload: purchaseOrderStatusChangedPayload(serializeOrder(updated), existing.status),
+        });
+      }
+
+      if (status === 'LIVRE' && updated.demandeAchatId) {
+        await tx.demandeAchat.update({
+          where: { id: updated.demandeAchatId },
+          data: { status: 'COMMANDEE' }
+        });
+      }
+
+      return updated;
+    });
+
+    res.json({
+      success: true,
+      data: serializeOrder(bon),
+    });
   } catch (error) {
     console.error('Error updating bon commande status:', error);
     if (error.code === 'P2025') {
@@ -413,7 +504,10 @@ exports.getByFournisseur = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(bons);
+    res.json({
+      success: true,
+      data: bons.map(serializeOrder),
+    });
   } catch (error) {
     console.error('Error fetching bons commande by fournisseur:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération des bons de commande' });

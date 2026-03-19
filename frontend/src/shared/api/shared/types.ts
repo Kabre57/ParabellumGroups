@@ -128,6 +128,14 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole | { id?: number; name?: string; code?: string; description?: string };
+  serviceId?: string | number | null;
+  service?: {
+    id?: string | number;
+    name?: string;
+    description?: string | null;
+  } | null;
+  department?: string | null;
+  position?: string | null;
   phoneNumber?: string;
   avatar?: string;
   isActive: boolean;

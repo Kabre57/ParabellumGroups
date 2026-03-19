@@ -20,25 +20,61 @@ export interface DetailResponse<T> {
   message?: string;
 }
 
+const normalizeListResponse = <T>(payload: any): ListResponse<T> => {
+  if (Array.isArray(payload)) {
+    return { success: true, data: payload };
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data,
+      meta: payload.meta ?? (payload.pagination ? { pagination: payload.pagination } : undefined),
+    };
+  }
+
+  return {
+    success: payload?.success ?? true,
+    data: [],
+    meta: payload?.meta ?? (payload?.pagination ? { pagination: payload.pagination } : undefined),
+  };
+};
+
+const normalizeDetailResponse = <T>(payload: any): DetailResponse<T> => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data as T,
+      message: payload.message,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as T,
+  };
+};
+
 export const inventoryService = {
   async getArticles(params?: {
     status?: string;
     categorie?: string;
     search?: string;
   }): Promise<ListResponse<InventoryArticle>> {
-    // Ajout d'un cache-buster pour éviter les 304 sans corps qui laissent le modal vide
-    const response = await apiClient.get('/inventory/articles', { params: { ...params, _ts: Date.now() } });
-    return response.data;
+    const response = await apiClient.get('/inventory/articles', {
+      params: { ...params, _ts: Date.now() },
+    });
+    return normalizeListResponse<InventoryArticle>(response.data);
   },
 
   async createArticle(data: Partial<InventoryArticle>): Promise<DetailResponse<InventoryArticle>> {
     const response = await apiClient.post('/inventory/articles', data);
-    return response.data;
+    return normalizeDetailResponse<InventoryArticle>(response.data);
   },
 
   async updateArticle(id: string, data: Partial<InventoryArticle>): Promise<DetailResponse<InventoryArticle>> {
     const response = await apiClient.put(`/inventory/articles/${id}`, data);
-    return response.data;
+    return normalizeDetailResponse<InventoryArticle>(response.data);
   },
 
   async deleteArticle(id: string): Promise<{ success: boolean; message?: string }> {
@@ -53,7 +89,7 @@ export const inventoryService = {
     articleId?: string;
   }): Promise<ListResponse<StockMovement>> {
     const response = await apiClient.get('/inventory/mouvements', { params });
-    return response.data;
+    return normalizeListResponse<StockMovement>(response.data);
   },
 
   async createMovement(data: {
@@ -66,6 +102,6 @@ export const inventoryService = {
     notes?: string;
   }): Promise<DetailResponse<StockMovement>> {
     const response = await apiClient.post('/inventory/mouvements', data);
-    return response.data;
+    return normalizeDetailResponse<StockMovement>(response.data);
   },
 };

@@ -1,7 +1,7 @@
 {
   "name": "parabellum-auth-service",
   "version": "1.0.0",
-  "description": "Service d'authentification et gestion des utilisateurs pour Parabellum ERP",
+  "description": "Service d'authentification et gestion des utilisateurs pour Parabellum Groups",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -9,7 +9,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test": "jest"
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [
     "auth",

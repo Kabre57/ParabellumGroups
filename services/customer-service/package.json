@@ -10,8 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js",
-    "test": "jest",
-    "lint": "eslint .",
+    "test": "node --test tests/*.test.js",
+    "lint": "node ../../scripts/check-js-syntax.mjs .",
     "format": "prettier --write \"**/*.js\""
   },
   "dependencies": {

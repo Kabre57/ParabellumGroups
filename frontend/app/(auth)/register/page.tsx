@@ -71,7 +71,7 @@ export default function RegisterPage() {
           Inscription
         </h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Créez votre compte Parabellum ERP
+          Créez votre compte Parabellum Groups
         </p>
       </div>
 

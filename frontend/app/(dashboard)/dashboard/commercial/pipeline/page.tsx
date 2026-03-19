@@ -30,6 +30,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { CreateOpportunityDialog } from '@/components/commercial/CreateOpportunityDialog';
 
 type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'won' | 'lost';
 
@@ -104,6 +105,7 @@ export default function PipelinePage() {
   const [selectedOpportunity, setSelectedOpportunity] = useState<PipelineOpportunity | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['opportunities.read', 'opportunities.read_all', 'opportunities.read_own'],
     create: ['opportunities.create'],
@@ -264,7 +266,7 @@ export default function PipelinePage() {
           <p className="text-muted-foreground">Suivi des opportunites et previsions de vente</p>
         </div>
         {canCreate && (
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <Users className="mr-2 h-4 w-4" />
             Nouvelle opportunite
           </Button>
@@ -514,6 +516,8 @@ export default function PipelinePage() {
         </DialogContent>
       </Dialog>
       )}
+
+      <CreateOpportunityDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

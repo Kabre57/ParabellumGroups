@@ -3,6 +3,18 @@ const { billingServiceLimiter } = require('../../middleware/serviceLimiters');
 
 const billingPermissionRules = [
   {
+    pattern: /^\/invoices\/[^/]+\/send$/,
+    permissions: {
+      POST: ['invoices.send', 'invoices.update']
+    }
+  },
+  {
+    pattern: /^\/invoices\/[^/]+\/lignes$/,
+    permissions: {
+      POST: ['invoices.update', 'invoices.create']
+    }
+  },
+  {
     pattern: /^\/invoices/,
     permissions: {
       GET: 'invoices.read',
@@ -13,6 +25,30 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/quotes\/[^/]+\/accept$/,
+    permissions: {
+      POST: 'quotes.approve'
+    }
+  },
+  {
+    pattern: /^\/quotes\/[^/]+\/convert-to-facture$/,
+    permissions: {
+      POST: ['quotes.convert', 'quotes.approve', 'invoices.create']
+    }
+  },
+  {
+    pattern: /^\/quotes\/[^/]+\/send$/,
+    permissions: {
+      POST: ['quotes.update', 'quotes.approve']
+    }
+  },
+  {
+    pattern: /^\/quotes\/[^/]+\/lignes$/,
+    permissions: {
+      POST: ['quotes.update', 'quotes.create']
+    }
+  },
+  {
     pattern: /^\/quotes/,
     permissions: {
       GET: 'quotes.read',
@@ -20,6 +56,12 @@ const billingPermissionRules = [
       PUT: 'quotes.update',
       PATCH: 'quotes.update',
       DELETE: 'quotes.delete'
+    }
+  },
+  {
+    pattern: /^\/purchase-commitments/,
+    permissions: {
+      GET: ['invoices.read', 'purchases.read']
     }
   },
   {

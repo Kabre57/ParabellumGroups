@@ -60,24 +60,15 @@ const { PrismaClient: TechnicalPrismaClient } = technicalRequire('@prisma/client
 const { PrismaClient: CustomerPrismaClient } = customerRequire('@prisma/client');
 
 const technicalPrisma = new TechnicalPrismaClient({
-  datasources: {
-    db: {
-      url: technicalDatabaseUrl,
-    },
-  },
+  datasources: { db: { url: technicalDatabaseUrl } },
 });
 
 const customerPrisma = new CustomerPrismaClient({
-  datasources: {
-    db: {
-      url: customerDatabaseUrl,
-    },
-  },
+  datasources: { db: { url: customerDatabaseUrl } },
 });
 
 const normalize = (value) =>
-  (value || '')
-    .toString()
+  String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -89,78 +80,87 @@ const formatAddressValue = (address) =>
     .filter(Boolean)
     .join(', ');
 
-const fallbackSiteName = (mission) => {
-  const firstSegment = mission?.adresse?.split(',')?.[0]?.trim();
-  return firstSegment || mission?.adresse || null;
+const getSiteName = (address) =>
+  address?.nomAdresse?.trim() || [address?.ligne1, address?.ville].filter(Boolean).join(', ').trim();
+
+const findMatchedAddress = (mission, client) => {
+  const missionAddress = normalize(mission.adresse);
+  const missionSite = normalize(mission.nomAdresseChantier);
+
+  return (
+    client.adresses.find((address) => address.id === mission.crmAdresseId) ||
+    client.adresses.find((address) => missionSite && normalize(getSiteName(address)) === missionSite) ||
+    client.adresses.find((address) => missionAddress && normalize(formatAddressValue(address)) === missionAddress) ||
+    client.adresses.find((address) => {
+      const addressSite = normalize(getSiteName(address));
+      return addressSite && missionAddress.includes(addressSite);
+    }) ||
+    client.adresses.find((address) => address.isPrincipal) ||
+    client.adresses[0] ||
+    null
+  );
 };
 
 async function main() {
-  const missions = await technicalPrisma.$queryRawUnsafe(`
-    SELECT id, "clientNom", "clientContact", adresse, "nomAdresseChantier", "createdAt"
-    FROM missions
-    WHERE "nomAdresseChantier" IS NULL OR "nomAdresseChantier" = ''
-    ORDER BY "createdAt" ASC
-  `);
+  const missions = await technicalPrisma.mission.findMany({
+    orderBy: { createdAt: 'asc' },
+  });
 
   let updated = 0;
   let crmMatched = 0;
   let fallbackMatched = 0;
 
   for (const mission of missions) {
-    let candidateName = null;
-
-    const clientMatches = await customerPrisma.client.findMany({
+    const candidateClients = await customerPrisma.client.findMany({
       where: {
         OR: [
-          { nom: { equals: mission.clientNom, mode: 'insensitive' } },
-          { raisonSociale: { equals: mission.clientNom, mode: 'insensitive' } },
-          ...(mission.clientContact
-            ? [{ email: { equals: mission.clientContact, mode: 'insensitive' } }]
-            : []),
+          ...(mission.crmClientId ? [{ id: mission.crmClientId }] : []),
+          ...(mission.clientNom ? [{ nom: { equals: mission.clientNom, mode: 'insensitive' } }] : []),
+          ...(mission.clientContact ? [{ email: { equals: mission.clientContact, mode: 'insensitive' } }] : []),
         ],
       },
       include: { adresses: true },
       take: 20,
     });
 
-    const normalizedMissionAddress = normalize(mission.adresse);
-    for (const client of clientMatches) {
-      const matchedAddress =
-        client.adresses.find((address) => normalize(formatAddressValue(address)) === normalizedMissionAddress) ||
-        client.adresses.find((address) => {
-          const name = normalize(address.nomAdresse);
-          return name && normalizedMissionAddress.includes(name);
-        }) ||
-        client.adresses.find((address) => address.isPrincipal);
+    const matchedClient =
+      candidateClients.find((client) => client.id === mission.crmClientId) ||
+      candidateClients.find((client) => client.nom?.toLowerCase() === mission.clientNom?.toLowerCase()) ||
+      candidateClients[0] ||
+      null;
 
-      if (matchedAddress) {
-        candidateName =
-          matchedAddress.nomAdresse?.trim() ||
-          matchedAddress.ligne1?.trim() ||
-          fallbackSiteName(mission);
-        if (candidateName) {
-          crmMatched += 1;
-          break;
-        }
-      }
+    let data = {};
+
+    if (matchedClient) {
+      const matchedAddress = findMatchedAddress(mission, matchedClient);
+      data = {
+        crmClientId: matchedClient.id,
+        clientNom: matchedClient.nom || mission.clientNom,
+        clientContact: matchedClient.telephone || matchedClient.mobile || matchedClient.email || mission.clientContact,
+        ...(matchedAddress
+          ? {
+              crmAdresseId: matchedAddress.id,
+              nomAdresseChantier: getSiteName(matchedAddress) || mission.nomAdresseChantier,
+              adresse: formatAddressValue(matchedAddress) || mission.adresse,
+            }
+          : {}),
+      };
+      crmMatched += 1;
+    } else if (!mission.nomAdresseChantier && mission.adresse) {
+      data = {
+        nomAdresseChantier: mission.adresse.split(',')[0]?.trim() || mission.adresse,
+      };
+      fallbackMatched += 1;
     }
 
-    if (!candidateName) {
-      candidateName = fallbackSiteName(mission);
-      if (candidateName) {
-        fallbackMatched += 1;
-      }
-    }
-
-    if (!candidateName) {
+    if (Object.keys(data).length === 0) {
       continue;
     }
 
-    await technicalPrisma.$executeRawUnsafe(
-      `UPDATE missions SET "nomAdresseChantier" = $1, "updatedAt" = NOW() WHERE id = $2`,
-      candidateName,
-      mission.id
-    );
+    await technicalPrisma.mission.update({
+      where: { id: mission.id },
+      data,
+    });
     updated += 1;
   }
 

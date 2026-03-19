@@ -12,6 +12,7 @@ model Facture {
   numeroFacture  String          @unique
   clientId       String
   serviceId      String?
+  serviceName    String?
   serviceLogoUrl String?
   dateEmission   DateTime        @default(now())
   dateEcheance   DateTime
@@ -74,6 +75,7 @@ model Devis {
   numeroDevis   String       @unique
   clientId      String
   serviceId     String?
+  serviceName   String?
   serviceLogoUrl String?
   dateEmission  DateTime     @default(now())
   dateValidite  DateTime
@@ -109,6 +111,39 @@ model LigneDevis {
 
   @@index([devisId])
   @@map("lignes_devis")
+}
+
+model PurchaseCommitment {
+  id             String   @id @default(uuid())
+  sourceType     String
+  sourceId       String
+  sourceNumber   String
+  serviceId      Int?
+  serviceName    String?
+  supplierId     String?
+  supplierName   String?
+  amountHT       Float
+  amountTVA      Float
+  amountTTC      Float
+  currency       String   @default("XOF")
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([sourceType, sourceId])
+  @@index([status])
+  @@map("purchase_commitments")
+}
+
+model BillingProcessedEvent {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  eventType    String
+  source       String
+  processedAt  DateTime @default(now())
+
+  @@index([eventType])
+  @@map("billing_processed_events")
 }
 
 enum FactureStatus {

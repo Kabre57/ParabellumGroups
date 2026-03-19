@@ -147,16 +147,20 @@ export const serviceDefinitions: ServiceDefinition[] = [
     id: 'procurement',
     label: 'Achats & Logistique',
     order: 80,
-    categories: ['procurement', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
-    prefixes: ['products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
+    categories: ['procurement', 'purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
+    prefixes: ['purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     subgroupLabels: {
+      purchases: 'Dashboard achats & devis',
       products: 'Produits',
       suppliers: 'Fournisseurs',
       purchase_requests: 'Demandes d\'achat',
       purchase_orders: 'Commandes d\'achat',
       inventory: 'Stocks',
     },
-    dashboards: [{ label: 'Dashboard achats', href: '/dashboard/achats' }],
+    dashboards: [
+      { label: 'Dashboard achats', href: '/dashboard/achats' },
+      { label: 'Devis d\'achat', href: '/dashboard/achats/devis' },
+    ],
   },
   {
     id: 'hr',

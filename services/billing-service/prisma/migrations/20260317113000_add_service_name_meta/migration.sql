@@ -1,0 +1,3 @@
+ALTER TABLE "devis" ADD COLUMN IF NOT EXISTS "serviceName" TEXT;
+
+ALTER TABLE "factures" ADD COLUMN IF NOT EXISTS "serviceName" TEXT;

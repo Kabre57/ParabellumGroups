@@ -7,7 +7,10 @@ const authMiddleware = require('../middleware/auth');
 // Validation rules
 const validateBonCommande = [
   body('fournisseurId').notEmpty().withMessage('Le fournisseur est requis'),
-  body('montantTotal').isFloat({ min: 0 }).withMessage('Le montant total doit être supérieur ou égal à 0')
+  body('montantTotal')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Le montant total doit être supérieur ou égal à 0')
 ];
 
 // Apply auth middleware to all routes

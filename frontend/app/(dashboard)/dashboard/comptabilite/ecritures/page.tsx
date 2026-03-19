@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Plus, Search, Eye } from 'lucide-react';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 interface Entry {
   id: string;
@@ -22,7 +24,12 @@ interface Entry {
 }
 
 export default function EcrituresPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const { canCreate } = getCrudVisibility(user, {
+    read: ['reports.read_financial', 'invoices.read'],
+    create: ['expenses.create', 'payments.create'],
+  });
 
   const { data: entries, isLoading } = useQuery<Entry[]>({
     queryKey: ['accounting-entries'],
@@ -51,10 +58,12 @@ export default function EcrituresPage() {
             Journal général et écritures comptables
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouvelle Écriture
-        </Button>
+        {canCreate && (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Nouvelle Écriture
+          </Button>
+        )}
       </div>
 
       {/* Stats */}

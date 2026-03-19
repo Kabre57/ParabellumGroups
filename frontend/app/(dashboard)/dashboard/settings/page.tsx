@@ -25,7 +25,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold">Paramètres Système</h1>
           <p className="text-muted-foreground mt-2">
-            Configuration générale de l'application Parabellum ERP
+            Configuration générale de l'application Parabellum Groups
           </p>
         </div>
       </div>

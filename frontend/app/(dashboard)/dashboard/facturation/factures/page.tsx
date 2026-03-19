@@ -24,9 +24,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import InvoiceForm from '@/components/billing/InvoiceForm';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getCrudVisibility } from '@/shared/action-visibility';
 
 export default function FacturesPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -96,6 +99,13 @@ export default function FacturesPage() {
   };
 
   const invoices = invoicesResponse?.data ?? [];
+  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
+    read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
+    create: ['invoices.create'],
+    update: ['invoices.update', 'invoices.validate', 'invoices.send'],
+    remove: ['invoices.delete', 'invoices.cancel'],
+    export: ['invoices.export', 'invoices.print', 'invoices.send'],
+  });
 
   return (
     <div className="space-y-6">
@@ -109,9 +119,7 @@ export default function FacturesPage() {
             Gérez vos factures clients
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          Nouvelle facture
-        </Button>
+        {canCreate && <Button onClick={() => setIsCreateDialogOpen(true)}>Nouvelle facture</Button>}
       </div>
 
       {/* Filtres */}
@@ -181,35 +189,43 @@ export default function FacturesPage() {
                       >
                         Voir
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}/edit`)}
-                      >
-                        Modifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadPDF(invoice.id)}
-                      >
-                        PDF
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSendInvoice(invoice.id)}
-                      >
-                        Envoyer
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDelete(invoice)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        Supprimer
-                      </Button>
+                      {canUpdate && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}/edit`)}
+                        >
+                          Modifier
+                        </Button>
+                      )}
+                      {canExport && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadPDF(invoice.id)}
+                        >
+                          PDF
+                        </Button>
+                      )}
+                      {canUpdate && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSendInvoice(invoice.id)}
+                        >
+                          Envoyer
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(invoice)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          Supprimer
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -226,17 +242,19 @@ export default function FacturesPage() {
       </Card>
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nouvelle facture</DialogTitle>
-          </DialogHeader>
-          <InvoiceForm
-            onSuccess={() => setIsCreateDialogOpen(false)}
-            onCancel={() => setIsCreateDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Nouvelle facture</DialogTitle>
+            </DialogHeader>
+            <InvoiceForm
+              onSuccess={() => setIsCreateDialogOpen(false)}
+              onCancel={() => setIsCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

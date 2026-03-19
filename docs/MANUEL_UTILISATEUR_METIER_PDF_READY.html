@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parabellum Groups - Manuel utilisateur métier</title>
+    <style>
+      :root {
+        --ink: #152033;
+        --muted: #55637a;
+        --line: #d7dfeb;
+        --panel: #f5f7fb;
+        --accent: #0f5cc0;
+        --accent-soft: #eaf2ff;
+        --success: #1e7c53;
+        --warning: #b77705;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 15px;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        color: var(--ink);
+        background: #e9edf4;
+        line-height: 1.55;
+      }
+
+      .document {
+        width: 210mm;
+        margin: 0 auto;
+        background: white;
+        min-height: 297mm;
+        padding: 16mm 16mm 18mm;
+      }
+
+      .cover {
+        min-height: 250mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 4mm 0 0;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-size: 2.3rem;
+        line-height: 1.08;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 1.45rem;
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 8px;
+      }
+
+      h3 {
+        margin: 20px 0 8px;
+        font-size: 1.02rem;
+        color: var(--accent);
+      }
+
+      p {
+        margin: 0 0 10px;
+      }
+
+      ul,
+      ol {
+        margin: 8px 0 14px 20px;
+        padding: 0;
+      }
+
+      li {
+        margin: 4px 0;
+      }
+
+      .lead {
+        font-size: 1.06rem;
+        color: var(--muted);
+        max-width: 42rem;
+      }
+
+      .meta-grid,
+      .card-grid,
+      .profile-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .profile-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .meta,
+      .card,
+      .profile {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        padding: 12px 14px;
+      }
+
+      .meta strong,
+      .card strong,
+      .profile strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .section {
+        margin-top: 24px;
+      }
+
+      .section.break-before {
+        page-break-before: always;
+      }
+
+      .toc a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .note,
+      .warning,
+      .success {
+        padding: 12px 14px;
+        border-radius: 12px;
+        margin: 14px 0;
+      }
+
+      .note {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .warning {
+        background: #fff4dc;
+        color: var(--warning);
+      }
+
+      .success {
+        background: #e8f7ef;
+        color: var(--success);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.95rem;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 10px;
+        vertical-align: top;
+        text-align: left;
+      }
+
+      th {
+        background: var(--panel);
+      }
+
+      .footer {
+        margin-top: 20mm;
+        padding-top: 8mm;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      @media print {
+        body {
+          background: white;
+        }
+
+        .document {
+          width: auto;
+          margin: 0;
+          min-height: auto;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="document">
+      <section class="cover">
+        <div>
+          <span class="eyebrow">Parabellum Groups</span>
+          <h1>Manuel utilisateur métier</h1>
+          <p class="lead">
+            Guide opérationnel destiné aux équipes métiers pour utiliser les modules
+            principaux de l'ERP au quotidien : commercial, CRM, facturation,
+            technique, projets, achats, RH et communication.
+          </p>
+        </div>
+
+        <div class="meta-grid">
+          <div class="meta">
+            <strong>Public visé</strong>
+            Utilisateurs finaux, responsables d'équipe, back-office.
+          </div>
+          <div class="meta">
+            <strong>Format</strong>
+            Version HTML pensée pour impression ou export PDF.
+          </div>
+          <div class="meta">
+            <strong>Périmètre</strong>
+            Parcours visibles dans la navigation principale.
+          </div>
+        </div>
+      </section>
+
+      <section class="section break-before toc">
+        <h2>Sommaire</h2>
+        <ol>
+          <li><a href="#prise-en-main">Prise en main</a></li>
+          <li><a href="#modules">Modules métier</a></li>
+          <li><a href="#parcours">Parcours recommandés</a></li>
+          <li><a href="#profils">Repères par profil</a></li>
+          <li><a href="#bonnes-pratiques">Bonnes pratiques</a></li>
+        </ol>
+      </section>
+
+      <section id="prise-en-main" class="section break-before">
+        <h2>Prise en main</h2>
+        <h3>Connexion</h3>
+        <ol>
+          <li>Ouvrir l'écran de connexion.</li>
+          <li>Saisir l'email et le mot de passe.</li>
+          <li>Valider pour accéder au tableau de bord.</li>
+          <li>Utiliser la sidebar pour ouvrir les modules autorisés.</li>
+        </ol>
+
+        <h3>Navigation</h3>
+        <div class="card-grid">
+          <div class="card">
+            <strong>Tableau de bord</strong>
+            Vision synthétique de l'activité, des alertes et des indicateurs.
+          </div>
+          <div class="card">
+            <strong>Commercial et CRM</strong>
+            Prospection, clients, opportunités, contrats, interactions.
+          </div>
+          <div class="card">
+            <strong>Technique et projets</strong>
+            Missions, interventions, ordres, rapports, tâches et jalons.
+          </div>
+          <div class="card">
+            <strong>Achats, RH et communication</strong>
+            Fournisseurs, stock, paie, congés, messages et notifications.
+          </div>
+        </div>
+
+        <div class="note">
+          Les menus et les actions visibles dépendent du rôle et des permissions de
+          l'utilisateur.
+        </div>
+      </section>
+
+      <section id="modules" class="section break-before">
+        <h2>Modules métier</h2>
+
+        <h3>Tableau de bord</h3>
+        <ul>
+          <li>Suivre le chiffre d'affaires, les clients, les projets et les missions.</li>
+          <li>Contrôler les alertes stock et l'activité récente.</li>
+          <li>Accéder rapidement aux modules les plus utilisés.</li>
+        </ul>
+
+        <h3>Commercial</h3>
+        <ul>
+          <li>Créer et qualifier les prospects.</li>
+          <li>Faire progresser les étapes de prospection.</li>
+          <li>Suivre la valeur du pipeline et les devis envoyés.</li>
+        </ul>
+
+        <h3>CRM</h3>
+        <ul>
+          <li>Centraliser la fiche client, les contacts et les adresses.</li>
+          <li>Suivre les contrats, documents et interactions.</li>
+          <li>Maintenir une vision claire des opportunités et campagnes email.</li>
+        </ul>
+
+        <h3>Facturation</h3>
+        <ul>
+          <li>Créer des factures et suivre leur statut.</li>
+          <li>Surveiller les échéances et les retards.</li>
+          <li>Enregistrer les paiements reçus.</li>
+        </ul>
+
+        <h3>Services techniques</h3>
+        <ul>
+          <li>Gérer les techniciens et leurs spécialités.</li>
+          <li>Créer les missions et interventions.</li>
+          <li>Générer les ordres de mission.</li>
+          <li>Clôturer avec un rapport d'intervention.</li>
+        </ul>
+
+        <h3>Projets</h3>
+        <ul>
+          <li>Créer des projets et désigner un responsable.</li>
+          <li>Suivre les tâches, les priorités et les statuts.</li>
+          <li>Piloter les jalons et le planning Gantt.</li>
+        </ul>
+
+        <h3>Achats et logistique</h3>
+        <ul>
+          <li>Gérer fournisseurs, commandes et réceptions.</li>
+          <li>Surveiller les articles, mouvements et alertes de stock.</li>
+          <li>Contrôler les écarts via l'audit de stock.</li>
+        </ul>
+
+        <h3>Ressources humaines</h3>
+        <ul>
+          <li>Maintenir les fiches employés.</li>
+          <li>Gérer les congés, contrats, paie et prêts.</li>
+          <li>Suivre les évaluations disponibles.</li>
+        </ul>
+
+        <h3>Communication</h3>
+        <ul>
+          <li>Utiliser la messagerie interne.</li>
+          <li>Suivre les notifications.</li>
+          <li>Préparer des campagnes email ciblées.</li>
+        </ul>
+      </section>
+
+      <section id="parcours" class="section break-before">
+        <h2>Parcours recommandés</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Cas d'usage</th>
+              <th>Étapes recommandées</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Du prospect à la facture</td>
+              <td>
+                Prospection → opportunité CRM → création client → devis → facture →
+                paiement.
+              </td>
+            </tr>
+            <tr>
+              <td>D'une demande client à l'intervention</td>
+              <td>
+                CRM → mission technique → intervention → affectation technicien →
+                ordre de mission → rapport.
+              </td>
+            </tr>
+            <tr>
+              <td>D'un besoin d'achat à la mise en stock</td>
+              <td>
+                Fournisseur → commande d'achat → réception → mise à jour du stock →
+                audit si écart.
+              </td>
+            </tr>
+            <tr>
+              <td>Cycle RH mensuel</td>
+              <td>
+                Mise à jour employés → congés → génération paie → validation → suivi
+                prêts et avances.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="success">
+          Pour des données fiables, mettre à jour les statuts dès qu'une étape
+          métier est terminée.
+        </div>
+      </section>
+
+      <section id="profils" class="section break-before">
+        <h2>Repères par profil</h2>
+        <div class="profile-grid">
+          <div class="profile">
+            <strong>Direction</strong>
+            Tableau de bord, analytics, CRM, facturation, audit.
+          </div>
+          <div class="profile">
+            <strong>Commercial</strong>
+            Prospection, pipeline, CRM, devis.
+          </div>
+          <div class="profile">
+            <strong>Technique</strong>
+            Missions, interventions, ordres de mission, rapports, matériel.
+          </div>
+          <div class="profile">
+            <strong>Achats / logistique</strong>
+            Fournisseurs, commandes, réceptions, stock, audit.
+          </div>
+          <div class="profile">
+            <strong>RH</strong>
+            Employés, contrats, congés, paie, prêts.
+          </div>
+          <div class="profile">
+            <strong>Administration</strong>
+            Utilisateurs, rôles, permissions, services, journal d'audit.
+          </div>
+        </div>
+      </section>
+
+      <section id="bonnes-pratiques" class="section break-before">
+        <h2>Bonnes pratiques</h2>
+        <ul>
+          <li>Vérifier avant création qu'une fiche n'existe pas déjà.</li>
+          <li>Mettre à jour les statuts à chaque changement réel sur le terrain.</li>
+          <li>Utiliser les documents et interactions CRM comme source de vérité.</li>
+          <li>Valider les réceptions avant d'utiliser le stock reçu.</li>
+          <li>Produire les rapports d'intervention au plus près de l'exécution.</li>
+          <li>Contrôler régulièrement les alertes du tableau de bord.</li>
+        </ul>
+
+        <div class="warning">
+          Certaines fonctions avancées restent en cours de finition, notamment
+          certaines actions PDF/email en facturation et certaines vues RH avancées.
+        </div>
+      </section>
+
+      <footer class="footer">
+        Document HTML prêt pour export PDF via impression navigateur ou convertisseur
+        PDF dès qu'un outil local sera disponible.
+      </footer>
+    </main>
+  </body>
+</html>

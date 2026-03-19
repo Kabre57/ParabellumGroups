@@ -1,11 +1,12 @@
 {
   "name": "technical-service",
   "version": "1.0.0",
-  "description": "Service de gestion technique - Parabellum ERP",
+  "description": "Service de gestion technique - Parabellum Groups",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "backfill:mission-address-names": "node scripts/backfill-mission-address-names.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

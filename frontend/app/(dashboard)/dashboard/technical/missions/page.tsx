@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useMissions, useDeleteMission, useUpdateMissionStatus, useCreateMission, useUpdateMission } from '@/hooks/useTechnical';
+import { useMissions, useDeleteMission, useUpdateMissionStatus, useResyncMissionFromCrm } from '@/hooks/useTechnical';
 import { Mission, technicalService } from '@/shared/api/technical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2, FileText, Download } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Calendar, MapPin, Printer, Loader2, FileText, Download, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { MissionForm } from '@/components/technical/MissionForm';
 import { CreateMissionModal } from '@/components/technical/CreateMissionModal';
 import { toast } from 'sonner';
 import MissionOrderPrint from '@/components/printComponents/MissionOrderPrint';
@@ -53,8 +52,7 @@ export default function MissionsPage() {
   const { data: missions = [], isLoading, error, refetch } = useMissions({ pageSize: 100 });
   const deleteMutation = useDeleteMission();
   const updateStatusMutation = useUpdateMissionStatus();
-  const createMutation = useCreateMission();
-  const updateMutation = useUpdateMission();
+  const resyncMutation = useResyncMissionFromCrm();
   const { canCreate, canUpdate, canDelete, canExport, canApprove } = getCrudVisibility(user, {
     read: ['missions.read', 'missions.read_all', 'missions.read_assigned'],
     create: ['missions.create'],
@@ -105,51 +103,6 @@ export default function MissionsPage() {
     setShowForm(true);
   };
 
-  const handleSubmit = (data: Partial<Mission>) => {
-    console.log('HandleSubmit data reçu:', data);
-    
-    if (selectedMission) {
-      // Édition
-      updateMutation.mutate({ 
-        id: selectedMission.id, 
-        data: {
-          ...data,
-          budgetEstime: data.budgetEstime ? Number(data.budgetEstime) : undefined,
-          priorite: data.priorite || 'MOYENNE'
-        }
-      }, {
-        onSuccess: () => {
-          toast.success('Mission mise à jour avec succès');
-          setShowForm(false);
-          setSelectedMission(undefined);
-          refetch();
-        },
-        onError: (error) => {
-          console.error('Erreur détaillée mise à jour mission:', error);
-          toast.error('Erreur lors de la mise à jour de la mission');
-        }
-      });
-    } else {
-      // Création (ne devrait pas arriver avec notre configuration)
-      console.warn('Création via MissionForm - devrait utiliser CreateMissionModal');
-      createMutation.mutate({
-        ...data,
-        budgetEstime: data.budgetEstime ? Number(data.budgetEstime) : undefined,
-        priorite: data.priorite || 'MOYENNE'
-      }, {
-        onSuccess: () => {
-          toast.success('Mission créée avec succès');
-          setShowForm(false);
-          refetch();
-        },
-        onError: (error) => {
-          console.error('Erreur détaillée création mission:', error);
-          toast.error('Erreur lors de la création de la mission');
-        }
-      });
-    }
-  };
-
   const handleStatusChange = (id: string, status: string) => {
     updateStatusMutation.mutate({ id, status }, {
       onSuccess: () => {
@@ -176,6 +129,18 @@ export default function MissionsPage() {
     } finally {
       setIsPrinting(null);
     }
+  };
+
+  const handleResyncMission = (mission: Mission) => {
+    resyncMutation.mutate(mission.id, {
+      onSuccess: () => {
+        toast.success('Mission resynchronisee depuis le CRM');
+        refetch();
+      },
+      onError: (error: any) => {
+        toast.error(error?.response?.data?.error || 'Impossible de resynchroniser la mission');
+      },
+    });
   };
 
   const handleDownloadPdf = async (mission: Mission) => {
@@ -557,6 +522,17 @@ export default function MissionsPage() {
                           <FileText className="w-3 h-3" />
                         </Button>
                       )}
+                      {canUpdate && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Resynchroniser depuis le CRM"
+                          onClick={() => handleResyncMission(mission)}
+                          disabled={resyncMutation.isPending}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${resyncMutation.isPending ? 'animate-spin' : ''}`} />
+                        </Button>
+                      )}
                       {canEditMission && (
                         <Button 
                           variant="outline" 
@@ -657,16 +633,15 @@ export default function MissionsPage() {
         )}
       </div>
 
-      {/* FORMULAIRE POUR L'ÉDITION (MissionForm) */}
       {canUpdate && showForm && selectedMission && (
-        <MissionForm
+        <CreateMissionModal
+          isOpen={true}
           item={selectedMission}
-          onSubmit={handleSubmit}
+          onCreated={() => refetch()}
           onClose={() => {
             setShowForm(false);
             setSelectedMission(undefined);
           }}
-          isLoading={updateMutation.isPending}
         />
       )}
     </div>

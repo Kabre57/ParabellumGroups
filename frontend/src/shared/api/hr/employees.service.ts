@@ -53,8 +53,8 @@ export const employeesService = {
     const backendParams: any = {
       page,
       limit: pageSize,
-      search: query,
     };
+    if (query.trim()) backendParams.search = query.trim();
     if (filters.department) backendParams.departement = filters.department;
     if (filters.isActive !== undefined) backendParams.status = filters.isActive ? 'ACTIF' : 'CONGE';
 

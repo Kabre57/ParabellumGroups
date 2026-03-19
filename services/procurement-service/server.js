@@ -8,6 +8,7 @@ const winston = require('winston');
 const fournisseurRoutes = require('./routes/fournisseur.routes');
 const demandeAchatRoutes = require('./routes/demandeAchat.routes');
 const bonCommandeRoutes = require('./routes/bonCommande.routes');
+const { startOutboxDispatcher } = require('./utils/outbox');
 
 // Initialize Express app
 const app = express();
@@ -53,11 +54,13 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/fournisseurs', fournisseurRoutes);
+app.use('/api/devis-achat', demandeAchatRoutes);
 app.use('/api/demandes-achat', demandeAchatRoutes);
 app.use('/api/bons-commande', bonCommandeRoutes);
 
 // Compatibilite avec les routes passees via /api/procurement/*
 app.use('/api/procurement/fournisseurs', fournisseurRoutes);
+app.use('/api/procurement/devis-achat', demandeAchatRoutes);
 app.use('/api/procurement/demandes-achat', demandeAchatRoutes);
 app.use('/api/procurement/bons-commande', bonCommandeRoutes);
 
@@ -79,6 +82,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   logger.info(`Procurement Service started on port ${PORT}`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
+  startOutboxDispatcher();
 });
 
 module.exports = app;

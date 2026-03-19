@@ -168,3 +168,5 @@ Validation de la config Compose:
 docker compose config
 ```
 docker compose up -d nginx
+docker compose up -d --build --no-deps frontend nginx
+docker compose ps frontend nginx

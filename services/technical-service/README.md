@@ -1,4 +1,4 @@
-# Service Technique - Parabellum ERP
+# Service Technique - Parabellum Groups
 
 ## Installation
 

@@ -7,13 +7,112 @@ const { generateFacturePDF } = require('../utils/pdfGenerator');
 const axios = require('axios');
 const path = require('path');
 
+const normalizeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const buildBillingLine = (ligne = {}) => {
+  const description = String(
+    ligne.description ||
+      ligne.designation ||
+      ligne.nom ||
+      ligne.label ||
+      ''
+  ).trim();
+  const quantite = normalizeNumber(
+    ligne.quantite ?? ligne.quantity ?? ligne.qty ?? 1,
+    1
+  );
+  const prixUnitaire = normalizeNumber(
+    ligne.prixUnitaire ?? ligne.unitPrice ?? ligne.unit_price ?? 0
+  );
+  const tauxTVA = normalizeNumber(
+    ligne.tauxTVA ?? ligne.vatRate ?? ligne.vat_rate ?? ligne.tva ?? 0
+  );
+  const montants = calculateMontants(quantite, prixUnitaire, tauxTVA);
+
+  return {
+    description,
+    quantite,
+    prixUnitaire,
+    tauxTVA,
+    ...montants,
+  };
+};
+
+const normalizeLines = (lignes) => {
+  if (!Array.isArray(lignes)) return [];
+  return lignes
+    .map(buildBillingLine)
+    .filter((ligne) => ligne.description && ligne.quantite > 0);
+};
+
+const buildTotals = (lignes) =>
+  lignes.length > 0
+    ? calculateTotal(lignes)
+    : { totalHT: 0, totalTVA: 0, totalTTC: 0 };
+
+const getDefaultDate = (value, daysToAdd = 30) => {
+  if (value) return new Date(value);
+  const date = new Date();
+  date.setDate(date.getDate() + daysToAdd);
+  return date;
+};
+
+const getNextFactureNumber = async (tx = prisma) => {
+  const currentYearMonth = moment().format('YYYYMM');
+  const lastFacture = await tx.facture.findFirst({
+    where: {
+      numeroFacture: {
+        startsWith: `FAC-${currentYearMonth}-`,
+      },
+    },
+    orderBy: { numeroFacture: 'desc' },
+  });
+
+  let sequence = 1;
+  if (lastFacture) {
+    const lastSequence = parseInt(lastFacture.numeroFacture.split('-')[2], 10);
+    sequence = lastSequence + 1;
+  }
+
+  return generateFactureNumber(sequence);
+};
+
+const fetchServiceMeta = async (req, serviceId) => {
+  if (!serviceId) {
+    return {
+      serviceName: null,
+      serviceLogoUrl: null,
+    };
+  }
+
+  try {
+    const authBase = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
+    const resp = await axios.get(`${authBase}/api/services/${serviceId}`, {
+      headers: { authorization: req.headers.authorization || '' },
+    });
+    return {
+      serviceName: resp.data?.data?.name || null,
+      serviceLogoUrl: resp.data?.data?.imageUrl || null,
+    };
+  } catch (e) {
+    console.warn('Meta service non recuperee', e?.response?.status || e.message);
+    return {
+      serviceName: null,
+      serviceLogoUrl: null,
+    };
+  }
+};
+
 /**
- * Récupère toutes les factures avec filtres optionnels
+ * Recupere toutes les factures avec filtres optionnels
  */
 exports.getAllFactures = async (req, res) => {
   try {
     const { clientId, status, dateDebut, dateFin } = req.query;
-    
+
     const where = {};
     if (clientId) where.clientId = clientId;
     if (status) where.status = status;
@@ -27,9 +126,9 @@ exports.getAllFactures = async (req, res) => {
       where,
       include: {
         lignes: true,
-        paiements: true
+        paiements: true,
       },
-      orderBy: { dateEmission: 'desc' }
+      orderBy: { dateEmission: 'desc' },
     });
 
     res.json(factures);
@@ -39,7 +138,7 @@ exports.getAllFactures = async (req, res) => {
 };
 
 /**
- * Récupère une facture par ID
+ * Recupere une facture par ID
  */
 exports.getFactureById = async (req, res) => {
   try {
@@ -49,12 +148,12 @@ exports.getFactureById = async (req, res) => {
       where: { id },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     if (!facture) {
-      return res.status(404).json({ error: 'Facture non trouvée' });
+      return res.status(404).json({ error: 'Facture non trouvee' });
     }
 
     res.json(facture);
@@ -64,61 +163,39 @@ exports.getFactureById = async (req, res) => {
 };
 
 /**
- * Crée une nouvelle facture
+ * Cree une nouvelle facture
  */
 exports.createFacture = async (req, res) => {
   try {
-    const { clientId, dateEcheance, notes } = req.body;
+    const { clientId, notes } = req.body;
+    const lignesData = normalizeLines(req.body.lignes);
+    const totaux = buildTotals(lignesData);
     const serviceId = req.user?.serviceId || null;
-    let serviceLogoUrl = null;
-
-    if (serviceId) {
-      try {
-        const authBase = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
-        const resp = await axios.get(`${authBase}/api/services/${serviceId}`, {
-          headers: { authorization: req.headers.authorization || '' },
-        });
-        serviceLogoUrl = resp.data?.data?.imageUrl || null;
-      } catch (e) {
-        console.warn('Logo service non récupéré', e?.response?.status || e.message);
-      }
-    }
-
-    // Générer le numéro de facture
-    const currentYearMonth = moment().format('YYYYMM');
-    const lastFacture = await prisma.facture.findFirst({
-      where: {
-        numeroFacture: {
-          startsWith: `FAC-${currentYearMonth}-`
-        }
-      },
-      orderBy: { numeroFacture: 'desc' }
-    });
-
-    let sequence = 1;
-    if (lastFacture) {
-      const lastSequence = parseInt(lastFacture.numeroFacture.split('-')[2]);
-      sequence = lastSequence + 1;
-    }
-
-    const numeroFacture = generateFactureNumber(sequence);
+    const serviceMeta = await fetchServiceMeta(req, serviceId);
+    const numeroFacture = await getNextFactureNumber(prisma);
 
     const facture = await prisma.facture.create({
       data: {
         numeroFacture,
         clientId,
-        dateEcheance: new Date(dateEcheance),
-        montantHT: 0,
-        montantTVA: 0,
-        montantTTC: 0,
+        dateEcheance: getDefaultDate(req.body.dateEcheance, 30),
+        montantHT: totaux.totalHT,
+        montantTVA: totaux.totalTVA,
+        montantTTC: totaux.totalTTC,
         notes,
         serviceId,
-        serviceLogoUrl
+        serviceName: serviceMeta.serviceName,
+        serviceLogoUrl: serviceMeta.serviceLogoUrl,
+        lignes: lignesData.length
+          ? {
+              create: lignesData,
+            }
+          : undefined,
       },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     res.status(201).json(facture);
@@ -128,7 +205,7 @@ exports.createFacture = async (req, res) => {
 };
 
 /**
- * Met à jour une facture
+ * Met a jour une facture
  */
 exports.updateFacture = async (req, res) => {
   try {
@@ -141,12 +218,12 @@ exports.updateFacture = async (req, res) => {
         clientId,
         dateEcheance: dateEcheance ? new Date(dateEcheance) : undefined,
         status,
-        notes
+        notes,
       },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     res.json(facture);
@@ -163,41 +240,32 @@ exports.deleteFacture = async (req, res) => {
     const { id } = req.params;
 
     await prisma.facture.delete({
-      where: { id }
+      where: { id },
     });
 
-    res.json({ message: 'Facture supprimée avec succès' });
+    res.json({ message: 'Facture supprimee avec succes' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
- * Ajoute une ligne à une facture
+ * Ajoute une ligne a une facture
  */
 exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
-    const { description, quantite, prixUnitaire, tauxTVA } = req.body;
+    const ligneData = buildBillingLine(req.body);
 
-    // Calculer les montants
-    const montants = calculateMontants(quantite, prixUnitaire, tauxTVA);
-
-    // Ajouter la ligne
-    const ligne = await prisma.ligneFacture.create({
+    await prisma.ligneFacture.create({
       data: {
         factureId: id,
-        description,
-        quantite,
-        prixUnitaire,
-        tauxTVA,
-        ...montants
-      }
+        ...ligneData,
+      },
     });
 
-    // Recalculer les totaux de la facture
     const lignes = await prisma.ligneFacture.findMany({
-      where: { factureId: id }
+      where: { factureId: id },
     });
 
     const totaux = calculateTotal(lignes);
@@ -207,12 +275,12 @@ exports.addLigne = async (req, res) => {
       data: {
         montantHT: totaux.totalHT,
         montantTVA: totaux.totalTVA,
-        montantTTC: totaux.totalTTC
+        montantTTC: totaux.totalTTC,
       },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     res.status(201).json(facture);
@@ -222,7 +290,7 @@ exports.addLigne = async (req, res) => {
 };
 
 /**
- * Envoie une facture (change le statut à EMISE)
+ * Envoie une facture (change le statut a EMISE)
  */
 exports.sendFacture = async (req, res) => {
   try {
@@ -231,12 +299,12 @@ exports.sendFacture = async (req, res) => {
     const facture = await prisma.facture.update({
       where: { id },
       data: {
-        status: 'EMISE'
+        status: 'EMISE',
       },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     res.json(facture);
@@ -246,7 +314,7 @@ exports.sendFacture = async (req, res) => {
 };
 
 /**
- * Récupère les statistiques de facturation
+ * Recupere les statistiques de facturation
  */
 exports.getStats = async (req, res) => {
   try {
@@ -263,15 +331,19 @@ exports.getStats = async (req, res) => {
 
     const stats = {
       total: factures.length,
-      brouillon: factures.filter(f => f.status === 'BROUILLON').length,
-      emises: factures.filter(f => f.status === 'EMISE').length,
-      payees: factures.filter(f => f.status === 'PAYEE').length,
-      enRetard: factures.filter(f => f.status === 'EN_RETARD').length,
-      annulees: factures.filter(f => f.status === 'ANNULEE').length,
+      brouillon: factures.filter((f) => f.status === 'BROUILLON').length,
+      emises: factures.filter((f) => f.status === 'EMISE').length,
+      payees: factures.filter((f) => f.status === 'PAYEE').length,
+      enRetard: factures.filter((f) => f.status === 'EN_RETARD').length,
+      annulees: factures.filter((f) => f.status === 'ANNULEE').length,
       montantTotalHT: factures.reduce((sum, f) => sum + f.montantHT, 0),
       montantTotalTTC: factures.reduce((sum, f) => sum + f.montantTTC, 0),
-      montantPayé: factures.filter(f => f.status === 'PAYEE').reduce((sum, f) => sum + f.montantTTC, 0),
-      montantEnAttente: factures.filter(f => f.status === 'EMISE' || f.status === 'EN_RETARD').reduce((sum, f) => sum + f.montantTTC, 0)
+      montantPaye: factures
+        .filter((f) => f.status === 'PAYEE')
+        .reduce((sum, f) => sum + f.montantTTC, 0),
+      montantEnAttente: factures
+        .filter((f) => f.status === 'EMISE' || f.status === 'EN_RETARD')
+        .reduce((sum, f) => sum + f.montantTTC, 0),
     };
 
     res.json(stats);
@@ -281,7 +353,7 @@ exports.getStats = async (req, res) => {
 };
 
 /**
- * Récupère les factures en retard
+ * Recupere les factures en retard
  */
 exports.getRetards = async (req, res) => {
   try {
@@ -291,22 +363,21 @@ exports.getRetards = async (req, res) => {
       where: {
         status: { in: ['EMISE', 'EN_RETARD'] },
         dateEcheance: {
-          lt: today
-        }
+          lt: today,
+        },
       },
       include: {
         lignes: true,
-        paiements: true
+        paiements: true,
       },
-      orderBy: { dateEcheance: 'asc' }
+      orderBy: { dateEcheance: 'asc' },
     });
 
-    // Mettre à jour le statut en EN_RETARD si nécessaire
     for (const facture of factures) {
       if (facture.status === 'EMISE') {
         await prisma.facture.update({
           where: { id: facture.id },
-          data: { status: 'EN_RETARD' }
+          data: { status: 'EN_RETARD' },
         });
       }
     }
@@ -318,7 +389,7 @@ exports.getRetards = async (req, res) => {
 };
 
 /**
- * Génère le PDF d'une facture
+ * Genere le PDF d'une facture
  */
 exports.generatePDF = async (req, res) => {
   try {
@@ -328,12 +399,12 @@ exports.generatePDF = async (req, res) => {
       where: { id },
       include: {
         lignes: true,
-        paiements: true
-      }
+        paiements: true,
+      },
     });
 
     if (!facture) {
-      return res.status(404).json({ error: 'Facture non trouvée' });
+      return res.status(404).json({ error: 'Facture non trouvee' });
     }
 
     const outputPath = path.join(__dirname, '..', 'temp', `${facture.numeroFacture}.pdf`);

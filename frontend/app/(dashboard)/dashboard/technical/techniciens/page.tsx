@@ -13,6 +13,8 @@ import { CreateTechnicienModal } from '@/components/technical/CreateTechnicienMo
 import TechnicienPrint from '@/components/printComponents/TechnicienPrint';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
   AVAILABLE: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
@@ -32,6 +34,7 @@ const statusLabels: Record<string, string> = {
 
 export default function TechniciensPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -61,9 +64,14 @@ export default function TechniciensPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string, force = false) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce technicien ?')) {
-      deleteMutation.mutate(id);
+      try {
+        await deleteMutation.mutateAsync({ id, force });
+        toast.success('Technicien supprimé');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.error || error?.message || 'Erreur lors de la suppression');
+      }
     }
   };
 
@@ -192,7 +200,15 @@ export default function TechniciensPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredTechniciens.map((technicien: Technicien) => (
+        {filteredTechniciens.map((technicien: Technicien) => {
+          const linkedReferences =
+            (technicien._count?.missions ?? 0) +
+            (technicien._count?.interventions ?? 0) +
+            (technicien._count?.rapportsRediges ?? 0) +
+            (technicien._count?.sortiesMateriel ?? 0);
+          const canDeleteTechnicien = canDelete && (isAdmin || linkedReferences === 0);
+
+          return (
           <div
             key={technicien.id}
             className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6"
@@ -228,6 +244,11 @@ export default function TechniciensPage() {
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <span className="font-medium">Taux horaire:</span>
                   <span>{formatCurrency(technicien.tauxHoraire)}/h</span>
+                </div>
+              )}
+              {linkedReferences > 0 && (
+                <div className="text-xs text-amber-600 dark:text-amber-400">
+                  Suppression bloquée: technicien déjà lié à {linkedReferences} élément{linkedReferences > 1 ? 's' : ''}
                 </div>
               )}
             </div>
@@ -281,11 +302,11 @@ export default function TechniciensPage() {
                   )}
                 </Button>
               )}
-              {canDelete && (
+              {canDeleteTechnicien && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDelete(technicien.id)}
+                  onClick={() => handleDelete(technicien.id, isAdmin)}
                   disabled={deleteMutation.isPending}
                   className="text-red-600 hover:bg-red-50"
                 >
@@ -294,7 +315,7 @@ export default function TechniciensPage() {
               )}
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {filteredTechniciens.length === 0 && (

@@ -195,7 +195,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Chiffre d'affaires (€)</label>
+                    <label className="block text-sm font-medium text-gray-700">Chiffre d'affaires (F CFA)</label>
                     <input
                       type="number"
                       min="0"
@@ -344,7 +344,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Valeur potentielle (€)</label>
+                    <label className="block text-sm font-medium text-gray-700">Valeur potentielle (F CFA)</label>
                     <input
                       type="number"
                       min="0"

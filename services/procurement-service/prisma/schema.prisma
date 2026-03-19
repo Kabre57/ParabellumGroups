@@ -50,18 +50,38 @@ model Fournisseur {
 }
 
 model DemandeAchat {
-  id              String              @id @default(uuid())
-  numeroDemande   String              @unique
-  titre           String
-  description     String?
-  demandeurId     String
-  dateDemande     DateTime            @default(now())
-  montantEstime   Decimal?            @db.Decimal(12, 2)
-  status          StatusDemandeAchat  @default(BROUILLON)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                    String                    @id @default(uuid())
+  numeroDemande         String                    @unique
+  titre                 String
+  description           String?
+  demandeurId           String
+  demandeurEmail        String?
+  serviceId             Int?
+  serviceName           String?
+  fournisseurId         String?
+  objet                 String?
+  devise                String                    @default("XOF")
+  dateDemande           DateTime                  @default(now())
+  dateBesoin            DateTime?
+  montantEstime         Decimal?                  @db.Decimal(12, 2)
+  montantHT             Decimal                   @default(0) @db.Decimal(12, 2)
+  montantTVA            Decimal                   @default(0) @db.Decimal(12, 2)
+  montantTTC            Decimal                   @default(0) @db.Decimal(12, 2)
+  status                StatusDemandeAchat        @default(BROUILLON)
+  notes                 String?
+  submittedAt           DateTime?
+  approvedAt            DateTime?
+  approvedByUserId      String?
+  approvedByServiceId   Int?
+  approvedByServiceName String?
+  rejectionReason       String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
   
-  bonsCommande    BonCommande[]
+  fournisseur           Fournisseur?              @relation(fields: [fournisseurId], references: [id], onDelete: SetNull)
+  bonsCommande          BonCommande[]
+  lignes                LigneDemandeAchat[]
+  approvalLogs          DemandeAchatApprovalLog[]
 
   @@map("demandes_achat")
 }
@@ -71,10 +91,15 @@ model BonCommande {
   numeroBon       String             @unique
   demandeAchatId  String?
   fournisseurId   String
+  serviceId       Int?
+  serviceName     String?
   dateCommande    DateTime           @default(now())
   dateLivraison   DateTime?
+  montantHT       Decimal            @default(0) @db.Decimal(12, 2)
+  montantTVA      Decimal            @default(0) @db.Decimal(12, 2)
   montantTotal    Decimal            @db.Decimal(12, 2)
   status          StatusBonCommande  @default(BROUILLON)
+  createdFromApproval Boolean        @default(false)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   
@@ -103,7 +128,10 @@ model BonCommandeValidationLog {
 model LigneCommande {
   id            String      @id @default(uuid())
   bonCommandeId String
+  articleId      String?
+  referenceArticle String?
   designation   String
+  categorie     String?
   quantite      Int
   prixUnitaire  Decimal     @db.Decimal(10, 2)
   tva           Decimal     @db.Decimal(5, 2) @default(0) // % de TVA
@@ -116,4 +144,62 @@ model LigneCommande {
   bonCommande   BonCommande @relation(fields: [bonCommandeId], references: [id], onDelete: Cascade)
 
   @@map("lignes_commande")
+}
+
+model LigneDemandeAchat {
+  id             String       @id @default(uuid())
+  demandeAchatId String
+  articleId      String?
+  referenceArticle String?
+  designation    String
+  categorie      String?
+  quantite       Int
+  prixUnitaire   Decimal      @db.Decimal(10, 2)
+  tva            Decimal      @db.Decimal(5, 2) @default(0)
+  montantHT      Decimal      @db.Decimal(12, 2)
+  montantTTC     Decimal      @db.Decimal(12, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  demandeAchat   DemandeAchat @relation(fields: [demandeAchatId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_demande_achat")
+}
+
+model DemandeAchatApprovalLog {
+  id               String             @id @default(uuid())
+  demandeAchatId   String
+  action           String
+  fromStatus       StatusDemandeAchat
+  toStatus         StatusDemandeAchat
+  actorUserId      String?
+  actorEmail       String?
+  actorServiceId   Int?
+  actorServiceName String?
+  commentaire      String?
+  createdAt        DateTime           @default(now())
+
+  demandeAchat     DemandeAchat       @relation(fields: [demandeAchatId], references: [id], onDelete: Cascade)
+
+  @@map("demande_achat_approval_logs")
+}
+
+model ProcurementOutboxEvent {
+  id             String   @id @default(uuid())
+  eventType      String
+  aggregateType  String
+  aggregateId    String
+  correlationId  String?
+  payload        Json
+  status         String   @default("PENDING")
+  attempts       Int      @default(0)
+  nextAttemptAt  DateTime @default(now())
+  lastError      String?
+  publishedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([aggregateType, aggregateId])
+  @@map("procurement_outbox_events")
 }
