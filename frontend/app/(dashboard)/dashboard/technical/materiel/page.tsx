@@ -22,13 +22,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Pencil, Trash2, Plus, AlertTriangle, Package } from 'lucide-react';
+import { Pencil, Trash2, Plus, AlertTriangle, Package, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { isAdminRole } from '@/shared/permissions';
+import TabularListPrint from '@/components/printComponents/TabularListPrint';
+import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
 
 const materielSchema = z.object({
   reference: z.string().min(1, 'Référence requise'),
@@ -48,9 +51,11 @@ type MaterielFormData = z.infer<typeof materielSchema>;
 
 export default function MaterielPage() {
   const { user } = useAuth();
+  const isAdmin = isAdminRole(user);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingMateriel, setEditingMateriel] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const { data: materiels = [], isLoading } = useMateriel({ pageSize: 100 });
   const createMutation = useCreateMateriel();
@@ -127,10 +132,10 @@ export default function MaterielPage() {
     }
   };
 
-  const handleDelete = async (id: string, nom: string) => {
+  const handleDelete = async (id: string, nom: string, force = false) => {
     if (confirm(`Êtes-vous sûr de vouloir supprimer "${nom}" ?`)) {
       try {
-        await deleteMutation.mutateAsync(id);
+        await deleteMutation.mutateAsync({ id, force });
         toast.success('Matériel supprimé');
       } catch (error: any) {
         toast.error(error?.response?.data?.error || 'Erreur lors de la suppression');
@@ -176,12 +181,18 @@ export default function MaterielPage() {
             Gérez votre stock de matériel technique
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau matériel
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimer
           </Button>
-        )}
+          {canCreate && (
+            <Button onClick={handleOpenCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau matériel
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -218,6 +229,11 @@ export default function MaterielPage() {
               </TableRow>
             ) : (
               filteredMateriels.map((materiel: any) => (
+                (() => {
+                  const linkedSorties = materiel._count?.sorties ?? 0;
+                  const canDeleteMateriel = canDelete && (isAdmin || linkedSorties === 0);
+
+                  return (
                 <TableRow key={materiel.id}>
                   <TableCell className="font-medium">{materiel.reference}</TableCell>
                   <TableCell>{materiel.nom}</TableCell>
@@ -230,7 +246,16 @@ export default function MaterielPage() {
                       <AlertTriangle className="inline h-4 w-4 ml-1 text-yellow-500" />
                     )}
                   </TableCell>
-                  <TableCell>{materiel.emplacementStock || '-'}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div>{materiel.emplacementStock || '-'}</div>
+                      {linkedSorties > 0 && (
+                        <div className="text-xs text-amber-600 dark:text-amber-400">
+                          Déjà utilisé dans {linkedSorties} sortie{linkedSorties > 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{getStockBadge(materiel)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -243,18 +268,24 @@ export default function MaterielPage() {
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      {canDelete && (
+                      {canDeleteMateriel && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(materiel.id, materiel.nom)}
+                          onClick={() => handleDelete(materiel.id, materiel.nom, isAdmin)}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       )}
                     </div>
+                    {canDelete && !canDeleteMateriel && (
+                      <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 text-right">
+                        Suppression impossible: matériel déjà utilisé
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
+                )})()
               ))
             )}
           </TableBody>
@@ -445,6 +476,48 @@ export default function MaterielPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
+
+      {isPrintOpen && (
+        <TabularListPrint
+          title="Liste du matériel"
+          subtitle="Inventaire du matériel technique"
+          serviceName={user?.service?.name || user?.department || 'Service technique'}
+          columns={[
+            { key: 'reference', label: 'Référence' },
+            { key: 'nom', label: 'Nom' },
+            { key: 'categorie', label: 'Catégorie' },
+            { key: 'stock', label: 'Stock', align: 'right' },
+            { key: 'disponible', label: 'Disponible', align: 'right' },
+            { key: 'seuil', label: 'Seuil alerte', align: 'right' },
+            { key: 'emplacement', label: 'Emplacement' },
+            { key: 'prix', label: 'Prix unitaire', align: 'right' },
+          ]}
+          rows={filteredMateriels.map((materiel: any) => ({
+            reference: materiel.reference,
+            nom: materiel.nom,
+            categorie: materiel.categorie,
+            stock: materiel.quantiteStock || 0,
+            disponible: materiel.quantiteDisponible ?? materiel.quantiteStock ?? 0,
+            seuil: materiel.seuilAlerte,
+            emplacement: textOrDash(materiel.emplacementStock),
+            prix: materiel.prixUnitaire ? formatFCFA(materiel.prixUnitaire) : '-',
+          }))}
+          summary={[
+            { label: 'Total matériel', value: filteredMateriels.length },
+            {
+              label: 'Valeur stock',
+              value: formatFCFA(
+                filteredMateriels.reduce(
+                  (sum: number, materiel: any) =>
+                    sum + (materiel.quantiteStock || 0) * (materiel.prixUnitaire || 0),
+                  0
+                )
+              ),
+            },
+          ]}
+          onClose={() => setIsPrintOpen(false)}
+        />
       )}
     </div>
   );

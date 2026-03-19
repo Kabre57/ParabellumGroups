@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Edit, Plus, Search, Star, Trash2 } from 'lucide-react';
+import { Building2, Edit, Plus, Search, Star, Trash2, Printer } from 'lucide-react';
 import { procurementService, Supplier } from '@/services/procurement';
 import type { SupplierStatus } from '@/services/procurement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import TabularListPrint from '@/components/printComponents/TabularListPrint';
+import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
 
 const statusColors: Record<SupplierStatus, string> = {
   ACTIF: 'bg-green-100 text-green-800',
@@ -40,8 +42,18 @@ interface SupplierFormValues {
   phone?: string;
   address?: string;
   category?: string;
+  rating?: string;
   status: SupplierStatus;
 }
+
+const evaluationLevels = [
+  { value: '0', label: 'Non evalue' },
+  { value: '1', label: '1 - Faible' },
+  { value: '2', label: '2 - Moyen' },
+  { value: '3', label: '3 - Correct' },
+  { value: '4', label: '4 - Bon' },
+  { value: '5', label: '5 - Excellent' },
+];
 
 export default function SuppliersPage() {
   const { user } = useAuth();
@@ -50,6 +62,7 @@ export default function SuppliersPage() {
   const [statusFilter, setStatusFilter] = useState<SupplierStatus | 'ALL'>('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const resolveName = (supplier: Supplier) =>
     supplier.name || (supplier as any).nom || supplier.email || 'Sans nom';
@@ -105,6 +118,7 @@ export default function SuppliersPage() {
         telephone: values.phone || undefined,
         adresse: values.address || undefined,
         categorie: values.category || undefined,
+        rating: values.rating ? Number(values.rating) : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
@@ -119,6 +133,7 @@ export default function SuppliersPage() {
         telephone: values.phone,
         adresse: values.address,
         categorie: values.category,
+        rating: values.rating ? Number(values.rating) : undefined,
         status: values.status,
       } as any),
     onSuccess: () => {
@@ -140,6 +155,7 @@ export default function SuppliersPage() {
       phone: '',
       address: '',
       category: '',
+      rating: '0',
       status: 'ACTIF',
     },
   });
@@ -153,6 +169,7 @@ export default function SuppliersPage() {
         phone: editingSupplier.phone || '',
         address: editingSupplier.address || '',
         category: editingSupplier.category || '',
+        rating: String(editingSupplier.rating ?? 0),
         status: editingSupplier.status || 'ACTIF',
       });
     } else {
@@ -162,6 +179,7 @@ export default function SuppliersPage() {
         phone: '',
         address: '',
         category: '',
+        rating: '0',
         status: 'ACTIF',
       });
     }
@@ -194,17 +212,22 @@ export default function SuppliersPage() {
 
   const renderRating = (rating?: number) => {
     const safeRating = rating || 0;
+    const levelLabel =
+      evaluationLevels.find((level) => Number(level.value) === Math.round(safeRating))?.label || 'Non evalue';
     return (
-      <div className="flex items-center gap-1">
-        {[...Array(5)].map((_, i) => (
-          <Star
-            key={i}
-            className={`h-4 w-4 ${
-              i < Math.floor(safeRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'
-            }`}
-          />
-        ))}
-        <span className="text-xs text-muted-foreground">{safeRating.toFixed(1)}</span>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1">
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              className={`h-4 w-4 ${
+                i < Math.floor(safeRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'
+              }`}
+            />
+          ))}
+          <span className="text-xs text-muted-foreground">{safeRating.toFixed(1)}</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground">{levelLabel}</p>
       </div>
     );
   };
@@ -218,12 +241,18 @@ export default function SuppliersPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Fournisseurs</h1>
         </div>
-        {canCreate && (
-          <Button onClick={openCreate}>
-            <Building2 className="mr-2 h-4 w-4" />
-            Nouveau fournisseur
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+            <Printer className="mr-2 h-4 w-4" />
+            Imprimer
           </Button>
-        )}
+          {canCreate && (
+            <Button onClick={openCreate}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Nouveau fournisseur
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -392,6 +421,22 @@ export default function SuppliersPage() {
               <Input {...form.register('category')} />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">Evaluation fournisseur</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                {...form.register('rating')}
+              >
+                {evaluationLevels.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Note interne sur 5 pour evaluer la fiabilite du fournisseur.
+              </p>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Statut</label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -416,6 +461,41 @@ export default function SuppliersPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
+
+      {isPrintOpen && (
+        <TabularListPrint
+          title="Liste des fournisseurs"
+          subtitle="Référentiel fournisseurs et suivi commercial"
+          serviceName={user?.service?.name || user?.department || 'Service achat'}
+          columns={[
+            { key: 'name', label: 'Nom' },
+            { key: 'email', label: 'Email' },
+            { key: 'phone', label: 'Téléphone' },
+            { key: 'category', label: 'Catégorie' },
+            { key: 'ordersCount', label: 'Commandes', align: 'right' },
+            { key: 'totalAmount', label: 'Montant', align: 'right' },
+            { key: 'rating', label: 'Évaluation', align: 'center' },
+            { key: 'status', label: 'Statut', align: 'center' },
+          ]}
+          rows={filteredSuppliers.map((supplier) => ({
+            name: resolveName(supplier),
+            email: textOrDash(supplier.email),
+            phone: textOrDash(supplier.phone || supplier.telephone),
+            category: textOrDash(supplier.category),
+            ordersCount: supplier.ordersCount || 0,
+            totalAmount: formatFCFA(supplier.totalAmount || 0),
+            rating: `${(supplier.rating || 0).toFixed(1)}/5`,
+            status: statusLabels[supplier.status],
+          }))}
+          summary={[
+            { label: 'Total fournisseurs', value: stats.total },
+            { label: 'Actifs', value: stats.active },
+            { label: 'Commandes', value: stats.totalOrders },
+            { label: 'Montant total', value: formatFCFA(stats.totalAmount) },
+          ]}
+          onClose={() => setIsPrintOpen(false)}
+        />
       )}
     </div>
   );

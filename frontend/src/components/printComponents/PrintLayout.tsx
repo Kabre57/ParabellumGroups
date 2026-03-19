@@ -9,6 +9,11 @@ interface PrintLayoutProps {
   onClose: () => void;
   showFooter?: boolean;
   orientation?: 'portrait' | 'landscape';
+  hideDefaultHeader?: boolean;
+  companyName?: string;
+  logoSrc?: string;
+  logoAlt?: string;
+  footerLines?: string[];
   children: React.ReactNode;
 }
 
@@ -103,6 +108,7 @@ const buildPrintDocument = (content: string, origin: string, orientation: 'portr
       .table-print {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
         margin: 6px 0 12px 0;
       }
 
@@ -113,6 +119,13 @@ const buildPrintDocument = (content: string, origin: string, orientation: 'portr
         font-size: 11px;
         text-align: left;
         vertical-align: top;
+      }
+
+      .table-print td {
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
       }
 
       .table-print th {
@@ -157,6 +170,15 @@ export default function PrintLayout({
   onClose,
   showFooter = true,
   orientation = 'portrait',
+  hideDefaultHeader = false,
+  companyName = 'PROGITECK',
+  logoSrc = '/progiteck.jpg',
+  logoAlt = 'Logo',
+  footerLines = [
+    'SARL au capital de 5 000 000 FCFA Siège Social Abengourou/Treichville RCCM N° CI-ABG-2021-M2-104',
+    'N°CC : 2029843Z- Email : progiteck31@gmail.com – TEL : 225 0576208494/0142649927/0143859286',
+    'N° de compte Bancaire : n°CI121 01302 034304800201 24 ORABANK',
+  ],
   children,
 }: PrintLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -250,33 +272,34 @@ export default function PrintLayout({
       }}
     >
       <div ref={containerRef} className="print-sheet">
-        <div className="print-header">
-          <div className="flex items-center" style={{ gap: 12 }}>
-            <img
-              src="/progiteck.jpg"
-              alt="Progiteck Logo"
-              className="print-logo"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            <div>
-              <div className="print-title">PROGITECK</div>
-              <div className="print-subtitle">{title}</div>
-              {subtitle && <div className="print-subtitle">{subtitle}</div>}
+        {!hideDefaultHeader && (
+          <div className="print-header">
+            <div className="flex items-center" style={{ gap: 12 }}>
+              <img
+                src={logoSrc}
+                alt={logoAlt}
+                className="print-logo"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div>
+                <div className="print-title">{companyName}</div>
+                <div className="print-subtitle">{title}</div>
+                {subtitle && <div className="print-subtitle">{subtitle}</div>}
+              </div>
             </div>
+            {meta && <div className="print-meta">{meta}</div>}
           </div>
-          {meta && <div className="print-meta">{meta}</div>}
-        </div>
+        )}
 
         <div className="print-body">{children}</div>
 
-        {showFooter && (
+        {showFooter && footerLines.length > 0 && (
           <div className="print-footer">
-            <div>PROGITECK • Service Technique Professionnel</div>
-            <div>Siege Social : Abidjan, Plateau • RCCM N° CI-ABJ-2024-M2-001 • NIF : 2024001A</div>
-            <div>Email : contact@progiteck.ci • Tel : +225 27 20 21 22 23</div>
-            <div>Compte Bancaire : CI001 01010 10101010101 01 • UBA COTE D'IVOIRE</div>
+            {footerLines.map((line) => (
+              <div key={line}>{line}</div>
+            ))}
           </div>
         )}
       </div>

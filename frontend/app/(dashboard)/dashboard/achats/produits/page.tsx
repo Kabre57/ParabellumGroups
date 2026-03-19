@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Package, Search, Filter, Plus, Edit, Trash2 } from 'lucide-react';
+import { Package, Search, Filter, Plus, Edit, Trash2, Printer } from 'lucide-react';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle, ArticleStatus, ArticleUnit } from '@/shared/api/inventory/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import TabularListPrint from '@/components/printComponents/TabularListPrint';
+import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
 
 type ProductStatus = 'active' | 'discontinued';
 
@@ -84,6 +86,7 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<InventoryArticle | null>(null);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const { data: articlesResponse, isLoading } = useQuery({
     queryKey: ['inventory-articles', categoryFilter, searchTerm],
@@ -274,12 +277,18 @@ export default function ProductsPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Catalogue produits</h1>
         </div>
-        {canCreate && (
-          <Button onClick={openCreate}>
-            <Package className="mr-2 h-4 w-4" />
-            Nouveau produit
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+            <Printer className="mr-2 h-4 w-4" />
+            Imprimer
           </Button>
-        )}
+          {canCreate && (
+            <Button onClick={openCreate}>
+              <Package className="mr-2 h-4 w-4" />
+              Nouveau produit
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -531,6 +540,41 @@ export default function ProductsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
+
+      {isPrintOpen && (
+        <TabularListPrint
+          title="Liste des produits"
+          subtitle="Catalogue achat et niveaux de stock"
+          serviceName={user?.service?.name || user?.department || 'Service achat'}
+          columns={[
+            { key: 'reference', label: 'Référence' },
+            { key: 'name', label: 'Nom' },
+            { key: 'category', label: 'Catégorie' },
+            { key: 'stock', label: 'Stock', align: 'right' },
+            { key: 'purchasePrice', label: 'Prix achat', align: 'right' },
+            { key: 'salePrice', label: 'Prix vente', align: 'right' },
+            { key: 'unit', label: 'Unité', align: 'center' },
+            { key: 'status', label: 'Statut', align: 'center' },
+          ]}
+          rows={filteredProducts.map((product) => ({
+            reference: product.reference || product.id,
+            name: product.name,
+            category: product.category,
+            stock: product.stock,
+            purchasePrice: product.purchasePrice !== undefined ? formatFCFA(product.purchasePrice) : '-',
+            salePrice: product.salePrice !== undefined ? formatFCFA(product.salePrice) : '-',
+            unit: textOrDash(product.unit),
+            status: statusLabels[product.status],
+          }))}
+          summary={[
+            { label: 'Total produits', value: stats.total },
+            { label: 'Actifs', value: stats.active },
+            { label: 'Discontinus', value: stats.discontinued },
+            { label: 'Valeur stock', value: formatFCFA(stats.totalValue) },
+          ]}
+          onClose={() => setIsPrintOpen(false)}
+        />
       )}
     </div>
   );

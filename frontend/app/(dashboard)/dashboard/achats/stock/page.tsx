@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, List, MoveRight, Plus } from 'lucide-react';
+import { AlertTriangle, List, MoveRight, Plus, Printer } from 'lucide-react';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type {
   InventoryArticle,
@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import TabularListPrint from '@/components/printComponents/TabularListPrint';
+import { formatFCFA, formatPrintDate, textOrDash } from '@/components/printComponents/printUtils';
 
 export default function StockPage() {
   const { user } = useAuth();
@@ -37,6 +39,7 @@ export default function StockPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<InventoryArticle | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<
     Awaited<ReturnType<typeof inventoryService.getArticles>>
@@ -77,6 +80,10 @@ export default function StockPage() {
     (item: InventoryArticle) =>
       (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0)
   ).length;
+  const totalStockValue = stockItems.reduce(
+    (sum, item) => sum + (item.quantiteStock ?? 0) * (item.prixAchat ?? 0),
+    0
+  );
   const { canCreate, canUpdate } = getCrudVisibility(user, {
     read: ['inventory.read', 'inventory.read_all', 'inventory.read_warehouse'],
     create: ['inventory.create'],
@@ -186,6 +193,10 @@ export default function StockPage() {
           <h1 className="mt-2 text-3xl font-bold">Stock</h1>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+            <Printer className="mr-2 h-4 w-4" />
+            Imprimer
+          </Button>
           {canUpdate && (
             <Button variant="outline" onClick={() => openAdjust()}>
               <Plus className="mr-2 h-4 w-4" />
@@ -579,6 +590,69 @@ export default function StockPage() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
+
+      {isPrintOpen && (
+        <TabularListPrint
+          title={activeTab === 'items' ? 'État du stock' : 'Mouvements de stock'}
+          subtitle={
+            activeTab === 'items'
+              ? 'Articles, seuils et emplacements'
+              : 'Historique des mouvements'
+          }
+          serviceName={user?.service?.name || user?.department || 'Service achat'}
+          columns={
+            activeTab === 'items'
+              ? [
+                  { key: 'article', label: 'Article' },
+                  { key: 'category', label: 'Catégorie' },
+                  { key: 'quantity', label: 'Quantité', align: 'right' as const },
+                  { key: 'threshold', label: 'Seuil', align: 'right' as const },
+                  { key: 'location', label: 'Emplacement' },
+                  { key: 'lastRestocked', label: 'Dernier réappro.' },
+                ]
+              : [
+                  { key: 'date', label: 'Date' },
+                  { key: 'article', label: 'Article' },
+                  { key: 'type', label: 'Type', align: 'center' as const },
+                  { key: 'quantity', label: 'Quantité', align: 'right' as const },
+                  { key: 'user', label: 'Utilisateur' },
+                  { key: 'reference', label: 'Référence' },
+                ]
+          }
+          rows={
+            activeTab === 'items'
+              ? filteredItems.map((item) => ({
+                  article: item.nom,
+                  category: textOrDash(item.categorie),
+                  quantity: `${item.quantiteStock ?? 0} ${item.unite || ''}`.trim(),
+                  threshold: `${item.seuilAlerte ?? '-'} ${item.unite || ''}`.trim(),
+                  location: textOrDash(item.emplacement),
+                  lastRestocked: formatPrintDate(item.updatedAt),
+                }))
+              : movements.map((movement) => ({
+                  date: formatPrintDate(movement.dateOperation),
+                  article: movement.article?.nom || movement.articleId,
+                  type: movement.type,
+                  quantity: movement.quantite,
+                  user: textOrDash(movement.utilisateurId),
+                  reference: textOrDash(movement.numeroDocument),
+                }))
+          }
+          summary={
+            activeTab === 'items'
+              ? [
+                  { label: 'Articles', value: filteredItems.length },
+                  { label: 'Stock faible', value: lowStockCount },
+                  { label: 'Valeur stock', value: formatFCFA(totalStockValue) },
+                ]
+              : [
+                  { label: 'Mouvements', value: movements.length },
+                  { label: 'Date édition', value: formatPrintDate(new Date(), true) },
+                ]
+          }
+          onClose={() => setIsPrintOpen(false)}
+        />
       )}
     </div>
   );

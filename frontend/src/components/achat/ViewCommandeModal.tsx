@@ -1,8 +1,11 @@
 ﻿
 "use client";
-import React from "react";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { X, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { procurementService } from "@/services/procurement";
+import PurchaseOrderPrint from "@/components/printComponents/PurchaseOrderPrint";
 
 interface Props {
   isOpen: boolean;
@@ -11,22 +14,32 @@ interface Props {
 }
 
 export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
-  const lines = order?.itemsDetail || order?.lignes || [];
-  const supplierName = order?.supplier || order?.supplierName || "";
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const { data: fullOrderResponse } = useQuery({
+    queryKey: ["purchase-order-modal-detail", order?.id],
+    queryFn: () => procurementService.getOrder(order?.id || ""),
+    enabled: isOpen && Boolean(order?.id),
+    staleTime: 60 * 1000,
+  });
+
+  const effectiveOrder = fullOrderResponse?.data || order;
+  const lines = effectiveOrder?.itemsDetail || effectiveOrder?.lignes || [];
+  const supplierName = effectiveOrder?.supplier || effectiveOrder?.supplierName || "";
 
   const handlePrint = () => {
-    if (!order) return;
-    window.print();
+    if (!effectiveOrder) return;
+    setIsPrintOpen(true);
   };
 
-  if (!isOpen || !order) return null;
+  if (!isOpen || !effectiveOrder) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl rounded-lg bg-white shadow-xl">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
+        <div className="w-full max-w-4xl rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold">Commande {order.number || ""}</h3>
+            <h3 className="text-lg font-semibold">Commande {effectiveOrder.number || ""}</h3>
             <p className="text-sm text-muted-foreground">Détails et impression</p>
           </div>
           <div className="flex items-center gap-2">
@@ -44,28 +57,28 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
             <div>
               <div className="text-muted-foreground">Fournisseur</div>
               <div className="font-semibold">{supplierName || "—"}</div>
-              {order?.supplierEmail && (
-                <div className="text-xs text-muted-foreground">{order.supplierEmail}</div>
+              {effectiveOrder?.supplierEmail && (
+                <div className="text-xs text-muted-foreground">{effectiveOrder.supplierEmail}</div>
               )}
             </div>
             <div>
               <div className="text-muted-foreground">Date</div>
               <div className="font-semibold">
-                {order?.date
-                  ? new Date(order.date).toLocaleDateString("fr-FR")
-                  : order?.createdAt
-                  ? new Date(order.createdAt).toLocaleDateString("fr-FR")
+                {effectiveOrder?.date
+                  ? new Date(effectiveOrder.date).toLocaleDateString("fr-FR")
+                  : effectiveOrder?.createdAt
+                  ? new Date(effectiveOrder.createdAt).toLocaleDateString("fr-FR")
                   : "—"}
               </div>
             </div>
             <div>
               <div className="text-muted-foreground">Statut</div>
-              <div className="font-semibold">{order?.status || "—"}</div>
+              <div className="font-semibold">{effectiveOrder?.status || "—"}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Montant</div>
               <div className="font-semibold">
-                {(order?.amount ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F
+                {(effectiveOrder?.amount ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F
               </div>
             </div>
           </div>
@@ -145,12 +158,20 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
             <div className="flex justify-between font-semibold">
               <span>Total TTC</span>
               <span>
-                {(order?.amount ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F
+                {(effectiveOrder?.amount ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F
               </span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {isPrintOpen && (
+        <PurchaseOrderPrint
+          order={effectiveOrder}
+          onClose={() => setIsPrintOpen(false)}
+        />
+      )}
+    </>
   );
 }

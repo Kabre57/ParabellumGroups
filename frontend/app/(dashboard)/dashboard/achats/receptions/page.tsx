@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, CheckCircle2, RefreshCw } from "lucide-react";
+import { Search, CheckCircle2, RefreshCw, Printer } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
 import type { Reception, ReceptionStatus } from "@/shared/api/inventory/types";
+import { procurementService } from "@/services/procurement";
+import ReceptionPrint from "@/components/printComponents/ReceptionPrint";
 
 const statusColors: Record<ReceptionStatus, string> = {
   EN_ATTENTE: "bg-yellow-100 text-yellow-800",
@@ -32,6 +34,7 @@ export default function ReceptionsPage() {
   const [statusFilter, setStatusFilter] = useState<ReceptionStatus | "ALL">("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedReception, setSelectedReception] = useState<Reception | null>(null);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   // Liste
   const { data: listResponse, isLoading } = useQuery({
@@ -93,6 +96,12 @@ export default function ReceptionsPage() {
   });
 
   const current = detail || selectedReception;
+  const { data: currentOrder } = useQuery({
+    queryKey: ["reception-order-detail", current?.bonCommandeId],
+    queryFn: () => procurementService.getOrder(current?.bonCommandeId || "").then((res) => res.data),
+    enabled: Boolean(current?.bonCommandeId),
+    staleTime: 5 * 60 * 1000,
+  });
   const lignes = current?.lignes || [];
   const sousTotal = lignes.reduce((sum, l) => sum + (l.prixUnitaire || 0) * (l.quantiteRecue || 0), 0);
   const totalTVA = lignes.reduce((sum, l) => {
@@ -270,7 +279,9 @@ export default function ReceptionsPage() {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Bon de commande</div>
-                    <div className="font-semibold">{current.bonCommandeId}</div>
+                    <div className="font-semibold">
+                      {currentOrder?.number || currentOrder?.numeroBon || current.bonCommandeId}
+                    </div>
                   </div>
                 </div>
 
@@ -336,7 +347,8 @@ export default function ReceptionsPage() {
                       Valider la réception
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => window.print()}>
+                  <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+                    <Printer className="mr-2 h-4 w-4" />
                     Imprimer
                   </Button>
                 </div>
@@ -345,6 +357,14 @@ export default function ReceptionsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isPrintOpen && current && (
+        <ReceptionPrint
+          reception={current}
+          order={currentOrder}
+          onClose={() => setIsPrintOpen(false)}
+        />
+      )}
     </div>
   );
 }
