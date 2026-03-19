@@ -43,6 +43,39 @@ const isAdminUser = (user) => {
   return ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR'].includes(role);
 };
 
+const normalizePermissions = (permissions = []) =>
+  (Array.isArray(permissions) ? permissions : [permissions])
+    .map((permission) => String(permission || '').trim().toLowerCase())
+    .filter(Boolean);
+
+const hasPermission = (user, ...permissions) => {
+  const permissionSet = new Set(normalizePermissions(user?.permissions));
+  return permissions.some((permission) => permissionSet.has(String(permission).toLowerCase()));
+};
+
+const canReadOwnQuotesOnly = (user) => {
+  if (isAdminUser(user)) {
+    return false;
+  }
+
+  const hasOwnScope = hasPermission(user, 'quotes.read_own', 'purchases.read_own');
+  const hasGlobalScope = hasPermission(user, 'quotes.read_all', 'purchases.read_all');
+
+  return hasOwnScope && !hasGlobalScope;
+};
+
+const canAccessQuote = (req, demande) => {
+  if (!demande) {
+    return false;
+  }
+
+  if (!canReadOwnQuotesOnly(req.user)) {
+    return true;
+  }
+
+  return String(demande.demandeurId || '') === String(req.user?.id || '');
+};
+
 const buildQuoteWhere = (req) => {
   const {
     status,
@@ -64,6 +97,8 @@ const buildQuoteWhere = (req) => {
 
   if (serviceId) {
     where.serviceId = Number(serviceId);
+  } else if (canReadOwnQuotesOnly(req.user)) {
+    where.demandeurId = String(req.user?.id || '');
   } else if (!isAdminUser(req.user) && req.user?.serviceId) {
     where.serviceId = req.user.serviceId;
   }
@@ -334,6 +369,13 @@ exports.getById = async (req, res) => {
       });
     }
 
+    if (!canAccessQuote(req, demande)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à ce devis d\'achat',
+      });
+    }
+
     res.json({
       success: true,
       data: serializeQuote(demande),
@@ -364,6 +406,13 @@ exports.update = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Devis d\'achat non trouvé',
+      });
+    }
+
+    if (!canAccessQuote(req, existing)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à ce devis d\'achat',
       });
     }
 
@@ -468,6 +517,13 @@ exports.submit = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Devis d\'achat non trouvé',
+      });
+    }
+
+    if (!canAccessQuote(req, existing)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à ce devis d\'achat',
       });
     }
 
@@ -783,6 +839,13 @@ exports.getApprovalHistory = async (req, res) => {
       });
     }
 
+    if (!canAccessQuote(req, demande)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à ce devis d\'achat',
+      });
+    }
+
     const logs = await prisma.demandeAchatApprovalLog.findMany({
       where: { demandeAchatId: req.params.id },
       orderBy: { createdAt: 'desc' },
@@ -892,6 +955,13 @@ exports.delete = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Devis d\'achat non trouvé',
+      });
+    }
+
+    if (!canAccessQuote(req, existing)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à ce devis d\'achat',
       });
     }
 

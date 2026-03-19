@@ -12,6 +12,7 @@ import type { PurchaseRequest, PurchaseRequestStatus, Supplier } from '@/service
 import { adminServicesService, type Service } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { hasAnyPermission } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +76,9 @@ export default function PurchaseQuotesPage() {
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
+  const canReadOwnQuotesOnly =
+    hasAnyPermission(user, ['quotes.read_own', 'purchases.read_own']) &&
+    !hasAnyPermission(user, ['quotes.read_all', 'purchases.read_all']);
 
   const { canCreate, canUpdate, canReject, canChooseService } = getCrudVisibility(user, {
     read: ['purchases.read'],
@@ -93,12 +97,13 @@ export default function PurchaseQuotesPage() {
   }, [selectedServiceId, userServiceId]);
 
   const { data: requestsResponse, isLoading } = useQuery({
-    queryKey: ['purchase-quotes', statusFilter, search],
+    queryKey: ['purchase-quotes', statusFilter, search, user?.id, canReadOwnQuotesOnly],
     queryFn: () =>
       procurementService.getRequests({
         limit: 200,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         search: search || undefined,
+        requesterId: canReadOwnQuotesOnly ? String(user?.id ?? '') : undefined,
       }),
   });
 
@@ -120,16 +125,19 @@ export default function PurchaseQuotesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const requests = requestsResponse?.data ?? [];
+  const requests = (requestsResponse?.data ?? []).filter((request) =>
+    canReadOwnQuotesOnly ? String(request.requesterId || '') === String(user?.id ?? '') : true
+  );
   const suppliers = suppliersResponse?.data ?? [];
   const articles = articlesResponse?.data ?? [];
   const services = servicesResponse?.data ?? [];
   const selectedService = services.find((service) => String(service.id) === selectedServiceId);
-  const serviceName =
+  const requestServiceName =
     selectedService?.name ||
     user?.service?.name ||
     user?.department ||
-    'Service non renseigné';
+    undefined;
+  const displayServiceName = requestServiceName || 'Veuillez sélectionner un service';
 
   const stats = useMemo(() => ({
     total: requests.length,
@@ -148,7 +156,7 @@ export default function PurchaseQuotesPage() {
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
-        serviceName,
+        serviceName: requestServiceName,
         lignes: lines
           .filter((line) => line.designation && line.quantite > 0)
           .map((line) => ({
@@ -182,7 +190,8 @@ export default function PurchaseQuotesPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => procurementService.approveRequest(id, `Approuvé pour ${serviceName}`),
+    mutationFn: (id: string) =>
+      procurementService.approveRequest(id, `Approuvé pour ${requestServiceName || 'le service demandeur'}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
@@ -366,7 +375,7 @@ export default function PurchaseQuotesPage() {
           <DialogHeader>
             <DialogTitle>Nouveau devis d&apos;achat</DialogTitle>
           <DialogDescription>
-            Le devis sera créé au nom du service <strong>{serviceName}</strong>.
+            Le devis sera créé au nom du service <strong>{displayServiceName}</strong>.
           </DialogDescription>
           </DialogHeader>
 

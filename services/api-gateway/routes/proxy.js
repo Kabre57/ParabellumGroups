@@ -60,6 +60,9 @@ const createProxy = (target, pathRewriteConfig = {}) => {
         if (req.user.email) {
           proxyReq.setHeader('X-User-Email', req.user.email);
         }
+        if (Array.isArray(req.user.permissions) && req.user.permissions.length > 0) {
+          proxyReq.setHeader('X-User-Permissions', req.user.permissions.join(','));
+        }
       }
       if (req.correlationId) {
         proxyReq.setHeader('X-Correlation-ID', req.correlationId);

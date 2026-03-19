@@ -25,7 +25,7 @@ const procurementPermissionRules = [
   {
     pattern: /^\/devis-achat/,
     permissions: {
-      GET: 'purchases.read',
+      GET: ['purchases.read', 'purchases.read_own', 'purchases.read_all', 'quotes.read', 'quotes.read_own', 'quotes.read_all'],
       POST: 'purchases.create',
       PUT: 'purchases.update',
       PATCH: 'purchases.update',
@@ -49,7 +49,7 @@ const procurementPermissionRules = [
   {
     pattern: /^\/demandes-achat/,
     permissions: {
-      GET: 'purchases.read',
+      GET: ['purchases.read', 'purchases.read_own', 'purchases.read_all', 'quotes.read', 'quotes.read_own', 'quotes.read_all'],
       POST: 'purchases.create',
       PUT: 'purchases.update',
       PATCH: 'purchases.update',

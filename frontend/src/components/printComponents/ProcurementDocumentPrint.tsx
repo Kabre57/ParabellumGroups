@@ -101,6 +101,7 @@ export default function ProcurementDocumentPrint({
   const logoSrc = resolvePrintLogo(serviceLogoUrl);
   const producerLabel = textOrDash(issuedBy || serviceName || companyName);
   const blankRowCount = Math.max(0, minimumVisualRows - enrichedLines.length);
+  const fillerHeightMm = blankRowCount > 0 ? Math.max(36, blankRowCount * 16) : 0;
   const recipientLines = [
     recipient?.email?.trim(),
     recipient?.phone?.trim(),
@@ -229,21 +230,24 @@ export default function ProcurementDocumentPrint({
               ))}
               {enrichedLines.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ ...tableBodyCellStyle, textAlign: 'center', padding: '18px 8px' }}>
-                    Aucune ligne à imprimer.
-                  </td>
+                  <td style={{ ...tableBodyCellStyle, height: `${Math.max(fillerHeightMm, 96)}mm` }} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
                 </tr>
               )}
-              {Array.from({ length: blankRowCount }).map((_, index) => (
-                <tr key={`blank-${index}`}>
-                  <td style={{ ...tableBodyCellStyle, height: 34 }} />
+              {enrichedLines.length > 0 && fillerHeightMm > 0 && (
+                <tr>
+                  <td style={{ ...tableBodyCellStyle, height: `${fillerHeightMm}mm` }} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
 
