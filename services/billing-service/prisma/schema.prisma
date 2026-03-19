@@ -135,6 +135,43 @@ model PurchaseCommitment {
   @@map("purchase_commitments")
 }
 
+model CashVoucher {
+  id                String   @id @default(uuid())
+  voucherNumber     String   @unique
+  sourceType        String
+  sourceId          String?
+  sourceNumber      String?
+  expenseCategory   String?
+  serviceId         Int?
+  serviceName       String?
+  supplierId        String?
+  supplierName      String?
+  beneficiaryName   String
+  beneficiaryPhone  String?
+  description       String
+  amountHT          Float    @default(0)
+  amountTVA         Float    @default(0)
+  amountTTC         Float
+  currency          String   @default("XOF")
+  paymentMethod     MethodePaiement
+  status            CashVoucherStatus @default(BROUILLON)
+  issueDate         DateTime @default(now())
+  disbursementDate  DateTime?
+  reference         String?
+  notes             String?
+  createdByUserId   String?
+  createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([sourceType, sourceId])
+  @@index([status])
+  @@index([issueDate])
+  @@map("cash_vouchers")
+}
+
 model BillingProcessedEvent {
   id           String   @id @default(uuid())
   eventId      String   @unique
@@ -167,4 +204,12 @@ enum MethodePaiement {
   CHEQUE
   CARTE
   ESPECES
+}
+
+enum CashVoucherStatus {
+  BROUILLON
+  EN_ATTENTE
+  VALIDE
+  DECAISSE
+  ANNULE
 }

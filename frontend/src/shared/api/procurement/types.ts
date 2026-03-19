@@ -119,6 +119,7 @@ export interface PurchaseOrderValidationLog {
 export type PurchaseRequestStatus =
   | 'BROUILLON'
   | 'SOUMISE'
+  | 'APPROUVEE'
   | 'REJETEE'
   | 'COMMANDEE';
 

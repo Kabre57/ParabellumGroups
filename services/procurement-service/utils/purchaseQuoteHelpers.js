@@ -97,7 +97,12 @@ const serializeQuote = (demande = {}) => {
     montantTVA: Number(demande.montantTVA ?? 0),
     montantTTC: Number(demande.montantTTC ?? 0),
     status: demande.status,
-    approvalStatus: demande.status === 'SOUMISE' ? 'EN_ATTENTE' : demande.status,
+    approvalStatus:
+      demande.status === 'SOUMISE'
+        ? 'EN_ATTENTE_VALIDATION'
+        : demande.status === 'APPROUVEE'
+        ? 'VALIDEE'
+        : demande.status,
     notes: demande.notes || null,
     submittedAt: demande.submittedAt,
     approvedAt: demande.approvedAt,

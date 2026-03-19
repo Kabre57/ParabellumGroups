@@ -53,16 +53,63 @@ const hasPermission = (user, ...permissions) => {
   return permissions.some((permission) => permissionSet.has(String(permission).toLowerCase()));
 };
 
+const isPurchasingUser = (user) =>
+  isAdminUser(user) ||
+  hasPermission(
+    user,
+    'purchase_orders.create',
+    'purchase_orders.update',
+    'purchase_requests.read_all'
+  );
+
+const canReadAllQuotes = (user) =>
+  isAdminUser(user) ||
+  hasPermission(user, 'quotes.read_all', 'purchases.read_all', 'purchase_requests.read_all') ||
+  isPurchasingUser(user) ||
+  hasPermission(user, 'purchase_requests.approve');
+
 const canReadOwnQuotesOnly = (user) => {
-  if (isAdminUser(user)) {
+  if (canReadAllQuotes(user)) {
     return false;
   }
 
-  const hasOwnScope = hasPermission(user, 'quotes.read_own', 'purchases.read_own');
-  const hasGlobalScope = hasPermission(user, 'quotes.read_all', 'purchases.read_all');
-
-  return hasOwnScope && !hasGlobalScope;
+  return hasPermission(
+    user,
+    'purchases.read',
+    'purchases.create',
+    'purchases.update',
+    'quotes.read_own',
+    'purchases.read_own',
+    'purchase_requests.read',
+    'purchase_requests.read_own',
+    'purchase_requests.create',
+    'purchase_requests.update'
+  );
 };
+
+const canSubmitQuotes = (user) =>
+  isAdminUser(user) || (hasPermission(user, 'purchases.submit') && isPurchasingUser(user));
+
+const canApproveQuotes = (user) =>
+  isAdminUser(user) || hasPermission(user, 'purchase_requests.approve');
+
+const canRejectQuotes = (user) => canApproveQuotes(user);
+
+const canPrepareApprovedQuotes = (user) =>
+  isAdminUser(user) ||
+  hasPermission(user, 'purchase_orders.create', 'purchase_orders.update');
+
+const sanitizeInternalLines = (lignes = []) =>
+  lignes.map((ligne) => ({
+    ...ligne,
+    prixUnitaire: 0,
+    tva: 0,
+    montantHT: 0,
+    montantTTC: 0,
+  }));
+
+const canEditCommercialTerms = (user, status) =>
+  canPrepareApprovedQuotes(user) && status === 'APPROUVEE';
 
 const canAccessQuote = (req, demande) => {
   if (!demande) {
@@ -91,16 +138,14 @@ const buildQuoteWhere = (req) => {
     where.status = status;
   }
 
-  if (demandeurId) {
+  if (canReadOwnQuotesOnly(req.user)) {
+    where.demandeurId = String(req.user?.id || '');
+  } else if (demandeurId) {
     where.demandeurId = String(demandeurId);
   }
 
   if (serviceId) {
     where.serviceId = Number(serviceId);
-  } else if (canReadOwnQuotesOnly(req.user)) {
-    where.demandeurId = String(req.user?.id || '');
-  } else if (!isAdminUser(req.user) && req.user?.serviceId) {
-    where.serviceId = req.user.serviceId;
   }
 
   if (fournisseurId) {
@@ -156,11 +201,16 @@ const ensureServiceContext = async (req, fallbackName = null, requestedServiceId
 
 const validateQuoteReadiness = (demande) => {
   if (!demande.fournisseurId) {
-    return 'Le fournisseur est obligatoire avant approbation';
+    return 'Le fournisseur est obligatoire avant génération du bon de commande';
   }
 
   if (!Array.isArray(demande.lignes) || demande.lignes.length === 0) {
-    return 'Au moins une ligne article est requise avant approbation';
+    return 'Au moins une ligne article est requise avant génération du bon de commande';
+  }
+
+  const hasPricedLine = demande.lignes.some((ligne) => Number(ligne.prixUnitaire || 0) > 0);
+  if (!hasPricedLine) {
+    return 'Les prix fournisseurs doivent être renseignés avant génération du bon de commande';
   }
 
   return null;
@@ -295,7 +345,7 @@ exports.create = async (req, res) => {
       return res.status(serviceContext.error.status).json(serviceContext.error.body);
     }
 
-    const normalizedLines = normalizeQuoteLines(lignes);
+    const normalizedLines = sanitizeInternalLines(normalizeQuoteLines(lignes));
     const totals = calculateTotals(normalizedLines);
     const numeroDemande = await generateDemandeAchatNumber(prisma);
 
@@ -310,7 +360,7 @@ exports.create = async (req, res) => {
           demandeurEmail: req.user?.email || null,
           serviceId: serviceContext.serviceId,
           serviceName: serviceContext.serviceName,
-          fournisseurId: fournisseurId || null,
+          fournisseurId: null,
           devise: devise || 'XOF',
           dateDemande: dateDemande ? new Date(dateDemande) : new Date(),
           dateBesoin: dateBesoin ? new Date(dateBesoin) : null,
@@ -318,7 +368,7 @@ exports.create = async (req, res) => {
           montantHT: totals.montantHT,
           montantTVA: totals.montantTVA,
           montantTTC: totals.montantTTC,
-          status: status || 'BROUILLON',
+          status: 'BROUILLON',
           notes: notes || null,
           ...(normalizedLines.length > 0
             ? {
@@ -450,7 +500,10 @@ exports.update = async (req, res) => {
       return res.status(serviceContext.error.status).json(serviceContext.error.body);
     }
 
-    const normalizedLines = Array.isArray(lignes) ? normalizeQuoteLines(lignes) : null;
+    const allowCommercialTerms = canEditCommercialTerms(req.user, existing.status);
+    const normalizedLines = Array.isArray(lignes)
+      ? (allowCommercialTerms ? normalizeQuoteLines(lignes) : sanitizeInternalLines(normalizeQuoteLines(lignes)))
+      : null;
     const totals = normalizedLines ? calculateTotals(normalizedLines) : null;
 
     const demande = await prisma.$transaction(async (tx) => {
@@ -466,7 +519,11 @@ exports.update = async (req, res) => {
           titre: titre !== undefined ? String(titre || objet || existing.titre).trim() : undefined,
           objet: objet !== undefined ? String(objet || titre || existing.objet || existing.titre).trim() : undefined,
           description: description !== undefined ? description || null : undefined,
-          fournisseurId: fournisseurId !== undefined ? fournisseurId || null : undefined,
+          fournisseurId: allowCommercialTerms
+            ? fournisseurId !== undefined
+              ? fournisseurId || null
+              : undefined
+            : null,
           dateBesoin: dateBesoin !== undefined ? (dateBesoin ? new Date(dateBesoin) : null) : undefined,
           notes: notes !== undefined ? notes || null : undefined,
           devise: devise !== undefined ? devise || 'XOF' : undefined,
@@ -527,10 +584,17 @@ exports.submit = async (req, res) => {
       });
     }
 
+    if (!canSubmitQuotes(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Seul le service achat peut soumettre une demande pour validation',
+      });
+    }
+
     if (existing.status !== 'BROUILLON' && existing.status !== 'REJETEE') {
       return res.status(409).json({
         success: false,
-        message: 'Seuls les devis en brouillon ou rejetés peuvent être soumis',
+        message: 'Seules les demandes en brouillon ou rejetées peuvent être soumises',
       });
     }
 
@@ -545,7 +609,7 @@ exports.submit = async (req, res) => {
           actorEmail: req.user?.email || null,
           actorServiceId: req.user?.serviceId ?? null,
           actorServiceName: existing.serviceName || null,
-          commentaire: req.body?.commentaire || null,
+          commentaire: req.body?.commentaire || 'Soumise par le service achat pour validation',
         },
       });
 
@@ -572,7 +636,7 @@ exports.submit = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Devis d\'achat soumis pour approbation',
+      message: 'Demande d achat soumise pour validation',
       data: serializeQuote(demande),
     });
   } catch (error) {
@@ -586,6 +650,13 @@ exports.submit = async (req, res) => {
 
 exports.approve = async (req, res) => {
   try {
+    if (!canApproveQuotes(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous n avez pas la permission d approuver ce devis d achat',
+      });
+    }
+
     const { id } = req.params;
     const existing = await ensureQuoteExists(id);
 
@@ -603,21 +674,6 @@ exports.approve = async (req, res) => {
       });
     }
 
-    if (existing.bonsCommande?.length) {
-      return res.status(409).json({
-        success: false,
-        message: 'Ce devis a déjà généré un bon de commande',
-      });
-    }
-
-    const readinessError = validateQuoteReadiness(existing);
-    if (readinessError) {
-      return res.status(422).json({
-        success: false,
-        message: readinessError,
-      });
-    }
-
     const approverService = await ensureServiceContext(
       req,
       req.body?.approvedByServiceName || existing.serviceName || null,
@@ -627,61 +683,13 @@ exports.approve = async (req, res) => {
       return res.status(approverService.error.status).json(approverService.error.body);
     }
 
-    const numeroBon = await generateBonCommandeNumber(prisma);
-
     const result = await prisma.$transaction(async (tx) => {
-      const purchaseOrder = await tx.bonCommande.create({
-        data: {
-          numeroBon,
-          demandeAchatId: existing.id,
-          fournisseurId: existing.fournisseurId,
-          serviceId: existing.serviceId,
-          serviceName: existing.serviceName,
-          dateCommande: new Date(),
-          dateLivraison: req.body?.dateLivraisonPrevue ? new Date(req.body.dateLivraisonPrevue) : existing.dateBesoin,
-          montantHT: existing.montantHT,
-          montantTVA: existing.montantTVA,
-          montantTotal: existing.montantTTC,
-          status: 'BROUILLON',
-          createdFromApproval: true,
-          lignes: {
-            createMany: {
-              data: existing.lignes.map((ligne) => ({
-                articleId: ligne.articleId,
-                referenceArticle: ligne.referenceArticle,
-                designation: ligne.designation,
-                categorie: ligne.categorie,
-                quantite: ligne.quantite,
-                prixUnitaire: ligne.prixUnitaire,
-                tva: ligne.tva,
-                montantHT: ligne.montantHT,
-                montantTTC: ligne.montantTTC,
-                montant: ligne.montantTTC,
-              })),
-            },
-          },
-        },
-        include: {
-          fournisseur: true,
-          lignes: {
-            orderBy: { createdAt: 'asc' },
-          },
-          demandeAchat: {
-            select: {
-              id: true,
-              numeroDemande: true,
-              titre: true,
-            },
-          },
-        },
-      });
-
       await tx.demandeAchatApprovalLog.create({
         data: {
           demandeAchatId: existing.id,
           action: 'APPROVED',
           fromStatus: existing.status,
-          toStatus: 'COMMANDEE',
+          toStatus: 'APPROUVEE',
           actorUserId: String(req.user.id),
           actorEmail: req.user?.email || null,
           actorServiceId: approverService.serviceId,
@@ -693,7 +701,7 @@ exports.approve = async (req, res) => {
       const purchaseQuote = await tx.demandeAchat.update({
         where: { id: existing.id },
         data: {
-          status: 'COMMANDEE',
+          status: 'APPROUVEE',
           approvedAt: new Date(),
           approvedByUserId: String(req.user.id),
           approvedByServiceId: approverService.serviceId,
@@ -704,7 +712,6 @@ exports.approve = async (req, res) => {
       });
 
       const serializedQuote = serializeQuote(purchaseQuote);
-      const serializedOrder = serializeOrder(purchaseOrder);
 
       await enqueueProcurementEvent(tx, {
         eventType: 'procurement.purchase_quote.approved',
@@ -714,28 +721,13 @@ exports.approve = async (req, res) => {
         payload: purchaseQuoteApprovedPayload(serializedQuote),
       });
 
-      await enqueueProcurementEvent(tx, {
-        eventType: 'procurement.purchase_order.created',
-        aggregateType: 'PURCHASE_ORDER',
-        aggregateId: purchaseOrder.id,
-        correlationId: getCorrelationId(req),
-        payload: purchaseOrderCreatedPayload(serializedOrder),
-      });
-
-      return { purchaseOrder, purchaseQuote };
+      return { purchaseQuote };
     });
 
     res.json({
       success: true,
-      message: 'Devis d\'achat approuvé et converti en bon de commande',
-      data: {
-        purchaseQuote: serializeQuote(result.purchaseQuote),
-        purchaseOrder: {
-          id: result.purchaseOrder.id,
-          numeroBon: result.purchaseOrder.numeroBon,
-          status: result.purchaseOrder.status,
-        },
-      },
+      message: 'Demande d achat validée. Le service achat peut désormais préparer le bon de commande.',
+      data: serializeQuote(result.purchaseQuote),
     });
   } catch (error) {
     console.error('Error approving demande achat:', error);
@@ -748,6 +740,13 @@ exports.approve = async (req, res) => {
 
 exports.reject = async (req, res) => {
   try {
+    if (!canRejectQuotes(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous n avez pas la permission de rejeter ce devis d achat',
+      });
+    }
+
     const { id } = req.params;
     const existing = await ensureQuoteExists(id);
 
@@ -819,6 +818,153 @@ exports.reject = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors du rejet du devis d\'achat',
+    });
+  }
+};
+
+exports.generateOrder = async (req, res) => {
+  try {
+    if (!canPrepareApprovedQuotes(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Seul le service achat peut générer un bon de commande',
+      });
+    }
+
+    const { id } = req.params;
+    const existing = await ensureQuoteExists(id);
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Demande d achat non trouvée',
+      });
+    }
+
+    if (existing.status !== 'APPROUVEE') {
+      return res.status(409).json({
+        success: false,
+        message: 'Seules les demandes validées peuvent être converties en bon de commande',
+      });
+    }
+
+    if (existing.bonsCommande?.length) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cette demande a déjà généré un bon de commande',
+      });
+    }
+
+    const readinessError = validateQuoteReadiness(existing);
+    if (readinessError) {
+      return res.status(422).json({
+        success: false,
+        message: readinessError,
+      });
+    }
+
+    const numeroBon = await generateBonCommandeNumber(prisma);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const purchaseOrder = await tx.bonCommande.create({
+        data: {
+          numeroBon,
+          demandeAchatId: existing.id,
+          fournisseurId: existing.fournisseurId,
+          serviceId: existing.serviceId,
+          serviceName: existing.serviceName,
+          dateCommande: new Date(),
+          dateLivraison: req.body?.dateLivraisonPrevue ? new Date(req.body.dateLivraisonPrevue) : existing.dateBesoin,
+          montantHT: existing.montantHT,
+          montantTVA: existing.montantTVA,
+          montantTotal: existing.montantTTC,
+          status: 'BROUILLON',
+          createdFromApproval: false,
+          lignes: {
+            createMany: {
+              data: existing.lignes.map((ligne) => ({
+                articleId: ligne.articleId,
+                referenceArticle: ligne.referenceArticle,
+                designation: ligne.designation,
+                categorie: ligne.categorie,
+                quantite: ligne.quantite,
+                prixUnitaire: ligne.prixUnitaire,
+                tva: ligne.tva,
+                montantHT: ligne.montantHT,
+                montantTTC: ligne.montantTTC,
+                montant: ligne.montantTTC,
+              })),
+            },
+          },
+        },
+        include: {
+          fournisseur: true,
+          lignes: {
+            orderBy: { createdAt: 'asc' },
+          },
+          demandeAchat: {
+            select: {
+              id: true,
+              numeroDemande: true,
+              titre: true,
+            },
+          },
+        },
+      });
+
+      await tx.demandeAchatApprovalLog.create({
+        data: {
+          demandeAchatId: existing.id,
+          action: 'ORDER_CREATED',
+          fromStatus: existing.status,
+          toStatus: 'COMMANDEE',
+          actorUserId: String(req.user.id),
+          actorEmail: req.user?.email || null,
+          actorServiceId: req.user?.serviceId ?? null,
+          actorServiceName: req.user?.serviceName || null,
+          commentaire: req.body?.commentaire || 'Bon de commande généré par le service achat',
+        },
+      });
+
+      const purchaseQuote = await tx.demandeAchat.update({
+        where: { id: existing.id },
+        data: {
+          status: 'COMMANDEE',
+          rejectionReason: null,
+        },
+        include: quoteInclude,
+      });
+
+      const serializedOrder = serializeOrder(purchaseOrder);
+
+      await enqueueProcurementEvent(tx, {
+        eventType: 'procurement.purchase_order.created',
+        aggregateType: 'PURCHASE_ORDER',
+        aggregateId: purchaseOrder.id,
+        correlationId: getCorrelationId(req),
+        payload: purchaseOrderCreatedPayload(serializedOrder),
+      });
+
+      return { purchaseOrder, purchaseQuote };
+    });
+
+    res.json({
+      success: true,
+      message: 'Bon de commande généré avec succès',
+      data: {
+        purchaseQuote: serializeQuote(result.purchaseQuote),
+        purchaseOrder: {
+          id: result.purchaseOrder.id,
+          numeroBon: result.purchaseOrder.numeroBon,
+          status: result.purchaseOrder.status,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error generating purchase order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération du bon de commande',
     });
   }
 };

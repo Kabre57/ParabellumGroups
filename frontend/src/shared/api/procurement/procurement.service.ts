@@ -451,6 +451,27 @@ export const procurementService = {
     };
   },
 
+  async generateOrderFromRequest(
+    id: string,
+    commentaire?: string
+  ): Promise<
+    DetailResponse<{
+      purchaseQuote: PurchaseRequest;
+      purchaseOrder: { id: string; numeroBon: string; status: PurchaseOrderStatus };
+    }>
+  > {
+    const response = await apiClient.post(`/procurement/devis-achat/${id}/generate-order`, { commentaire });
+    const normalized = normalizeDetailResponse<any>(response.data);
+    return {
+      success: normalized.success,
+      message: normalized.message,
+      data: {
+        purchaseQuote: normalizePurchaseRequest(normalized.data?.purchaseQuote),
+        purchaseOrder: normalized.data?.purchaseOrder,
+      },
+    };
+  },
+
   async deleteRequest(id: string): Promise<{ success: boolean; message?: string }> {
     const response = await apiClient.delete(`/procurement/devis-achat/${id}`);
     return response.data;

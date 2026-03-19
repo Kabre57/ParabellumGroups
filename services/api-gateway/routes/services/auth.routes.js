@@ -48,6 +48,20 @@ module.exports = {
     },
     {
       path: '/auth/services',
+      method: 'get',
+      auth: true,
+      permission: [
+        'services.read_all',
+        'purchases.create',
+        'purchases.read',
+        'purchases.read_own',
+        'quotes.read',
+        'quotes.read_own',
+        'quotes.read_all',
+      ],
+    },
+    {
+      path: '/auth/services',
       auth: true,
       admin: true,
     },
@@ -95,6 +109,21 @@ module.exports = {
       auth: true,
       admin: true,
       pathRewrite: { '^/users': '/api/users' },
+    },
+    {
+      path: '/services',
+      method: 'get',
+      auth: true,
+      permission: [
+        'services.read_all',
+        'purchases.create',
+        'purchases.read',
+        'purchases.read_own',
+        'quotes.read',
+        'quotes.read_own',
+        'quotes.read_all',
+      ],
+      pathRewrite: { '^/services': '/api/services' },
     },
     {
       path: '/services',

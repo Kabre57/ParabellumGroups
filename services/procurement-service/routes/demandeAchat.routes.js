@@ -56,6 +56,7 @@ router.put('/:id', validateQuote, demandeAchatController.update);
 router.post('/:id/submit', demandeAchatController.submit);
 router.post('/:id/approve', demandeAchatController.approve);
 router.post('/:id/reject', demandeAchatController.reject);
+router.post('/:id/generate-order', demandeAchatController.generateOrder);
 
 // Legacy compatibility
 router.patch('/:id/approve', demandeAchatController.approve);

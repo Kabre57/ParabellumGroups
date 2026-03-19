@@ -44,25 +44,27 @@ async function main() {
       description: 'Accès complet au système',
     }),
     ensureRole({
+      name: 'Direction Générale',
+      code: 'GENERAL_DIRECTOR',
+      description: 'Validation et supervision générale',
+    }),
+    ensureRole({
       name: 'Employé',
       code: 'EMPLOYEE',
       description: 'Utilisateur standard',
     }),
     ensureRole({
+      name: 'Comptable',
+      code: 'ACCOUNTANT',
+      description: 'Suivi comptable, bons de caisse et décaissements',
+    }),
+    ensureRole({
       name: 'Service Achat',
       code: 'PURCHASING_MANAGER',
-      description: 'Role preconfigure pour les achats, les stocks et l approbation des devis',
+      description: 'Rôle préconfiguré pour les achats, le chiffrage fournisseur, les commandes et les stocks',
     }),
   ]);
   console.log(`✅ Created ${roles.length} roles`);
-
-  // apply default templates for system roles
-  const { applyTemplate } = require('../src/utils/roleTemplates');
-  for (const r of roles) {
-    if (['ADMIN','EMPLOYEE', 'PURCHASING_MANAGER'].includes(r.code)) {
-      await applyTemplate(r.code);
-    }
-  }
 
   // Seed Permissions Categories
   console.log('Creating permissions...');
@@ -126,6 +128,14 @@ async function main() {
     }
   }
   console.log(`✅ Created ${permissionCount} permissions`);
+
+  // Apply default templates only after permissions exist
+  const { applyTemplate } = require('../src/utils/roleTemplates');
+  for (const r of roles) {
+    if (['ADMIN', 'GENERAL_DIRECTOR', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'].includes(r.code)) {
+      await applyTemplate(r.code);
+    }
+  }
 
   // Seed Services
   console.log('Creating services...');

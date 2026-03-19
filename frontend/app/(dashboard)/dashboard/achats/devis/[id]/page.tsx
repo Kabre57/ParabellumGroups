@@ -26,7 +26,7 @@ import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import { adminServicesService, type Service } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getCrudVisibility } from '@/shared/action-visibility';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,7 @@ const emptyLine = (): DraftLine => ({
 const statusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
   SOUMISE: 'Soumise',
+  APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetee',
   COMMANDEE: 'Convertie en BC',
 };
@@ -82,6 +83,8 @@ const getStatusVariant = (status: PurchaseRequestStatus) => {
   switch (status) {
     case 'SOUMISE':
       return 'warning' as const;
+    case 'APPROUVEE':
+      return 'success' as const;
     case 'REJETEE':
       return 'destructive' as const;
     case 'COMMANDEE':
@@ -182,16 +185,20 @@ export default function PurchaseQuoteDetailPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
-
-  const { canUpdate, canApprove, canReject, canChooseService } = getCrudVisibility(user, {
-    read: ['purchases.read'],
-    update: ['purchases.update'],
-    approve: ['purchases.approve'],
-    extras: {
-      canReject: ['purchases.reject', 'purchases.approve'],
-      canChooseService: ['services.read_all'],
-    },
-  });
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const hasDirectPermission = (...permissions: string[]) =>
+    permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
+  const canUpdate =
+    isAdminRole(user) || hasDirectPermission('purchases.update', 'purchase_requests.update');
+  const canApprove =
+    isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
+  const canReject = canApprove;
+  const canChooseService = isAdminRole(user) || hasDirectPermission('services.read_all');
+  const canCreateOrder =
+    isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
+  const canSubmit =
+    isAdminRole(user) ||
+    (hasDirectPermission('purchases.submit') && canCreateOrder);
 
   const { data: requestResponse, isLoading } = useQuery({
     queryKey: ['purchase-quote-detail', id],
@@ -257,10 +264,18 @@ export default function PurchaseQuoteDetailPage() {
     );
   }, [isDirty, request]);
 
-  const canEditRequest =
+  const canEditInternalRequest =
     Boolean(request) &&
     canUpdate &&
     (request?.status === 'BROUILLON' || request?.status === 'REJETEE');
+  const canPrepareOrder =
+    Boolean(request) &&
+    canCreateOrder &&
+    request?.status === 'APPROUVEE';
+  const canEditRequest = canEditInternalRequest || canPrepareOrder;
+  const showCommercialTerms =
+    Boolean(request) &&
+    (request?.status === 'APPROUVEE' || request?.status === 'COMMANDEE');
 
   const totals = useMemo(() => {
     const montantHT = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire, 0);
@@ -283,7 +298,7 @@ export default function PurchaseQuoteDetailPage() {
         title,
         objet: title,
         description,
-        supplierId: supplierId || null,
+        supplierId: canPrepareOrder ? supplierId || null : null,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
         serviceName: selectedService?.name || request?.serviceName || null,
         dateBesoin: dateBesoin || null,
@@ -296,14 +311,14 @@ export default function PurchaseQuoteDetailPage() {
             designation: line.designation,
             categorie: line.categorie || null,
             quantite: line.quantite,
-            prixUnitaire: line.prixUnitaire,
-            tva: line.tva,
-            montantHT: line.quantite * line.prixUnitaire,
-            montantTTC: line.quantite * line.prixUnitaire * (1 + line.tva / 100),
+            prixUnitaire: canPrepareOrder ? line.prixUnitaire : 0,
+            tva: canPrepareOrder ? line.tva : 0,
+            montantHT: canPrepareOrder ? line.quantite * line.prixUnitaire : 0,
+            montantTTC: canPrepareOrder ? line.quantite * line.prixUnitaire * (1 + line.tva / 100) : 0,
           })),
       }),
     onSuccess: () => {
-      toast.success('Le devis d achat a ete mis a jour.');
+      toast.success(canPrepareOrder ? 'Les éléments fournisseur ont été mis à jour.' : 'La demande d achat a été mise à jour.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -317,7 +332,7 @@ export default function PurchaseQuoteDetailPage() {
   const submitMutation = useMutation({
     mutationFn: () => procurementService.submitRequest(id, 'Soumis depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('Le devis d achat a ete soumis pour approbation.');
+      toast.success('La demande a été soumise à validation par le service achat.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
@@ -332,7 +347,7 @@ export default function PurchaseQuoteDetailPage() {
   const approveMutation = useMutation({
     mutationFn: () => procurementService.approveRequest(id, 'Approuve depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('Le devis d achat a ete approuve et converti en bon de commande.');
+      toast.success('La demande a été validée. Le service achat peut maintenant préparer le bon de commande.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -350,7 +365,7 @@ export default function PurchaseQuoteDetailPage() {
   const rejectMutation = useMutation({
     mutationFn: (commentaire: string) => procurementService.rejectRequest(id, commentaire),
     onSuccess: () => {
-      toast.success('Le devis d achat a ete rejete.');
+      toast.success('La demande d achat a été rejetée.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -358,6 +373,22 @@ export default function PurchaseQuoteDetailPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Erreur lors du rejet.');
+    },
+  });
+
+  const generateOrderMutation = useMutation({
+    mutationFn: () => procurementService.generateOrderFromRequest(id, 'Bon de commande généré depuis la fiche détaillée'),
+    onSuccess: () => {
+      toast.success('Le bon de commande a été généré avec succès.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la génération du bon de commande.');
     },
   });
 
@@ -379,7 +410,7 @@ export default function PurchaseQuoteDetailPage() {
               articleId,
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
-              prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
+              prixUnitaire: canPrepareOrder ? Number(article?.prixAchat ?? article?.prixVente ?? 0) : 0,
             }
           : line
       )
@@ -416,7 +447,7 @@ export default function PurchaseQuoteDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Detail, edition et suivi chronologique du devis d&apos;achat pour le service {request.serviceName || 'Non attribue'}.
+            Demande interne d&apos;achat du service {request.serviceName || 'Non attribue'}, avec validation distincte puis préparation du bon de commande.
           </p>
         </div>
 
@@ -435,14 +466,17 @@ export default function PurchaseQuoteDetailPage() {
                 <Save className="mr-2 h-4 w-4" />
                 Enregistrer
               </Button>
-              <Button
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || lines.every((line) => !line.designation)}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Soumettre
-              </Button>
             </>
+          )}
+
+          {canSubmit && (request.status === 'BROUILLON' || request.status === 'REJETEE') && (
+            <Button
+              onClick={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending || lines.every((line) => !line.designation)}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Soumettre à validation
+            </Button>
           )}
 
           {(canApprove || canReject) && request.status === 'SOUMISE' && (
@@ -461,22 +495,29 @@ export default function PurchaseQuoteDetailPage() {
               )}
             </>
           )}
+
+          {canCreateOrder && request.status === 'APPROUVEE' && !request.bonCommandeId && (
+            <Button onClick={() => generateOrderMutation.mutate()} disabled={generateOrderMutation.isPending}>
+              <PackagePlus className="mr-2 h-4 w-4" />
+              Générer le BC
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Service</div><div className="text-lg font-semibold">{request.serviceName || 'Non attribue'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || '-'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC</div><div className="text-lg font-semibold">{formatCurrency(request.montantTTC || request.estimatedAmount || 0)}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur</div><div className="text-lg font-semibold">{showCommercialTerms ? (selectedSupplier?.name || request.supplierName || 'A définir') : 'À définir par achat'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC</div><div className="text-lg font-semibold">{showCommercialTerms && (request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : 'À définir par achat'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.5fr,1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Edition du devis</CardTitle>
+            <CardTitle>Edition de la demande</CardTitle>
             <CardDescription>
-              Modification autorisee tant que le devis est en brouillon ou rejete.
+              Les services décrivent ici le besoin. Après validation DG, le service achat complète le fournisseur et les prix.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -528,25 +569,27 @@ export default function PurchaseQuoteDetailPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fournisseur</label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={supplierId}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setSupplierId(event.target.value);
-                  }}
-                  disabled={!canEditRequest}
-                >
-                  <option value="">Selectionner un fournisseur</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {showCommercialTerms && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Fournisseur retenu</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={supplierId}
+                    onChange={(event) => {
+                      setIsDirty(true);
+                      setSupplierId(event.target.value);
+                    }}
+                    disabled={!canPrepareOrder}
+                  >
+                    <option value="">Selectionner un fournisseur</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Commentaire interne</label>
                 <Input
@@ -577,7 +620,9 @@ export default function PurchaseQuoteDetailPage() {
                 <div>
                   <h2 className="text-lg font-semibold">Lignes d achat</h2>
                   <p className="text-sm text-muted-foreground">
-                    Les prix sont bases sur le prix d achat du catalogue.
+                    {canPrepareOrder
+                      ? 'Le service achat renseigne ici le fournisseur, les prix et la TVA avant génération du bon de commande.'
+                      : 'La demande interne décrit uniquement les articles et quantités. Les prix sont ajoutés plus tard par le service achat.'}
                   </p>
                 </div>
                 {canEditRequest && (
@@ -601,7 +646,7 @@ export default function PurchaseQuoteDetailPage() {
                         <div>
                           <div className="font-medium">Ligne {index + 1}</div>
                           <div className="text-sm text-muted-foreground">
-                            Total TTC: {formatCurrency(lineTotal)}
+                            {showCommercialTerms ? `Total TTC: ${formatCurrency(lineTotal)}` : 'Prix à définir par achat'}
                           </div>
                         </div>
                         {canEditRequest && lines.length > 1 && (
@@ -657,7 +702,7 @@ export default function PurchaseQuoteDetailPage() {
                           />
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 xl:col-span-3">
+                        <div className={`grid gap-4 xl:col-span-3 ${showCommercialTerms ? 'grid-cols-3' : 'grid-cols-1'}`}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Quantite</label>
                             <Input
@@ -670,30 +715,34 @@ export default function PurchaseQuoteDetailPage() {
                             />
                           </div>
 
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Prix unitaire achat</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={line.prixUnitaire}
-                              onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
-                              disabled={!canEditRequest}
-                              className="h-11"
-                            />
-                          </div>
+                          {showCommercialTerms && (
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Prix unitaire achat</label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={line.prixUnitaire}
+                                  onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
+                                  disabled={!canPrepareOrder}
+                                  className="h-11"
+                                />
+                              </div>
 
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">TVA (%)</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={line.tva}
-                              onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
-                              disabled={!canEditRequest}
-                              className="h-11"
-                            />
-                          </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">TVA (%)</label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={line.tva}
+                                  onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
+                                  disabled={!canPrepareOrder}
+                                  className="h-11"
+                                />
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -703,9 +752,9 @@ export default function PurchaseQuoteDetailPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{formatCurrency(totals.montantHT)}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">TVA</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTVA)}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total TTC</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTTC)}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantHT) : 'À définir par achat'}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">TVA</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantTVA) : 'À définir par achat'}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total TTC</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantTTC) : 'À définir par achat'}</div></CardContent></Card>
             </div>
           </CardContent>
         </Card>

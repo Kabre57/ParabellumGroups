@@ -37,5 +37,8 @@ else
   echo "✅ Base de données déjà initialisée (${TABLE_COUNT} tables trouvées)"
 fi
 
+echo "🔐 Synchronisation des rôles et permissions système..."
+npm run sync:roles
+
 echo "🚀 Démarrage de l'application..."
 exec npm start

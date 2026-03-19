@@ -9,6 +9,7 @@ export interface PermissionSubgroup {
 export interface PermissionServiceGroup {
   id: string;
   label: string;
+  description?: string;
   order: number;
   permissions: Permission[];
   subgroups: PermissionSubgroup[];
@@ -18,6 +19,7 @@ export interface PermissionServiceGroup {
 interface ServiceDefinition {
   id: string;
   label: string;
+  description: string;
   order: number;
   categories: string[];
   prefixes: string[];
@@ -29,6 +31,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'dashboard',
     label: 'Tableau de Bord',
+    description: 'Accès au cockpit global, widgets et indicateurs transverses.',
     order: 10,
     categories: ['dashboard', 'analytics'],
     prefixes: ['dashboard', 'analytics', 'widgets', 'reports'],
@@ -46,6 +49,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'commercial',
     label: 'Commercial',
+    description: 'Prospection, pipeline et propositions commerciales.',
     order: 20,
     categories: ['commercial', 'prospects', 'quotes'],
     prefixes: ['prospects', 'quotes'],
@@ -58,6 +62,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'crm',
     label: 'CRM',
+    description: 'Clients, contacts, contrats, interactions et opportunités.',
     order: 30,
     categories: ['crm', 'customers', 'contacts', 'opportunities', 'contracts', 'documents', 'emails', 'interactions'],
     prefixes: ['customers', 'contacts', 'opportunities', 'contracts', 'documents', 'emails', 'interactions'],
@@ -80,7 +85,8 @@ export const serviceDefinitions: ServiceDefinition[] = [
   },
   {
     id: 'billing',
-    label: 'Facturation',
+    label: 'Facturation Clients',
+    description: 'Devis commerciaux, factures clients et suivi des encaissements.',
     order: 40,
     categories: ['billing', 'invoices', 'payments'],
     prefixes: ['invoices', 'payments'],
@@ -92,16 +98,19 @@ export const serviceDefinitions: ServiceDefinition[] = [
   },
   {
     id: 'accounting',
-    label: 'Comptabilite',
+    label: 'Comptabilité & Caisse',
+    description: 'Bons de caisse, paiements, écritures et vision consolidée des dépenses.',
     order: 50,
     categories: ['expenses', 'payments', 'reports'],
     prefixes: ['expenses', 'payments'],
     subgroupLabels: {
       expenses: 'Depenses',
-      payments: 'Ecritures & paiements',
+      payments: 'Paiements & décaissements',
       reports: 'Rapports financiers',
     },
     dashboards: [
+      { label: 'Bons de caisse', href: '/dashboard/comptabilite/depenses' },
+      { label: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie' },
       { label: 'Comptes', href: '/dashboard/comptabilite/comptes' },
       { label: 'Rapports comptables', href: '/dashboard/comptabilite/rapports' },
     ],
@@ -109,6 +118,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'technical',
     label: 'Services Techniques',
+    description: 'Organisation des équipes terrain, missions, interventions et matériel.',
     order: 60,
     categories: ['technical', 'missions', 'mission_orders', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
     prefixes: ['missions', 'mission_orders', 'interventions', 'techniciens', 'specialites', 'materiel', 'rapports_techniques'],
@@ -133,6 +143,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'projects',
     label: 'Gestion de Projets',
+    description: 'Pilotage des projets, tâches, planning et suivi du temps.',
     order: 70,
     categories: ['projects', 'tasks', 'attendance'],
     prefixes: ['projects', 'tasks', 'attendance'],
@@ -146,15 +157,16 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'procurement',
     label: 'Achats & Logistique',
+    description: 'Demandes internes d’achat, validation DG, chiffrage achat, commandes et stock.',
     order: 80,
     categories: ['procurement', 'purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     prefixes: ['purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     subgroupLabels: {
-      purchases: 'Devis d achat & approbation',
+      purchases: 'Demandes d achat internes',
       products: 'Produits',
       suppliers: 'Fournisseurs',
-      purchase_requests: 'Demandes d\'achat',
-      purchase_orders: 'Commandes d\'achat',
+      purchase_requests: 'Validation DG des demandes',
+      purchase_orders: 'Commandes d\'achat & réceptions',
       inventory: 'Stocks',
     },
     dashboards: [
@@ -171,6 +183,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'hr',
     label: 'Ressources Humaines',
+    description: 'Effectifs, contrats, congés, paie et évaluations.',
     order: 90,
     categories: ['hr', 'employees', 'employee_contracts', 'contracts', 'leaves', 'loans', 'evaluations', 'payroll'],
     prefixes: ['employees', 'employee_contracts', 'contracts', 'leaves', 'loans', 'evaluations', 'payroll'],
@@ -188,6 +201,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'communication',
     label: 'Communication',
+    description: 'Messagerie interne, notifications et communication sortante.',
     order: 100,
     categories: ['communication', 'messages', 'notifications', 'emails'],
     prefixes: ['messages', 'notifications', 'emails'],
@@ -201,6 +215,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'admin',
     label: 'Administration',
+    description: 'Configuration des utilisateurs, rôles, services, permissions et audit.',
     order: 110,
     categories: ['users', 'roles', 'permissions', 'services', 'audit_logs', 'auditlog', 'backups', 'settings', 'logs', 'integrations'],
     prefixes: ['users', 'roles', 'permissions', 'services', 'audit_logs', 'backups', 'settings', 'logs', 'integrations'],
@@ -244,6 +259,7 @@ export const findServiceDefinition = (permission: Permission): ServiceDefinition
   return {
     id: 'other',
     label: 'Autres permissions',
+    description: 'Permissions non encore rattachées à un module métier identifié.',
     order: 999,
     categories: [],
     prefixes: [],
@@ -284,6 +300,7 @@ export const groupPermissionsByService = (permissions: Permission[]): Permission
       groups.set(service.id, {
         id: service.id,
         label: service.label,
+        description: service.description,
         order: service.order,
         permissions: [],
         subgroups: [],

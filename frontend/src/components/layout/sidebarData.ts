@@ -56,6 +56,7 @@ export const sidebarCategories: SidebarCategory[] = [
   { id: 'commercial', name: 'Commercial', icon: Target, permission: 'prospects.read' },
   { id: 'crm', name: 'CRM', icon: Users, permission: 'customers.read' },
   { id: 'billing', name: 'Facturation', icon: Receipt, permission: 'invoices.read' },
+  { id: 'accounting', name: 'Comptabilité', icon: DollarSign, permission: 'expenses.read' },
   { id: 'technical', name: 'Services Techniques', icon: Wrench, permission: 'missions.read' },
   { id: 'projects', name: 'Gestion de Projets', icon: FolderKanban, permission: 'projects.read' },
   { id: 'procurement', name: 'Achats & Logistique', icon: ShoppingCart, permission: 'purchases.read' },
@@ -66,6 +67,7 @@ export const sidebarCategories: SidebarCategory[] = [
 export const sidebarItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read', categoryId: 'dashboard' },
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart, permission: 'reports.read_financial', categoryId: 'dashboard' },
+  { name: 'Validation DG Achats', href: '/dashboard/approbations/achats', icon: Workflow, permission: 'purchase_requests.approve', categoryId: 'dashboard' },
 
   { name: 'Dashboard Commercial', href: '/dashboard/commercial/prospects', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
   { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
@@ -88,6 +90,13 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Factures', href: '/dashboard/facturation', icon: Receipt, permission: 'invoices.read', categoryId: 'billing' },
   { name: 'Suivi Paiements', href: '/dashboard/facturation/paiements', icon: CreditCard, permission: 'payments.read', categoryId: 'billing' },
   { name: 'Avoirs & Remboursements', href: '/dashboard/facturation/avoirs', icon: FileText, permission: 'invoices.read', categoryId: 'billing' },
+
+  { name: 'Dashboard Comptable', href: '/dashboard/comptabilite/depenses', icon: Home, permission: 'expenses.read', categoryId: 'accounting', isServiceDashboard: true },
+  { name: 'Bons de caisse', href: '/dashboard/comptabilite/depenses', icon: DollarSign, permission: 'expenses.read', categoryId: 'accounting' },
+  { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'payments.read', categoryId: 'accounting' },
+  { name: 'Comptes', href: '/dashboard/comptabilite/comptes', icon: BookOpen, permission: 'expenses.read', categoryId: 'accounting' },
+  { name: 'Écritures', href: '/dashboard/comptabilite/ecritures', icon: Receipt, permission: 'payments.read', categoryId: 'accounting' },
+  { name: 'Rapports comptables', href: '/dashboard/comptabilite/rapports', icon: BarChart, permission: 'reports.read_financial', categoryId: 'accounting' },
 
   { name: 'Dashboard Technique', href: '/dashboard/technical', icon: Home, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
   { name: 'Analytics Technique', href: '/dashboard/technical/analytics', icon: LineChart, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
@@ -138,12 +147,11 @@ export const quickAccessItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read' },
   { name: 'Nouveau Devis', href: '/dashboard/quotes?action=create', icon: FileText, permission: 'quotes.create' },
   { name: 'Nouvelle Intervention', href: '/dashboard/technical/interventions?action=create', icon: Wrench, permission: 'interventions.create' },
-  { name: 'Saisie Dépense', href: '/dashboard/comptabilite/depenses?action=create', icon: DollarSign, permission: 'expenses.create' },
+  { name: 'Bon de caisse', href: '/dashboard/comptabilite/depenses?action=create', icon: DollarSign, permission: 'expenses.create' },
   { name: 'Commande Achat', href: '/dashboard/achats/commandes?action=create', icon: ShoppingCart, permission: 'purchase_orders.create' },
 ];
 
 export const adminNavigation: SidebarItem[] = [
-  { name: 'Workflow d\'Approbation', href: '/dashboard/admin/permissions/workflow', icon: Workflow, permission: 'admin' },
   { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: 'admin' },
   { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
   { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },

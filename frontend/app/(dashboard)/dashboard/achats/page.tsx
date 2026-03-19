@@ -48,7 +48,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getCrudVisibility } from '@/shared/action-visibility';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 
 type DashboardFocus =
   | 'drafts'
@@ -85,6 +85,7 @@ type ServiceCommitmentSummary = {
 const requestStatusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
   SOUMISE: 'Soumise',
+  APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetee',
   COMMANDEE: 'Convertie en BC',
 };
@@ -101,6 +102,8 @@ const getRequestStatusVariant = (status: PurchaseRequestStatus): DashboardBadgeV
   switch (status) {
     case 'SOUMISE':
       return 'warning';
+    case 'APPROUVEE':
+      return 'success';
     case 'COMMANDEE':
       return 'success';
     case 'REJETEE':
@@ -163,14 +166,12 @@ export default function ProcurementOverviewPage() {
   const [focus, setFocus] = useState<DashboardFocus>('approval');
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
-  const { canCreate, canApprove, canReject } = getCrudVisibility(user, {
-    read: ['purchases.read'],
-    create: ['purchases.create'],
-    approve: ['purchases.approve'],
-    extras: {
-      canReject: ['purchases.reject', 'purchases.approve'],
-    },
-  });
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const hasDirectPermission = (...permissions: string[]) =>
+    permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
+  const canCreate = isAdminRole(user) || hasDirectPermission('purchases.create', 'purchase_requests.create');
+  const canApprove = isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
+  const canReject = canApprove;
 
   const { data: requestsResponse, isLoading: requestsLoading } = useQuery({
     queryKey: ['procurement-dashboard-requests'],
@@ -194,7 +195,7 @@ export default function ProcurementOverviewPage() {
   const approveMutation = useMutation({
     mutationFn: (id: string) => procurementService.approveRequest(id, 'Approuve depuis le dashboard achats'),
     onSuccess: () => {
-      toast.success('Le devis d\'achat a ete approuve et bascule en bon de commande.');
+      toast.success('La demande a été validée. Le service achat peut maintenant préparer le bon de commande.');
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-orders'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-commitments'] });
@@ -1144,7 +1145,7 @@ export default function ProcurementOverviewPage() {
                   Execution
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  A l approbation, le devis bascule en bon de commande et alimente le suivi logistique.
+                  Après validation DG, le service achat prépare le bon de commande puis alimente le suivi logistique.
                 </p>
               </div>
               <div className="rounded-lg border p-4">

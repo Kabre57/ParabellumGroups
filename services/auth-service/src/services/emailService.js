@@ -273,7 +273,7 @@ class EmailService {
           </div>
           
           <div style="margin: 20px 0;">
-            <a href="${process.env.ADMIN_DASHBOARD_URL || 'http://localhost:8080'}/dashboard/admin/permissions/workflow" 
+            <a href="${process.env.ADMIN_DASHBOARD_URL || 'http://localhost:8080'}/dashboard/admin/permissions" 
                style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
               Examiner la demande
             </a>

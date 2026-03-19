@@ -8,11 +8,10 @@ import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
-import type { PurchaseRequest, PurchaseRequestStatus, Supplier } from '@/services/procurement';
+import type { PurchaseRequest, PurchaseRequestStatus } from '@/services/procurement';
 import { adminServicesService, type Service } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getCrudVisibility } from '@/shared/action-visibility';
-import { hasAnyPermission } from '@/shared/permissions';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +39,7 @@ type DraftLine = {
 const statusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
   SOUMISE: 'Soumise',
+  APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetée',
   COMMANDEE: 'Convertie en BC',
 };
@@ -47,6 +47,7 @@ const statusLabels: Record<PurchaseRequestStatus, string> = {
 const statusColors: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'bg-yellow-100 text-yellow-800',
   SOUMISE: 'bg-blue-100 text-blue-800',
+  APPROUVEE: 'bg-emerald-100 text-emerald-800',
   REJETEE: 'bg-red-100 text-red-800',
   COMMANDEE: 'bg-green-100 text-green-800',
 };
@@ -69,26 +70,47 @@ export default function PurchaseQuotesPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
-  const [supplierId, setSupplierId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const hasDirectPermission = (...permissions: string[]) =>
+    permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
+  const canManageAllQuotes =
+    isAdminRole(user) ||
+    hasDirectPermission(
+      'quotes.read_all',
+      'purchases.read_all',
+      'purchase_requests.read_all',
+      'purchase_orders.create',
+      'purchase_orders.update',
+      'purchase_requests.approve'
+    );
   const canReadOwnQuotesOnly =
-    hasAnyPermission(user, ['quotes.read_own', 'purchases.read_own']) &&
-    !hasAnyPermission(user, ['quotes.read_all', 'purchases.read_all']);
-
-  const { canCreate, canUpdate, canReject, canChooseService } = getCrudVisibility(user, {
-    read: ['purchases.read'],
-    create: ['purchases.create'],
-    update: ['purchases.update', 'purchases.approve'],
-    extras: {
-      canReject: ['purchases.reject', 'purchases.approve'],
-      canChooseService: ['services.read_all'],
-    },
-  });
+    !canManageAllQuotes &&
+    hasDirectPermission(
+      'purchases.read',
+      'purchases.create',
+      'purchases.update',
+      'purchase_requests.read',
+      'purchase_requests.read_own',
+      'purchase_requests.create',
+      'purchase_requests.update'
+    );
+  const canCreate =
+    isAdminRole(user) || hasDirectPermission('purchases.create', 'purchase_requests.create');
+  const canApprove =
+    isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
+  const canReject = canApprove;
+  const canChooseService = isAdminRole(user) || hasDirectPermission('services.read_all');
+  const canCreateOrder =
+    isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
+  const canSubmit =
+    isAdminRole(user) ||
+    (hasDirectPermission('purchases.submit') && canCreateOrder);
 
   useEffect(() => {
     if (!selectedServiceId && userServiceId) {
@@ -152,7 +174,6 @@ export default function PurchaseQuotesPage() {
         titre: title,
         objet: title,
         description,
-        fournisseurId: supplierId || undefined,
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
@@ -174,7 +195,6 @@ export default function PurchaseQuotesPage() {
       setTitle('');
       setDescription('');
       setNotes('');
-      setSupplierId('');
       setSelectedServiceId(userServiceId);
       setDateBesoin('');
       setLines([emptyLine()]);
@@ -228,15 +248,6 @@ export default function PurchaseQuotesPage() {
     );
   };
 
-  const totalTTC = useMemo(
-    () =>
-      lines.reduce((sum, line) => {
-        const ht = line.quantite * line.prixUnitaire;
-        return sum + ht * (1 + line.tva / 100);
-      }, 0),
-    [lines]
-  );
-
   const supplierName = (id?: string | null) =>
     suppliers.find((item) => item.id === id)?.name || '-';
 
@@ -249,7 +260,7 @@ export default function PurchaseQuotesPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Devis d&apos;achat</h1>
           <p className="text-sm text-muted-foreground">
-            Les demandes sont créées au nom du service métier puis approuvées avant génération du bon de commande.
+            Les services créent ici leurs demandes internes. Le service achat les soumet à validation puis prépare le bon de commande après accord.
           </p>
         </div>
         {canCreate && (
@@ -288,6 +299,7 @@ export default function PurchaseQuotesPage() {
               <option value="ALL">Tous les statuts</option>
               <option value="BROUILLON">Brouillon</option>
               <option value="SOUMISE">Soumise</option>
+              <option value="APPROUVEE">Validée DG</option>
               <option value="REJETEE">Rejetée</option>
               <option value="COMMANDEE">Convertie en BC</option>
             </select>
@@ -317,7 +329,9 @@ export default function PurchaseQuotesPage() {
                       <td className="px-4 py-3">{request.serviceName || '-'}</td>
                       <td className="px-4 py-3">{supplierName(request.supplierId) || request.supplierName}</td>
                       <td className="px-4 py-3 font-medium">
-                        {(request.montantTTC || request.estimatedAmount || 0).toLocaleString('fr-FR')} F
+                        {(request.montantTTC || request.estimatedAmount || 0) > 0
+                          ? `${(request.montantTTC || request.estimatedAmount || 0).toLocaleString('fr-FR')} F`
+                          : 'À définir par achat'}
                       </td>
                       <td className="px-4 py-3">
                         <Badge className={statusColors[request.status]}>{statusLabels[request.status]}</Badge>
@@ -327,15 +341,15 @@ export default function PurchaseQuotesPage() {
                           <Button asChild size="sm" variant="outline">
                             <Link href={`/dashboard/achats/devis/${request.id}`}>Ouvrir</Link>
                           </Button>
-                          {canUpdate && request.status === 'BROUILLON' && (
+                          {canSubmit && (request.status === 'BROUILLON' || request.status === 'REJETEE') && (
                             <Button size="sm" variant="outline" onClick={() => submitMutation.mutate(request.id)}>
                               <Send className="mr-2 h-4 w-4" />
-                              Soumettre
+                              Soumettre à validation
                             </Button>
                           )}
-                          {request.status === 'SOUMISE' && (canUpdate || canReject) && (
+                          {request.status === 'SOUMISE' && (canApprove || canReject) && (
                             <>
-                              {canUpdate && (
+                              {canApprove && (
                                 <Button size="sm" onClick={() => approveMutation.mutate(request.id)}>
                                   <CheckCircle2 className="mr-2 h-4 w-4" />
                                   Approuver
@@ -352,6 +366,11 @@ export default function PurchaseQuotesPage() {
                           {request.bonCommandeId && (
                             <Button asChild size="sm" variant="outline">
                               <Link href={`/dashboard/achats/commandes?selectedOrderId=${request.bonCommandeId}`}>Voir BC</Link>
+                            </Button>
+                          )}
+                          {!request.bonCommandeId && request.status === 'APPROUVEE' && canCreateOrder && (
+                            <Button asChild size="sm" variant="outline">
+                              <Link href={`/dashboard/achats/devis/${request.id}`}>Préparer BC</Link>
                             </Button>
                           )}
                         </div>
@@ -373,9 +392,9 @@ export default function PurchaseQuotesPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Nouveau devis d&apos;achat</DialogTitle>
+            <DialogTitle>Nouvelle demande d&apos;achat</DialogTitle>
           <DialogDescription>
-            Le devis sera créé au nom du service <strong>{displayServiceName}</strong>.
+            La demande interne sera créée au nom du service <strong>{displayServiceName}</strong>, sans prix fournisseur à cette étape.
           </DialogDescription>
           </DialogHeader>
 
@@ -401,21 +420,6 @@ export default function PurchaseQuotesPage() {
               <label className="text-sm font-medium">Objet</label>
               <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Achat équipements réseau" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Fournisseur</label>
-              <select
-                value={supplierId}
-                onChange={(event) => setSupplierId(event.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Sélectionner un fournisseur</option>
-                {suppliers.map((supplier: Supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Description</label>
               <textarea
@@ -437,7 +441,7 @@ export default function PurchaseQuotesPage() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Lignes du devis</h3>
+              <h3 className="text-lg font-semibold">Lignes de la demande</h3>
               <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, emptyLine()])}>
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter une ligne
@@ -446,7 +450,7 @@ export default function PurchaseQuotesPage() {
 
             <div className="space-y-3">
               {lines.map((line, index) => (
-                <div key={`line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_140px_110px_50px]">
+                <div key={`line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_50px]">
                   <select
                     value={line.articleId}
                     onChange={(event) => updateLineArticle(index, event.target.value)}
@@ -461,15 +465,11 @@ export default function PurchaseQuotesPage() {
                   </select>
                   <Input value={line.categorie} onChange={(event) => updateLine(index, { categorie: event.target.value })} placeholder="Catégorie" />
                   <Input type="number" min={1} value={line.quantite} onChange={(event) => updateLine(index, { quantite: Number(event.target.value) || 1 })} />
-                  <Input type="number" min={0} value={line.prixUnitaire} onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })} />
-                  <Input type="number" min={0} max={100} value={line.tva} onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })} />
                   <Button type="button" variant="ghost" size="icon" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                   <div className="md:col-span-6 text-sm text-muted-foreground">
-                    {line.designation || 'Aucun article sélectionné'} - TTC:
-                    {' '}
-                    {((line.quantite * line.prixUnitaire) * (1 + line.tva / 100)).toLocaleString('fr-FR')} F
+                    {line.designation || 'Aucun article sélectionné'} - prix fournisseur à renseigner plus tard par le service achat.
                   </div>
                 </div>
               ))}
@@ -478,13 +478,13 @@ export default function PurchaseQuotesPage() {
 
           <DialogFooter className="items-center justify-between sm:justify-between">
             <div className="text-sm font-medium">
-              Total TTC: {totalTTC.toLocaleString('fr-FR')} F
+              Budget: défini plus tard par le service achat
             </div>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!title || !supplierId || !selectedServiceId || createMutation.isPending}
+              disabled={!title || !selectedServiceId || createMutation.isPending}
             >
-              {createMutation.isPending ? 'Enregistrement...' : 'Créer le devis'}
+              {createMutation.isPending ? 'Enregistrement...' : 'Créer la demande'}
             </Button>
           </DialogFooter>
         </DialogContent>

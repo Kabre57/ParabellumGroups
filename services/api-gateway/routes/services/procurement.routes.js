@@ -5,27 +5,44 @@ const procurementPermissionRules = [
   {
     pattern: /^\/devis-achat\/[^/]+\/approve$/,
     permissions: {
-      POST: 'purchases.approve',
-      PATCH: 'purchases.approve',
+      POST: ['purchase_requests.approve'],
+      PATCH: ['purchase_requests.approve'],
     },
   },
   {
     pattern: /^\/devis-achat\/[^/]+\/reject$/,
     permissions: {
-      POST: ['purchases.reject', 'purchases.approve'],
-      PATCH: ['purchases.reject', 'purchases.approve'],
+      POST: ['purchase_requests.approve'],
+      PATCH: ['purchase_requests.approve'],
+    },
+  },
+  {
+    pattern: /^\/devis-achat\/[^/]+\/generate-order$/,
+    permissions: {
+      POST: ['purchase_orders.create'],
     },
   },
   {
     pattern: /^\/devis-achat\/[^/]+\/submit$/,
     permissions: {
-      POST: ['purchases.submit', 'purchases.create'],
+      POST: 'purchases.submit',
     },
   },
   {
     pattern: /^\/devis-achat/,
     permissions: {
-      GET: ['purchases.read', 'purchases.read_own', 'purchases.read_all', 'quotes.read', 'quotes.read_own', 'quotes.read_all'],
+      GET: [
+        'purchases.read',
+        'purchases.read_own',
+        'purchases.read_all',
+        'purchase_requests.read',
+        'purchase_requests.read_own',
+        'purchase_requests.read_all',
+        'purchase_requests.approve',
+        'quotes.read',
+        'quotes.read_own',
+        'quotes.read_all',
+      ],
       POST: 'purchases.create',
       PUT: 'purchases.update',
       PATCH: 'purchases.update',
@@ -35,21 +52,32 @@ const procurementPermissionRules = [
   {
     pattern: /^\/demandes-achat\/[^/]+\/approve$/,
     permissions: {
-      POST: 'purchases.approve',
-      PATCH: 'purchases.approve',
+      POST: ['purchase_requests.approve'],
+      PATCH: ['purchase_requests.approve'],
     },
   },
   {
     pattern: /^\/demandes-achat\/[^/]+\/reject$/,
     permissions: {
-      POST: ['purchases.reject', 'purchases.approve'],
-      PATCH: ['purchases.reject', 'purchases.approve'],
+      POST: ['purchase_requests.approve'],
+      PATCH: ['purchase_requests.approve'],
     },
   },
   {
     pattern: /^\/demandes-achat/,
     permissions: {
-      GET: ['purchases.read', 'purchases.read_own', 'purchases.read_all', 'quotes.read', 'quotes.read_own', 'quotes.read_all'],
+      GET: [
+        'purchases.read',
+        'purchases.read_own',
+        'purchases.read_all',
+        'purchase_requests.read',
+        'purchase_requests.read_own',
+        'purchase_requests.read_all',
+        'purchase_requests.approve',
+        'quotes.read',
+        'quotes.read_own',
+        'quotes.read_all',
+      ],
       POST: 'purchases.create',
       PUT: 'purchases.update',
       PATCH: 'purchases.update',
