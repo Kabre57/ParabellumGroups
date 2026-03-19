@@ -33,6 +33,8 @@ const STAGE_OPTIONS: { value: ProspectStage; label: string }[] = [
   { value: 'contact', label: 'Contact' },
   { value: 'discovery', label: 'Decouverte' },
   { value: 'proposal', label: 'Proposition' },
+  { value: 'negotiation', label: 'Negociation' },
+  { value: 'on_hold', label: 'En attente' },
   { value: 'won', label: 'Converti' },
   { value: 'lost', label: 'Perdu' },
 ];
@@ -41,6 +43,7 @@ const PRIORITY_OPTIONS: { value: ProspectPriority; label: string }[] = [
   { value: 'A', label: 'Haute' },
   { value: 'B', label: 'Moyenne' },
   { value: 'C', label: 'Basse' },
+  { value: 'D', label: 'Tres basse' },
 ];
 
 const getStageBadge = (stage: ProspectStage) => {
@@ -51,6 +54,8 @@ const getStageBadge = (stage: ProspectStage) => {
     contact: 'bg-purple-500',
     discovery: 'bg-indigo-500',
     proposal: 'bg-green-500',
+    negotiation: 'bg-cyan-600',
+    on_hold: 'bg-slate-500',
     won: 'bg-emerald-600',
     lost: 'bg-red-500',
   };
@@ -63,6 +68,7 @@ const getPriorityBadge = (priority: ProspectPriority) => {
     A: 'bg-red-500',
     B: 'bg-amber-500',
     C: 'bg-green-500',
+    D: 'bg-slate-500',
   };
   return { label, className: classNameMap[priority] || 'bg-gray-500' };
 };

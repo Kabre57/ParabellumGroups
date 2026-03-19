@@ -1,5 +1,14 @@
-export type ProspectStage = 'preparation' | 'research' | 'contact' | 'discovery' | 'proposal' | 'won' | 'lost';
-export type ProspectPriority = 'A' | 'B' | 'C';
+export type ProspectStage =
+  | 'preparation'
+  | 'research'
+  | 'contact'
+  | 'discovery'
+  | 'proposal'
+  | 'negotiation'
+  | 'won'
+  | 'lost'
+  | 'on_hold';
+export type ProspectPriority = 'A' | 'B' | 'C' | 'D';
 export type ProspectActivityType = 'call' | 'email' | 'meeting' | 'task' | 'note' | 'conversion';
 
 export interface Prospect {
@@ -64,14 +73,26 @@ export interface ProspectionStats {
 export interface CreateProspectRequest {
   companyName: string;
   contactName: string;
+  position?: string;
   email?: string;
   phone?: string;
+  website?: string;
   sector?: string;
-  source?: string;
-  assignedToId?: string;
-}
-
-export interface UpdateProspectRequest extends Partial<CreateProspectRequest> {
+  employees?: number;
+  revenue?: number;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
   stage?: ProspectStage;
   priority?: ProspectPriority;
+  source?: string;
+  assignedToId?: string;
+  potentialValue?: number;
+  closingProbability?: number;
+  estimatedCloseDate?: string;
+  notes?: string;
+  tags?: string[];
 }
+
+export interface UpdateProspectRequest extends Partial<CreateProspectRequest> {}

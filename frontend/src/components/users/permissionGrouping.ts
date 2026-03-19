@@ -12,7 +12,7 @@ export interface PermissionServiceGroup {
   order: number;
   permissions: Permission[];
   subgroups: PermissionSubgroup[];
-  dashboards: Array<{ label: string; href: string }>;
+  dashboards: Array<{ label: string; href: string; permissions?: string[] }>;
 }
 
 interface ServiceDefinition {
@@ -22,7 +22,7 @@ interface ServiceDefinition {
   categories: string[];
   prefixes: string[];
   subgroupLabels: Record<string, string>;
-  dashboards: Array<{ label: string; href: string }>;
+  dashboards: Array<{ label: string; href: string; permissions?: string[] }>;
 }
 
 export const serviceDefinitions: ServiceDefinition[] = [
@@ -39,8 +39,8 @@ export const serviceDefinitions: ServiceDefinition[] = [
       reports: 'Rapports',
     },
     dashboards: [
-      { label: 'Dashboard global', href: '/dashboard' },
-      { label: 'Analytics global', href: '/dashboard/analytics' },
+      { label: 'Dashboard global', href: '/dashboard', permissions: ['dashboard.read'] },
+      { label: 'Analytics global', href: '/dashboard/analytics', permissions: ['dashboard.read_analytics', 'reports.read_financial'] },
     ],
   },
   {
@@ -150,7 +150,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
     categories: ['procurement', 'purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     prefixes: ['purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     subgroupLabels: {
-      purchases: 'Dashboard achats & devis',
+      purchases: 'Devis d achat & approbation',
       products: 'Produits',
       suppliers: 'Fournisseurs',
       purchase_requests: 'Demandes d\'achat',
@@ -158,8 +158,14 @@ export const serviceDefinitions: ServiceDefinition[] = [
       inventory: 'Stocks',
     },
     dashboards: [
-      { label: 'Dashboard achats', href: '/dashboard/achats' },
-      { label: 'Devis d\'achat', href: '/dashboard/achats/devis' },
+      { label: 'Dashboard achats', href: '/dashboard/achats', permissions: ['purchases.read'] },
+      { label: 'Devis d\'achat', href: '/dashboard/achats/devis', permissions: ['purchases.read'] },
+      { label: 'Catalogue produits', href: '/dashboard/achats/produits', permissions: ['products.read'] },
+      { label: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', permissions: ['suppliers.read'] },
+      { label: 'Commandes d\'achat', href: '/dashboard/achats/commandes', permissions: ['purchase_orders.read'] },
+      { label: 'Receptions', href: '/dashboard/achats/receptions', permissions: ['purchase_orders.read'] },
+      { label: 'Gestion des stocks', href: '/dashboard/achats/stock', permissions: ['inventory.read'] },
+      { label: 'Audit stock', href: '/dashboard/achats/audit', permissions: ['inventory.count'] },
     ],
   },
   {

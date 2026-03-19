@@ -123,7 +123,7 @@ export type PurchaseRequestStatus =
   | 'COMMANDEE';
 
 export interface PurchaseRequestLine {
-  id: string;
+  id?: string;
   articleId?: string | null;
   referenceArticle?: string | null;
   designation: string;
@@ -133,6 +133,19 @@ export interface PurchaseRequestLine {
   tva: number;
   montantHT: number;
   montantTTC: number;
+}
+
+export interface PurchaseRequestApprovalLog {
+  id: string;
+  action: string;
+  fromStatus: PurchaseRequestStatus;
+  toStatus: PurchaseRequestStatus;
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  actorServiceId?: number | null;
+  actorServiceName?: string | null;
+  commentaire?: string | null;
+  createdAt: string;
 }
 
 export interface PurchaseRequest {
@@ -166,7 +179,9 @@ export interface PurchaseRequest {
   date: string;
   dateBesoin?: string | null;
   bonCommandeId?: string | null;
+  numeroBon?: string | null;
   lines?: PurchaseRequestLine[];
+  approvalHistory?: PurchaseRequestApprovalLog[];
 }
 
 export interface ProcurementStats {

@@ -16,6 +16,22 @@ exports.createReception = async (req, res) => {
       return res.status(400).json({ error: 'bonCommandeId et au moins une ligne sont requis' });
     }
 
+    const existingReception = await prisma.reception.findFirst({
+      where: { bonCommandeId },
+      select: {
+        id: true,
+        numero: true,
+        status: true,
+      },
+    });
+
+    if (existingReception) {
+      return res.status(409).json({
+        error: `Une reception existe deja pour ce bon de commande (${existingReception.numero})`,
+        data: existingReception,
+      });
+    }
+
     // Valider la présence d'un article pour chaque ligne et son existence en base
     if (lignes.some((l) => !l.articleId)) {
       return res.status(400).json({ error: 'Chaque ligne doit avoir un articleId' });

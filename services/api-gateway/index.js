@@ -23,6 +23,9 @@ if (config.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.use(distributedTracing);
 app.use(metricsMiddleware);
 app.use(globalRateLimiter);

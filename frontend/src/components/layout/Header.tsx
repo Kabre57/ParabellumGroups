@@ -3,6 +3,8 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, Moon, Sun } from 'lucide-react';
+import { procurementService } from '@/services/procurement';
+import { inventoryReceptionsService } from '@/shared/api/inventory/receptions.service';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { UserMenu } from './UserMenu';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -15,10 +17,73 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const [dynamicBreadcrumbLabels, setDynamicBreadcrumbLabels] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const isUuidLike = (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+    const resolveDynamicLabel = async () => {
+      if (!pathname) {
+        if (!cancelled) {
+          setDynamicBreadcrumbLabels({});
+        }
+        return;
+      }
+
+      const nextLabels: Record<string, string> = {};
+
+      const quoteMatch = pathname.match(/^\/dashboard\/achats\/devis\/([^/]+)$/);
+      if (quoteMatch && isUuidLike(quoteMatch[1])) {
+        try {
+          const response = await procurementService.getRequest(quoteMatch[1]);
+          nextLabels[pathname] =
+            response.data?.number ||
+            response.data?.numeroDevisAchat ||
+            response.data?.numeroDemande ||
+            quoteMatch[1];
+        } catch (_error) {
+          nextLabels[pathname] = quoteMatch[1];
+        }
+      }
+
+      const orderMatch = pathname.match(/^\/dashboard\/achats\/commandes\/([^/]+)$/);
+      if (orderMatch && isUuidLike(orderMatch[1])) {
+        try {
+          const response = await procurementService.getOrder(orderMatch[1]);
+          nextLabels[pathname] = response.data?.number || response.data?.numeroBon || orderMatch[1];
+        } catch (_error) {
+          nextLabels[pathname] = orderMatch[1];
+        }
+      }
+
+      const receptionMatch = pathname.match(/^\/dashboard\/achats\/receptions\/([^/]+)$/);
+      if (receptionMatch && isUuidLike(receptionMatch[1])) {
+        try {
+          const response = await inventoryReceptionsService.get(receptionMatch[1]);
+          nextLabels[pathname] = response.data?.numero || receptionMatch[1];
+        } catch (_error) {
+          nextLabels[pathname] = receptionMatch[1];
+        }
+      }
+
+      if (!cancelled) {
+        setDynamicBreadcrumbLabels(nextLabels);
+      }
+    };
+
+    resolveDynamicLabel();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   // Générer les breadcrumbs depuis le pathname
   const generateBreadcrumbs = () => {
@@ -38,12 +103,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       for (let i = 1; i < segments.length; i++) {
         const segment = segments[i];
         const href = '/' + segments.slice(0, i + 1).join('/');
-        
-        // Capitaliser et formater le label
-        const label = segment
+
+        const defaultLabel = segment
           .split('-')
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
+        const label = dynamicBreadcrumbLabels[href] || defaultLabel;
 
         breadcrumbs.push({ label, href });
       }

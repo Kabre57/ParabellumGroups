@@ -102,6 +102,12 @@ export default function ReceptionsPage() {
     enabled: Boolean(current?.bonCommandeId),
     staleTime: 5 * 60 * 1000,
   });
+  const { data: currentSupplier } = useQuery({
+    queryKey: ["reception-supplier-detail", currentOrder?.supplierId],
+    queryFn: () => procurementService.getSupplier(currentOrder?.supplierId || "").then((res) => res.data),
+    enabled: Boolean(currentOrder?.supplierId),
+    staleTime: 5 * 60 * 1000,
+  });
   const lignes = current?.lignes || [];
   const sousTotal = lignes.reduce((sum, l) => sum + (l.prixUnitaire || 0) * (l.quantiteRecue || 0), 0);
   const totalTVA = lignes.reduce((sum, l) => {
@@ -362,6 +368,7 @@ export default function ReceptionsPage() {
         <ReceptionPrint
           reception={current}
           order={currentOrder}
+          supplier={currentSupplier}
           onClose={() => setIsPrintOpen(false)}
         />
       )}

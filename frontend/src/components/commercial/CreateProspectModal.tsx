@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { commercialService } from '@/shared/api/commercial';
-import type { CreateProspectRequest, ProspectStage, ProspectPriority } from '@/shared/api/types';
+import type { CreateProspectRequest, ProspectStage, ProspectPriority } from '@/shared/api/commercial';
 
 interface CreateProspectModalProps {
   isOpen: boolean;
@@ -18,6 +18,8 @@ const stages: { value: ProspectStage; label: string }[] = [
   { value: 'contact', label: 'Prise de Contact' },
   { value: 'discovery', label: 'Entretien Découverte' },
   { value: 'proposal', label: 'Proposition & Conclusion' },
+  { value: 'negotiation', label: 'Négociation' },
+  { value: 'on_hold', label: 'En attente' },
   { value: 'won', label: 'Client Converti' },
   { value: 'lost', label: 'Perdu/Nurturing' }
 ];
@@ -25,7 +27,8 @@ const stages: { value: ProspectStage; label: string }[] = [
 const priorities: { value: ProspectPriority; label: string }[] = [
   { value: 'A', label: 'Haute (A)' },
   { value: 'B', label: 'Moyenne (B)' },
-  { value: 'C', label: 'Basse (C)' }
+  { value: 'C', label: 'Basse (C)' },
+  { value: 'D', label: 'Très basse (D)' }
 ];
 
 export default function CreateProspectModal({ isOpen, onClose }: CreateProspectModalProps) {
@@ -66,7 +69,12 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
       resetForm();
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors de la création du prospect');
+      toast.error(
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Erreur lors de la création du prospect'
+      );
     }
   });
 

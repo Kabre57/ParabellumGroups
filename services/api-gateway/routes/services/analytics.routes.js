@@ -36,7 +36,18 @@ module.exports = {
     {
       path: '/analytics',
       auth: true,
-      permission: { GET: 'reports.financial' },
+      permission: {
+        GET: [
+          'dashboard.read',
+          'dashboard.read_analytics',
+          'reports.read',
+          'reports.read_sales',
+          'reports.read_financial',
+          'reports.read_operations',
+          'reports.read_technical',
+          'reports.read_hr',
+        ],
+      },
     },
   ],
 };

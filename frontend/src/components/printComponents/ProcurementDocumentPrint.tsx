@@ -81,6 +81,7 @@ export default function ProcurementDocumentPrint({
   footerNote,
   onClose,
 }: ProcurementDocumentPrintProps) {
+  const minimumVisualRows = 8;
   const enrichedLines = lines.map((line) => {
     const totalHT = line.totalHT ?? line.unitPrice * line.quantity;
     const vatRate = Number(line.vatRate ?? 0);
@@ -99,6 +100,12 @@ export default function ProcurementDocumentPrint({
   const totalTTC = enrichedLines.reduce((sum, line) => sum + line.totalTTC, 0);
   const logoSrc = resolvePrintLogo(serviceLogoUrl);
   const producerLabel = textOrDash(issuedBy || serviceName || companyName);
+  const blankRowCount = Math.max(0, minimumVisualRows - enrichedLines.length);
+  const recipientLines = [
+    recipient?.email?.trim(),
+    recipient?.phone?.trim(),
+    recipient?.address?.trim(),
+  ].filter(Boolean) as string[];
 
   const metaRows = [
     { label: 'Date d’émission', value: formatPrintDate(issueDate) },
@@ -115,159 +122,206 @@ export default function ProcurementDocumentPrint({
       hideDefaultHeader
       showFooter={false}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, marginBottom: 18 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-            <img
-              src={logoSrc}
-              alt={serviceName || companyName}
-              style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 8 }}
-              onError={(e) => {
-                e.currentTarget.src = '/parabellum.jpg';
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>
-                {textOrDash(serviceName || companyName)}
+      <div
+        style={{
+          minHeight: '255mm',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, marginBottom: 18 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+              <img
+                src={logoSrc}
+                alt={serviceName || companyName}
+                style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 8 }}
+                onError={(e) => {
+                  e.currentTarget.src = '/parabellum.jpg';
+                }}
+              />
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>
+                  {textOrDash(serviceName || companyName)}
+                </div>
+                <div style={{ fontSize: 12, color: '#475569' }}>{companyName}</div>
               </div>
-              <div style={{ fontSize: 12, color: '#475569' }}>{companyName}</div>
+            </div>
+            <div style={{ fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
+              <div>Document généré depuis la plateforme Parabellum Groups.</div>
+              <div>Devise d’impression: F CFA</div>
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
-            <div>Document généré depuis la plateforme Parabellum Groups.</div>
-            <div>Devise d’impression: F CFA</div>
+
+          <div style={{ flex: 1, textAlign: 'right', alignSelf: 'flex-end' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{documentLabel}</div>
+            <div style={{ fontSize: 34, fontWeight: 800, marginTop: 8 }}>{documentNumber}</div>
           </div>
         </div>
 
-        <div style={{ flex: 1, textAlign: 'right', alignSelf: 'flex-end' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{documentLabel}</div>
-          <div style={{ fontSize: 34, fontWeight: 800, marginTop: 8 }}>{documentNumber}</div>
-        </div>
-      </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 18, marginBottom: 14 }}>
+          <div
+            style={{
+              border: '1px solid #cbd5e1',
+              background: '#f8fafc',
+              padding: 12,
+            }}
+          >
+            <div style={boxTitleStyle}>Informations d’émission</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {metaRows.map((row) => (
+                  <tr key={row.label}>
+                    <td style={{ padding: '4px 8px 4px 0', fontSize: 11, fontWeight: 600, width: '42%' }}>
+                      {row.label}
+                    </td>
+                    <td style={{ padding: '4px 0', fontSize: 11 }}>{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 18, marginBottom: 20 }}>
-        <div
-          style={{
-            border: '1px solid #cbd5e1',
-            background: '#f8fafc',
-            padding: 12,
-          }}
-        >
-          <div style={boxTitleStyle}>Informations d’émission</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div
+            style={{
+              border: '1px solid #cbd5e1',
+              padding: 12,
+            }}
+          >
+            <div style={boxTitleStyle}>Destinataire</div>
+            <div style={{ fontSize: 12, lineHeight: 1.55 }}>
+              <div style={{ fontWeight: 700 }}>{textOrDash(recipient?.name)}</div>
+              {recipientLines.length > 0 ? (
+                recipientLines.map((line, index) => (
+                  <div key={`${line}-${index}`} style={{ whiteSpace: 'pre-wrap' }}>
+                    {line}
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: '#64748b' }}>Compléter la fiche fournisseur pour afficher ses coordonnées.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
+            <thead>
+              <tr>
+                <th style={{ ...tableHeaderCellStyle, width: '32%' }}>Désignation des produits ou prestations</th>
+                <th style={{ ...tableHeaderCellStyle, width: '10%' }}>Quantité</th>
+                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>Unité</th>
+                <th style={{ ...tableHeaderCellStyle, width: '18%' }}>Prix unitaire HT</th>
+                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>TVA applicable</th>
+                <th style={{ ...tableHeaderCellStyle, width: '22%' }}>TOTAL HT</th>
+              </tr>
+            </thead>
             <tbody>
-              {metaRows.map((row) => (
-                <tr key={row.label}>
-                  <td style={{ padding: '4px 8px 4px 0', fontSize: 11, fontWeight: 600, width: '42%' }}>
-                    {row.label}
+              {enrichedLines.map((line, index) => (
+                <tr key={`${line.designation}-${index}`}>
+                  <td style={tableBodyCellStyle}>{textOrDash(line.designation)}</td>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.quantity)}</td>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.unit)}</td>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'right' }}>{formatFCFA(line.unitPrice)}</td>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{`${line.vatRate}%`}</td>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'right' }}>{formatFCFA(line.totalHT)}</td>
+                </tr>
+              ))}
+              {enrichedLines.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ ...tableBodyCellStyle, textAlign: 'center', padding: '18px 8px' }}>
+                    Aucune ligne à imprimer.
                   </td>
-                  <td style={{ padding: '4px 0', fontSize: 11 }}>{row.value}</td>
+                </tr>
+              )}
+              {Array.from({ length: blankRowCount }).map((_, index) => (
+                <tr key={`blank-${index}`}>
+                  <td style={{ ...tableBodyCellStyle, height: 34 }} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
 
-        <div
-          style={{
-            border: '1px solid #cbd5e1',
-            padding: 12,
-          }}
-        >
-          <div style={boxTitleStyle}>Destinataire</div>
-          <div style={{ fontSize: 12, lineHeight: 1.55 }}>
-            <div style={{ fontWeight: 700 }}>{textOrDash(recipient?.name)}</div>
-            <div>{textOrDash(recipient?.email)}</div>
-            <div>{textOrDash(recipient?.phone)}</div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>{textOrDash(recipient?.address)}</div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 0.9fr',
+              gap: 24,
+              alignItems: 'stretch',
+              marginTop: 'auto',
+              borderTop: '1px solid #243b5f',
+              paddingTop: 12,
+              minHeight: 120,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                lineHeight: 1.6,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                {footerNote && <div style={{ marginBottom: 14 }}>{footerNote}</div>}
+                {notes && (
+                  <>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Observations</div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{notes}</div>
+                  </>
+                )}
+              </div>
+              <div style={{ fontWeight: 700, paddingTop: 28 }}>{signatureLabel}</div>
+            </div>
+
+            <div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>Total HT</td>
+                    <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(subtotalHT)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>TVA</td>
+                    <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(totalVAT)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>Frais de port</td>
+                    <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(0)}</td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        padding: '10px 0 0',
+                        fontSize: 18,
+                        fontWeight: 800,
+                        borderTop: '2px solid #0f172a',
+                      }}
+                    >
+                      Total TTC
+                    </td>
+                    <td
+                      style={{
+                        padding: '10px 0 0',
+                        fontSize: 18,
+                        fontWeight: 800,
+                        textAlign: 'right',
+                        borderTop: '2px solid #0f172a',
+                      }}
+                    >
+                      {formatFCFA(totalTTC)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 18 }}>
-        <thead>
-          <tr>
-            <th style={{ ...tableHeaderCellStyle, width: '32%' }}>Désignation des produits ou prestations</th>
-            <th style={{ ...tableHeaderCellStyle, width: '10%' }}>Quantité</th>
-            <th style={{ ...tableHeaderCellStyle, width: '9%' }}>Unité</th>
-            <th style={{ ...tableHeaderCellStyle, width: '18%' }}>Prix unitaire HT</th>
-            <th style={{ ...tableHeaderCellStyle, width: '9%' }}>TVA applicable</th>
-            <th style={{ ...tableHeaderCellStyle, width: '22%' }}>TOTAL HT</th>
-          </tr>
-        </thead>
-        <tbody>
-          {enrichedLines.map((line, index) => (
-            <tr key={`${line.designation}-${index}`}>
-              <td style={tableBodyCellStyle}>{textOrDash(line.designation)}</td>
-              <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.quantity)}</td>
-              <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.unit)}</td>
-              <td style={{ ...tableBodyCellStyle, textAlign: 'right' }}>{formatFCFA(line.unitPrice)}</td>
-              <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{`${line.vatRate}%`}</td>
-              <td style={{ ...tableBodyCellStyle, textAlign: 'right' }}>{formatFCFA(line.totalHT)}</td>
-            </tr>
-          ))}
-          {enrichedLines.length === 0 && (
-            <tr>
-              <td colSpan={6} style={{ ...tableBodyCellStyle, textAlign: 'center', padding: '18px 8px' }}>
-                Aucune ligne à imprimer.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr', gap: 24, alignItems: 'start' }}>
-        <div style={{ fontSize: 11, lineHeight: 1.6 }}>
-          {footerNote && <div style={{ marginBottom: 16 }}>{footerNote}</div>}
-          {notes && (
-            <>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Observations</div>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{notes}</div>
-            </>
-          )}
-          <div style={{ marginTop: 48, fontWeight: 700 }}>{signatureLabel}</div>
-        </div>
-
-        <div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>Total HT</td>
-                <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(subtotalHT)}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>TVA</td>
-                <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(totalVAT)}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '4px 0', fontSize: 12, fontWeight: 700 }}>Frais de port</td>
-                <td style={{ padding: '4px 0', fontSize: 12, textAlign: 'right' }}>{formatFCFA(0)}</td>
-              </tr>
-              <tr>
-                <td
-                  style={{
-                    padding: '10px 0 0',
-                    fontSize: 18,
-                    fontWeight: 800,
-                    borderTop: '2px solid #0f172a',
-                  }}
-                >
-                  Total TTC
-                </td>
-                <td
-                  style={{
-                    padding: '10px 0 0',
-                    fontSize: 18,
-                    fontWeight: 800,
-                    textAlign: 'right',
-                    borderTop: '2px solid #0f172a',
-                  }}
-                >
-                  {formatFCFA(totalTTC)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </PrintLayout>

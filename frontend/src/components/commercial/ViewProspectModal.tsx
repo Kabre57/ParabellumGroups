@@ -1,7 +1,7 @@
 'use client';
 
 import { X, Building2, User, Mail, Phone, Globe, MapPin, Calendar, TrendingUp } from 'lucide-react';
-import type { Prospect } from '@/shared/api/types';
+import type { Prospect } from '@/shared/api/commercial';
 
 interface ViewProspectModalProps {
   isOpen: boolean;
@@ -11,6 +11,25 @@ interface ViewProspectModalProps {
 
 export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewProspectModalProps) {
   if (!isOpen || !prospect) return null;
+
+  const stageLabelMap: Record<Prospect['stage'], string> = {
+    preparation: 'Preparation',
+    research: 'Recherche',
+    contact: 'Contact',
+    discovery: 'Decouverte',
+    proposal: 'Proposition',
+    negotiation: 'Negociation',
+    on_hold: 'En attente',
+    won: 'Converti',
+    lost: 'Perdu',
+  };
+
+  const priorityLabelMap: Record<Prospect['priority'], string> = {
+    A: 'Haute',
+    B: 'Moyenne',
+    C: 'Basse',
+    D: 'Tres basse',
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Non définie';
@@ -146,16 +165,17 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Étape actuelle</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.stage}</p>
+                    <p className="text-sm font-medium text-gray-900">{stageLabelMap[prospect.stage]}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Priorité</p>
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                       prospect.priority === 'A' ? 'bg-red-100 text-red-800' :
                       prospect.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
+                      prospect.priority === 'C' ? 'bg-green-100 text-green-800' :
+                      'bg-slate-100 text-slate-800'
                     }`}>
-                      {prospect.priority === 'A' ? 'Haute' : prospect.priority === 'B' ? 'Moyenne' : 'Basse'}
+                      {priorityLabelMap[prospect.priority]}
                     </span>
                   </div>
                   <div>

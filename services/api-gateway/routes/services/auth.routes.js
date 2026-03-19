@@ -10,19 +10,19 @@ const router = express.Router();
  * Path rewrite pour auth-service
  */
 const rewriteAuthPath = (path) => {
-  if (path.startsWith('/api/auth/users') || path.startsWith('/auth/users')) {
-    return path.replace(/^\/?api?\/auth\/users/, '/api/users');
+  if (path.startsWith('/auth/users')) {
+    return path.replace(/^\/auth\/users/, '/api/users');
   }
-  if (path.startsWith('/api/auth/roles') || path.startsWith('/auth/roles')) {
-    return path.replace(/^\/?api?\/auth\/roles/, '/api/roles');
+  if (path.startsWith('/auth/roles')) {
+    return path.replace(/^\/auth\/roles/, '/api/roles');
   }
-  if (path.startsWith('/api/auth/services') || path.startsWith('/auth/services')) {
-    return path.replace(/^\/?api?\/auth\/services/, '/api/services');
+  if (path.startsWith('/auth/services')) {
+    return path.replace(/^\/auth\/services/, '/api/services');
   }
-  if (path.startsWith('/api/auth/permissions') || path.startsWith('/auth/permissions')) {
-    return path.replace(/^\/?api?\/auth\/permissions/, '/api/permissions');
+  if (path.startsWith('/auth/permissions')) {
+    return path.replace(/^\/auth\/permissions/, '/api/permissions');
   }
-  return path.replace(/^\/?api?\/auth/, '/api/auth');
+  return path.replace(/^\/auth/, '/api/auth');
 };
 
 /**

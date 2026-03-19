@@ -12,14 +12,14 @@ const procurementPermissionRules = [
   {
     pattern: /^\/devis-achat\/[^/]+\/reject$/,
     permissions: {
-      POST: 'purchases.approve',
-      PATCH: 'purchases.approve',
+      POST: ['purchases.reject', 'purchases.approve'],
+      PATCH: ['purchases.reject', 'purchases.approve'],
     },
   },
   {
     pattern: /^\/devis-achat\/[^/]+\/submit$/,
     permissions: {
-      POST: 'purchases.create',
+      POST: ['purchases.submit', 'purchases.create'],
     },
   },
   {
@@ -42,8 +42,8 @@ const procurementPermissionRules = [
   {
     pattern: /^\/demandes-achat\/[^/]+\/reject$/,
     permissions: {
-      POST: 'purchases.approve',
-      PATCH: 'purchases.approve',
+      POST: ['purchases.reject', 'purchases.approve'],
+      PATCH: ['purchases.reject', 'purchases.approve'],
     },
   },
   {

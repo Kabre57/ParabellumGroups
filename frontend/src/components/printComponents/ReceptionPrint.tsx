@@ -5,6 +5,21 @@ import type { PurchaseOrder, Supplier } from '@/services/procurement';
 import type { Reception } from '@/shared/api/inventory/types';
 import ProcurementDocumentPrint from './ProcurementDocumentPrint';
 
+const formatArticleUnit = (unit?: string | null) => {
+  switch (unit) {
+    case 'PIECE':
+      return 'Pce';
+    case 'KG':
+      return 'Kg';
+    case 'M':
+      return 'M';
+    case 'L':
+      return 'L';
+    default:
+      return unit || '-';
+  }
+};
+
 interface ReceptionPrintProps {
   reception: Reception;
   order?: PurchaseOrder | null;
@@ -43,7 +58,7 @@ export default function ReceptionPrint({
         return {
           designation: line.designation || line.article?.nom || '-',
           quantity: line.quantiteRecue,
-          unit: line.article?.unite || '-',
+          unit: formatArticleUnit(line.article?.unite),
           unitPrice: line.prixUnitaire,
           vatRate: line.tva,
           totalHT,

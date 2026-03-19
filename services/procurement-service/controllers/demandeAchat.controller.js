@@ -93,10 +93,14 @@ const ensureQuoteExists = async (id) => {
   return demande;
 };
 
-const ensureServiceContext = async (req, fallbackName = null) => {
-  const serviceId = req.user?.serviceId ?? null;
+const ensureServiceContext = async (req, fallbackName = null, requestedServiceId = null) => {
+  const parsedRequestedServiceId =
+    requestedServiceId !== undefined && requestedServiceId !== null && requestedServiceId !== ''
+      ? Number(requestedServiceId)
+      : null;
+  const serviceId = req.user?.serviceId ?? parsedRequestedServiceId ?? null;
 
-  if (!serviceId) {
+  if (!serviceId || !Number.isFinite(Number(serviceId))) {
     return {
       error: {
         status: 422,
@@ -247,10 +251,11 @@ exports.create = async (req, res) => {
       devise,
       lignes = [],
       status,
+      serviceId,
       serviceName,
     } = req.body;
 
-    const serviceContext = await ensureServiceContext(req, serviceName);
+    const serviceContext = await ensureServiceContext(req, serviceName, serviceId);
     if (serviceContext.error) {
       return res.status(serviceContext.error.status).json(serviceContext.error.body);
     }
@@ -378,14 +383,18 @@ exports.update = async (req, res) => {
       notes,
       devise,
       lignes,
+      serviceId,
       serviceName,
     } = req.body;
 
     const serviceContext = req.user?.serviceId
       ? await ensureServiceContext(req, serviceName || existing.serviceName)
       : {
-          serviceId: existing.serviceId,
-          serviceName: serviceName || existing.serviceName || null,
+          ...(await ensureServiceContext(
+            req,
+            serviceName || existing.serviceName,
+            serviceId || existing.serviceId
+          )),
         };
 
     if (serviceContext.error) {
@@ -553,7 +562,11 @@ exports.approve = async (req, res) => {
       });
     }
 
-    const approverService = await ensureServiceContext(req, req.body?.approvedByServiceName || null);
+    const approverService = await ensureServiceContext(
+      req,
+      req.body?.approvedByServiceName || existing.serviceName || null,
+      req.body?.approvedByServiceId || existing.serviceId || null
+    );
     if (approverService.error) {
       return res.status(approverService.error.status).json(approverService.error.body);
     }
@@ -696,7 +709,11 @@ exports.reject = async (req, res) => {
       });
     }
 
-    const approverService = await ensureServiceContext(req, req.body?.rejectedByServiceName || null);
+    const approverService = await ensureServiceContext(
+      req,
+      req.body?.rejectedByServiceName || existing.serviceName || null,
+      req.body?.rejectedByServiceId || existing.serviceId || null
+    );
     if (approverService.error) {
       return res.status(approverService.error.status).json(approverService.error.body);
     }

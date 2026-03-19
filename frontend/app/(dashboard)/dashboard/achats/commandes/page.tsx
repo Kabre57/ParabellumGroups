@@ -2,11 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Printer, Search, Trash2, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -50,6 +52,7 @@ export default function PurchaseOrdersPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | "ALL">("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -59,6 +62,7 @@ export default function PurchaseOrdersPage() {
   const [viewOrder, setViewOrder] = useState<PurchaseOrder | null>(null);
   const [showReceptionModal, setShowReceptionModal] = useState(false);
   const [receptionArticleSelections, setReceptionArticleSelections] = useState<Record<number, string>>({});
+  const [receptionNotes, setReceptionNotes] = useState("");
 
   const { data: ordersResponse, isLoading } = useQuery({
     queryKey: ["purchase-orders", statusFilter, searchTerm],
@@ -149,9 +153,19 @@ export default function PurchaseOrdersPage() {
     mutationFn: (payload: Parameters<typeof inventoryReceptionsService.create>[0]) =>
       inventoryReceptionsService.create(payload),
     onSuccess: () => {
+      toast.success("La réception a été créée avec succès.");
       queryClient.invalidateQueries({ queryKey: ["receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["receptions-for-orders"] });
       setShowReceptionModal(false);
+      setReceptionNotes("");
       router.push("/dashboard/achats/receptions");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          "Impossible de créer la réception."
+      );
     },
   });
 
@@ -171,7 +185,23 @@ export default function PurchaseOrdersPage() {
     queryFn: () => inventoryService.getArticles(),
     staleTime: 5 * 60 * 1000,
   });
+  const { data: receptionsResponse } = useQuery({
+    queryKey: ["receptions-for-orders"],
+    queryFn: () => inventoryReceptionsService.list({ limit: 200 }),
+    staleTime: 60 * 1000,
+  });
   const articles = articlesResponse?.data ?? [];
+  const receptions: Reception[] =
+    (Array.isArray(receptionsResponse) ? receptionsResponse : receptionsResponse?.data) ?? [];
+  const receptionsByOrderId = useMemo(() => {
+    const map = new Map<string, Reception>();
+    receptions.forEach((reception) => {
+      if (reception?.bonCommandeId && !map.has(reception.bonCommandeId)) {
+        map.set(reception.bonCommandeId, reception);
+      }
+    });
+    return map;
+  }, [receptions]);
   const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
     read: ['purchase_orders.read'],
     create: ['purchase_orders.create'],
@@ -184,8 +214,25 @@ export default function PurchaseOrdersPage() {
     // reset selections when closing modal or changing order
     if (!showReceptionModal) {
       setReceptionArticleSelections({});
+      setReceptionNotes("");
     }
   }, [showReceptionModal]);
+
+  useEffect(() => {
+    const selectedOrderIdFromUrl = searchParams.get("selectedOrderId");
+    if (!selectedOrderIdFromUrl) {
+      return;
+    }
+
+    setSelectedOrderId((current) =>
+      current === selectedOrderIdFromUrl ? current : selectedOrderIdFromUrl
+    );
+
+    const matchingOrder = orders.find((order) => order.id === selectedOrderIdFromUrl);
+    if (matchingOrder) {
+      setSelectedOrder(matchingOrder);
+    }
+  }, [orders, searchParams]);
 
   const handleDelete = (order: PurchaseOrder) => {
     if (confirm(`Supprimer la commande ${order.number} ?`)) {
@@ -193,6 +240,7 @@ export default function PurchaseOrdersPage() {
       if (selectedOrderId === order.id) {
         setSelectedOrderId(null);
         setSelectedOrder(null);
+        router.replace("/dashboard/achats/commandes", { scroll: false });
       }
     }
   };
@@ -311,6 +359,9 @@ export default function PurchaseOrdersPage() {
                         onClick={() => {
                           setSelectedOrderId(order.id);
                           setSelectedOrder(order);
+                          router.replace(`/dashboard/achats/commandes?selectedOrderId=${order.id}`, {
+                            scroll: false,
+                          });
                         }}
                       >
                         <td className="px-4 py-3 font-medium">{order.number || "Sans nom"}</td>
@@ -382,6 +433,7 @@ export default function PurchaseOrdersPage() {
                 const lines = d.itemsDetail || d.lignes || [];
                 const amount = Number(d.amount ?? d.montantTotal ?? 0);
                 const date = d.date || d.dateCommande || d.createdAt || "";
+                const existingReception = d?.id ? receptionsByOrderId.get(d.id) : undefined;
 
                 const sousTotalHT = lines.reduce((sum: number, item: any) => {
                   const ht =
@@ -488,13 +540,18 @@ export default function PurchaseOrdersPage() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => setViewOrder(d)}>Voir</Button>
+                      {existingReception && (
+                        <div className="flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                          Réception déjà créée : {existingReception.numero}
+                        </div>
+                      )}
                       {canUpdate && (
                         <Button
                           variant="secondary"
                           onClick={() => setShowReceptionModal(true)}
-                          disabled={!d?.id || lines.length === 0}
+                          disabled={!d?.id || lines.length === 0 || Boolean(existingReception)}
                         >
-                          Créer une réception
+                          {existingReception ? "Réception déjà créée" : "Créer une réception"}
                         </Button>
                       )}
                     </div>
@@ -546,11 +603,28 @@ export default function PurchaseOrdersPage() {
           {(() => {
             const d: any = selectedDetail || selectedOrder;
             if (!d) return <div>Aucune commande sélectionnée.</div>;
+            const existingReception = d?.id ? receptionsByOrderId.get(d.id) : undefined;
+            if (existingReception) {
+              return (
+                <div className="space-y-4">
+                  <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    Le bon de commande <strong>{d.number || d.numeroBon}</strong> possède déjà la réception{" "}
+                    <strong>{existingReception.numero}</strong>. Une seule réception est autorisée par bon de
+                    commande.
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowReceptionModal(false)}>
+                      Fermer
+                    </Button>
+                  </DialogFooter>
+                </div>
+              );
+            }
             const lines = d.itemsDetail || d.lignes || [];
             const payload = {
               bonCommandeId: d.id,
               fournisseurId: d.fournisseurId ?? d.supplierId,
-              notes: "",
+              notes: receptionNotes.trim(),
               lignes: lines.map((item: any, idx: number) => ({
                 articleId: (() => {
                   const selected = receptionArticleSelections[idx];
@@ -633,6 +707,16 @@ export default function PurchaseOrdersPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Observations de réception</label>
+                  <Textarea
+                    placeholder="Saisir les remarques à imprimer sur le bon de réception..."
+                    value={receptionNotes}
+                    onChange={(e) => setReceptionNotes(e.target.value)}
+                    className="min-h-[96px]"
+                  />
                 </div>
 
                 <DialogFooter>

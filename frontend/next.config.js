@@ -2,6 +2,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compress: false,
 
   env: {
     API_GATEWAY_URL: process.env.API_GATEWAY_URL || 'http://localhost:3001',

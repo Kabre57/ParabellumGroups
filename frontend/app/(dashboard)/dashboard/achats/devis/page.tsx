@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Send, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import type { PurchaseRequest, PurchaseRequestStatus, Supplier } from '@/services/procurement';
+import { adminServicesService, type Service } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
 import {
   Dialog,
   DialogContent,
@@ -66,19 +69,28 @@ export default function PurchaseQuotesPage() {
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplierId, setSupplierId] = useState('');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
+  const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
-  const serviceName =
-    user?.service?.name ||
-    user?.department ||
-    'Service non renseigné';
+  const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
 
-  const { canCreate, canUpdate } = getCrudVisibility(user, {
+  const { canCreate, canUpdate, canReject, canChooseService } = getCrudVisibility(user, {
     read: ['purchases.read'],
     create: ['purchases.create'],
     update: ['purchases.update', 'purchases.approve'],
+    extras: {
+      canReject: ['purchases.reject', 'purchases.approve'],
+      canChooseService: ['services.read_all'],
+    },
   });
+
+  useEffect(() => {
+    if (!selectedServiceId && userServiceId) {
+      setSelectedServiceId(userServiceId);
+    }
+  }, [selectedServiceId, userServiceId]);
 
   const { data: requestsResponse, isLoading } = useQuery({
     queryKey: ['purchase-quotes', statusFilter, search],
@@ -101,9 +113,23 @@ export default function PurchaseQuotesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: servicesResponse } = useQuery({
+    queryKey: ['procurement-service-options'],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: open && (canChooseService || !userServiceId),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const requests = requestsResponse?.data ?? [];
   const suppliers = suppliersResponse?.data ?? [];
   const articles = articlesResponse?.data ?? [];
+  const services = servicesResponse?.data ?? [];
+  const selectedService = services.find((service) => String(service.id) === selectedServiceId);
+  const serviceName =
+    selectedService?.name ||
+    user?.service?.name ||
+    user?.department ||
+    'Service non renseigné';
 
   const stats = useMemo(() => ({
     total: requests.length,
@@ -121,6 +147,7 @@ export default function PurchaseQuotesPage() {
         fournisseurId: supplierId || undefined,
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
+        serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
         serviceName,
         lignes: lines
           .filter((line) => line.designation && line.quantite > 0)
@@ -140,8 +167,12 @@ export default function PurchaseQuotesPage() {
       setDescription('');
       setNotes('');
       setSupplierId('');
+      setSelectedServiceId(userServiceId);
       setDateBesoin('');
       setLines([emptyLine()]);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création du devis d\'achat.');
     },
   });
 
@@ -196,13 +227,6 @@ export default function PurchaseQuotesPage() {
       }, 0),
     [lines]
   );
-
-  const handleReject = (request: PurchaseRequest) => {
-    const reason = window.prompt(`Raison du rejet pour ${request.number}`, 'Hors budget');
-    if (reason) {
-      rejectMutation.mutate({ id: request.id, reason });
-    }
-  };
 
   const supplierName = (id?: string | null) =>
     suppliers.find((item) => item.id === id)?.name || '-';
@@ -291,27 +315,34 @@ export default function PurchaseQuotesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/dashboard/achats/devis/${request.id}`}>Ouvrir</Link>
+                          </Button>
                           {canUpdate && request.status === 'BROUILLON' && (
                             <Button size="sm" variant="outline" onClick={() => submitMutation.mutate(request.id)}>
                               <Send className="mr-2 h-4 w-4" />
                               Soumettre
                             </Button>
                           )}
-                          {canUpdate && request.status === 'SOUMISE' && (
+                          {request.status === 'SOUMISE' && (canUpdate || canReject) && (
                             <>
-                              <Button size="sm" onClick={() => approveMutation.mutate(request.id)}>
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Approuver
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleReject(request)}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Rejeter
-                              </Button>
+                              {canUpdate && (
+                                <Button size="sm" onClick={() => approveMutation.mutate(request.id)}>
+                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  Approuver
+                                </Button>
+                              )}
+                              {canReject && (
+                                <Button size="sm" variant="outline" onClick={() => setRejectTarget(request)}>
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Rejeter
+                                </Button>
+                              )}
                             </>
                           )}
                           {request.bonCommandeId && (
                             <Button asChild size="sm" variant="outline">
-                              <Link href={`/dashboard/achats/commandes/${request.bonCommandeId}`}>Voir BC</Link>
+                              <Link href={`/dashboard/achats/commandes?selectedOrderId=${request.bonCommandeId}`}>Voir BC</Link>
                             </Button>
                           )}
                         </div>
@@ -334,12 +365,29 @@ export default function PurchaseQuotesPage() {
         <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>Nouveau devis d&apos;achat</DialogTitle>
-            <DialogDescription>
-              Le devis sera créé au nom du service <strong>{serviceName}</strong>.
-            </DialogDescription>
+          <DialogDescription>
+            Le devis sera créé au nom du service <strong>{serviceName}</strong>.
+          </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2">
+            {(canChooseService || !userServiceId) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Service demandeur</label>
+                <select
+                  value={selectedServiceId}
+                  onChange={(event) => setSelectedServiceId(event.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Sélectionner un service</option>
+                  {services.map((service: Service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Objet</label>
               <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Achat équipements réseau" />
@@ -425,13 +473,34 @@ export default function PurchaseQuotesPage() {
             </div>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!title || !supplierId || createMutation.isPending}
+              disabled={!title || !supplierId || !selectedServiceId || createMutation.isPending}
             >
               {createMutation.isPending ? 'Enregistrement...' : 'Créer le devis'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RejectPurchaseRequestDialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+        requestNumber={rejectTarget?.number}
+        defaultReason="Hors budget"
+        isPending={rejectMutation.isPending}
+        onConfirm={(reason) => {
+          if (!rejectTarget) return;
+          rejectMutation.mutate(
+            { id: rejectTarget.id, reason },
+            {
+              onSuccess: () => {
+                setRejectTarget(null);
+              },
+            }
+          );
+        }}
+      />
     </div>
   );
 }

@@ -1,133 +1,146 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analyticsService } from '@/shared/api/analytics';
+import { Activity, Target, TrendingUp, Users } from 'lucide-react';
+import { commercialService } from '@/shared/api/commercial';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { Users, TrendingUp, DollarSign, Briefcase, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+
+const stageLabels: Record<string, string> = {
+  PREPARATION: 'Preparation',
+  RECHERCHE: 'Recherche',
+  CONTACT_INITIAL: 'Contact initial',
+  DECOUVERTE: 'Decouverte',
+  PROPOSITION: 'Proposition',
+  NEGOCIATION: 'Negociation',
+  GAGNE: 'Gagne',
+  PERDU: 'Perdu',
+  MISE_EN_ATTENTE: 'Mise en attente',
+};
+
+const priorityLabels: Record<string, string> = {
+  A: 'Priorite A',
+  B: 'Priorite B',
+  C: 'Priorite C',
+  D: 'Priorite D',
+};
 
 export default function DashboardPage() {
-  const { data: dashboardResponse, isLoading } = useQuery({
-    queryKey: ['overview-dashboard'],
-    queryFn: () => analyticsService.getOverviewDashboard(),
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['crm-dashboard-stats'],
+    queryFn: () => commercialService.getStats(),
   });
+
+  const stageEntries = useMemo(
+    () =>
+      Object.entries(stats?.byStage || {})
+        .filter(([, value]) => Number(value) > 0)
+        .sort((left, right) => Number(right[1]) - Number(left[1])),
+    [stats?.byStage]
+  );
+
+  const priorityEntries = useMemo(
+    () =>
+      Object.entries(stats?.byPriority || {})
+        .filter(([, value]) => Number(value) > 0)
+        .sort((left, right) => String(left[0]).localeCompare(String(right[0]), 'fr')),
+    [stats?.byPriority]
+  );
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-12">
+      <div className="flex items-center justify-center py-12">
         <Spinner />
       </div>
     );
   }
 
-  const dashboard = dashboardResponse?.data;
-  const stats = [
+  const cards = [
     {
-      title: "Chiffre d'Affaires",
-      value: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(dashboard?.revenue || 0),
-      icon: DollarSign,
-      trend: '+12.5%',
-      trendUp: true,
-    },
-    {
-      title: 'Clients Actifs',
-      value: dashboard?.clients || 0,
+      title: 'Total prospects',
+      value: stats?.totalProspects || 0,
+      subtitle: 'Dans le pipeline commercial',
       icon: Users,
-      trend: '+3',
-      trendUp: true,
     },
     {
-      title: 'Missions en cours',
-      value: dashboard?.active_missions || 0,
-      icon: Briefcase,
-      trend: '-2',
-      trendUp: false,
+      title: 'Prospects convertis',
+      value: stats?.convertedProspects || 0,
+      subtitle: 'Devenus clients',
+      icon: Target,
     },
     {
-      title: 'Profit Net',
-      value: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(dashboard?.profit || 0),
+      title: 'Taux de conversion',
+      value: `${(stats?.conversionRate || 0).toFixed(1)}%`,
+      subtitle: 'Performance globale',
       icon: TrendingUp,
-      trend: '+8.2%',
-      trendUp: true,
+    },
+    {
+      title: 'Activites recentes',
+      value: stats?.recentActivities || 0,
+      subtitle: 'Sur les prospects suivis',
+      icon: Activity,
     },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tableau de Bord</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard CRM</h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Vue d ensemble de votre activite
+          Vue synthese de la prospection et du pipeline commercial.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <Card key={index}>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <Card key={card.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              <card.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
-                {stat.trendUp ? (
-                  <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-                ) : (
-                  <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-                )}
-                <span className={stat.trendUp ? 'text-green-500' : 'text-red-500'}>
-                  {stat.trend}
-                </span>
-                {' '}par rapport au mois dernier
-              </p>
+              <div className="text-2xl font-bold">{card.value}</div>
+              <p className="text-xs text-muted-foreground">{card.subtitle}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="col-span-1">
+        <Card>
           <CardHeader>
-            <CardTitle>Top Clients</CardTitle>
+            <CardTitle>Repartition par etape</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboard?.top_clients?.map((client, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="text-sm font-medium">{client.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(client.revenue)}
-                  </div>
+              {stageEntries.map(([stage, count]) => (
+                <div key={stage} className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-medium">{stageLabels[stage] || stage}</div>
+                  <div className="text-sm text-muted-foreground">{Number(count)}</div>
                 </div>
               ))}
-              {(!dashboard?.top_clients || dashboard.top_clients.length === 0) && (
-                <p className="text-sm text-gray-500 text-center py-4">Aucune donnee disponible</p>
+              {stageEntries.length === 0 && (
+                <p className="py-4 text-center text-sm text-gray-500">Aucune donnee disponible</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="col-span-1">
+        <Card>
           <CardHeader>
-            <CardTitle>Factures en retard</CardTitle>
+            <CardTitle>Repartition par priorite</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboard?.overdue_invoices?.map((invoice, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">{invoice.client}</div>
-                    <div className="text-xs text-red-500">{invoice.days} jours de retard</div>
-                  </div>
-                  <div className="text-sm font-bold">
-                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(invoice.amount)}
-                  </div>
+              {priorityEntries.map(([priority, count]) => (
+                <div key={priority} className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-medium">{priorityLabels[priority] || priority}</div>
+                  <div className="text-sm text-muted-foreground">{Number(count)}</div>
                 </div>
               ))}
-              {(!dashboard?.overdue_invoices || dashboard.overdue_invoices.length === 0) && (
-                <p className="text-sm text-gray-500 text-center py-4">Aucune facture en retard</p>
+              {priorityEntries.length === 0 && (
+                <p className="py-4 text-center text-sm text-gray-500">Aucune donnee disponible</p>
               )}
             </div>
           </CardContent>

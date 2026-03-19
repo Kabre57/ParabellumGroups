@@ -3,7 +3,7 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialService } from '@/shared/api/commercial';
-import type { Prospect, ProspectStage } from '@/shared/api/types';
+import type { Prospect, ProspectStage } from '@/shared/api/commercial';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ const PROSPECT_STAGES: Array<{ id: ProspectStage; label: string; color: string }
   { id: 'contact', label: 'Contact', color: 'bg-purple-100 text-purple-800' },
   { id: 'discovery', label: 'Decouverte', color: 'bg-indigo-100 text-indigo-800' },
   { id: 'proposal', label: 'Proposition', color: 'bg-orange-100 text-orange-800' },
+  { id: 'negotiation', label: 'Negociation', color: 'bg-cyan-100 text-cyan-800' },
+  { id: 'on_hold', label: 'En attente', color: 'bg-slate-100 text-slate-800' },
   { id: 'won', label: 'Gagne', color: 'bg-green-100 text-green-800' },
   { id: 'lost', label: 'Perdu', color: 'bg-red-100 text-red-800' },
 ];

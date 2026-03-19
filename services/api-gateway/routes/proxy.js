@@ -1,11 +1,37 @@
 ﻿const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
 const { authenticateToken } = require('../middleware/auth');
 const { requireAdmin, requirePermission, requirePermissionByPath } = require('../middleware/permissions');
 const { validateSchema } = require('../middleware/validation');
 const { logError, logInfo } = require('../utils/logger');
 
 const router = express.Router();
+
+const getGatewayPath = (req, fallbackPath = '') => {
+  const originalPath = req?.originalUrl || fallbackPath || req?.url || '';
+  const normalizedPath = originalPath.replace(/^\/api(?=\/|$)/, '');
+  return normalizedPath || '/';
+};
+
+const buildPathRewrite = (pathRewriteConfig) => {
+  if (typeof pathRewriteConfig === 'function') {
+    return (path, req) => pathRewriteConfig(getGatewayPath(req, path), req);
+  }
+
+  if (pathRewriteConfig && typeof pathRewriteConfig === 'object') {
+    return (path, req) => {
+      let rewrittenPath = getGatewayPath(req, path);
+
+      for (const [pattern, replacement] of Object.entries(pathRewriteConfig)) {
+        rewrittenPath = rewrittenPath.replace(new RegExp(pattern), replacement);
+      }
+
+      return rewrittenPath;
+    };
+  }
+
+  return undefined;
+};
 
 /**
  * Cree un middleware proxy avec configuration de base
@@ -38,6 +64,8 @@ const createProxy = (target, pathRewriteConfig = {}) => {
       if (req.correlationId) {
         proxyReq.setHeader('X-Correlation-ID', req.correlationId);
       }
+
+      fixRequestBody(proxyReq, req, res);
     },
     onError: (err, req, res) => {
       logError(`Proxy error for ${req.path}`, err);
@@ -48,10 +76,9 @@ const createProxy = (target, pathRewriteConfig = {}) => {
     }
   };
 
-  if (typeof pathRewriteConfig === 'function') {
-    proxyConfig.pathRewrite = pathRewriteConfig;
-  } else if (pathRewriteConfig && Object.keys(pathRewriteConfig).length > 0) {
-    proxyConfig.pathRewrite = pathRewriteConfig;
+  const pathRewrite = buildPathRewrite(pathRewriteConfig);
+  if (pathRewrite) {
+    proxyConfig.pathRewrite = pathRewrite;
   }
 
   return createProxyMiddleware(proxyConfig);

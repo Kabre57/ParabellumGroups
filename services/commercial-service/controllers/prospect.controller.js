@@ -1,6 +1,121 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const STAGE_MAP = {
+  preparation: 'PREPARATION',
+  recherche: 'RECHERCHE',
+  research: 'RECHERCHE',
+  contact: 'CONTACT_INITIAL',
+  contact_initial: 'CONTACT_INITIAL',
+  discovery: 'DECOUVERTE',
+  decouverte: 'DECOUVERTE',
+  proposal: 'PROPOSITION',
+  proposition: 'PROPOSITION',
+  negotiation: 'NEGOCIATION',
+  negociation: 'NEGOCIATION',
+  won: 'GAGNE',
+  gagne: 'GAGNE',
+  lost: 'PERDU',
+  perdu: 'PERDU',
+  on_hold: 'MISE_EN_ATTENTE',
+  mise_en_attente: 'MISE_EN_ATTENTE',
+};
+
+const PRIORITY_MAP = {
+  a: 'A',
+  b: 'B',
+  c: 'C',
+  d: 'D',
+};
+
+const normalizeText = (value) => {
+  if (value == null) return '';
+  return String(value)
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+};
+
+const toNullableString = (value) => {
+  if (value == null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const toNullableNumber = (value) => {
+  if (value === '' || value == null) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const toNullableDate = (value) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const normalizeStage = (value) => {
+  if (!value) return undefined;
+  const normalized = normalizeText(value).replace(/\s+/g, '_');
+  return STAGE_MAP[normalized] || String(value).toUpperCase();
+};
+
+const normalizePriority = (value) => {
+  if (!value) return undefined;
+  return PRIORITY_MAP[normalizeText(value)] || String(value).toUpperCase();
+};
+
+const normalizeSource = (value) => {
+  const normalized = normalizeText(value);
+  if (!normalized) return undefined;
+  if (normalized.includes('linkedin') || normalized.includes('reseau') || normalized.includes('social')) return 'RESEAUX_SOCIAUX';
+  if (normalized.includes('salon')) return 'SALON';
+  if (normalized.includes('recommand') || normalized.includes('reference') || normalized.includes('referral')) return 'RECOMMANDATION';
+  if (normalized.includes('partenaire') || normalized.includes('partner')) return 'PARTENAIRE';
+  if (normalized.includes('site') || normalized.includes('web')) return 'SITE_WEB';
+  if (normalized.includes('email') || normalized.includes('mail')) return 'EMAIL';
+  if (normalized.includes('entrant')) return 'APPEL_ENTRANT';
+  if (normalized.includes('appel') || normalized.includes('call')) return 'APPEL_SORTANT';
+  if (normalized.includes('campagne') || normalized.includes('campaign')) return 'CAMPAGNE';
+  return 'AUTRE';
+};
+
+const buildProspectPayload = (body, userId, oldProspect = null) => {
+  const nextAssignedToId = toNullableString(body.assignedToId);
+  const oldAssignedToId = oldProspect?.assignedToId || null;
+  const assignedChanged = nextAssignedToId && nextAssignedToId !== oldAssignedToId;
+
+  return {
+    companyName: toNullableString(body.companyName),
+    contactName: toNullableString(body.contactName),
+    position: toNullableString(body.position),
+    email: toNullableString(body.email),
+    phone: toNullableString(body.phone),
+    website: toNullableString(body.website),
+    secteurActivite: toNullableString(body.sector || body.secteurActivite),
+    employees: toNullableNumber(body.employees),
+    revenue: toNullableNumber(body.revenue),
+    address: toNullableString(body.address),
+    city: toNullableString(body.city),
+    postalCode: toNullableString(body.postalCode),
+    country: toNullableString(body.country),
+    stage: normalizeStage(body.stage),
+    priorite: normalizePriority(body.priority || body.priorite),
+    source: normalizeSource(body.source),
+    assignedToId: nextAssignedToId,
+    assignedAt: assignedChanged ? new Date() : undefined,
+    assignedBy: assignedChanged ? userId : undefined,
+    potentialValue: toNullableNumber(body.potentialValue),
+    closingProbability: toNullableNumber(body.closingProbability),
+    estimatedCloseDate: toNullableDate(body.estimatedCloseDate),
+    notes: toNullableString(body.notes),
+    tags: Array.isArray(body.tags)
+      ? body.tags.map((tag) => String(tag).trim()).filter(Boolean)
+      : undefined,
+  };
+};
+
 /**
  * Contrôleur pour la gestion complète de la prospection
  */
@@ -26,7 +141,7 @@ exports.getAll = async (req, res) => {
     const where = {};
     
     if (stage) {
-      where.stage = stage.toUpperCase();
+      where.stage = normalizeStage(stage);
     }
     
     if (assignedToId) {
@@ -34,7 +149,7 @@ exports.getAll = async (req, res) => {
     }
     
     if (priority) {
-      where.priorite = priority.toUpperCase();
+      where.priorite = normalizePriority(priority);
     }
     
     if (isConverted !== undefined) {
@@ -46,7 +161,7 @@ exports.getAll = async (req, res) => {
     }
     
     if (source) {
-      where.source = source.toUpperCase();
+      where.source = normalizeSource(source);
     }
     
     if (country) {
@@ -169,16 +284,26 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    if (!toNullableString(req.body.companyName) || !toNullableString(req.body.contactName)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le nom de l entreprise et le nom du contact sont obligatoires',
+      });
+    }
+
     // Générer une référence unique
     const reference = `PROS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    
+
+    const mappedFields = buildProspectPayload(req.body, req.user.id);
+
     const prospectData = {
-      ...req.body,
+      ...mappedFields,
       reference,
-      assignedToId: req.body.assignedToId || req.user.id,
-      assignedAt: req.body.assignedToId ? new Date() : null,
-      assignedBy: req.body.assignedToId ? req.user.id : null,
-      createdBy: req.user.id
+      assignedToId: mappedFields.assignedToId || req.user.id,
+      assignedAt: mappedFields.assignedToId ? new Date() : null,
+      assignedBy: mappedFields.assignedToId ? req.user.id : null,
+      createdBy: req.user.id,
+      documents: [],
     };
     
     const prospect = await prisma.prospect.create({
@@ -222,19 +347,22 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
-    
+
     // Récupérer les anciennes valeurs pour l'historique
     const oldProspect = await prisma.prospect.findUnique({ where: { id } });
-    
-    // Si changement d'assignation
-    if (updateData.assignedToId && updateData.assignedToId !== oldProspect.assignedToId) {
-      updateData.assignedAt = new Date();
-      updateData.assignedBy = req.user.id;
+
+    if (!oldProspect) {
+      return res.status(404).json({
+        success: false,
+        error: 'Prospect non trouvé'
+      });
     }
-    
-    updateData.updatedBy = req.user.id;
-    updateData.version = oldProspect.version + 1;
+
+    const updateData = {
+      ...buildProspectPayload(req.body, req.user.id, oldProspect),
+      updatedBy: req.user.id,
+      version: oldProspect.version + 1,
+    };
     
     const prospect = await prisma.prospect.update({
       where: { id },

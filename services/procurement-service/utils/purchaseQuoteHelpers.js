@@ -106,6 +106,7 @@ const serializeQuote = (demande = {}) => {
     approvedByServiceName: demande.approvedByServiceName || null,
     rejectionReason: demande.rejectionReason || null,
     bonCommandeId: bonCommande?.id || null,
+    numeroBon: bonCommande?.numeroBon || null,
     createdAt: demande.createdAt,
     updatedAt: demande.updatedAt,
     fournisseur: demande.fournisseur

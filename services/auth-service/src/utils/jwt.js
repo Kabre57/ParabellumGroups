@@ -14,19 +14,25 @@ if (!JWT_SECRET) {
  * @returns {string} JWT token
  */
 const generateAccessToken = (user) => {
+  const roleCode = user?.role?.code || user?.role?.name || user?.roleCode;
   const permissions =
     user?.permissionsList ||
     user?.permissions ||
     [];
+
   const payload = {
     userId: user.id,
     email: user.email,
     roleId: user.roleId,
-    roleCode: user.role?.code || user.role?.name || user.roleCode,
-    role: user.role?.code || user.role?.name || user.roleCode,
+    roleCode,
+    role: roleCode,
     serviceId: user.serviceId,
-    permissions,
   };
+
+  const normalizedRole = String(roleCode || '').toUpperCase();
+  if (normalizedRole !== 'ADMIN' && normalizedRole !== 'ADMINISTRATEUR') {
+    payload.permissions = permissions;
+  }
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,

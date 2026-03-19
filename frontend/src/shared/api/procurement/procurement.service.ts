@@ -10,6 +10,7 @@ import {
   PurchaseRequestStatus,
   SupplierStatus,
   PurchaseOrderValidationLog,
+  PurchaseRequestApprovalLog,
 } from './types';
 
 export interface ListResponse<T> {
@@ -101,6 +102,7 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
     date: request?.date || request?.dateDemande || request?.createdAt || '',
     dateBesoin: request?.dateBesoin || null,
     bonCommandeId: request?.bonCommandeId || null,
+    numeroBon: request?.numeroBon || request?.bonCommande?.numeroBon || null,
     lines: lignes.map((ligne: any) => ({
       id: String(ligne?.id ?? ''),
       articleId: ligne?.articleId || null,
@@ -113,6 +115,20 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
       montantHT: normalizeNumber(ligne?.montantHT ?? ligne?.amountHT, 0),
       montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.amount, 0),
     })),
+    approvalHistory: Array.isArray(request?.approvalHistory)
+      ? request.approvalHistory.map((log: any) => ({
+          id: String(log?.id ?? ''),
+          action: String(log?.action ?? ''),
+          fromStatus: String(log?.fromStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['fromStatus'],
+          toStatus: String(log?.toStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['toStatus'],
+          actorUserId: log?.actorUserId || null,
+          actorEmail: log?.actorEmail || null,
+          actorServiceId: log?.actorServiceId != null ? Number(log.actorServiceId) : null,
+          actorServiceName: log?.actorServiceName || null,
+          commentaire: log?.commentaire || null,
+          createdAt: log?.createdAt || new Date().toISOString(),
+        }))
+      : [],
   };
 };
 
@@ -333,6 +349,26 @@ export const procurementService = {
     };
   },
 
+  async getRequestApprovalHistory(id: string): Promise<ListResponse<PurchaseRequestApprovalLog>> {
+    const response = await apiClient.get(`/procurement/devis-achat/${id}/approval-history`);
+    const normalized = normalizeListResponse<PurchaseRequestApprovalLog>(response.data);
+    return {
+      ...normalized,
+      data: normalized.data.map((log: any) => ({
+        id: String(log?.id ?? ''),
+        action: String(log?.action ?? ''),
+        fromStatus: String(log?.fromStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['fromStatus'],
+        toStatus: String(log?.toStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['toStatus'],
+        actorUserId: log?.actorUserId || null,
+        actorEmail: log?.actorEmail || null,
+        actorServiceId: log?.actorServiceId != null ? Number(log.actorServiceId) : null,
+        actorServiceName: log?.actorServiceName || null,
+        commentaire: log?.commentaire || null,
+        createdAt: log?.createdAt || new Date().toISOString(),
+      })),
+    };
+  },
+
   async getRequestsStats(): Promise<{ success: boolean; data: ProcurementStats }> {
     const response = await apiClient.get('/procurement/devis-achat/stats');
     return normalizeStatsResponse<ProcurementStats>(response.data);
@@ -346,6 +382,7 @@ export const procurementService = {
     dateBesoin?: string;
     notes?: string;
     devise?: string;
+    serviceId?: number;
     serviceName?: string;
     lignes?: Array<{
       articleId?: string;
@@ -374,6 +411,7 @@ export const procurementService = {
       dateBesoin: data.dateBesoin,
       notes: data.notes,
       devise: data.devise,
+      serviceId: data.serviceId,
       serviceName: data.serviceName,
       lignes: data.lines,
     });

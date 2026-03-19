@@ -230,14 +230,31 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                             <div className="border-b border-gray-100 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
                               Dashboards associes
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid gap-3 md:grid-cols-2">
                               {service.dashboards.map((dashboard) => (
-                                <span
+                                <div
                                   key={dashboard.href}
-                                  className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+                                  className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-3 text-xs dark:border-blue-900/40 dark:bg-blue-900/20"
                                 >
-                                  {dashboard.label}
-                                </span>
+                                  <div className="font-semibold text-blue-800 dark:text-blue-200">
+                                    {dashboard.label}
+                                  </div>
+                                  <div className="mt-1 text-[11px] text-blue-700/80 dark:text-blue-200/80">
+                                    {dashboard.href}
+                                  </div>
+                                  {dashboard.permissions && dashboard.permissions.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {dashboard.permissions.map((permission) => (
+                                        <span
+                                          key={`${dashboard.href}-${permission}`}
+                                          className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                        >
+                                          {permission}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               ))}
                             </div>
                           </div>

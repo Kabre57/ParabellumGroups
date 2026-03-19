@@ -1,5 +1,36 @@
-﻿const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
+async function ensureRole({ name, code, description, isSystem = true, isActive = true }) {
+  const existingRole = await prisma.role.findFirst({
+    where: {
+      OR: [{ code }, { name }],
+    },
+  });
+
+  if (existingRole) {
+    return prisma.role.update({
+      where: { id: existingRole.id },
+      data: {
+        name,
+        code,
+        description,
+        isSystem,
+        isActive,
+      },
+    });
+  }
+
+  return prisma.role.create({
+    data: {
+      name,
+      code,
+      description,
+      isSystem,
+      isActive,
+    },
+  });
+}
 
 /**
  * Script d'initialisation COMPLÃˆTE de toutes les permissions du système
@@ -506,9 +537,11 @@ const completePermissions = {
     permissions: [
       { name: 'purchases.read', description: 'Consulter le dashboard achats' },
       { name: 'purchases.create', description: 'Créer des devis d achat' },
+      { name: 'purchases.submit', description: 'Soumettre des devis d achat pour approbation' },
       { name: 'purchases.update', description: 'Modifier des devis d achat' },
       { name: 'purchases.delete', description: 'Supprimer des devis d achat' },
-      { name: 'purchases.approve', description: 'Approuver ou rejeter des devis d achat' }
+      { name: 'purchases.approve', description: 'Approuver des devis d achat' },
+      { name: 'purchases.reject', description: 'Rejeter des devis d achat' }
     ]
   },
 
@@ -701,10 +734,18 @@ const completePermissions = {
   }
 };
 
+const toAscii = (value) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '');
+
+const line = (char = '=', width = 70) => char.repeat(width);
+
 async function seedCompletePermissions() {
-  console.log('â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—');
-  console.log('â•‘     ðŸŒ± INITIALISATION COMPLÃˆTE DES PERMISSIONS SYSTÃˆME        â•‘');
-  console.log('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
+  console.log(line('='));
+  console.log('INITIALISATION COMPLETE DES PERMISSIONS SYSTEME');
+  console.log(line('=') + '\n');
 
   let totalCreated = 0;
   let totalSkipped = 0;
@@ -715,9 +756,9 @@ async function seedCompletePermissions() {
 
   for (const [categoryKey, categoryData] of Object.entries(completePermissions)) {
     currentCategory++;
-    console.log(`\n${'â•'.repeat(70)}`);
-    console.log(`ðŸ“ [${currentCategory}/${categoryCount}] ${categoryData.label} (${categoryKey})`);
-    console.log(`${'â”€'.repeat(70)}`);
+    console.log(`\n${line('=')}`);
+    console.log(`[${currentCategory}/${categoryCount}] ${toAscii(categoryData.label)} (${categoryKey})`);
+    console.log(line('-'));
 
     for (const perm of categoryData.permissions) {
       try {
@@ -727,7 +768,7 @@ async function seedCompletePermissions() {
         });
 
         if (existing) {
-          console.log(`   â­ï¸  ${perm.name.padEnd(50)} [existe déjâ ]`);
+          console.log(`   - ${perm.name.padEnd(50)} [already exists]`);
           totalSkipped++;
         } else {
           await prisma.permission.create({
@@ -737,33 +778,39 @@ async function seedCompletePermissions() {
               category: categoryKey
             }
           });
-          console.log(`   âœ… ${perm.name.padEnd(50)} [créée]`);
+          console.log(`   + ${perm.name.padEnd(50)} [created]`);
           totalCreated++;
         }
       } catch (error) {
-        console.error(`   âŒ ${perm.name.padEnd(50)} [ERREUR: ${error.message}]`);
+        console.error(`   ! ${perm.name.padEnd(50)} [ERROR: ${toAscii(error.message)}]`);
         totalErrors++;
       }
     }
   }
 
-  console.log('\n' + 'â•'.repeat(70));
-  console.log('ðŸ“Š RÃ‰SUMÃ‰ DE L\'INITIALISATION');
-  console.log('â•'.repeat(70));
-  console.log(`   âœ… Permissions créées:           ${totalCreated.toString().padStart(4)}`);
-  console.log(`   â­ï¸  Permissions ignorées:         ${totalSkipped.toString().padStart(4)} (déjâ  existantes)`);
-  console.log(`   âŒ Erreurs rencontrées:           ${totalErrors.toString().padStart(4)}`);
-  console.log(`   â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
-  console.log(`   ðŸ“ Total traité:                  ${(totalCreated + totalSkipped + totalErrors).toString().padStart(4)}`);
+  console.log('\n' + line('='));
+  console.log('RESUME DE L INITIALISATION');
+  console.log(line('='));
+  console.log(`   Created permissions:             ${totalCreated.toString().padStart(4)}`);
+  console.log(`   Skipped permissions:             ${totalSkipped.toString().padStart(4)} (already existing)`);
+  console.log(`   Errors:                          ${totalErrors.toString().padStart(4)}`);
+  console.log(`   ${line('-', 38)}`);
+  console.log(`   Total processed:                 ${(totalCreated + totalSkipped + totalErrors).toString().padStart(4)}`);
 
   // Compter le total en base
   const totalInDb = await prisma.permission.count();
-  console.log(`\nðŸ’¾ Total de permissions en base de données: ${totalInDb}`);
+  console.log(`\nTotal permissions in database: ${totalInDb}`);
 
   // optionally apply default templates to system roles (if helper available)
   try {
+    await ensureRole({
+      name: 'Service Achat',
+      code: 'PURCHASING_MANAGER',
+      description: 'Role preconfigure pour les achats, les stocks et l approbation des devis',
+    });
+
     const { applyTemplate } = require('../src/utils/roleTemplates');
-    for (const code of ['ADMIN', 'EMPLOYEE']) {
+    for (const code of ['ADMIN', 'EMPLOYEE', 'PURCHASING_MANAGER']) {
       await applyTemplate(code);
       console.log(`Applied template ${code}`);
     }
@@ -772,8 +819,8 @@ async function seedCompletePermissions() {
   }
 
   // Statistiques par catégorie
-  console.log('\nðŸ“ˆ RÃ‰PARTITION PAR CATÃ‰GORIE:');
-  console.log('â•'.repeat(70));
+  console.log('\nPER CATEGORY BREAKDOWN:');
+  console.log(line('='));
   
   const categories = await prisma.permission.groupBy({
     by: ['category'],
@@ -789,19 +836,19 @@ async function seedCompletePermissions() {
 
   for (const cat of categories) {
     const categoryLabel = completePermissions[cat.category]?.label || cat.category;
-    console.log(`   ${categoryLabel.padEnd(40)} ${cat._count.category.toString().padStart(3)} permissions`);
+    console.log(`   ${toAscii(categoryLabel).padEnd(40)} ${cat._count.category.toString().padStart(3)} permissions`);
   }
 
-  console.log('\n' + 'â•'.repeat(70));
-  console.log('âœ¨ INITIALISATION TERMINÃ‰E AVEC SUCCÃˆS!');
-  console.log('â•'.repeat(70) + '\n');
+  console.log('\n' + line('='));
+  console.log('INITIALISATION COMPLETED SUCCESSFULLY');
+  console.log(line('=') + '\n');
 }
 
 async function main() {
   try {
     await seedCompletePermissions();
   } catch (error) {
-    console.error('\nâŒ ERREUR CRITIQUE lors de l\'initialisation:', error);
+    console.error('\nCRITICAL ERROR during initialization:', error);
     console.error('\nStack trace:', error.stack);
     process.exit(1);
   } finally {

@@ -1,33 +1,57 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+async function ensureRole({ name, code, description, isSystem = true, isActive = true }) {
+  const existingRole = await prisma.role.findFirst({
+    where: {
+      OR: [{ code }, { name }],
+    },
+  });
+
+  if (existingRole) {
+    return prisma.role.update({
+      where: { id: existingRole.id },
+      data: {
+        name,
+        code,
+        description,
+        isSystem,
+        isActive,
+      },
+    });
+  }
+
+  return prisma.role.create({
+    data: {
+      name,
+      code,
+      description,
+      isSystem,
+      isActive,
+    },
+  });
+}
+
 async function main() {
   console.log('🌱 Starting seed...');
 
   // Seed Roles (uniquement 2 rôles système)
   console.log('Creating roles...');
   const roles = await Promise.all([
-    prisma.role.upsert({
-      where: { code: 'ADMIN' },
-      update: {},
-      create: {
-        name: 'Administrateur',
-        code: 'ADMIN',
-        description: 'Accès complet au système',
-        isSystem: true,
-        isActive: true,
-      },
+    ensureRole({
+      name: 'Administrateur',
+      code: 'ADMIN',
+      description: 'Accès complet au système',
     }),
-    prisma.role.upsert({
-      where: { code: 'EMPLOYEE' },
-      update: {},
-      create: {
-        name: 'Employé',
-        code: 'EMPLOYEE',
-        description: 'Utilisateur standard',
-        isSystem: true,
-        isActive: true,
-      },
+    ensureRole({
+      name: 'Employé',
+      code: 'EMPLOYEE',
+      description: 'Utilisateur standard',
+    }),
+    ensureRole({
+      name: 'Service Achat',
+      code: 'PURCHASING_MANAGER',
+      description: 'Role preconfigure pour les achats, les stocks et l approbation des devis',
     }),
   ]);
   console.log(`✅ Created ${roles.length} roles`);
@@ -35,7 +59,7 @@ async function main() {
   // apply default templates for system roles
   const { applyTemplate } = require('../src/utils/roleTemplates');
   for (const r of roles) {
-    if (['ADMIN','EMPLOYEE'].includes(r.code)) {
+    if (['ADMIN','EMPLOYEE', 'PURCHASING_MANAGER'].includes(r.code)) {
       await applyTemplate(r.code);
     }
   }

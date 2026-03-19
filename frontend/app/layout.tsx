@@ -9,6 +9,11 @@ import { Toaster } from 'sonner';
 export const metadata: Metadata = {
   title: "Parabellum Groups - Gestion d'entreprise",
   description: "Système de gestion intégré pour votre entreprise",
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
