@@ -17,12 +17,14 @@ const devisRoutes = require('./routes/devis.routes');
 const purchaseCommitmentRoutes = require('./routes/purchaseCommitment.routes');
 const internalProcurementEventRoutes = require('./routes/internalProcurementEvent.routes');
 const cashVoucherRoutes = require('./routes/cashVoucher.routes');
+const accountingRoutes = require('./routes/accounting.routes');
 
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
 app.use('/api/devis', devisRoutes);
 app.use('/api/purchase-commitments', purchaseCommitmentRoutes);
 app.use('/api/cash-vouchers', cashVoucherRoutes);
+app.use('/api/accounting', accountingRoutes);
 app.use('/api/internal/procurement-events', internalProcurementEventRoutes);
 
 // Route de santé
@@ -46,6 +48,7 @@ app.get('/', (req, res) => {
       devis: '/api/devis',
       purchaseCommitments: '/api/purchase-commitments',
       cashVouchers: '/api/cash-vouchers',
+      accounting: '/api/accounting/overview',
       health: '/health'
     }
   });
@@ -70,6 +73,7 @@ app.listen(PORT, () => {
   console.log(`💰 API Paiements: http://localhost:${PORT}/api/paiements`);
   console.log(`📝 API Devis: http://localhost:${PORT}/api/devis`);
   console.log(`🧾 API Bons de caisse: http://localhost:${PORT}/api/cash-vouchers`);
+  console.log(`📚 API Comptable: http://localhost:${PORT}/api/accounting/overview`);
 });
 
 module.exports = app;

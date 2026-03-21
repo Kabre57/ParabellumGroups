@@ -71,6 +71,12 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/accounting\/overview$/,
+    permissions: {
+      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read']
+    }
+  },
+  {
     pattern: /^\/cash-vouchers\/[^/]+\/status$/,
     permissions: {
       PATCH: ['expenses.approve', 'payments.validate']

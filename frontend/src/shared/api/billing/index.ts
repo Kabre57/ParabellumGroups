@@ -164,6 +164,100 @@ export interface PurchaseCommitmentStats {
   totalCommittedAmount: number;
 }
 
+export interface AccountingAccount {
+  id: string;
+  code: string;
+  label: string;
+  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  balance: number;
+  lastTransaction?: string | null;
+  movementCount?: number;
+}
+
+export interface AccountingMovement {
+  id: string;
+  date: string;
+  type: 'income' | 'expense';
+  category: string;
+  description: string;
+  amount: number;
+  balance: number;
+  reference?: string | null;
+  sourceType?: string | null;
+  paymentMethod?: string | null;
+}
+
+export interface AccountingEntry {
+  id: string;
+  date: string;
+  journalCode: string;
+  journalLabel: string;
+  accountDebit: string;
+  accountDebitLabel: string;
+  accountCredit: string;
+  accountCreditLabel: string;
+  label: string;
+  debit: number;
+  credit: number;
+  reference: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+}
+
+export interface AccountingReports {
+  balanceSheet: {
+    assets: AccountingAccount[];
+    liabilities: AccountingAccount[];
+    equity: AccountingAccount[];
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+  };
+  incomeStatement: {
+    revenues: AccountingAccount[];
+    expenses: AccountingAccount[];
+    totalRevenue: number;
+    totalExpenses: number;
+    netResult: number;
+  };
+  treasury: {
+    inflows: number;
+    outflows: number;
+    closingBalance: number;
+    byPaymentMethod: Record<string, number>;
+  };
+  commitments: {
+    totalCommitted: number;
+    pendingCommitted: number;
+    byCategory: Record<string, number>;
+  };
+  kpis: {
+    netMargin: number;
+    collectionRate: number;
+    disbursementCoverage: number;
+  };
+}
+
+export interface AccountingOverview {
+  period: string;
+  generatedAt: string;
+  summary: {
+    totalRevenue: number;
+    totalReceived: number;
+    totalExpenseHT: number;
+    totalDisbursed: number;
+    clientReceivables: number;
+    supplierLiabilities: number;
+    totalCommitted: number;
+    pendingCommitted: number;
+    netResult: number;
+  };
+  accounts: AccountingAccount[];
+  treasuryMovements: AccountingMovement[];
+  entries: AccountingEntry[];
+  reports: AccountingReports;
+}
+
 export interface ListResponse<T> {
   success: boolean;
   data: T[];
@@ -476,6 +570,13 @@ export const billingService = {
   async getSpendingOverview(): Promise<{ success: boolean; data: SpendingOverview }> {
     const response = await apiClient.get('/billing/cash-vouchers/spending-overview');
     return normalizeStatsResponse<SpendingOverview>(response.data);
+  },
+
+  async getAccountingOverview(period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all'): Promise<{ success: boolean; data: AccountingOverview }> {
+    const response = await apiClient.get('/billing/accounting/overview', {
+      params: { period },
+    });
+    return normalizeStatsResponse<AccountingOverview>(response.data);
   },
 };
 

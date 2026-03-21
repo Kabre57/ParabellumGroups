@@ -1,40 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, Calendar } from 'lucide-react';
-
-interface CashFlow {
-  id: string;
-  date: string;
-  type: 'income' | 'expense';
-  category: string;
-  description: string;
-  amount: number;
-  balance: number;
-}
+import billingService, { type AccountingMovement } from '@/shared/api/billing';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 export default function TresoreriePage() {
-  const [period, setPeriod] = useState('month');
+  const { user } = useAuth();
+  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const canRead =
+    isAdminRole(user) ||
+    ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some(
+      (permission) => permissionSet.has(permission)
+    );
 
-  const { data: cashFlows, isLoading } = useQuery<CashFlow[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['cash-flows', period],
-    queryFn: async () => {
-      return [
-        { id: '1', date: '2026-01-20', type: 'income', category: 'Facturation', description: 'Paiement Entreprise ABC', amount: 45000, balance: 245000 },
-        { id: '2', date: '2026-01-19', type: 'expense', category: 'Salaires', description: 'Paie janvier 2026', amount: -85000, balance: 200000 },
-        { id: '3', date: '2026-01-18', type: 'income', category: 'Facturation', description: 'Paiement Société XYZ', amount: 12000, balance: 285000 },
-        { id: '4', date: '2026-01-15', type: 'expense', category: 'Achats', description: 'Matériel technique', amount: -8500, balance: 273000 },
-        { id: '5', date: '2026-01-12', type: 'expense', category: 'Charges', description: 'Loyer bureaux', amount: -4200, balance: 281500 },
-      ];
-    },
+    queryFn: () => billingService.getAccountingOverview(period),
+    enabled: canRead,
   });
 
-  const totalIncome = cashFlows?.filter(cf => cf.type === 'income').reduce((sum, cf) => sum + cf.amount, 0) || 0;
-  const totalExpense = Math.abs(cashFlows?.filter(cf => cf.type === 'expense').reduce((sum, cf) => sum + cf.amount, 0) || 0);
-  const currentBalance = cashFlows?.[0]?.balance || 0;
+  const cashFlows = data?.data?.treasuryMovements ?? [];
+  const report = data?.data?.reports?.treasury;
+  const totalIncome = report?.inflows || 0;
+  const totalExpense = report?.outflows || 0;
+  const currentBalance = report?.closingBalance || 0;
+
+  if (!canRead) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900">
+        Vous n&apos;avez pas accès à la trésorerie.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -48,7 +52,7 @@ export default function TresoreriePage() {
         <div className="flex gap-2">
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value)}
+            onChange={(e) => setPeriod(e.target.value as 'week' | 'month' | 'quarter' | 'year' | 'all')}
             className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
           >
             <option value="week">Cette semaine</option>
@@ -69,7 +73,7 @@ export default function TresoreriePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Solde Actuel</p>
-              <p className="text-2xl font-bold">{currentBalance.toLocaleString()}F</p>
+              <p className="text-2xl font-bold">{formatAccountingCurrency(currentBalance)}</p>
             </div>
             <Wallet className="h-8 w-8 text-blue-500" />
           </div>
@@ -78,7 +82,7 @@ export default function TresoreriePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Encaissements</p>
-              <p className="text-2xl font-bold text-green-600">+{totalIncome.toLocaleString()}F</p>
+              <p className="text-2xl font-bold text-green-600">+{formatAccountingCurrency(totalIncome)}</p>
             </div>
             <TrendingUp className="h-8 w-8 text-green-500" />
           </div>
@@ -87,7 +91,7 @@ export default function TresoreriePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Décaissements</p>
-              <p className="text-2xl font-bold text-red-600">-{totalExpense.toLocaleString()}F</p>
+              <p className="text-2xl font-bold text-red-600">-{formatAccountingCurrency(totalExpense)}</p>
             </div>
             <TrendingDown className="h-8 w-8 text-red-500" />
           </div>
@@ -96,11 +100,25 @@ export default function TresoreriePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Solde Net</p>
-              <p className="text-2xl font-bold">{(totalIncome - totalExpense).toLocaleString()}F</p>
+              <p className="text-2xl font-bold">{formatAccountingCurrency(totalIncome - totalExpense)}</p>
             </div>
             <DollarSign className="h-8 w-8 text-purple-500" />
           </div>
         </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {Object.entries((report?.byPaymentMethod || {}) as Record<string, number>).map(([method, amount]) => (
+          <Card className="p-4" key={method}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{method}</p>
+                <p className="text-xl font-bold">{formatAccountingCurrency(amount)}</p>
+              </div>
+              <CreditCard className="h-7 w-7 text-slate-500" />
+            </div>
+          </Card>
+        ))}
       </div>
 
       {/* Cash Flow Table */}
@@ -122,9 +140,9 @@ export default function TresoreriePage() {
                 </tr>
               </thead>
               <tbody>
-                {cashFlows?.map((flow) => (
+                {cashFlows.map((flow: AccountingMovement) => (
                   <tr key={flow.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="py-3 px-4 text-sm">{new Date(flow.date).toLocaleDateString('fr-FR')}</td>
+                    <td className="py-3 px-4 text-sm">{formatAccountingDate(flow.date)}</td>
                     <td className="py-3 px-4">
                       {flow.type === 'income' ? (
                         <span className="flex items-center gap-1 text-green-600">
@@ -141,11 +159,19 @@ export default function TresoreriePage() {
                     <td className="py-3 px-4 text-sm">{flow.category}</td>
                     <td className="py-3 px-4 text-sm">{flow.description}</td>
                     <td className={`py-3 px-4 text-right font-semibold ${flow.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {flow.amount > 0 ? '+' : ''}{flow.amount.toLocaleString()}F
+                      {flow.type === 'income' ? '+' : '-'}
+                      {formatAccountingCurrency(flow.amount)}
                     </td>
-                    <td className="py-3 px-4 text-right font-semibold">{flow.balance.toLocaleString()}F</td>
+                    <td className="py-3 px-4 text-right font-semibold">{formatAccountingCurrency(flow.balance)}</td>
                   </tr>
                 ))}
+                {!cashFlows.length && (
+                  <tr>
+                    <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={6}>
+                      Aucun mouvement de trésorerie sur cette période.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,45 +9,49 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, Plus, Search, Eye } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
-
-interface Entry {
-  id: string;
-  date: string;
-  journalCode: string;
-  journalLabel: string;
-  accountDebit: string;
-  accountCredit: string;
-  label: string;
-  debit: number;
-  credit: number;
-  reference: string;
-}
+import billingService, { type AccountingEntry } from '@/shared/api/billing';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 
 export default function EcrituresPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const canRead =
+    isAdminRole(user) ||
+    ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some(
+      (permission) => permissionSet.has(permission)
+    );
   const { canCreate } = getCrudVisibility(user, {
     read: ['reports.read_financial', 'invoices.read'],
     create: ['expenses.create', 'payments.create'],
   });
 
-  const { data: entries, isLoading } = useQuery<Entry[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['accounting-entries'],
-    queryFn: async () => {
-      return [
-        { id: '1', date: '2026-01-20', journalCode: 'VT', journalLabel: 'Ventes', accountDebit: '411', accountCredit: '706', label: 'Facture F2026-001 - Entreprise ABC', debit: 45000, credit: 45000, reference: 'F2026-001' },
-        { id: '2', date: '2026-01-19', journalCode: 'BQ', journalLabel: 'Banque', accountDebit: '512', accountCredit: '411', label: 'Encaissement Société XYZ', debit: 12000, credit: 12000, reference: 'ENC-001' },
-        { id: '3', date: '2026-01-19', journalCode: 'PA', journalLabel: 'Paie', accountDebit: '641', accountCredit: '421', label: 'Salaires janvier 2026', debit: 85000, credit: 85000, reference: 'PAIE-01-2026' },
-        { id: '4', date: '2026-01-15', journalCode: 'AC', journalLabel: 'Achats', accountDebit: '607', accountCredit: '401', label: 'Achat matériel TechnoSupply', debit: 8500, credit: 8500, reference: 'FA-8945' },
-        { id: '5', date: '2026-01-12', journalCode: 'OD', journalLabel: 'Opérations Diverses', accountDebit: '613', accountCredit: '512', label: 'Loyer bureaux janvier', debit: 4200, credit: 4200, reference: 'LOYER-01' },
-      ];
-    },
+    queryFn: () => billingService.getAccountingOverview('all'),
+    enabled: canRead,
   });
 
-  const filteredEntries = entries?.filter(entry =>
+  const entries = data?.data?.entries ?? [];
+
+  const filteredEntries = entries.filter((entry: AccountingEntry) =>
     entry.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entry.reference.toLowerCase().includes(searchQuery.toLowerCase())
+    entry.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    entry.accountDebit.includes(searchQuery) ||
+    entry.accountCredit.includes(searchQuery)
   );
+
+  const totalDebit = entries.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalCredit = entries.reduce((sum, entry) => sum + entry.credit, 0);
+
+  if (!canRead) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900">
+        Vous n&apos;avez pas accès aux écritures comptables.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -72,7 +76,7 @@ export default function EcrituresPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Écritures</p>
-              <p className="text-2xl font-bold">{entries?.length || 0}</p>
+              <p className="text-2xl font-bold">{entries.length}</p>
             </div>
             <FileText className="h-8 w-8 text-blue-500" />
           </div>
@@ -81,9 +85,7 @@ export default function EcrituresPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Débit</p>
-              <p className="text-2xl font-bold text-green-600">
-                {entries?.reduce((sum, e) => sum + e.debit, 0).toLocaleString()}F
-              </p>
+              <p className="text-2xl font-bold text-green-600">{formatAccountingCurrency(totalDebit)}</p>
             </div>
             <FileText className="h-8 w-8 text-green-500" />
           </div>
@@ -92,9 +94,7 @@ export default function EcrituresPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Crédit</p>
-              <p className="text-2xl font-bold text-red-600">
-                {entries?.reduce((sum, e) => sum + e.credit, 0).toLocaleString()}F
-              </p>
+              <p className="text-2xl font-bold text-red-600">{formatAccountingCurrency(totalCredit)}</p>
             </div>
             <FileText className="h-8 w-8 text-red-500" />
           </div>
@@ -135,30 +135,33 @@ export default function EcrituresPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEntries?.map((entry) => (
+                {filteredEntries.map((entry) => (
                   <tr key={entry.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="py-3 px-4 text-sm">{new Date(entry.date).toLocaleDateString('fr-FR')}</td>
+                    <td className="py-3 px-4 text-sm">{formatAccountingDate(entry.date)}</td>
                     <td className="py-3 px-4">
                       <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
                         {entry.journalCode}
                       </Badge>
+                      <div className="mt-1 text-xs text-gray-500">{entry.journalLabel}</div>
                     </td>
                     <td className="py-3 px-4">
                       <code className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded text-xs">
                         {entry.accountDebit}
                       </code>
+                      <div className="mt-1 text-xs text-gray-500">{entry.accountDebitLabel}</div>
                     </td>
                     <td className="py-3 px-4">
                       <code className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded text-xs">
                         {entry.accountCredit}
                       </code>
+                      <div className="mt-1 text-xs text-gray-500">{entry.accountCreditLabel}</div>
                     </td>
                     <td className="py-3 px-4 font-medium max-w-xs truncate">{entry.label}</td>
                     <td className="py-3 px-4 text-right font-semibold text-green-600">
-                      {entry.debit.toLocaleString()}F
+                      {formatAccountingCurrency(entry.debit)}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold text-red-600">
-                      {entry.credit.toLocaleString()}F
+                      {formatAccountingCurrency(entry.credit)}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{entry.reference}</td>
                     <td className="py-3 px-4">
@@ -168,6 +171,13 @@ export default function EcrituresPage() {
                     </td>
                   </tr>
                 ))}
+                {!filteredEntries.length && (
+                  <tr>
+                    <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={9}>
+                      Aucune écriture comptable disponible.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
             
@@ -177,13 +187,13 @@ export default function EcrituresPage() {
                 <span className="text-lg">TOTAUX</span>
                 <div className="flex gap-8">
                   <div className="text-green-600">
-                    Débit: {entries?.reduce((sum, e) => sum + e.debit, 0).toLocaleString()}F
+                    Débit: {formatAccountingCurrency(totalDebit)}
                   </div>
                   <div className="text-red-600">
-                    Crédit: {entries?.reduce((sum, e) => sum + e.credit, 0).toLocaleString()}F
+                    Crédit: {formatAccountingCurrency(totalCredit)}
                   </div>
-                  <div className={entries?.reduce((sum, e) => sum + e.debit, 0) === entries?.reduce((sum, e) => sum + e.credit, 0) ? 'text-green-600' : 'text-red-600'}>
-                    Écart: 0F
+                  <div className={totalDebit === totalCredit ? 'text-green-600' : 'text-red-600'}>
+                    Écart: {formatAccountingCurrency(Math.abs(totalDebit - totalCredit))}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,41 +9,42 @@ import { Badge } from '@/components/ui/badge';
 import { BookOpen, Plus, Search, Edit } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
-
-interface Account {
-  id: string;
-  code: string;
-  label: string;
-  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
-  balance: number;
-  lastTransaction: string;
-}
+import billingService, { type AccountingAccount } from '@/shared/api/billing';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import {
+  accountingAccountTypeLabel,
+  formatAccountingCurrency,
+  formatAccountingDate,
+} from '@/components/accounting/accountingFormat';
 
 export default function ComptesPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
+  const canRead =
+    isAdminRole(user) ||
+    [
+      'reports.read_financial',
+      'expenses.read',
+      'expenses.read_all',
+      'expenses.read_own',
+      'payments.read',
+      'invoices.read',
+    ].some((permission) => permissionSet.has(permission));
   const { canCreate, canUpdate } = getCrudVisibility(user, {
     read: ['reports.read_financial', 'invoices.read'],
     create: ['expenses.create'],
     update: ['expenses.update', 'invoices.update'],
   });
 
-  const { data: accounts, isLoading } = useQuery<Account[]>({
-    queryKey: ['accounts'],
-    queryFn: async () => {
-      return [
-        { id: '1', code: '512', label: 'Banque Centrale', type: 'asset', balance: 245000, lastTransaction: '2026-01-20' },
-        { id: '2', code: '411', label: 'Clients', type: 'asset', balance: 87000, lastTransaction: '2026-01-19' },
-        { id: '3', code: '401', label: 'Fournisseurs', type: 'liability', balance: -42000, lastTransaction: '2026-01-18' },
-        { id: '4', code: '421', label: 'Salaires à payer', type: 'liability', balance: -85000, lastTransaction: '2026-01-19' },
-        { id: '5', code: '706', label: 'Prestations de services', type: 'revenue', balance: 320000, lastTransaction: '2026-01-20' },
-        { id: '6', code: '641', label: 'Rémunérations du personnel', type: 'expense', balance: -180000, lastTransaction: '2026-01-19' },
-        { id: '7', code: '607', label: 'Achats de marchandises', type: 'expense', balance: -45000, lastTransaction: '2026-01-15' },
-        { id: '8', code: '613', label: 'Locations', type: 'expense', balance: -12600, lastTransaction: '2026-01-12' },
-      ];
-    },
+  const { data, isLoading } = useQuery({
+    queryKey: ['billing-accounting-overview', 'all'],
+    queryFn: () => billingService.getAccountingOverview('all'),
+    enabled: canRead,
   });
+
+  const accounts = data?.data?.accounts ?? [];
 
   const getTypeBadge = (type: string) => {
     const badges: Record<string, { label: string; className: string }> = {
@@ -57,12 +58,31 @@ export default function ComptesPage() {
     return <Badge className={badge.className}>{badge.label}</Badge>;
   };
 
-  const filteredAccounts = accounts?.filter(account => {
+  const filteredAccounts = accounts.filter((account: AccountingAccount) => {
     const matchesSearch = account.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         account.code.includes(searchQuery);
+      account.code.includes(searchQuery);
     const matchesType = typeFilter === 'all' || account.type === typeFilter;
     return matchesSearch && matchesType;
   });
+
+  const totals = accounts.reduce(
+    (accumulator, account) => {
+      if (account.type === 'asset') accumulator.assets += account.balance;
+      if (account.type === 'liability') accumulator.liabilities += account.balance;
+      if (account.type === 'revenue') accumulator.revenues += account.balance;
+      if (account.type === 'expense') accumulator.expenses += account.balance;
+      return accumulator;
+    },
+    { assets: 0, liabilities: 0, revenues: 0, expenses: 0 }
+  );
+
+  if (!canRead) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900">
+        Vous n&apos;avez pas accès au plan comptable.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,7 +106,7 @@ export default function ComptesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Comptes</p>
-              <p className="text-2xl font-bold">{accounts?.length || 0}</p>
+              <p className="text-2xl font-bold">{accounts.length}</p>
             </div>
             <BookOpen className="h-8 w-8 text-blue-500" />
           </div>
@@ -95,9 +115,7 @@ export default function ComptesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Actifs</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {accounts?.filter(a => a.type === 'asset').reduce((sum, a) => sum + a.balance, 0).toLocaleString()}F
-              </p>
+              <p className="text-2xl font-bold text-blue-600">{formatAccountingCurrency(totals.assets)}</p>
             </div>
             <BookOpen className="h-8 w-8 text-blue-500" />
           </div>
@@ -106,9 +124,7 @@ export default function ComptesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Passifs</p>
-              <p className="text-2xl font-bold text-red-600">
-                {Math.abs(accounts?.filter(a => a.type === 'liability').reduce((sum, a) => sum + a.balance, 0) || 0).toLocaleString()}F
-              </p>
+              <p className="text-2xl font-bold text-red-600">{formatAccountingCurrency(totals.liabilities)}</p>
             </div>
             <BookOpen className="h-8 w-8 text-red-500" />
           </div>
@@ -118,8 +134,7 @@ export default function ComptesPage() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Résultat Net</p>
               <p className="text-2xl font-bold text-green-600">
-                {((accounts?.filter(a => a.type === 'revenue').reduce((sum, a) => sum + a.balance, 0) || 0) +
-                 (accounts?.filter(a => a.type === 'expense').reduce((sum, a) => sum + a.balance, 0) || 0)).toLocaleString()}F
+                {formatAccountingCurrency(totals.revenues - totals.expenses)}
               </p>
             </div>
             <BookOpen className="h-8 w-8 text-green-500" />
@@ -170,7 +185,7 @@ export default function ComptesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredAccounts?.map((account) => (
+                {filteredAccounts.map((account) => (
                   <tr key={account.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="py-3 px-4">
                       <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
@@ -178,12 +193,15 @@ export default function ComptesPage() {
                       </code>
                     </td>
                     <td className="py-3 px-4 font-medium">{account.label}</td>
-                    <td className="py-3 px-4">{getTypeBadge(account.type)}</td>
+                    <td className="py-3 px-4">
+                      {getTypeBadge(account.type)}
+                      <div className="mt-1 text-xs text-gray-500">{accountingAccountTypeLabel(account.type)}</div>
+                    </td>
                     <td className={`py-3 px-4 text-right font-semibold ${account.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {account.balance.toLocaleString()}F
+                      {formatAccountingCurrency(account.balance)}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(account.lastTransaction).toLocaleDateString('fr-FR')}
+                      {formatAccountingDate(account.lastTransaction)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
@@ -197,6 +215,13 @@ export default function ComptesPage() {
                     </td>
                   </tr>
                 ))}
+                {!filteredAccounts.length && (
+                  <tr>
+                    <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={6}>
+                      Aucun compte comptable disponible pour ce filtre.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
