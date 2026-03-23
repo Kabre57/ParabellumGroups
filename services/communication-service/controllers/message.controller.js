@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const emailSender = require('../utils/emailSender');
+const emitter = require('../emitter');
 const prisma = new PrismaClient();
 
 const MESSAGE_TYPES = new Set(['EMAIL', 'SMS', 'NOTIFICATION']);
@@ -33,6 +34,7 @@ const messageController = {
           pieceJointe,
         }
       });
+      emitter.emit('message', { destinataireId, message });
       res.status(201).json(message);
     } catch (error) {
       console.error('Erreur creation message:', error);
@@ -148,6 +150,7 @@ const messageController = {
           dateLu: new Date()
         }
       });
+      emitter.emit('message', { destinataireId: message.destinataireId, message });
       res.json(message);
     } catch (error) {
       res.status(500).json({ error: error.message });

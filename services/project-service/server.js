@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const { authenticateUser } = require('./middleware/auth');
 
 const projetRoutes = require('./routes/projet.routes');
 const tacheRoutes = require('./routes/tache.routes');
@@ -15,6 +16,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(authenticateUser);
 
 // Routes
 app.use('/api/projets', projetRoutes);

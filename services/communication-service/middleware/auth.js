@@ -1,25 +1,25 @@
-const axios = require('axios');
+﻿const jwt = require('jsonwebtoken');
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'Token manquant' });
-    }
-
-    // Vérifier le token auprès du service d'authentification
-    const response = await axios.get(`${AUTH_SERVICE_URL}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    req.user = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Non autorisé' });
+  if (!token) {
+    return res.status(401).json({ error: "Token d'authentification manquant" });
   }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'JWT_SECRET non configuré' });
+  }
+
+  jwt.verify(token, secret, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide ou expiré' });
+    }
+    req.user = decoded;
+    next();
+  });
 };
 
-module.exports = authMiddleware;
+module.exports = authenticateToken;

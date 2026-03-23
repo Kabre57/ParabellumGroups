@@ -1,10 +1,14 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const normalizePermissions = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String);
+  return String(value)
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+};
 
-/**
- * Middleware d'authentification JWT
- */
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -13,36 +17,33 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Token d\'authentification manquant' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'JWT_SECRET non configuré' });
+  }
+
+  jwt.verify(token, secret, (err, decoded) => {
     if (err) {
       return res.status(403).json({ error: 'Token invalide ou expiré' });
     }
-
-    req.user = user;
+    req.user = {
+      id: decoded.userId || decoded.id,
+      email: decoded.email || null,
+      role: decoded.role || decoded.roleCode || null,
+      serviceId: decoded.serviceId || null,
+      serviceName: decoded.serviceName || null,
+      permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),
+    };
     next();
   });
 };
 
-/**
- * Middleware de vérification des rôles
- * @param {Array<string>} roles - Liste des rôles autorisés
- */
-const authorizeRoles = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Non authentifié' });
-    }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Accès non autorisé pour ce rôle' });
-    }
-
-    next();
-  };
+const authorizeRoles = (...roles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (roles.length > 0 && !roles.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Accès non autorisé pour ce rôle' });
+  }
+  next();
 };
 
-module.exports = {
-  authenticateToken,
-  authorizeRoles,
-  JWT_SECRET
-};
+module.exports = { authenticateToken, authorizeRoles };

@@ -68,6 +68,11 @@ const createProxy = (target, pathRewriteConfig = {}) => {
         proxyReq.setHeader('X-Correlation-ID', req.correlationId);
       }
 
+      // Allow token via query for SSE/EventSource (Authorization header not set by browser)
+      if (!req.headers['authorization'] && req.query && req.query.token) {
+        proxyReq.setHeader('Authorization', `Bearer ${req.query.token}`);
+      }
+
       fixRequestBody(proxyReq, req, res);
     },
     onError: (err, req, res) => {

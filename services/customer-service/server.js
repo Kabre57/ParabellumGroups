@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const winston = require('winston');
+const { authMiddleware } = require('./middleware/auth');
 
 // Import routes
 const clientRoutes = require('./routes/client.routes');
@@ -48,6 +49,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(authMiddleware);
 
 // Request logging middleware
 app.use((req, res, next) => {

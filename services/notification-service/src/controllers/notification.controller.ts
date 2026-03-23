@@ -1,22 +1,23 @@
-import { Request, Response } from 'express'
-import prisma from '../prisma'
-import nodemailer from 'nodemailer'
+import { Request, Response } from 'express';
+import prisma from '../prisma';
+import nodemailer from 'nodemailer';
+import notificationEmitter from '../emitter';
 
 const isNotificationStorageUnavailable = (error: unknown): boolean => {
-  if (!error || typeof error !== 'object') return false
+  if (!error || typeof error !== 'object') return false;
 
-  const maybeError = error as { name?: string; message?: string; code?: string }
-  const message = maybeError.message || ''
-  const name = maybeError.name || ''
+  const maybeError = error as { name?: string; message?: string; code?: string };
+  const message = maybeError.message || '';
+  const name = maybeError.name || '';
 
   return (
     name.includes('PrismaClientInitializationError') ||
     name.includes('PrismaClientKnownRequestError') ||
     message.includes('does not exist on the database server') ||
-    message.includes('Can\'t reach database server') ||
+    message.includes("Can't reach database server") ||
     message.includes('ECONNREFUSED')
-  )
-}
+  );
+};
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -26,11 +27,11 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-})
+});
 
 export const sendNotification = async (req: Request, res: Response) => {
   try {
-    const { userId, type, title, message, email } = req.body
+    const { userId, type, title, message, email } = req.body;
 
     const notification = await prisma.notification.create({
       data: {
@@ -39,7 +40,10 @@ export const sendNotification = async (req: Request, res: Response) => {
         title,
         message,
       },
-    })
+    });
+
+    // Push to SSE listeners
+    notificationEmitter.emit('notification', { userId, notification });
 
     if (email) {
       try {
@@ -51,18 +55,18 @@ export const sendNotification = async (req: Request, res: Response) => {
             <h2>${title}</h2>
             <p>${message}</p>
           `,
-        })
+        });
       } catch (emailError) {
-        console.error('Email sending error:', emailError)
+        console.error('Email sending error:', emailError);
       }
     }
 
-    res.status(201).json(notification)
+    res.status(201).json(notification);
   } catch (error) {
-    console.error('Send notification error:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    console.error('Send notification error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};
 
 export const getUserNotifications = async (req: Request, res: Response) => {
   try {
@@ -90,7 +94,7 @@ export const getUserNotifications = async (req: Request, res: Response) => {
       }),
     ]);
 
-    res.json({
+    const payload = {
       success: true,
       data: notifications.map((n: any) => ({
         id: n.id,
@@ -102,7 +106,15 @@ export const getUserNotifications = async (req: Request, res: Response) => {
         link: (n.data as any)?.link || undefined,
       })),
       unreadCount,
+    };
+
+    // Emit state sync (non-blocking) for SSE subscribers
+    notificationEmitter.emit('notification', {
+      userId,
+      notification: { type: 'STATE_SYNC', unreadCount, items: payload.data },
     });
+
+    res.json(payload);
   } catch (error) {
     console.error('Get notifications error:', error);
     if (isNotificationStorageUnavailable(error)) {
@@ -118,38 +130,45 @@ export const getUserNotifications = async (req: Request, res: Response) => {
 
 export const markAsRead = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
 
     const notification = await prisma.notification.update({
       where: { id },
       data: { isRead: true },
-    })
+    });
 
-    res.json(notification)
+    notificationEmitter.emit('notification', { userId: notification.userId, notification });
+
+    res.json(notification);
   } catch (error) {
-    console.error('Mark as read error:', error)
+    console.error('Mark as read error:', error);
     if (isNotificationStorageUnavailable(error)) {
-      return res.json({ message: 'Notification storage unavailable, operation skipped' })
+      return res.json({ message: 'Notification storage unavailable, operation skipped' });
     }
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};
 
 export const markAllAsRead = async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params
+    const { userId } = req.params;
 
     await prisma.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true },
-    })
+    });
 
-    res.json({ message: 'All notifications marked as read' })
+    notificationEmitter.emit('notification', {
+      userId,
+      notification: { type: 'ALL_READ' },
+    });
+
+    res.json({ message: 'All notifications marked as read' });
   } catch (error) {
-    console.error('Mark all as read error:', error)
+    console.error('Mark all as read error:', error);
     if (isNotificationStorageUnavailable(error)) {
-      return res.json({ message: 'Notification storage unavailable, operation skipped' })
+      return res.json({ message: 'Notification storage unavailable, operation skipped' });
     }
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};

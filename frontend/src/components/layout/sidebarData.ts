@@ -80,7 +80,8 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Types de Clients', href: '/dashboard/crm/type-clients', icon: Users, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Contacts', href: '/dashboard/crm/contacts', icon: PhoneCall, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Adresses', href: '/dashboard/crm/addresses', icon: Building2, permission: 'customers.read', categoryId: 'crm' },
-  { name: 'Contrats', href: '/dashboard/crm/contracts', icon: FileCheck, permission: 'customers.read', categoryId: 'crm' },
+  { name: 'Contacts Clients', href: '/dashboard/crm/contracts', icon: FileCheck, permission: 'customers.read', categoryId: 'crm' },
+  { name: 'Campagnes Email', href: '/dashboard/crm/email-campaigns', icon: Mail, permission: 'emails.read', categoryId: 'crm' },
   { name: 'Documents', href: '/dashboard/crm/documents', icon: FileText, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Historique Interactions', href: '/dashboard/crm/interactions', icon: MessageSquare, permission: 'customers.read', categoryId: 'crm' },
   { name: 'Opportunités', href: '/dashboard/crm/opportunities', icon: TrendingUp, permission: 'opportunities.read', categoryId: 'crm' },
@@ -116,9 +117,9 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Feuilles de Temps', href: '/dashboard/timesheets', icon: Clock, permission: 'attendance.read', categoryId: 'projects' },
 
   { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchases.read', categoryId: 'procurement', isServiceDashboard: true },
-  { name: 'Devis d\'Achat', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
   { name: 'Catalogue Produits', href: '/dashboard/achats/produits', icon: Package, permission: 'products.read', categoryId: 'procurement' },
   { name: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', icon: Truck, permission: 'suppliers.read', categoryId: 'procurement' },
+  { name: 'Devis d\'Achat', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
   { name: 'Commandes d\'Achat', href: '/dashboard/achats/commandes', icon: ShoppingCart, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Réceptions', href: '/dashboard/achats/receptions', icon: ClipboardList, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Gestion des Stocks', href: '/dashboard/achats/stock', icon: Warehouse, permission: 'inventory.read', categoryId: 'procurement' },
@@ -134,8 +135,6 @@ export const sidebarItems: SidebarItem[] = [
 
   { name: 'Dashboard Communication', href: '/dashboard/messages', icon: Home, permission: 'messages.read', categoryId: 'communication', isServiceDashboard: true },
   { name: 'Messagerie Interne', href: '/dashboard/messages', icon: MessageSquare, permission: 'messages.read', categoryId: 'communication' },
-  { name: 'Contacts Clients', href: '/dashboard/contacts', icon: PhoneCall, permission: 'customers.read', categoryId: 'communication' },
-  { name: 'Campagnes Email', href: '/dashboard/crm/email-campaigns', icon: Mail, permission: 'emails.read', categoryId: 'communication' },
 ];
 
 export const employeeProjectShortcuts: SidebarItem[] = [
