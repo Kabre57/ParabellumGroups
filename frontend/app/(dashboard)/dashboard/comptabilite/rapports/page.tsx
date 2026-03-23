@@ -10,6 +10,7 @@ import { getCrudVisibility } from '@/shared/action-visibility';
 import billingService from '@/shared/api/billing';
 import { formatAccountingCurrency, formatAccountingPercent } from '@/components/accounting/accountingFormat';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import { exportAccountsCsv, exportEntriesCsv, exportTreasuryCsv, printAccountingReport } from '@/components/accounting/accountingExport';
 
 export default function RapportsPage() {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ export default function RapportsPage() {
   const treasury = reports?.treasury;
   const commitments = reports?.commitments;
   const kpis = reports?.kpis;
+  const overview = data?.data;
 
   if (!canRead) {
     return (
@@ -62,10 +64,23 @@ export default function RapportsPage() {
             <option value="year">Cette année</option>
           </select>
           {canExport && (
-            <Button className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Exporter PDF
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => overview && exportAccountsCsv(overview.accounts, `plan-comptable-${period}.csv`)}
+              >
+                <Download className="h-4 w-4" />
+                Exporter Excel
+              </Button>
+              <Button
+                className="flex items-center gap-2"
+                onClick={() => overview && printAccountingReport('Rapports comptables', overview)}
+              >
+                <Download className="h-4 w-4" />
+                Exporter PDF
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -81,7 +96,11 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <BarChart3 className="h-8 w-8 text-blue-500" />
-            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
+            {canExport && (
+              <Button size="sm" variant="outline" onClick={() => overview && exportAccountsCsv(overview.accounts, `bilan-${period}.csv`)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
           </div>
           <h3 className="font-semibold mb-1">Bilan Comptable</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -92,7 +111,11 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <TrendingUp className="h-8 w-8 text-green-500" />
-            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
+            {canExport && (
+              <Button size="sm" variant="outline" onClick={() => overview && exportEntriesCsv(overview.entries, `resultat-${period}.csv`)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
           </div>
           <h3 className="font-semibold mb-1">Compte de Résultat</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -103,7 +126,11 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <DollarSign className="h-8 w-8 text-purple-500" />
-            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
+            {canExport && (
+              <Button size="sm" variant="outline" onClick={() => overview && exportTreasuryCsv(overview.treasuryMovements, `tresorerie-${period}.csv`)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
           </div>
           <h3 className="font-semibold mb-1">Tableau de Trésorerie</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -114,7 +141,11 @@ export default function RapportsPage() {
         <Card className="p-4 cursor-pointer hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <FileText className="h-8 w-8 text-orange-500" />
-            {canExport && <Button size="sm" variant="outline"><Download className="h-3 w-3" /></Button>}
+            {canExport && (
+              <Button size="sm" variant="outline" onClick={() => overview && printAccountingReport('Analyse financière', overview)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
           </div>
           <h3 className="font-semibold mb-1">Analyse Financière</h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">

@@ -1,80 +1,15 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
+const {
+  amount,
+  ensureAccountingReadAccess,
+  ensureDefaultAccounts,
+  resolveDateRange,
+  computeSignedDelta,
+  serializeAccountingAccount,
+  serializeJournalEntry,
+} = require('../utils/accounting');
 
 const prisma = new PrismaClient();
-
-const normalizePermissions = (permissions = []) =>
-  (Array.isArray(permissions) ? permissions : [permissions])
-    .map((permission) => String(permission || '').trim().toLowerCase())
-    .filter(Boolean);
-
-const isAdminUser = (user) => {
-  const role = String(user?.role || user?.roleCode || '').toUpperCase();
-  return ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR'].includes(role);
-};
-
-const hasPermission = (user, ...permissions) => {
-  if (isAdminUser(user)) return true;
-  const permissionSet = new Set(normalizePermissions(user?.permissions));
-  return permissions.some((permission) => permissionSet.has(String(permission).toLowerCase()));
-};
-
-const ensureAccountingReadAccess = (req) => {
-  if (
-    hasPermission(
-      req.user,
-      'reports.read_financial',
-      'expenses.read',
-      'expenses.read_all',
-      'expenses.read_own',
-      'payments.read',
-      'payments.read_all',
-      'invoices.read'
-    )
-  ) {
-    return null;
-  }
-
-  return {
-    status: 403,
-    body: {
-      success: false,
-      message: 'Vous n avez pas la permission de consulter les données comptables',
-    },
-  };
-};
-
-const resolveStartDate = (period) => {
-  const now = new Date();
-  const start = new Date(now);
-
-  switch (String(period || '').toLowerCase()) {
-    case 'week':
-      start.setDate(now.getDate() - 7);
-      return start;
-    case 'month':
-      start.setMonth(now.getMonth() - 1);
-      return start;
-    case 'quarter':
-      start.setMonth(now.getMonth() - 3);
-      return start;
-    case 'year':
-      start.setFullYear(now.getFullYear() - 1);
-      return start;
-    default:
-      return null;
-  }
-};
-
-const amount = (value) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const formatDateKey = (value) => {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
-  return date.toISOString().slice(0, 10);
-};
 
 const pushMovement = (bucket, movement) => {
   bucket.push({
@@ -91,6 +26,20 @@ const pushMovement = (bucket, movement) => {
 };
 
 const buildEntryId = (...parts) => parts.filter(Boolean).join('-');
+
+const buildDateWhere = (field, startDate, endDate) => {
+  if (!startDate && !endDate) return {};
+
+  const where = {};
+  if (startDate) {
+    where.gte = startDate;
+  }
+  if (endDate) {
+    where.lte = endDate;
+  }
+
+  return { [field]: where };
+};
 
 const expenseAccountCode = (voucher) => {
   const category = String(voucher.expenseCategory || '').toLowerCase();
@@ -114,6 +63,44 @@ const treasuryAccountCode = (paymentMethod) =>
     ? { code: '531', label: 'Caisse' }
     : { code: '512', label: 'Banque' };
 
+const mergeAccounts = (persistedAccounts, dynamicAccounts) => {
+  const accountMap = new Map();
+
+  persistedAccounts.forEach((account) => {
+    const serialized = serializeAccountingAccount(account);
+    accountMap.set(serialized.code, {
+      ...serialized,
+      movementCount: 0,
+      lastTransaction: serialized.lastTransaction,
+    });
+  });
+
+  dynamicAccounts.forEach((account) => {
+    const existing = accountMap.get(account.code);
+    if (existing) {
+      const existingTime = existing.lastTransaction ? new Date(existing.lastTransaction).getTime() : 0;
+      const dynamicTime = account.lastTransaction ? new Date(account.lastTransaction).getTime() : 0;
+      accountMap.set(account.code, {
+        ...existing,
+        label: existing.label || account.label,
+        type: existing.type || account.type,
+        balance: amount(existing.balance) + amount(account.balance),
+        currentBalance: amount(existing.currentBalance) + amount(account.balance),
+        movementCount: amount(existing.movementCount) + amount(account.movementCount),
+        lastTransaction: dynamicTime > existingTime ? account.lastTransaction : existing.lastTransaction,
+      });
+      return;
+    }
+
+    accountMap.set(account.code, {
+      ...account,
+      currentBalance: account.balance,
+    });
+  });
+
+  return [...accountMap.values()].sort((left, right) => left.code.localeCompare(right.code, 'fr'));
+};
+
 exports.getAccountingOverview = async (req, res) => {
   try {
     const accessError = ensureAccountingReadAccess(req);
@@ -121,17 +108,29 @@ exports.getAccountingOverview = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    const startDate = resolveStartDate(req.query.period);
-    const invoiceWhere = startDate ? { dateEmission: { gte: startDate } } : {};
-    const paymentWhere = startDate ? { datePaiement: { gte: startDate } } : {};
-    const commitmentWhere = startDate ? { createdAt: { gte: startDate } } : {};
-    const voucherWhere = startDate
-      ? {
-          OR: [{ issueDate: { gte: startDate } }, { disbursementDate: { gte: startDate } }],
-        }
-      : {};
+    await ensureDefaultAccounts(prisma, req.user);
 
-    const [factures, paiements, commitments, vouchers] = await Promise.all([
+    const { startDate, endDate, periodLabel } = resolveDateRange({
+      period: req.query.period,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    });
+
+    const invoiceWhere = buildDateWhere('dateEmission', startDate, endDate);
+    const paymentWhere = buildDateWhere('datePaiement', startDate, endDate);
+    const commitmentWhere = buildDateWhere('createdAt', startDate, endDate);
+    const voucherWhere =
+      !startDate && !endDate
+        ? {}
+        : {
+            OR: [
+              buildDateWhere('issueDate', startDate, endDate),
+              buildDateWhere('disbursementDate', startDate, endDate),
+            ],
+          };
+    const journalEntryWhere = buildDateWhere('entryDate', startDate, endDate);
+
+    const [factures, paiements, commitments, vouchers, persistedAccounts, manualJournalEntries] = await Promise.all([
       prisma.facture.findMany({
         where: invoiceWhere,
         include: { paiements: true, lignes: true },
@@ -149,6 +148,20 @@ exports.getAccountingOverview = async (req, res) => {
       prisma.cashVoucher.findMany({
         where: voucherWhere,
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
+      }),
+      prisma.accountingAccount.findMany({
+        where: { isActive: true },
+        orderBy: [{ code: 'asc' }],
+      }),
+      prisma.accountingJournalEntry.findMany({
+        where: journalEntryWhere,
+        include: {
+          lines: {
+            include: { account: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
 
@@ -198,10 +211,7 @@ exports.getAccountingOverview = async (req, res) => {
       .filter((item) => !['ANNULE', 'LIVRE', 'PAYEE'].includes(String(item.status)))
       .reduce((sum, item) => sum + amount(item.amountTTC), 0);
 
-    const netResult = totalRevenue - totalExpenseHT;
-    const equityAmount = Math.max(netResult, 0);
-
-    const accounts = [
+    const dynamicAccounts = [
       {
         id: 'account-512',
         code: '512',
@@ -303,11 +313,29 @@ exports.getAccountingOverview = async (req, res) => {
         code: '101',
         label: 'Capital et résultat',
         type: 'equity',
-        balance: equityAmount,
+        balance: Math.max(totalRevenue - totalExpenseHT, 0),
         lastTransaction: new Date().toISOString(),
         movementCount: 1,
       },
     ];
+
+    const mergedAccounts = mergeAccounts(persistedAccounts, dynamicAccounts);
+
+    const manualEntries = manualJournalEntries.map(serializeJournalEntry);
+    const manualDeltasByType = manualJournalEntries.reduce(
+      (accumulator, entry) => {
+        entry.lines.forEach((line) => {
+          const accountType = String(line.account?.type || '').toLowerCase();
+          const delta = computeSignedDelta(line.account?.type, line.side, line.amount);
+
+          if (accountType === 'revenue') accumulator.revenue += delta;
+          if (accountType === 'expense') accumulator.expense += delta;
+        });
+
+        return accumulator;
+      },
+      { revenue: 0, expense: 0 }
+    );
 
     const movements = [];
 
@@ -341,17 +369,37 @@ exports.getAccountingOverview = async (req, res) => {
       });
     });
 
-    const orderedMovements = movements.sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-    let runningBalance = 0;
-    const movementsChronological = [...orderedMovements].reverse().map((movement) => {
-      runningBalance += movement.type === 'income' ? movement.amount : -movement.amount;
-      return {
-        ...movement,
-        balance: runningBalance,
-      };
+    manualJournalEntries.forEach((entry) => {
+      entry.lines
+        .filter((line) => ['512', '531'].includes(String(line.account?.code || '')))
+        .forEach((line) => {
+          pushMovement(movements, {
+            id: `manual-${entry.id}-${line.id}`,
+            date: entry.entryDate,
+            type: line.side === AccountingEntrySide.DEBIT ? 'income' : 'expense',
+            category: line.account.code === '531' ? 'Mouvement de caisse' : 'Mouvement bancaire',
+            description: `${entry.journalCode} - ${entry.label}`,
+            amount: amount(line.amount),
+            reference: entry.reference || entry.entryNumber,
+            sourceType: entry.sourceType || 'MANUAL_ENTRY',
+            paymentMethod: line.account.code === '531' ? 'ESPECES' : 'VIREMENT',
+          });
+        });
     });
 
-    const treasuryMovements = movementsChronological.reverse();
+    const movementsChronological = [...movements].sort(
+      (left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()
+    );
+    let runningBalance = 0;
+    const treasuryMovements = movementsChronological
+      .map((movement) => {
+        runningBalance += movement.type === 'income' ? movement.amount : -movement.amount;
+        return {
+          ...movement,
+          balance: runningBalance,
+        };
+      })
+      .reverse();
 
     const entries = [];
 
@@ -440,18 +488,22 @@ exports.getAccountingOverview = async (req, res) => {
         }
       });
 
-    const orderedEntries = entries.sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+    const orderedEntries = [...entries, ...manualEntries].sort(
+      (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
+    );
 
-    const assets = accounts.filter((account) => ['asset'].includes(account.type));
-    const liabilities = accounts.filter((account) => ['liability'].includes(account.type));
-    const equity = accounts.filter((account) => account.type === 'equity');
-    const revenues = accounts.filter((account) => account.type === 'revenue');
-    const expenses = accounts.filter((account) => account.type === 'expense');
+    const assets = mergedAccounts.filter((account) => account.type === 'asset');
+    const liabilities = mergedAccounts.filter((account) => account.type === 'liability');
+    const equity = mergedAccounts.filter((account) => account.type === 'equity');
+    const revenues = mergedAccounts.filter((account) => account.type === 'revenue');
+    const expenses = mergedAccounts.filter((account) => account.type === 'expense');
 
     const totalAssets = assets.reduce((sum, account) => sum + amount(account.balance), 0);
     const totalLiabilities = liabilities.reduce((sum, account) => sum + amount(account.balance), 0);
     const totalEquity = equity.reduce((sum, account) => sum + amount(account.balance), 0);
-    const totalExpenses = expenses.reduce((sum, account) => sum + amount(account.balance), 0);
+    const reportedRevenue = totalRevenue + manualDeltasByType.revenue;
+    const reportedExpenses = totalExpenseHT + manualDeltasByType.expense;
+    const reportedNetResult = reportedRevenue - reportedExpenses;
 
     const paymentMethodBreakdown = vouchers.reduce((accumulator, voucher) => {
       const key = String(voucher.paymentMethod || 'AUTRE').toUpperCase();
@@ -479,9 +531,9 @@ exports.getAccountingOverview = async (req, res) => {
       incomeStatement: {
         revenues,
         expenses,
-        totalRevenue,
-        totalExpenses,
-        netResult,
+        totalRevenue: reportedRevenue,
+        totalExpenses: reportedExpenses,
+        netResult: reportedNetResult,
       },
       treasury: {
         inflows: totalReceived,
@@ -495,8 +547,8 @@ exports.getAccountingOverview = async (req, res) => {
         byCategory: expenseCategoryBreakdown,
       },
       kpis: {
-        netMargin: totalRevenue > 0 ? (netResult / totalRevenue) * 100 : 0,
-        collectionRate: totalRevenue > 0 ? (totalReceived / (totalRevenue + totalCollectedVat)) * 100 : 0,
+        netMargin: reportedRevenue > 0 ? (reportedNetResult / reportedRevenue) * 100 : 0,
+        collectionRate: reportedRevenue > 0 ? (totalReceived / Math.max(reportedRevenue + totalCollectedVat, 1)) * 100 : 0,
         disbursementCoverage: totalCommitted > 0 ? (totalDisbursed / totalCommitted) * 100 : 0,
       },
     };
@@ -504,30 +556,32 @@ exports.getAccountingOverview = async (req, res) => {
     return res.json({
       success: true,
       data: {
-        period: req.query.period || 'all',
+        period: periodLabel,
+        startDate: startDate ? startDate.toISOString() : null,
+        endDate: endDate ? endDate.toISOString() : null,
         generatedAt: new Date().toISOString(),
         summary: {
-          totalRevenue,
+          totalRevenue: reportedRevenue,
           totalReceived,
-          totalExpenseHT,
+          totalExpenseHT: reportedExpenses,
           totalDisbursed,
           clientReceivables,
           supplierLiabilities,
           totalCommitted,
           pendingCommitted,
-          netResult,
+          netResult: reportedNetResult,
         },
-        accounts,
+        accounts: mergedAccounts,
         treasuryMovements,
         entries: orderedEntries,
         reports,
       },
     });
   } catch (error) {
-    console.error('Erreur overview comptable:', error.message);
+    console.error('Erreur récupération overview comptable:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des données comptables',
+      message: 'Erreur lors de la génération de la vue comptable',
     });
   }
 };

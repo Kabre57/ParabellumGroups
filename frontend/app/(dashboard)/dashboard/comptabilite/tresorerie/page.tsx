@@ -9,10 +9,14 @@ import billingService, { type AccountingMovement } from '@/shared/api/billing';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { AccountingDateRangeDialog } from '@/components/accounting/AccountingDateRangeDialog';
+import { exportTreasuryCsv } from '@/components/accounting/accountingExport';
 
 export default function TresoreriePage() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
+  const [customRange, setCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -21,8 +25,8 @@ export default function TresoreriePage() {
     );
 
   const { data, isLoading } = useQuery({
-    queryKey: ['cash-flows', period],
-    queryFn: () => billingService.getAccountingOverview(period),
+    queryKey: ['cash-flows', period, customRange?.startDate || null, customRange?.endDate || null],
+    queryFn: () => billingService.getAccountingOverview(period, customRange || undefined),
     enabled: canRead,
   });
 
@@ -52,7 +56,10 @@ export default function TresoreriePage() {
         <div className="flex gap-2">
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value as 'week' | 'month' | 'quarter' | 'year' | 'all')}
+            onChange={(e) => {
+              setPeriod(e.target.value as 'week' | 'month' | 'quarter' | 'year' | 'all');
+              setCustomRange(null);
+            }}
             className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
           >
             <option value="week">Cette semaine</option>
@@ -60,9 +67,12 @@ export default function TresoreriePage() {
             <option value="quarter">Ce trimestre</option>
             <option value="year">Cette année</option>
           </select>
-          <Button className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => exportTreasuryCsv(cashFlows)}>
+            Exporter Excel
+          </Button>
+          <Button className="flex items-center gap-2" onClick={() => setDialogOpen(true)}>
             <Calendar className="h-4 w-4" />
-            Personnalisé
+            {customRange?.startDate || customRange?.endDate ? 'Plage active' : 'Personnalisé'}
           </Button>
         </div>
       </div>
@@ -177,6 +187,15 @@ export default function TresoreriePage() {
           </div>
         )}
       </Card>
+
+      <AccountingDateRangeDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        defaultRange={customRange}
+        onApply={(range) => {
+          setCustomRange(range.startDate || range.endDate ? range : null);
+        }}
+      />
     </div>
   );
 }

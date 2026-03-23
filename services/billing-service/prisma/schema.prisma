@@ -183,6 +183,69 @@ model BillingProcessedEvent {
   @@map("billing_processed_events")
 }
 
+model AccountingAccount {
+  id              String                @id @default(uuid())
+  code            String                @unique
+  label           String
+  type            AccountingAccountType
+  description     String?
+  isSystem        Boolean               @default(false)
+  isActive        Boolean               @default(true)
+  openingBalance  Float                 @default(0)
+  currentBalance  Float                 @default(0)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  journalLines    AccountingJournalLine[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("accounting_accounts")
+}
+
+model AccountingJournalEntry {
+  id              String                  @id @default(uuid())
+  entryNumber     String                  @unique
+  entryDate       DateTime                @default(now())
+  journalCode     String
+  journalLabel    String
+  label           String
+  reference       String?
+  sourceType      String?
+  sourceId        String?
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  lines           AccountingJournalLine[]
+
+  @@index([entryDate])
+  @@index([journalCode])
+  @@map("accounting_journal_entries")
+}
+
+model AccountingJournalLine {
+  id          String                 @id @default(uuid())
+  entryId     String
+  accountId   String
+  side        AccountingEntrySide
+  amount      Float
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  entry       AccountingJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account     AccountingAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([side])
+  @@map("accounting_journal_lines")
+}
+
 enum FactureStatus {
   BROUILLON
   EMISE
@@ -212,4 +275,17 @@ enum CashVoucherStatus {
   VALIDE
   DECAISSE
   ANNULE
+}
+
+enum AccountingAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountingEntrySide {
+  DEBIT
+  CREDIT
 }

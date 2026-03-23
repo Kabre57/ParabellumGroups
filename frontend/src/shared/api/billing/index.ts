@@ -169,7 +169,12 @@ export interface AccountingAccount {
   code: string;
   label: string;
   type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  description?: string | null;
+  isSystem?: boolean;
+  isActive?: boolean;
+  openingBalance?: number;
   balance: number;
+  currentBalance?: number;
   lastTransaction?: string | null;
   movementCount?: number;
 }
@@ -189,12 +194,15 @@ export interface AccountingMovement {
 
 export interface AccountingEntry {
   id: string;
+  entryNumber?: string;
   date: string;
   journalCode: string;
   journalLabel: string;
   accountDebit: string;
+  accountDebitId?: string | null;
   accountDebitLabel: string;
   accountCredit: string;
+  accountCreditId?: string | null;
   accountCreditLabel: string;
   label: string;
   debit: number;
@@ -202,6 +210,7 @@ export interface AccountingEntry {
   reference: string;
   sourceType?: string | null;
   sourceId?: string | null;
+  createdAt?: string;
 }
 
 export interface AccountingReports {
@@ -240,6 +249,8 @@ export interface AccountingReports {
 
 export interface AccountingOverview {
   period: string;
+  startDate?: string | null;
+  endDate?: string | null;
   generatedAt: string;
   summary: {
     totalRevenue: number;
@@ -572,11 +583,59 @@ export const billingService = {
     return normalizeStatsResponse<SpendingOverview>(response.data);
   },
 
-  async getAccountingOverview(period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all'): Promise<{ success: boolean; data: AccountingOverview }> {
+  async getAccountingOverview(
+    period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all',
+    params?: { startDate?: string; endDate?: string }
+  ): Promise<{ success: boolean; data: AccountingOverview }> {
     const response = await apiClient.get('/billing/accounting/overview', {
-      params: { period },
+      params: {
+        period,
+        ...params,
+      },
     });
     return normalizeStatsResponse<AccountingOverview>(response.data);
+  },
+
+  async getAccountingAccounts(): Promise<ListResponse<AccountingAccount>> {
+    const response = await apiClient.get('/billing/accounting/accounts');
+    return normalizeListResponse<AccountingAccount>(response.data);
+  },
+
+  async createAccountingAccount(data: {
+    code: string;
+    label: string;
+    type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+    description?: string;
+    openingBalance?: number;
+  }): Promise<DetailResponse<AccountingAccount>> {
+    const response = await apiClient.post('/billing/accounting/accounts', data);
+    return normalizeDetailResponse<AccountingAccount>(response.data);
+  },
+
+  async getAccountingEntries(params?: {
+    period?: 'week' | 'month' | 'quarter' | 'year' | 'all';
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  }): Promise<ListResponse<AccountingEntry>> {
+    const response = await apiClient.get('/billing/accounting/entries', { params });
+    return normalizeListResponse<AccountingEntry>(response.data);
+  },
+
+  async createAccountingEntry(data: {
+    entryDate?: string;
+    journalCode?: string;
+    journalLabel?: string;
+    label: string;
+    reference?: string;
+    debitAccountId: string;
+    creditAccountId: string;
+    amount: number;
+    sourceType?: string;
+    sourceId?: string;
+  }): Promise<DetailResponse<AccountingEntry>> {
+    const response = await apiClient.post('/billing/accounting/entries', data);
+    return normalizeDetailResponse<AccountingEntry>(response.data);
   },
 };
 

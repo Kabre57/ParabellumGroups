@@ -1,21 +1,26 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Plus, Search, Eye } from 'lucide-react';
+import { FileText, Plus, Search, Eye, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import billingService, { type AccountingEntry } from '@/shared/api/billing';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
+import { CreateJournalEntryDialog } from '@/components/accounting/CreateJournalEntryDialog';
+import { exportEntriesCsv } from '@/components/accounting/accountingExport';
 
 export default function EcrituresPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -33,7 +38,28 @@ export default function EcrituresPage() {
     enabled: canRead,
   });
 
+  const { data: accountsData } = useQuery({
+    queryKey: ['billing-accounting-accounts'],
+    queryFn: () => billingService.getAccountingAccounts(),
+    enabled: canCreate,
+  });
+
+  const createEntryMutation = useMutation({
+    mutationFn: billingService.createAccountingEntry,
+    onSuccess: () => {
+      toast.success('Écriture comptable créée avec succès.');
+      setCreateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['accounting-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création de l écriture comptable.');
+    },
+  });
+
   const entries = data?.data?.entries ?? [];
+  const accounts = accountsData?.data ?? [];
 
   const filteredEntries = entries.filter((entry: AccountingEntry) =>
     entry.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,9 +89,20 @@ export default function EcrituresPage() {
           </p>
         </div>
         {canCreate && (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nouvelle Écriture
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => exportEntriesCsv(filteredEntries)}>
+              Exporter Excel
+            </Button>
+            <Button className="flex items-center gap-2" onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nouvelle Écriture
+            </Button>
+          </div>
+        )}
+        {!canCreate && (
+          <Button variant="outline" onClick={() => exportEntriesCsv(filteredEntries)}>
+            <Download className="h-4 w-4" />
+            Exporter Excel
           </Button>
         )}
       </div>
@@ -201,6 +238,16 @@ export default function EcrituresPage() {
           </div>
         )}
       </Card>
+
+      <CreateJournalEntryDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        accounts={accounts}
+        onSubmit={async (payload) => {
+          await createEntryMutation.mutateAsync(payload);
+        }}
+        isSubmitting={createEntryMutation.isPending}
+      />
     </div>
   );
 }

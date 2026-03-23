@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Plus, Search, Edit } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import billingService, { type AccountingAccount } from '@/shared/api/billing';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import { CreateAccountingAccountDialog } from '@/components/accounting/CreateAccountingAccountDialog';
 import {
   accountingAccountTypeLabel,
   formatAccountingCurrency,
@@ -19,8 +21,10 @@ import {
 
 export default function ComptesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -42,6 +46,19 @@ export default function ComptesPage() {
     queryKey: ['billing-accounting-overview', 'all'],
     queryFn: () => billingService.getAccountingOverview('all'),
     enabled: canRead,
+  });
+
+  const createAccountMutation = useMutation({
+    mutationFn: billingService.createAccountingAccount,
+    onSuccess: () => {
+      toast.success('Compte comptable créé avec succès.');
+      setCreateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création du compte comptable.');
+    },
   });
 
   const accounts = data?.data?.accounts ?? [];
@@ -94,7 +111,7 @@ export default function ComptesPage() {
           </p>
         </div>
         {canCreate && (
-          <Button className="flex items-center gap-2">
+          <Button className="flex items-center gap-2" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4" />
             Nouveau Compte
           </Button>
@@ -227,6 +244,15 @@ export default function ComptesPage() {
           </div>
         )}
       </Card>
+
+      <CreateAccountingAccountDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSubmit={async (payload) => {
+          await createAccountMutation.mutateAsync(payload);
+        }}
+        isSubmitting={createAccountMutation.isPending}
+      />
     </div>
   );
 }
