@@ -31,6 +31,8 @@ const normalizeQuoteLines = (lignes = []) =>
     ? lignes.map(buildQuoteLine).filter((ligne) => ligne.designation && ligne.quantite > 0)
     : [];
 
+const normalizeProformaLines = normalizeQuoteLines;
+
 const calculateTotals = (lignes = []) => {
   const montantHT = roundCurrency(lignes.reduce((sum, ligne) => sum + normalizeNumber(ligne.montantHT), 0));
   const montantTTC = roundCurrency(lignes.reduce((sum, ligne) => sum + normalizeNumber(ligne.montantTTC), 0));
@@ -72,8 +74,65 @@ const fetchServiceMeta = async (req, serviceId, fallbackName = null) => {
   }
 };
 
+const serializeProforma = (proforma = {}) => ({
+  id: proforma.id,
+  numeroProforma: proforma.numeroProforma,
+  title: proforma.titre || proforma.numeroProforma,
+  titre: proforma.titre || null,
+  demandeAchatId: proforma.demandeAchatId,
+  fournisseurId: proforma.fournisseurId,
+  fournisseurNom: proforma.fournisseur?.nom || null,
+  devise: proforma.devise || 'XOF',
+  montantHT: Number(proforma.montantHT ?? 0),
+  montantTVA: Number(proforma.montantTVA ?? 0),
+  montantTTC: Number(proforma.montantTTC ?? 0),
+  status: proforma.status || 'BROUILLON',
+  notes: proforma.notes || null,
+  submittedAt: proforma.submittedAt || null,
+  approvedAt: proforma.approvedAt || null,
+  approvedByUserId: proforma.approvedByUserId || null,
+  approvedByServiceId: proforma.approvedByServiceId ?? null,
+  approvedByServiceName: proforma.approvedByServiceName || null,
+  rejectionReason: proforma.rejectionReason || null,
+  selectedForOrder: Boolean(proforma.selectedForOrder),
+  bonCommandeId: proforma.bonCommande?.id || null,
+  numeroBon: proforma.bonCommande?.numeroBon || null,
+  createdAt: proforma.createdAt,
+  updatedAt: proforma.updatedAt,
+  lignes: Array.isArray(proforma.lignes)
+    ? proforma.lignes.map((ligne) => ({
+        id: ligne.id,
+        articleId: ligne.articleId || null,
+        referenceArticle: ligne.referenceArticle || null,
+        designation: ligne.designation,
+        categorie: ligne.categorie || null,
+        quantite: ligne.quantite,
+        prixUnitaire: Number(ligne.prixUnitaire ?? 0),
+        tva: Number(ligne.tva ?? 0),
+        montantHT: Number(ligne.montantHT ?? 0),
+        montantTTC: Number(ligne.montantTTC ?? 0),
+      }))
+    : [],
+  approvalHistory: Array.isArray(proforma.approvalLogs)
+    ? proforma.approvalLogs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        fromStatus: log.fromStatus,
+        toStatus: log.toStatus,
+        actorUserId: log.actorUserId || null,
+        actorEmail: log.actorEmail || null,
+        actorServiceId: log.actorServiceId ?? null,
+        actorServiceName: log.actorServiceName || null,
+        commentaire: log.commentaire || null,
+        createdAt: log.createdAt,
+      }))
+    : [],
+});
+
 const serializeQuote = (demande = {}) => {
   const bonCommande = Array.isArray(demande.bonsCommande) ? demande.bonsCommande[0] : demande.bonsCommande || null;
+  const proformas = Array.isArray(demande.proformas) ? demande.proformas.map(serializeProforma) : [];
+  const selectedProforma = proformas.find((proforma) => proforma.selectedForOrder) || null;
 
   return {
     id: demande.id,
@@ -102,6 +161,10 @@ const serializeQuote = (demande = {}) => {
         ? 'EN_ATTENTE_VALIDATION'
         : demande.status === 'APPROUVEE'
         ? 'VALIDEE'
+        : demande.status === 'PROFORMA_SOUMISE'
+        ? 'PROFORMA_EN_ATTENTE_VALIDATION'
+        : demande.status === 'PROFORMA_APPROUVEE'
+        ? 'PROFORMA_VALIDEE'
         : demande.status,
     notes: demande.notes || null,
     submittedAt: demande.submittedAt,
@@ -112,6 +175,8 @@ const serializeQuote = (demande = {}) => {
     rejectionReason: demande.rejectionReason || null,
     bonCommandeId: bonCommande?.id || null,
     numeroBon: bonCommande?.numeroBon || null,
+    selectedProformaId: selectedProforma?.id || null,
+    selectedProformaNumber: selectedProforma?.numeroProforma || null,
     createdAt: demande.createdAt,
     updatedAt: demande.updatedAt,
     fournisseur: demande.fournisseur
@@ -150,6 +215,7 @@ const serializeQuote = (demande = {}) => {
           createdAt: log.createdAt,
         }))
       : [],
+    proformas,
   };
 };
 
@@ -160,6 +226,8 @@ const serializeOrder = (bon = {}) => ({
   sourceDevisAchatId: bon.demandeAchatId || null,
   requestId: bon.demandeAchatId || null,
   requestNumber: bon.demandeAchat?.numeroDemande || null,
+  proformaId: bon.proformaId || null,
+  proformaNumber: bon.proforma?.numeroProforma || null,
   serviceId: bon.serviceId ?? null,
   serviceName: bon.serviceName || null,
   supplierId: bon.fournisseurId,
@@ -200,8 +268,10 @@ module.exports = {
   normalizeNumber,
   buildQuoteLine,
   normalizeQuoteLines,
+  normalizeProformaLines,
   calculateTotals,
   fetchServiceMeta,
+  serializeProforma,
   serializeQuote,
   serializeOrder,
 };

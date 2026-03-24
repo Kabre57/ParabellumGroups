@@ -87,6 +87,9 @@ const requestStatusLabels: Record<PurchaseRequestStatus, string> = {
   SOUMISE: 'Soumise',
   APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetee',
+  PROFORMAS_EN_COURS: 'Proformas en préparation',
+  PROFORMA_SOUMISE: 'Proforma soumise DG',
+  PROFORMA_APPROUVEE: 'Proforma validée',
   COMMANDEE: 'Convertie en BC',
 };
 
@@ -103,6 +106,12 @@ const getRequestStatusVariant = (status: PurchaseRequestStatus): DashboardBadgeV
     case 'SOUMISE':
       return 'warning';
     case 'APPROUVEE':
+      return 'success';
+    case 'PROFORMAS_EN_COURS':
+      return 'outline';
+    case 'PROFORMA_SOUMISE':
+      return 'warning';
+    case 'PROFORMA_APPROUVEE':
       return 'success';
     case 'COMMANDEE':
       return 'success';
@@ -195,7 +204,7 @@ export default function ProcurementOverviewPage() {
   const approveMutation = useMutation({
     mutationFn: (id: string) => procurementService.approveRequest(id, 'Approuve depuis le dashboard achats'),
     onSuccess: () => {
-      toast.success('La demande a été validée. Le service achat peut maintenant préparer le bon de commande.');
+      toast.success('La DPA a été validée. Le service achat peut maintenant enregistrer les proformas.');
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-orders'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-commitments'] });
@@ -205,7 +214,7 @@ export default function ProcurementOverviewPage() {
       queryClient.invalidateQueries({ queryKey: ['purchaseCommitmentStats'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de l\'approbation du devis d\'achat.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de l\'approbation de la DPA.');
     },
   });
 
@@ -213,12 +222,12 @@ export default function ProcurementOverviewPage() {
     mutationFn: ({ id, commentaire }: { id: string; commentaire: string }) =>
       procurementService.rejectRequest(id, commentaire),
     onSuccess: () => {
-      toast.success('Le devis d\'achat a ete rejete.');
+      toast.success('La DPA a ete rejetee.');
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors du rejet du devis d\'achat.');
+      toast.error(error?.response?.data?.message || 'Erreur lors du rejet de la DPA.');
     },
   });
 
@@ -292,6 +301,11 @@ export default function ProcurementOverviewPage() {
 
   const pendingApprovalRequests = useMemo(
     () => filteredRequests.filter((request) => request.status === 'SOUMISE'),
+    [filteredRequests]
+  );
+
+  const pendingProformaApprovals = useMemo(
+    () => filteredRequests.filter((request) => request.status === 'PROFORMA_SOUMISE'),
     [filteredRequests]
   );
 
@@ -426,9 +440,9 @@ export default function ProcurementOverviewPage() {
       },
       {
         key: 'approval' as const,
-        label: 'A approuver',
-        value: pendingApprovalRequests.length,
-        description: 'File d attente d approbation',
+        label: 'Validations DG',
+        value: pendingApprovalRequests.length + pendingProformaApprovals.length,
+        description: 'DPA et proformas en attente',
         icon: FileClock,
         accent: 'text-amber-600',
       },
@@ -480,6 +494,7 @@ export default function ProcurementOverviewPage() {
       draftRequests.length,
       filteredCommitments,
       pendingApprovalRequests.length,
+      pendingProformaApprovals.length,
       rejectedRequests.length,
     ]
   );
@@ -487,13 +502,13 @@ export default function ProcurementOverviewPage() {
   const focusTitle = useMemo(() => {
     switch (focus) {
       case 'drafts':
-        return 'Drill-down sur les devis brouillon';
+        return 'Drill-down sur les DPA brouillon';
       case 'approval':
         return 'Drill-down sur la file d approbation';
       case 'rejected':
-        return 'Drill-down sur les devis rejetes';
+        return 'Drill-down sur les DPA rejetees';
       case 'converted':
-        return 'Drill-down sur les devis convertis en bon de commande';
+        return 'Drill-down sur les DPA converties en bon de commande';
       case 'orders':
         return 'Drill-down sur les bons de commande actifs';
       case 'overdue':
@@ -546,12 +561,12 @@ export default function ProcurementOverviewPage() {
         <div>
           <h1 className="text-3xl font-bold">Dashboard Achats</h1>
           <p className="text-sm text-muted-foreground">
-            Pilotage du pipeline achats: devis d&apos;achat, approbations, bons de commande, retards et engagements financiers.
+            Pilotage du pipeline achats: DPA, proformas, approbations DG, bons de commande, retards et engagements financiers.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href="/dashboard/achats/devis">Devis d&apos;achat</Link>
+            <Link href="/dashboard/achats/devis">DPA &amp; proformas</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard/achats/commandes">Bons de commande</Link>
@@ -563,7 +578,7 @@ export default function ProcurementOverviewPage() {
             <Button asChild>
               <Link href="/dashboard/achats/devis">
                 <PackagePlus className="mr-2 h-4 w-4" />
-                Nouveau devis d&apos;achat
+                Nouvelle DPA
               </Link>
             </Button>
           )}
@@ -638,7 +653,7 @@ export default function ProcurementOverviewPage() {
                     <CheckCircle2 className="h-4 w-4" />
                     <AlertTitle>Aucune alerte critique</AlertTitle>
                     <AlertDescription>
-                      Aucun devis soumis ni bon de commande actif ne depasse les seuils de retard.
+                      Aucune DPA soumise, proforma soumise ou bon de commande actif ne depasse les seuils de retard.
                     </AlertDescription>
                   </Alert>
                 ) : (
@@ -689,7 +704,7 @@ export default function ProcurementOverviewPage() {
                         <div>
                           <div className="font-medium">{summary.serviceName}</div>
                           <div className="text-xs text-muted-foreground">
-                            {summary.quoteCount} devis · {summary.orderCount} BC · {summary.overdueOrders} retard(s)
+                            {summary.quoteCount} DPA · {summary.orderCount} BC · {summary.overdueOrders} retard(s)
                           </div>
                         </div>
                         <div className="text-right text-sm font-semibold">
@@ -722,7 +737,7 @@ export default function ProcurementOverviewPage() {
             <TabsContent value="approvals">
               <Card>
                 <CardHeader>
-                  <CardTitle>Devis a approuver</CardTitle>
+                  <CardTitle>DPA a approuver</CardTitle>
                   <CardDescription>
                     File actionnable par service avec approbation ou rejet immediat.
                   </CardDescription>
@@ -786,7 +801,7 @@ export default function ProcurementOverviewPage() {
                       {pendingApprovalRequests.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                            Aucun devis en attente d approbation pour le filtre courant.
+                            Aucune DPA en attente d approbation pour le filtre courant.
                           </TableCell>
                         </TableRow>
                       )}
@@ -800,7 +815,7 @@ export default function ProcurementOverviewPage() {
               <div className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Devis soumis hors SLA</CardTitle>
+                    <CardTitle>DPA soumises hors SLA</CardTitle>
                     <CardDescription>Soumis depuis plus de 48h sans approbation.</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -827,7 +842,7 @@ export default function ProcurementOverviewPage() {
                         {overdueRequests.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                              Aucun devis hors SLA.
+                              Aucune DPA hors SLA.
                             </TableCell>
                           </TableRow>
                         )}
@@ -923,7 +938,7 @@ export default function ProcurementOverviewPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Lecture finance detaillee</CardTitle>
-                    <CardDescription>Read model billing des devis et bons de commande achats.</CardDescription>
+                    <CardDescription>Read model billing des DPA, proformas retenues et bons de commande achats.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -940,7 +955,7 @@ export default function ProcurementOverviewPage() {
                       <TableBody>
                         {filteredCommitments.map((commitment) => (
                           <TableRow key={commitment.id}>
-                            <TableCell>{commitment.sourceType === 'PURCHASE_QUOTE' ? 'Devis achat' : 'Bon de commande'}</TableCell>
+                            <TableCell>{commitment.sourceType === 'PURCHASE_QUOTE' ? 'DPA' : 'Bon de commande'}</TableCell>
                             <TableCell className="font-medium">{commitment.sourceNumber}</TableCell>
                             <TableCell>{commitment.serviceName || 'Non attribue'}</TableCell>
                             <TableCell>{commitment.supplierName || '-'}</TableCell>
@@ -982,7 +997,7 @@ export default function ProcurementOverviewPage() {
                     <>
                       <div>
                         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          Devis d achat
+                          DPA
                         </h3>
                         <Table>
                           <TableHeader>
@@ -1015,7 +1030,7 @@ export default function ProcurementOverviewPage() {
                             {focusRequests.length === 0 && (
                               <TableRow>
                                 <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                                  Aucun devis d achat pour cette vue detaillee.
+                                  Aucune DPA pour cette vue detaillee.
                                 </TableCell>
                               </TableRow>
                             )}
@@ -1087,7 +1102,7 @@ export default function ProcurementOverviewPage() {
                         <TableBody>
                           {focusCommitments.map((commitment: PurchaseCommitment) => (
                             <TableRow key={commitment.id}>
-                              <TableCell>{commitment.sourceType === 'PURCHASE_QUOTE' ? 'Devis achat' : 'BC'}</TableCell>
+                              <TableCell>{commitment.sourceType === 'PURCHASE_QUOTE' ? 'DPA' : 'BC'}</TableCell>
                               <TableCell className="font-medium">{commitment.sourceNumber}</TableCell>
                               <TableCell>{commitment.serviceName || 'Non attribue'}</TableCell>
                               <TableCell>{commitment.supplierName || '-'}</TableCell>
@@ -1117,7 +1132,7 @@ export default function ProcurementOverviewPage() {
             <CardHeader>
               <CardTitle>Parcours metier couvert</CardTitle>
               <CardDescription>
-                Le dashboard suit le cycle complet devis d achat → approbation → bon de commande → engagement financier.
+                Le dashboard suit le cycle complet DPA → validation DG → proformas → bon de commande → engagement financier.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-4">
@@ -1127,7 +1142,7 @@ export default function ProcurementOverviewPage() {
                   Creation
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Les devis d achat sont crees par service avec prix d achat issus du catalogue.
+                  Les DPA sont créées par service avec fournisseur, prix et quantités.
                 </p>
               </div>
               <div className="rounded-lg border p-4">
@@ -1136,7 +1151,7 @@ export default function ProcurementOverviewPage() {
                   Approbation
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  La file d approbation centralise les demandes SOUMISES et permet une action immediate.
+                  La DG valide d abord la DPA, puis la proforma retenue par le service achat.
                 </p>
               </div>
               <div className="rounded-lg border p-4">
@@ -1145,7 +1160,7 @@ export default function ProcurementOverviewPage() {
                   Execution
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Après validation DG, le service achat prépare le bon de commande puis alimente le suivi logistique.
+                  Après validation de la proforma, le service achat génère le bon de commande puis alimente le suivi logistique.
                 </p>
               </div>
               <div className="rounded-lg border p-4">

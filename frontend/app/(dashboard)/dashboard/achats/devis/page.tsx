@@ -41,6 +41,9 @@ const statusLabels: Record<PurchaseRequestStatus, string> = {
   SOUMISE: 'Soumise',
   APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetée',
+  PROFORMAS_EN_COURS: 'Proformas en préparation',
+  PROFORMA_SOUMISE: 'Proforma soumise DG',
+  PROFORMA_APPROUVEE: 'Proforma validée',
   COMMANDEE: 'Convertie en BC',
 };
 
@@ -49,6 +52,9 @@ const statusColors: Record<PurchaseRequestStatus, string> = {
   SOUMISE: 'bg-blue-100 text-blue-800',
   APPROUVEE: 'bg-emerald-100 text-emerald-800',
   REJETEE: 'bg-red-100 text-red-800',
+  PROFORMAS_EN_COURS: 'bg-violet-100 text-violet-800',
+  PROFORMA_SOUMISE: 'bg-indigo-100 text-indigo-800',
+  PROFORMA_APPROUVEE: 'bg-cyan-100 text-cyan-800',
   COMMANDEE: 'bg-green-100 text-green-800',
 };
 
@@ -70,6 +76,7 @@ export default function PurchaseQuotesPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [supplierId, setSupplierId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
@@ -160,10 +167,15 @@ export default function PurchaseQuotesPage() {
     user?.department ||
     undefined;
   const displayServiceName = requestServiceName || 'Veuillez sélectionner un service';
+  const draftTotals = useMemo(() => {
+    const montantHT = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire, 0);
+    const montantTTC = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire * (1 + line.tva / 100), 0);
+    return { montantHT, montantTTC };
+  }, [lines]);
 
   const stats = useMemo(() => ({
     total: requests.length,
-    pending: requests.filter((item) => item.status === 'SOUMISE').length,
+    pending: requests.filter((item) => item.status === 'SOUMISE' || item.status === 'PROFORMA_SOUMISE').length,
     converted: requests.filter((item) => item.status === 'COMMANDEE').length,
     totalAmount: requests.reduce((sum, item) => sum + (item.montantTTC || item.estimatedAmount || 0), 0),
   }), [requests]);
@@ -174,6 +186,7 @@ export default function PurchaseQuotesPage() {
         titre: title,
         objet: title,
         description,
+        fournisseurId: supplierId || undefined,
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
@@ -195,12 +208,13 @@ export default function PurchaseQuotesPage() {
       setTitle('');
       setDescription('');
       setNotes('');
+      setSupplierId('');
       setSelectedServiceId(userServiceId);
       setDateBesoin('');
       setLines([emptyLine()]);
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la création du devis d\'achat.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création de la DPA.');
     },
   });
 
@@ -258,21 +272,21 @@ export default function PurchaseQuotesPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats">Retour aux achats</Link>
           </Button>
-          <h1 className="mt-2 text-3xl font-bold">Devis d&apos;achat</h1>
+          <h1 className="mt-2 text-3xl font-bold">DPA et proformas</h1>
           <p className="text-sm text-muted-foreground">
-            Les services créent ici leurs demandes internes. Le service achat les soumet à validation puis prépare le bon de commande après accord.
+            Les services créent ici leurs DPA avec fournisseur, prix et quantités. Après validation DG, le service achat gère les proformas puis génère le bon de commande.
           </p>
         </div>
         {canCreate && (
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Nouveau devis d&apos;achat
+            Nouvelle DPA
           </Button>
         )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total devis</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total DPA</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">En attente</div><div className="text-2xl font-bold text-blue-600">{stats.pending}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Convertis en BC</div><div className="text-2xl font-bold text-green-600">{stats.converted}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant total</div><div className="text-2xl font-bold">{stats.totalAmount.toLocaleString('fr-FR')} F</div></CardContent></Card>
@@ -280,7 +294,7 @@ export default function PurchaseQuotesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Liste des devis d&apos;achat</CardTitle>
+          <CardTitle>Liste des DPA</CardTitle>
           <CardDescription>Suivi par service, fournisseur et statut d&apos;approbation.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -301,6 +315,9 @@ export default function PurchaseQuotesPage() {
               <option value="SOUMISE">Soumise</option>
               <option value="APPROUVEE">Validée DG</option>
               <option value="REJETEE">Rejetée</option>
+              <option value="PROFORMAS_EN_COURS">Proformas en préparation</option>
+              <option value="PROFORMA_SOUMISE">Proforma soumise DG</option>
+              <option value="PROFORMA_APPROUVEE">Proforma validée</option>
               <option value="COMMANDEE">Convertie en BC</option>
             </select>
           </div>
@@ -368,9 +385,13 @@ export default function PurchaseQuotesPage() {
                               <Link href={`/dashboard/achats/commandes?selectedOrderId=${request.bonCommandeId}`}>Voir BC</Link>
                             </Button>
                           )}
-                          {!request.bonCommandeId && request.status === 'APPROUVEE' && canCreateOrder && (
+                          {!request.bonCommandeId &&
+                            ['APPROUVEE', 'PROFORMAS_EN_COURS', 'PROFORMA_SOUMISE', 'PROFORMA_APPROUVEE'].includes(request.status) &&
+                            canCreateOrder && (
                             <Button asChild size="sm" variant="outline">
-                              <Link href={`/dashboard/achats/devis/${request.id}`}>Préparer BC</Link>
+                              <Link href={`/dashboard/achats/devis/${request.id}`}>
+                                {request.status === 'PROFORMA_APPROUVEE' ? 'Générer BC' : 'Gérer proformas'}
+                              </Link>
                             </Button>
                           )}
                         </div>
@@ -381,7 +402,7 @@ export default function PurchaseQuotesPage() {
               </table>
               {requests.length === 0 && (
                 <div className="py-10 text-center text-muted-foreground">
-                  Aucun devis d&apos;achat trouvé.
+                  Aucune DPA trouvée.
                 </div>
               )}
             </div>
@@ -392,9 +413,9 @@ export default function PurchaseQuotesPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Nouvelle demande d&apos;achat</DialogTitle>
+            <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>
-            La demande interne sera créée au nom du service <strong>{displayServiceName}</strong>, sans prix fournisseur à cette étape.
+            La DPA sera créée au nom du service <strong>{displayServiceName}</strong> avec fournisseur, prix et lignes d&apos;achat.
           </DialogDescription>
           </DialogHeader>
 
@@ -430,6 +451,21 @@ export default function PurchaseQuotesPage() {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">Fournisseur</label>
+              <select
+                value={supplierId}
+                onChange={(event) => setSupplierId(event.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sélectionner un fournisseur</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Date de besoin</label>
               <Input type="date" value={dateBesoin} onChange={(event) => setDateBesoin(event.target.value)} />
             </div>
@@ -450,7 +486,7 @@ export default function PurchaseQuotesPage() {
 
             <div className="space-y-3">
               {lines.map((line, index) => (
-                <div key={`line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_50px]">
+                <div key={`line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_130px_110px_50px]">
                   <select
                     value={line.articleId}
                     onChange={(event) => updateLineArticle(index, event.target.value)}
@@ -465,11 +501,26 @@ export default function PurchaseQuotesPage() {
                   </select>
                   <Input value={line.categorie} onChange={(event) => updateLine(index, { categorie: event.target.value })} placeholder="Catégorie" />
                   <Input type="number" min={1} value={line.quantite} onChange={(event) => updateLine(index, { quantite: Number(event.target.value) || 1 })} />
+                  <Input
+                    type="number"
+                    min={0}
+                    value={line.prixUnitaire}
+                    onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
+                    placeholder="Prix unitaire"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={line.tva}
+                    onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
+                    placeholder="TVA %"
+                  />
                   <Button type="button" variant="ghost" size="icon" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                   <div className="md:col-span-6 text-sm text-muted-foreground">
-                    {line.designation || 'Aucun article sélectionné'} - prix fournisseur à renseigner plus tard par le service achat.
+                    {line.designation || 'Aucun article sélectionné'} - Total TTC estimé : {(line.quantite * line.prixUnitaire * (1 + line.tva / 100)).toLocaleString('fr-FR')} F
                   </div>
                 </div>
               ))}
@@ -478,13 +529,13 @@ export default function PurchaseQuotesPage() {
 
           <DialogFooter className="items-center justify-between sm:justify-between">
             <div className="text-sm font-medium">
-              Budget: défini plus tard par le service achat
+              Total estimé: {draftTotals.montantTTC.toLocaleString('fr-FR')} F
             </div>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!title || !selectedServiceId || createMutation.isPending}
+              disabled={!title || !selectedServiceId || !supplierId || createMutation.isPending}
             >
-              {createMutation.isPending ? 'Enregistrement...' : 'Créer la demande'}
+              {createMutation.isPending ? 'Enregistrement...' : 'Créer la DPA'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,19 @@
+ frontend/app/(dashboard)/dashboard/comptabilite/comptes/page.tsx      |  30 [32m+++++++[m[31m-[m
+ frontend/app/(dashboard)/dashboard/comptabilite/ecritures/page.tsx    |  57 [32m++++++++++++[m[31m--[m
+ frontend/app/(dashboard)/dashboard/comptabilite/rapports/page.tsx     |  47 [32m++++++++++[m[31m--[m
+ frontend/app/(dashboard)/dashboard/comptabilite/tresorerie/page.tsx   |  29 [32m+++++[m[31m--[m
+ frontend/src/components/accounting/AccountingDateRangeDialog.tsx      |  81 [32m++++++++++++++++++++[m
+ frontend/src/components/accounting/CreateAccountingAccountDialog.tsx  | 137 [32m+++++++++++++++++++++++++++++++++[m
+ frontend/src/components/accounting/CreateJournalEntryDialog.tsx       | 197 [32m+++++++++++++++++++++++++++++++++++++++++++++++[m
+ frontend/src/components/accounting/accountingExport.ts                | 177 [32m+++++++++++++++++++++++++++++++++++++++++++[m
+ frontend/src/shared/api/billing/index.ts                              |  63 [32m++++++++++++++[m[31m-[m
+ services/api-gateway/routes/services/billing.routes.js                |  14 [32m++++[m
+ services/billing-service/controllers/account.controller.js            |  97 [32m++++++++++++++++++++++++[m
+ services/billing-service/controllers/accountingOverview.controller.js | 290 [32m+++++++++++++++++++++++++++++++++++++++++[m[31m-----------------------------[m
+ services/billing-service/controllers/journalEntry.controller.js       | 230 [32m+++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ services/billing-service/prisma/schema.prisma                         |  76 [32m+++++++++++++++++++[m
+ services/billing-service/routes/account.routes.js                     |   9 [32m+++[m
+ services/billing-service/routes/accounting.routes.js                  |   4 [32m+[m
+ services/billing-service/routes/journalEntry.routes.js                |   9 [32m+++[m
+ services/billing-service/utils/accounting.js                          | 272 [32m+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ 18 files changed, 1679 insertions(+), 140 deletions(-)

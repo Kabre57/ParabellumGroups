@@ -45,6 +45,42 @@ const validateQuote = [
     .withMessage('La TVA doit etre comprise entre 0 et 100'),
 ];
 
+const validateProforma = [
+  body('titre')
+    .optional()
+    .isString()
+    .withMessage('Le titre de la proforma doit etre une chaine de caracteres'),
+  body('fournisseurId')
+    .notEmpty()
+    .withMessage('Le fournisseur de la proforma est obligatoire')
+    .isString()
+    .withMessage('Le fournisseur de la proforma est invalide'),
+  body('devise')
+    .optional()
+    .isString()
+    .isLength({ min: 3, max: 3 })
+    .withMessage('La devise doit etre un code ISO sur 3 caracteres'),
+  body('lignes')
+    .isArray({ min: 1 })
+    .withMessage('La proforma doit contenir au moins une ligne'),
+  body('lignes.*.designation')
+    .optional()
+    .isString()
+    .withMessage('La designation de ligne est invalide'),
+  body('lignes.*.quantite')
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage('La quantite doit etre strictement positive'),
+  body('lignes.*.prixUnitaire')
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage('Le prix unitaire doit etre strictement positif'),
+  body('lignes.*.tva')
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage('La TVA doit etre comprise entre 0 et 100'),
+];
+
 router.use(authMiddleware);
 
 router.get('/', demandeAchatController.getAll);
@@ -56,6 +92,10 @@ router.put('/:id', validateQuote, demandeAchatController.update);
 router.post('/:id/submit', demandeAchatController.submit);
 router.post('/:id/approve', demandeAchatController.approve);
 router.post('/:id/reject', demandeAchatController.reject);
+router.post('/:id/proformas', validateProforma, demandeAchatController.createProforma);
+router.post('/:id/proformas/:proformaId/submit', demandeAchatController.submitProforma);
+router.post('/:id/proformas/:proformaId/approve', demandeAchatController.approveProforma);
+router.post('/:id/proformas/:proformaId/reject', demandeAchatController.rejectProforma);
 router.post('/:id/generate-order', demandeAchatController.generateOrder);
 
 // Legacy compatibility

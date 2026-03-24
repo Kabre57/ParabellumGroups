@@ -119,7 +119,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchases.read', categoryId: 'procurement', isServiceDashboard: true },
   { name: 'Catalogue Produits', href: '/dashboard/achats/produits', icon: Package, permission: 'products.read', categoryId: 'procurement' },
   { name: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', icon: Truck, permission: 'suppliers.read', categoryId: 'procurement' },
-  { name: 'Devis d\'Achat', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
+  { name: 'DPA & Proformas', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
   { name: 'Commandes d\'Achat', href: '/dashboard/achats/commandes', icon: ShoppingCart, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Réceptions', href: '/dashboard/achats/receptions', icon: ClipboardList, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Gestion des Stocks', href: '/dashboard/achats/stock', icon: Warehouse, permission: 'inventory.read', categoryId: 'procurement' },

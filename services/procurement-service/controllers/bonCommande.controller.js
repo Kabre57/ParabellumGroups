@@ -90,6 +90,12 @@ exports.getAll = async (req, res) => {
               email: true
             }
           },
+          proforma: {
+            select: {
+              id: true,
+              numeroProforma: true,
+            },
+          },
           demandeAchat: {
             select: {
               id: true,
@@ -193,6 +199,12 @@ exports.create = async (req, res) => {
         },
         include: {
           fournisseur: true,
+          proforma: {
+            select: {
+              id: true,
+              numeroProforma: true,
+            },
+          },
           demandeAchat: true,
           lignes: true,
         },
@@ -228,6 +240,12 @@ exports.getById = async (req, res) => {
       where: { id },
       include: {
         fournisseur: true,
+        proforma: {
+          select: {
+            id: true,
+            numeroProforma: true,
+          },
+        },
         demandeAchat: true,
         lignes: {
           orderBy: { createdAt: 'asc' }

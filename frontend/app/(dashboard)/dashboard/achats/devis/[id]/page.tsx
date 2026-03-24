@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import type {
+  PurchaseProforma,
   PurchaseRequest,
   PurchaseRequestApprovalLog,
   PurchaseRequestStatus,
@@ -35,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import PurchaseRequestPrint from '@/components/printComponents/PurchaseRequestPrint';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
+import { PurchaseProformaDialog } from '@/components/procurement/PurchaseProformaDialog';
 import {
   Table,
   TableBody,
@@ -76,6 +78,9 @@ const statusLabels: Record<PurchaseRequestStatus, string> = {
   SOUMISE: 'Soumise',
   APPROUVEE: 'Validée DG',
   REJETEE: 'Rejetee',
+  PROFORMAS_EN_COURS: 'Proformas en préparation',
+  PROFORMA_SOUMISE: 'Proforma soumise DG',
+  PROFORMA_APPROUVEE: 'Proforma validée',
   COMMANDEE: 'Convertie en BC',
 };
 
@@ -84,6 +89,12 @@ const getStatusVariant = (status: PurchaseRequestStatus) => {
     case 'SOUMISE':
       return 'warning' as const;
     case 'APPROUVEE':
+      return 'success' as const;
+    case 'PROFORMAS_EN_COURS':
+      return 'outline' as const;
+    case 'PROFORMA_SOUMISE':
+      return 'warning' as const;
+    case 'PROFORMA_APPROUVEE':
       return 'success' as const;
     case 'REJETEE':
       return 'destructive' as const;
@@ -117,8 +128,8 @@ const normalizeTimeline = (
   const items: TimelineItem[] = [
     {
       id: `created-${request.id}`,
-      title: 'Devis d achat cree',
-      description: `Creation du devis ${request.number} pour le service ${request.serviceName || 'Non attribue'}.`,
+      title: 'DPA créée',
+      description: `Creation de la DPA ${request.number} pour le service ${request.serviceName || 'Non attribue'}.`,
       createdAt: request.date,
       tone: 'neutral',
     },
@@ -155,11 +166,55 @@ const normalizeTimeline = (
     });
   });
 
+  (request.proformas || []).forEach((proforma) => {
+    items.push({
+      id: `proforma-created-${proforma.id}`,
+      title: `Proforma créée (${proforma.numeroProforma})`,
+      description: [proforma.fournisseurNom || 'Fournisseur inconnu', `Montant ${formatCurrency(proforma.montantTTC)}`]
+        .filter(Boolean)
+        .join(' · '),
+      createdAt: proforma.createdAt || request.date,
+      tone: 'neutral',
+    });
+
+    (proforma.approvalHistory || []).forEach((log) => {
+      const tone =
+        log.action === 'APPROVED'
+          ? 'success'
+          : log.action === 'REJECTED'
+          ? 'danger'
+          : log.action === 'SUBMITTED'
+          ? 'warning'
+          : 'neutral';
+
+      items.push({
+        id: `proforma-${proforma.id}-${log.id}`,
+        title:
+          log.action === 'SUBMITTED'
+            ? `Proforma soumise (${proforma.numeroProforma})`
+            : log.action === 'APPROVED'
+            ? `Proforma validée (${proforma.numeroProforma})`
+            : log.action === 'REJECTED'
+            ? `Proforma rejetée (${proforma.numeroProforma})`
+            : `${log.action} (${proforma.numeroProforma})`,
+        description: [
+          proforma.fournisseurNom || null,
+          log.actorServiceName || log.actorEmail || null,
+          log.commentaire || null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        createdAt: log.createdAt,
+        tone,
+      });
+    });
+  });
+
   if (request.bonCommandeId) {
     items.push({
       id: `bc-${request.bonCommandeId}`,
-      title: 'Bon de commande genere',
-      description: `Le devis a ete converti en bon de commande ${request.numeroBon || request.bonCommandeId}.`,
+      title: 'Bon de commande généré',
+      description: `La DPA a ete convertie en bon de commande ${request.numeroBon || request.bonCommandeId}.`,
       createdAt: request.approvedAt || request.date,
       tone: 'success',
     });
@@ -183,6 +238,8 @@ export default function PurchaseQuoteDetailPage() {
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [isDirty, setIsDirty] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [createProformaOpen, setCreateProformaOpen] = useState(false);
+  const [rejectProformaTarget, setRejectProformaTarget] = useState<PurchaseProforma | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
@@ -268,14 +325,16 @@ export default function PurchaseQuoteDetailPage() {
     Boolean(request) &&
     canUpdate &&
     (request?.status === 'BROUILLON' || request?.status === 'REJETEE');
-  const canPrepareOrder =
+  const canManageProformasFlow =
     Boolean(request) &&
     canCreateOrder &&
-    request?.status === 'APPROUVEE';
-  const canEditRequest = canEditInternalRequest || canPrepareOrder;
-  const showCommercialTerms =
+    ['APPROUVEE', 'PROFORMAS_EN_COURS', 'PROFORMA_SOUMISE'].includes(request?.status || '');
+  const canGenerateOrder =
     Boolean(request) &&
-    (request?.status === 'APPROUVEE' || request?.status === 'COMMANDEE');
+    canCreateOrder &&
+    request?.status === 'PROFORMA_APPROUVEE' &&
+    !request?.bonCommandeId;
+  const canEditRequest = canEditInternalRequest;
 
   const totals = useMemo(() => {
     const montantHT = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire, 0);
@@ -298,7 +357,7 @@ export default function PurchaseQuoteDetailPage() {
         title,
         objet: title,
         description,
-        supplierId: canPrepareOrder ? supplierId || null : null,
+        supplierId: supplierId || null,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
         serviceName: selectedService?.name || request?.serviceName || null,
         dateBesoin: dateBesoin || null,
@@ -311,28 +370,28 @@ export default function PurchaseQuoteDetailPage() {
             designation: line.designation,
             categorie: line.categorie || null,
             quantite: line.quantite,
-            prixUnitaire: canPrepareOrder ? line.prixUnitaire : 0,
-            tva: canPrepareOrder ? line.tva : 0,
-            montantHT: canPrepareOrder ? line.quantite * line.prixUnitaire : 0,
-            montantTTC: canPrepareOrder ? line.quantite * line.prixUnitaire * (1 + line.tva / 100) : 0,
+            prixUnitaire: line.prixUnitaire,
+            tva: line.tva,
+            montantHT: line.quantite * line.prixUnitaire,
+            montantTTC: line.quantite * line.prixUnitaire * (1 + line.tva / 100),
           })),
       }),
     onSuccess: () => {
-      toast.success(canPrepareOrder ? 'Les éléments fournisseur ont été mis à jour.' : 'La demande d achat a été mise à jour.');
+      toast.success('La DPA a été mise à jour.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour du devis.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour de la DPA.');
     },
   });
 
   const submitMutation = useMutation({
     mutationFn: () => procurementService.submitRequest(id, 'Soumis depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('La demande a été soumise à validation par le service achat.');
+      toast.success('La DPA a été soumise au DG pour validation.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
@@ -340,14 +399,14 @@ export default function PurchaseQuoteDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la soumission du devis.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la soumission de la DPA.');
     },
   });
 
   const approveMutation = useMutation({
     mutationFn: () => procurementService.approveRequest(id, 'Approuve depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('La demande a été validée. Le service achat peut maintenant préparer le bon de commande.');
+      toast.success('La DPA a été validée. Le service achat peut maintenant enregistrer les proformas.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -365,7 +424,7 @@ export default function PurchaseQuoteDetailPage() {
   const rejectMutation = useMutation({
     mutationFn: (commentaire: string) => procurementService.rejectRequest(id, commentaire),
     onSuccess: () => {
-      toast.success('La demande d achat a été rejetée.');
+      toast.success('La DPA a été rejetée.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -376,8 +435,72 @@ export default function PurchaseQuoteDetailPage() {
     },
   });
 
+  const createProformaMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof procurementService.createProforma>[1]) =>
+      procurementService.createProforma(id, payload),
+    onSuccess: () => {
+      toast.success('La proforma a été enregistrée.');
+      setCreateProformaOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création de la proforma.');
+    },
+  });
+
+  const submitProformaMutation = useMutation({
+    mutationFn: (proformaId: string) =>
+      procurementService.submitProforma(id, proformaId, 'Soumise depuis la fiche detaillee'),
+    onSuccess: () => {
+      toast.success('La proforma a été soumise au DG.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la soumission de la proforma.');
+    },
+  });
+
+  const approveProformaMutation = useMutation({
+    mutationFn: (proformaId: string) =>
+      procurementService.approveProforma(id, proformaId, 'Proforma validée depuis la fiche detaillee'),
+    onSuccess: () => {
+      toast.success('La proforma a été validée. Le BC peut maintenant être généré.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la validation de la proforma.');
+    },
+  });
+
+  const rejectProformaMutation = useMutation({
+    mutationFn: ({ proformaId, commentaire }: { proformaId: string; commentaire: string }) =>
+      procurementService.rejectProforma(id, proformaId, commentaire),
+    onSuccess: () => {
+      toast.success('La proforma a été rejetée.');
+      setRejectProformaTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors du rejet de la proforma.');
+    },
+  });
+
   const generateOrderMutation = useMutation({
-    mutationFn: () => procurementService.generateOrderFromRequest(id, 'Bon de commande généré depuis la fiche détaillée'),
+    mutationFn: () =>
+      procurementService.generateOrderFromRequest(
+        id,
+        'Bon de commande généré depuis la fiche détaillée',
+        request?.selectedProformaId || undefined
+      ),
     onSuccess: () => {
       toast.success('Le bon de commande a été généré avec succès.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
@@ -410,7 +533,7 @@ export default function PurchaseQuoteDetailPage() {
               articleId,
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
-              prixUnitaire: canPrepareOrder ? Number(article?.prixAchat ?? article?.prixVente ?? 0) : 0,
+              prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
             }
           : line
       )
@@ -434,7 +557,7 @@ export default function PurchaseQuoteDetailPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats/devis">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux devis d&apos;achat
+              Retour aux DPA
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-3">
@@ -447,7 +570,7 @@ export default function PurchaseQuoteDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Demande interne d&apos;achat du service {request.serviceName || 'Non attribue'}, avec validation distincte puis préparation du bon de commande.
+            DPA du service {request.serviceName || 'Non attribue'}, validée d&apos;abord par le DG puis enrichie par des proformas avant génération du bon de commande.
           </p>
         </div>
 
@@ -475,7 +598,7 @@ export default function PurchaseQuoteDetailPage() {
               disabled={submitMutation.isPending || lines.every((line) => !line.designation)}
             >
               <Send className="mr-2 h-4 w-4" />
-              Soumettre à validation
+              Soumettre au DG
             </Button>
           )}
 
@@ -484,7 +607,7 @@ export default function PurchaseQuoteDetailPage() {
               {canApprove && (
                 <Button onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approuver
+                  Valider DPA
                 </Button>
               )}
               {canReject && (
@@ -496,7 +619,14 @@ export default function PurchaseQuoteDetailPage() {
             </>
           )}
 
-          {canCreateOrder && request.status === 'APPROUVEE' && !request.bonCommandeId && (
+          {canManageProformasFlow && !request.bonCommandeId && (
+            <Button variant="outline" onClick={() => setCreateProformaOpen(true)} disabled={createProformaMutation.isPending}>
+              <PackagePlus className="mr-2 h-4 w-4" />
+              Nouvelle proforma
+            </Button>
+          )}
+
+          {canGenerateOrder && (
             <Button onClick={() => generateOrderMutation.mutate()} disabled={generateOrderMutation.isPending}>
               <PackagePlus className="mr-2 h-4 w-4" />
               Générer le BC
@@ -507,8 +637,8 @@ export default function PurchaseQuoteDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Service</div><div className="text-lg font-semibold">{request.serviceName || 'Non attribue'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur</div><div className="text-lg font-semibold">{showCommercialTerms ? (selectedSupplier?.name || request.supplierName || 'A définir') : 'À définir par achat'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC</div><div className="text-lg font-semibold">{showCommercialTerms && (request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : 'À définir par achat'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur DPA</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || 'A définir'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC DPA</div><div className="text-lg font-semibold">{(request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : '0 F CFA'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
@@ -517,7 +647,7 @@ export default function PurchaseQuoteDetailPage() {
           <CardHeader>
             <CardTitle>Edition de la demande</CardTitle>
             <CardDescription>
-              Les services décrivent ici le besoin. Après validation DG, le service achat complète le fournisseur et les prix.
+              Le service demandeur saisit ici la DPA avec son fournisseur, ses prix et ses quantités avant soumission au DG.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -569,27 +699,25 @@ export default function PurchaseQuoteDetailPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {showCommercialTerms && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fournisseur retenu</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    value={supplierId}
-                    onChange={(event) => {
-                      setIsDirty(true);
-                      setSupplierId(event.target.value);
-                    }}
-                    disabled={!canPrepareOrder}
-                  >
-                    <option value="">Selectionner un fournisseur</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fournisseur DPA</label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={supplierId}
+                  onChange={(event) => {
+                    setIsDirty(true);
+                    setSupplierId(event.target.value);
+                  }}
+                  disabled={!canEditRequest}
+                >
+                  <option value="">Selectionner un fournisseur</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Commentaire interne</label>
                 <Input
@@ -620,9 +748,7 @@ export default function PurchaseQuoteDetailPage() {
                 <div>
                   <h2 className="text-lg font-semibold">Lignes d achat</h2>
                   <p className="text-sm text-muted-foreground">
-                    {canPrepareOrder
-                      ? 'Le service achat renseigne ici le fournisseur, les prix et la TVA avant génération du bon de commande.'
-                      : 'La demande interne décrit uniquement les articles et quantités. Les prix sont ajoutés plus tard par le service achat.'}
+                    La DPA contient déjà les articles, les quantités, les prix et la TVA proposés par le service demandeur.
                   </p>
                 </div>
                 {canEditRequest && (
@@ -646,7 +772,7 @@ export default function PurchaseQuoteDetailPage() {
                         <div>
                           <div className="font-medium">Ligne {index + 1}</div>
                           <div className="text-sm text-muted-foreground">
-                            {showCommercialTerms ? `Total TTC: ${formatCurrency(lineTotal)}` : 'Prix à définir par achat'}
+                            {`Total TTC: ${formatCurrency(lineTotal)}`}
                           </div>
                         </div>
                         {canEditRequest && lines.length > 1 && (
@@ -702,7 +828,7 @@ export default function PurchaseQuoteDetailPage() {
                           />
                         </div>
 
-                        <div className={`grid gap-4 xl:col-span-3 ${showCommercialTerms ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                        <div className="grid gap-4 xl:col-span-3 grid-cols-3">
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Quantite</label>
                             <Input
@@ -714,35 +840,30 @@ export default function PurchaseQuoteDetailPage() {
                               className="h-11"
                             />
                           </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Prix unitaire achat</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={line.prixUnitaire}
+                              onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
+                              disabled={!canEditRequest}
+                              className="h-11"
+                            />
+                          </div>
 
-                          {showCommercialTerms && (
-                            <>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Prix unitaire achat</label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={line.prixUnitaire}
-                                  onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
-                                  disabled={!canPrepareOrder}
-                                  className="h-11"
-                                />
-                              </div>
-
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">TVA (%)</label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={line.tva}
-                                  onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
-                                  disabled={!canPrepareOrder}
-                                  className="h-11"
-                                />
-                              </div>
-                            </>
-                          )}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">TVA (%)</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={line.tva}
+                              onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
+                              disabled={!canEditRequest}
+                              className="h-11"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -752,9 +873,9 @@ export default function PurchaseQuoteDetailPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantHT) : 'À définir par achat'}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">TVA</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantTVA) : 'À définir par achat'}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total TTC</div><div className="text-lg font-semibold">{showCommercialTerms ? formatCurrency(totals.montantTTC) : 'À définir par achat'}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{formatCurrency(totals.montantHT)}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">TVA</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTVA)}</div></CardContent></Card>
+              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total TTC</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTTC)}</div></CardContent></Card>
             </div>
           </CardContent>
         </Card>
@@ -762,9 +883,124 @@ export default function PurchaseQuoteDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle>Proformas fournisseurs</CardTitle>
+              <CardDescription>
+                Après validation de la DPA, le service achat enregistre plusieurs proformas. La proforma retenue est ensuite soumise au DG.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(request.proformas || []).length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Aucune proforma enregistrée pour cette DPA.
+                </div>
+              ) : (
+                (request.proformas || []).map((proforma) => (
+                  <div key={proforma.id} className="rounded-xl border p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold">{proforma.numeroProforma}</div>
+                          <Badge variant={proforma.selectedForOrder ? 'default' : 'outline'}>
+                            {proforma.selectedForOrder ? 'Retenue' : proforma.status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {proforma.fournisseurNom || 'Fournisseur non attribué'} · {formatCurrency(proforma.montantTTC)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {proforma.notes || 'Sans commentaire'}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {canManageProformasFlow &&
+                          (proforma.status === 'BROUILLON' || proforma.status === 'REJETEE') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => submitProformaMutation.mutate(proforma.id)}
+                              disabled={submitProformaMutation.isPending}
+                            >
+                              <Send className="mr-2 h-4 w-4" />
+                              Soumettre au DG
+                            </Button>
+                          )}
+
+                        {canApprove && proforma.status === 'SOUMISE' && (
+                          <Button
+                            size="sm"
+                            onClick={() => approveProformaMutation.mutate(proforma.id)}
+                            disabled={approveProformaMutation.isPending}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Valider proforma
+                          </Button>
+                        )}
+
+                        {canReject && proforma.status === 'SOUMISE' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRejectProformaTarget(proforma)}
+                            disabled={rejectProformaMutation.isPending}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Rejeter proforma
+                          </Button>
+                        )}
+
+                        {canGenerateOrder &&
+                          proforma.status === 'APPROUVEE' &&
+                          proforma.selectedForOrder && (
+                            <Button
+                              size="sm"
+                              onClick={() => generateOrderMutation.mutate()}
+                              disabled={generateOrderMutation.isPending}
+                            >
+                              <PackagePlus className="mr-2 h-4 w-4" />
+                              Générer le BC
+                            </Button>
+                          )}
+                      </div>
+                    </div>
+
+                    {(proforma.lignes || []).length > 0 && (
+                      <div className="mt-4 overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Désignation</TableHead>
+                              <TableHead>Qté</TableHead>
+                              <TableHead>PU</TableHead>
+                              <TableHead>TVA</TableHead>
+                              <TableHead className="text-right">Total TTC</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(proforma.lignes || []).map((line) => (
+                              <TableRow key={line.id}>
+                                <TableCell>{line.designation}</TableCell>
+                                <TableCell>{line.quantite}</TableCell>
+                                <TableCell>{formatCurrency(line.prixUnitaire)}</TableCell>
+                                <TableCell>{line.tva}%</TableCell>
+                                <TableCell className="text-right">{formatCurrency(line.montantTTC)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Timeline metier</CardTitle>
               <CardDescription>
-                Chronologie complete depuis la creation jusqu&apos;a la conversion en bon de commande.
+                Chronologie complète depuis la création de la DPA jusqu&apos;à la conversion en bon de commande.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -798,9 +1034,9 @@ export default function PurchaseQuoteDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Historique d approbation</CardTitle>
+              <CardTitle>Historique DPA</CardTitle>
               <CardDescription>
-                Journal detaille des actions d approbation et de rejet.
+                Journal détaillé des actions sur la DPA.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -825,7 +1061,7 @@ export default function PurchaseQuoteDetailPage() {
                   {approvalHistory.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                        Aucun evenement d approbation enregistre pour ce devis.
+                        Aucun évènement DPA enregistré.
                       </TableCell>
                     </TableRow>
                   )}
@@ -848,6 +1084,33 @@ export default function PurchaseQuoteDetailPage() {
             },
           });
         }}
+      />
+
+      <RejectPurchaseRequestDialog
+        open={Boolean(rejectProformaTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRejectProformaTarget(null);
+        }}
+        requestNumber={rejectProformaTarget?.numeroProforma}
+        isPending={rejectProformaMutation.isPending}
+        onConfirm={(reason) => {
+          if (!rejectProformaTarget) return;
+          rejectProformaMutation.mutate({
+            proformaId: rejectProformaTarget.id,
+            commentaire: reason,
+          });
+        }}
+      />
+
+      <PurchaseProformaDialog
+        open={createProformaOpen}
+        onOpenChange={setCreateProformaOpen}
+        suppliers={suppliers}
+        articles={articles}
+        defaultTitle={request.objet || request.title}
+        defaultSupplierId={request.supplierId || undefined}
+        isPending={createProformaMutation.isPending}
+        onSubmit={(payload) => createProformaMutation.mutate(payload)}
       />
 
       {isPrintOpen && (

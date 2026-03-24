@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
-import type { PurchaseRequest } from '@/services/procurement';
+import type { PurchaseProforma, PurchaseRequest } from '@/services/procurement';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,11 +41,20 @@ export default function PurchaseApprovalsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['purchase-approvals-space'],
-    queryFn: () => procurementService.getRequests({ limit: 200, status: 'SOUMISE' }),
+    queryFn: () => procurementService.getRequests({ limit: 200 }),
     enabled: canApprove || canReject,
   });
 
-  const requests = useMemo(() => data?.data ?? [], [data]);
+  const requests = useMemo(() => (data?.data ?? []).filter((request) => request.status === 'SOUMISE'), [data]);
+  const pendingProformas = useMemo(
+    () =>
+      (data?.data ?? []).flatMap((request) =>
+        (request.proformas || [])
+          .filter((proforma) => proforma.status === 'SOUMISE')
+          .map((proforma) => ({ request, proforma }))
+      ),
+    [data]
+  );
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => procurementService.approveRequest(id, 'Validé depuis l’espace DG'),
@@ -74,6 +83,34 @@ export default function PurchaseApprovalsPage() {
     },
   });
 
+  const approveProformaMutation = useMutation({
+    mutationFn: ({ requestId, proformaId }: { requestId: string; proformaId: string }) =>
+      procurementService.approveProforma(requestId, proformaId, 'Validée depuis l’espace DG'),
+    onSuccess: () => {
+      toast.success('La proforma a été validée.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la validation de la proforma.');
+    },
+  });
+
+  const rejectProformaMutation = useMutation({
+    mutationFn: ({ requestId, proformaId, reason }: { requestId: string; proformaId: string; reason: string }) =>
+      procurementService.rejectProforma(requestId, proformaId, reason),
+    onSuccess: () => {
+      toast.success('La proforma a été rejetée.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors du rejet de la proforma.');
+    },
+  });
+
   if (!canApprove && !canReject) {
     return (
       <div className="p-6">
@@ -95,15 +132,15 @@ export default function PurchaseApprovalsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Validation Achats</h1>
         <p className="text-sm text-muted-foreground">
-          Espace de validation dédié à la DG ou aux approbateurs achat. Les prix sont renseignés après validation par le service achat.
+          Espace DG pour valider d’abord les DPA, puis les proformas retenues par le service achat.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Demandes en attente de validation</CardTitle>
+          <CardTitle>DPA en attente de validation</CardTitle>
           <CardDescription>
-            Seules les demandes soumises par le service achat apparaissent ici.
+            Les DPA soumises apparaissent ici avant la phase proformas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -159,7 +196,82 @@ export default function PurchaseApprovalsPage() {
                 {requests.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                      Aucune demande en attente de validation.
+                      Aucune DPA en attente de validation.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Proformas en attente de validation</CardTitle>
+          <CardDescription>
+            Le service achat soumet ici la proforma retenue au DG avant génération du bon de commande.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="py-12 text-center">
+              <Spinner />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DPA</TableHead>
+                  <TableHead>Proforma</TableHead>
+                  <TableHead>Fournisseur</TableHead>
+                  <TableHead>Montant</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingProformas.map(({ request, proforma }: { request: PurchaseRequest; proforma: PurchaseProforma }) => (
+                  <TableRow key={proforma.id}>
+                    <TableCell className="font-medium">{request.number}</TableCell>
+                    <TableCell>{proforma.numeroProforma}</TableCell>
+                    <TableCell>{proforma.fournisseurNom || '-'}</TableCell>
+                    <TableCell>{proforma.montantTTC.toLocaleString('fr-FR')} F</TableCell>
+                    <TableCell>{formatDate(proforma.submittedAt || proforma.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/dashboard/achats/devis/${request.id}`}>Ouvrir</Link>
+                        </Button>
+                        {canApprove && (
+                          <Button
+                            size="sm"
+                            onClick={() => approveProformaMutation.mutate({ requestId: request.id, proformaId: proforma.id })}
+                            disabled={approveProformaMutation.isPending}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Valider proforma
+                          </Button>
+                        )}
+                        {canReject && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRejectTarget({ ...request, number: proforma.numeroProforma, id: `${request.id}::${proforma.id}` })}
+                            disabled={rejectProformaMutation.isPending}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Rejeter proforma
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {pendingProformas.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      Aucune proforma en attente de validation.
                     </TableCell>
                   </TableRow>
                 )}
@@ -178,6 +290,17 @@ export default function PurchaseApprovalsPage() {
         isPending={rejectMutation.isPending}
         onConfirm={(reason) => {
           if (!rejectTarget) return;
+          if (rejectTarget.id.includes('::')) {
+            const [requestId, proformaId] = rejectTarget.id.split('::');
+            rejectProformaMutation.mutate(
+              { requestId, proformaId, reason },
+              {
+                onSuccess: () => setRejectTarget(null),
+              }
+            );
+            return;
+          }
+
           rejectMutation.mutate(
             { id: rejectTarget.id, reason },
             {

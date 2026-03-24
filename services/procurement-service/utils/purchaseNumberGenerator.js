@@ -1,8 +1,9 @@
 /**
  * Generate unique purchase numbers in formats:
  * - DPA-YYYYMM-NNNN for Devis / Demande Achat
+ * - PFA-YYYYMM-NNNN for Proforma Achat
  * - BCA-YYYYMM-NNNN for Bon Commande
- * Examples: DPA-202601-0001, BCA-202601-0001
+ * Examples: DPA-202601-0001, PFA-202601-0001, BCA-202601-0001
  */
 
 async function generateDemandeAchatNumber(prisma) {
@@ -69,7 +70,35 @@ async function generateBonCommandeNumber(prisma) {
   return `${prefix}-${sequenceFormatted}`;
 }
 
+async function generateProformaNumber(prisma) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const prefix = `PFA-${year}${month}`;
+
+  const lastProforma = await prisma.proforma.findFirst({
+    where: {
+      numeroProforma: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      numeroProforma: 'desc',
+    },
+  });
+
+  let sequence = 1;
+
+  if (lastProforma) {
+    const lastNumber = lastProforma.numeroProforma.split('-')[2];
+    sequence = parseInt(lastNumber, 10) + 1;
+  }
+
+  return `${prefix}-${String(sequence).padStart(4, '0')}`;
+}
+
 module.exports = { 
   generateDemandeAchatNumber, 
-  generateBonCommandeNumber 
+  generateBonCommandeNumber,
+  generateProformaNumber,
 };

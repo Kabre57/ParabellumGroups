@@ -64,6 +64,7 @@ export interface Supplier {
 }
 
 export type PurchaseOrderStatus = 'BROUILLON' | 'ENVOYE' | 'CONFIRME' | 'LIVRE' | 'ANNULE';
+export type PurchaseProformaStatus = 'BROUILLON' | 'SOUMISE' | 'APPROUVEE' | 'REJETEE';
 
 export interface PurchaseOrderItem {
   id: string;
@@ -103,6 +104,8 @@ export interface PurchaseOrder {
   sourceDevisAchatId?: string | null;
   requestId?: string;
   requestNumber?: string;
+  proformaId?: string | null;
+  proformaNumber?: string | null;
 }
 
 export interface PurchaseOrderValidationLog {
@@ -121,6 +124,9 @@ export type PurchaseRequestStatus =
   | 'SOUMISE'
   | 'APPROUVEE'
   | 'REJETEE'
+  | 'PROFORMAS_EN_COURS'
+  | 'PROFORMA_SOUMISE'
+  | 'PROFORMA_APPROUVEE'
   | 'COMMANDEE';
 
 export interface PurchaseRequestLine {
@@ -147,6 +153,61 @@ export interface PurchaseRequestApprovalLog {
   actorServiceName?: string | null;
   commentaire?: string | null;
   createdAt: string;
+}
+
+export interface PurchaseProformaLine {
+  id?: string;
+  articleId?: string | null;
+  referenceArticle?: string | null;
+  designation: string;
+  categorie?: string | null;
+  quantite: number;
+  prixUnitaire: number;
+  tva: number;
+  montantHT: number;
+  montantTTC: number;
+}
+
+export interface PurchaseProformaApprovalLog {
+  id: string;
+  action: string;
+  fromStatus: PurchaseProformaStatus;
+  toStatus: PurchaseProformaStatus;
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  actorServiceId?: number | null;
+  actorServiceName?: string | null;
+  commentaire?: string | null;
+  createdAt: string;
+}
+
+export interface PurchaseProforma {
+  id: string;
+  numeroProforma: string;
+  title?: string | null;
+  titre?: string | null;
+  demandeAchatId: string;
+  fournisseurId: string;
+  fournisseurNom?: string | null;
+  devise?: string;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  status: PurchaseProformaStatus;
+  notes?: string | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  approvedByUserId?: string | null;
+  approvedByServiceId?: number | null;
+  approvedByServiceName?: string | null;
+  rejectionReason?: string | null;
+  selectedForOrder?: boolean;
+  bonCommandeId?: string | null;
+  numeroBon?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  lignes?: PurchaseProformaLine[];
+  approvalHistory?: PurchaseProformaApprovalLog[];
 }
 
 export interface PurchaseRequest {
@@ -181,8 +242,11 @@ export interface PurchaseRequest {
   dateBesoin?: string | null;
   bonCommandeId?: string | null;
   numeroBon?: string | null;
+  selectedProformaId?: string | null;
+  selectedProformaNumber?: string | null;
   lines?: PurchaseRequestLine[];
   approvalHistory?: PurchaseRequestApprovalLog[];
+  proformas?: PurchaseProforma[];
 }
 
 export interface ProcurementStats {

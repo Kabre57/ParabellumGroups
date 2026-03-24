@@ -21,6 +21,9 @@ enum StatusDemandeAchat {
   SOUMISE
   APPROUVEE
   REJETEE
+  PROFORMAS_EN_COURS
+  PROFORMA_SOUMISE
+  PROFORMA_APPROUVEE
   COMMANDEE
 }
 
@@ -30,6 +33,13 @@ enum StatusBonCommande {
   CONFIRME
   LIVRE
   ANNULE
+}
+
+enum StatusProforma {
+  BROUILLON
+  SOUMISE
+  APPROUVEE
+  REJETEE
 }
 
 model Fournisseur {
@@ -46,6 +56,7 @@ model Fournisseur {
   
   demandesAchat     DemandeAchat[]
   bonsCommande      BonCommande[]
+  proformas         Proforma[]
 
   @@map("fournisseurs")
 }
@@ -83,6 +94,7 @@ model DemandeAchat {
   bonsCommande          BonCommande[]
   lignes                LigneDemandeAchat[]
   approvalLogs          DemandeAchatApprovalLog[]
+  proformas             Proforma[]
 
   @@map("demandes_achat")
 }
@@ -91,6 +103,7 @@ model BonCommande {
   id              String             @id @default(uuid())
   numeroBon       String             @unique
   demandeAchatId  String?
+  proformaId      String?            @unique
   fournisseurId   String
   serviceId       Int?
   serviceName     String?
@@ -105,6 +118,7 @@ model BonCommande {
   updatedAt       DateTime           @updatedAt
   
   demandeAchat    DemandeAchat?      @relation(fields: [demandeAchatId], references: [id], onDelete: SetNull)
+  proforma        Proforma?          @relation(fields: [proformaId], references: [id], onDelete: SetNull)
   fournisseur     Fournisseur        @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
   lignes          LigneCommande[]
   validationLogs  BonCommandeValidationLog[]
@@ -165,6 +179,79 @@ model LigneDemandeAchat {
   demandeAchat   DemandeAchat @relation(fields: [demandeAchatId], references: [id], onDelete: Cascade)
 
   @@map("lignes_demande_achat")
+}
+
+model Proforma {
+  id                    String               @id @default(uuid())
+  numeroProforma        String               @unique
+  demandeAchatId        String
+  fournisseurId         String
+  titre                 String?
+  devise                String               @default("XOF")
+  montantHT             Decimal              @default(0) @db.Decimal(12, 2)
+  montantTVA            Decimal              @default(0) @db.Decimal(12, 2)
+  montantTTC            Decimal              @default(0) @db.Decimal(12, 2)
+  status                StatusProforma       @default(BROUILLON)
+  notes                 String?
+  submittedAt           DateTime?
+  approvedAt            DateTime?
+  approvedByUserId      String?
+  approvedByServiceId   Int?
+  approvedByServiceName String?
+  rejectionReason       String?
+  selectedForOrder      Boolean              @default(false)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  demandeAchat          DemandeAchat         @relation(fields: [demandeAchatId], references: [id], onDelete: Cascade)
+  fournisseur           Fournisseur          @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
+  lignes                LigneProforma[]
+  approvalLogs          ProformaApprovalLog[]
+  bonCommande           BonCommande?
+
+  @@index([demandeAchatId])
+  @@index([fournisseurId])
+  @@map("proformas")
+}
+
+model LigneProforma {
+  id              String    @id @default(uuid())
+  proformaId      String
+  articleId       String?
+  referenceArticle String?
+  designation     String
+  categorie       String?
+  quantite        Int
+  prixUnitaire    Decimal   @db.Decimal(10, 2)
+  tva             Decimal   @db.Decimal(5, 2) @default(0)
+  montantHT       Decimal   @db.Decimal(12, 2)
+  montantTTC      Decimal   @db.Decimal(12, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  proforma        Proforma  @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+
+  @@index([proformaId])
+  @@map("lignes_proforma")
+}
+
+model ProformaApprovalLog {
+  id               String         @id @default(uuid())
+  proformaId       String
+  action           String
+  fromStatus       StatusProforma
+  toStatus         StatusProforma
+  actorUserId      String?
+  actorEmail       String?
+  actorServiceId   Int?
+  actorServiceName String?
+  commentaire      String?
+  createdAt        DateTime       @default(now())
+
+  proforma         Proforma       @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+
+  @@index([proformaId])
+  @@map("proforma_approval_logs")
 }
 
 model DemandeAchatApprovalLog {

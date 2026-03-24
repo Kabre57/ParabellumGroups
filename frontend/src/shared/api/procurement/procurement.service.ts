@@ -3,6 +3,9 @@ import {
   Supplier,
   PurchaseRequest,
   PurchaseOrder,
+  PurchaseProforma,
+  PurchaseProformaApprovalLog,
+  PurchaseProformaStatus,
   ProcurementStats,
   StockItem,
   StockMovement,
@@ -63,6 +66,67 @@ const normalizeSupplier = (supplier: any): Supplier => {
   };
 };
 
+const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
+  const lignes = Array.isArray(proforma?.lines)
+    ? proforma.lines
+    : Array.isArray(proforma?.lignes)
+    ? proforma.lignes
+    : [];
+
+  return {
+    id: String(proforma?.id ?? ''),
+    numeroProforma: proforma?.numeroProforma || '',
+    title: proforma?.title || proforma?.titre || proforma?.numeroProforma || '',
+    titre: proforma?.titre || proforma?.title || null,
+    demandeAchatId: String(proforma?.demandeAchatId ?? ''),
+    fournisseurId: String(proforma?.fournisseurId ?? ''),
+    fournisseurNom: proforma?.fournisseurNom || proforma?.fournisseur?.nom || null,
+    devise: proforma?.devise || 'XOF',
+    montantHT: normalizeNumber(proforma?.montantHT, 0),
+    montantTVA: normalizeNumber(proforma?.montantTVA, 0),
+    montantTTC: normalizeNumber(proforma?.montantTTC, 0),
+    status: (proforma?.status || 'BROUILLON') as PurchaseProformaStatus,
+    notes: proforma?.notes || null,
+    submittedAt: proforma?.submittedAt || null,
+    approvedAt: proforma?.approvedAt || null,
+    approvedByUserId: proforma?.approvedByUserId || null,
+    approvedByServiceId: proforma?.approvedByServiceId != null ? Number(proforma.approvedByServiceId) : null,
+    approvedByServiceName: proforma?.approvedByServiceName || null,
+    rejectionReason: proforma?.rejectionReason || null,
+    selectedForOrder: Boolean(proforma?.selectedForOrder),
+    bonCommandeId: proforma?.bonCommandeId || proforma?.bonCommande?.id || null,
+    numeroBon: proforma?.numeroBon || proforma?.bonCommande?.numeroBon || null,
+    createdAt: proforma?.createdAt || undefined,
+    updatedAt: proforma?.updatedAt || undefined,
+    lignes: lignes.map((ligne: any) => ({
+      id: String(ligne?.id ?? ''),
+      articleId: ligne?.articleId || null,
+      referenceArticle: ligne?.referenceArticle || null,
+      designation: ligne?.designation || '',
+      categorie: ligne?.categorie || null,
+      quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
+      prixUnitaire: normalizeNumber(ligne?.prixUnitaire ?? ligne?.unitPrice, 0),
+      tva: normalizeNumber(ligne?.tva, 0),
+      montantHT: normalizeNumber(ligne?.montantHT ?? ligne?.amountHT, 0),
+      montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.amount, 0),
+    })),
+    approvalHistory: Array.isArray(proforma?.approvalHistory)
+      ? proforma.approvalHistory.map((log: any) => ({
+          id: String(log?.id ?? ''),
+          action: String(log?.action ?? ''),
+          fromStatus: String(log?.fromStatus ?? 'BROUILLON') as PurchaseProformaApprovalLog['fromStatus'],
+          toStatus: String(log?.toStatus ?? 'BROUILLON') as PurchaseProformaApprovalLog['toStatus'],
+          actorUserId: log?.actorUserId || null,
+          actorEmail: log?.actorEmail || null,
+          actorServiceId: log?.actorServiceId != null ? Number(log.actorServiceId) : null,
+          actorServiceName: log?.actorServiceName || null,
+          commentaire: log?.commentaire || null,
+          createdAt: log?.createdAt || new Date().toISOString(),
+        }))
+      : [],
+  };
+};
+
 const normalizePurchaseRequest = (request: any): PurchaseRequest => {
   const lignes = Array.isArray(request?.lines)
     ? request.lines
@@ -103,6 +167,8 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
     dateBesoin: request?.dateBesoin || null,
     bonCommandeId: request?.bonCommandeId || null,
     numeroBon: request?.numeroBon || request?.bonCommande?.numeroBon || null,
+    selectedProformaId: request?.selectedProformaId || null,
+    selectedProformaNumber: request?.selectedProformaNumber || null,
     lines: lignes.map((ligne: any) => ({
       id: String(ligne?.id ?? ''),
       articleId: ligne?.articleId || null,
@@ -129,6 +195,9 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
           createdAt: log?.createdAt || new Date().toISOString(),
         }))
       : [],
+    proformas: Array.isArray(request?.proformas)
+      ? request.proformas.map((proforma: any) => normalizePurchaseProforma(proforma))
+      : [],
   };
 };
 
@@ -153,6 +222,8 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
   sourceDevisAchatId: order?.sourceDevisAchatId || order?.demandeAchatId || null,
   requestId: order?.requestId || order?.demandeAchatId || undefined,
   requestNumber: order?.requestNumber || order?.demandeAchat?.numeroDemande || undefined,
+  proformaId: order?.proformaId || null,
+  proformaNumber: order?.proformaNumber || order?.proforma?.numeroProforma || null,
   itemsDetail: Array.isArray(order?.itemsDetail)
     ? order.itemsDetail.map((ligne: any) => ({
         id: String(ligne?.id ?? ''),
@@ -451,16 +522,94 @@ export const procurementService = {
     };
   },
 
+  async createProforma(
+    requestId: string,
+    data: {
+      titre?: string;
+      fournisseurId: string;
+      devise?: string;
+      notes?: string;
+      lignes: Array<{
+        articleId?: string | null;
+        referenceArticle?: string | null;
+        designation: string;
+        categorie?: string | null;
+        quantite: number;
+        prixUnitaire: number;
+        tva?: number;
+      }>;
+    }
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(`/procurement/devis-achat/${requestId}/proformas`, data);
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
+  async submitProforma(
+    requestId: string,
+    proformaId: string,
+    commentaire?: string
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(
+      `/procurement/devis-achat/${requestId}/proformas/${proformaId}/submit`,
+      { commentaire }
+    );
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
+  async approveProforma(
+    requestId: string,
+    proformaId: string,
+    commentaire?: string
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(
+      `/procurement/devis-achat/${requestId}/proformas/${proformaId}/approve`,
+      { commentaire }
+    );
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
+  async rejectProforma(
+    requestId: string,
+    proformaId: string,
+    raison?: string
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(
+      `/procurement/devis-achat/${requestId}/proformas/${proformaId}/reject`,
+      { commentaire: raison }
+    );
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
   async generateOrderFromRequest(
     id: string,
-    commentaire?: string
+    commentaire?: string,
+    proformaId?: string
   ): Promise<
     DetailResponse<{
       purchaseQuote: PurchaseRequest;
       purchaseOrder: { id: string; numeroBon: string; status: PurchaseOrderStatus };
     }>
   > {
-    const response = await apiClient.post(`/procurement/devis-achat/${id}/generate-order`, { commentaire });
+    const response = await apiClient.post(`/procurement/devis-achat/${id}/generate-order`, {
+      commentaire,
+      proformaId,
+    });
     const normalized = normalizeDetailResponse<any>(response.data);
     return {
       success: normalized.success,

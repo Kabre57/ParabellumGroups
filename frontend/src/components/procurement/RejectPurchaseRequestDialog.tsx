@@ -29,7 +29,7 @@ export function RejectPurchaseRequestDialog({
   onConfirm,
   isPending = false,
   requestNumber,
-  title = 'Rejeter le devis d achat',
+  title = 'Rejeter la DPA',
   description = 'Precisez le motif pour que le demandeur puisse corriger et soumettre a nouveau.',
   defaultReason = 'Merci de completer le fournisseur, les lignes ou les montants avant nouvelle soumission.',
 }: RejectPurchaseRequestDialogProps) {
@@ -57,7 +57,7 @@ export function RejectPurchaseRequestDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {requestNumber ? `Devis ${requestNumber}. ` : ''}
+            {requestNumber ? `Document ${requestNumber}. ` : ''}
             {description}
           </DialogDescription>
         </DialogHeader>
