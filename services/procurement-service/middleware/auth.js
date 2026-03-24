@@ -1,41 +1,43 @@
-const parseIntHeader = (value) => {
-  const parsed = Number.parseInt(String(value || ''), 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
+﻿const jwt = require('jsonwebtoken');
 
-const parsePermissionsHeader = (value) => {
+const normalizePermissions = (value) => {
   if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => parsePermissionsHeader(item));
-  }
-
+  if (Array.isArray(value)) return value.map(String);
   return String(value)
     .split(',')
-    .map((item) => item.trim().toLowerCase())
+    .map((p) => p.trim().toLowerCase())
     .filter(Boolean);
 };
 
-const authMiddleware = (req, res, next) => {
-  const userId = req.headers['x-user-id'];
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-  if (!userId) {
-    return res.status(401).json({
-      error: 'Non autorise - Header X-User-Id requis',
-    });
+  if (!token) {
+    return res.status(401).json({ error: "Token d'authentification manquant" });
   }
 
-  req.userId = String(userId);
-  req.user = {
-    id: String(userId),
-    email: req.headers['x-user-email'] ? String(req.headers['x-user-email']) : null,
-    role: req.headers['x-user-role'] ? String(req.headers['x-user-role']) : null,
-    serviceId: parseIntHeader(req.headers['x-service-id']),
-    serviceName: req.headers['x-service-name'] ? String(req.headers['x-service-name']) : null,
-    permissions: parsePermissionsHeader(req.headers['x-user-permissions']),
-  };
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'JWT_SECRET non configuré' });
+  }
 
-  next();
+  jwt.verify(token, secret, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide ou expiré' });
+    }
+
+    req.user = {
+      id: decoded.userId || decoded.id,
+      email: decoded.email || null,
+      role: decoded.role || decoded.roleCode || null,
+      serviceId: decoded.serviceId || null,
+      serviceName: decoded.serviceName || null,
+      permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),
+    };
+    req.userId = req.user.id;
+    next();
+  });
 };
 
-module.exports = authMiddleware;
+module.exports = authenticateToken;

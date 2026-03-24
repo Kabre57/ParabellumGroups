@@ -92,9 +92,13 @@ exports.create = async (req, res) => {
       cnamNumber,
     } = req.body;
 
+    const generatedMatricule = matricule && matricule.trim()
+      ? matricule.trim()
+      : `EMP-${Date.now()}`;
+
     const employe = await prisma.employe.create({
       data: {
-        matricule,
+        matricule: generatedMatricule,
         nom,
         prenom,
         email,

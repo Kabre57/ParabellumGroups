@@ -161,7 +161,7 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: 'Adresse email ou mot de passe incorrect',
       });
     }
 
@@ -178,7 +178,7 @@ const login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: 'Adresse email ou mot de passe incorrect',
       });
     }
 

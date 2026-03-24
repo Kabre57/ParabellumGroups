@@ -14,17 +14,26 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ success: false, message: "Token d'authentification manquant" });
+    return res.status(401).json({
+      success: false,
+      message: 'Token d’authentification manquant',
+    });
   }
 
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    return res.status(500).json({ success: false, message: 'JWT_SECRET non configuré côté service' });
+    return res.status(500).json({
+      success: false,
+      message: 'JWT_SECRET non configuré côté service',
+    });
   }
 
   jwt.verify(token, secret, (err, decoded) => {
     if (err) {
-      return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
+      return res.status(403).json({
+        success: false,
+        message: 'Token invalide ou expiré',
+      });
     }
 
     req.user = {
@@ -43,23 +52,24 @@ const authenticateToken = (req, res, next) => {
 
 const requireRoles = (...roles) => (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Authentification requise' });
+    return res.status(401).json({
+      success: false,
+      message: 'Authentification requise',
+    });
   }
 
   if (roles.length > 0 && !roles.includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Accès refusé pour ce rôle' });
+    return res.status(403).json({
+      success: false,
+      message: 'Accès refusé pour ce rôle',
+    });
   }
 
   next();
 };
 
-authenticateToken.authenticateUser = authenticateToken;
-authenticateToken.authenticateToken = authenticateToken;
-authenticateToken.authenticate = authenticateToken;
-authenticateToken.requireRoles = requireRoles;
-
-module.exports = authenticateToken;
-module.exports.authenticateUser = authenticateToken;
-module.exports.authenticateToken = authenticateToken;
-module.exports.authenticate = authenticateToken;
-module.exports.requireRoles = requireRoles;
+module.exports = {
+  authenticateToken,
+  authenticateUser: authenticateToken,
+  requireRoles,
+};

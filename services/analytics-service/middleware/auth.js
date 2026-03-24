@@ -1,19 +1,41 @@
-const jwt = require('jsonwebtoken');
+﻿const jwt = require('jsonwebtoken');
 
-const auth = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-
-    if (!token) {
-      return res.status(401).json({ error: 'Authentification requise' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre_secret_jwt_dev');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Token invalide' });
-  }
+const normalizePermissions = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String);
+  return String(value)
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
 };
 
-module.exports = auth;
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Token d'authentification manquant" });
+  }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'JWT_SECRET non configuré' });
+  }
+
+  jwt.verify(token, secret, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide ou expiré' });
+    }
+    req.user = {
+      id: decoded.userId || decoded.id,
+      email: decoded.email || null,
+      role: decoded.role || decoded.roleCode || null,
+      serviceId: decoded.serviceId || null,
+      serviceName: decoded.serviceName || null,
+      permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),
+    };
+    next();
+  });
+};
+
+module.exports = authenticateToken;

@@ -6,14 +6,14 @@ const authMiddleware = require('../middleware/auth');
 
 // Validation rules
 const createValidation = [
-  body('matricule').notEmpty().withMessage('Le matricule est requis'),
+  body('matricule').optional().isString(),
   body('nom').notEmpty().withMessage('Le nom est requis'),
   body('prenom').notEmpty().withMessage('Le prénom est requis'),
-  body('email').isEmail().withMessage('Email invalide'),
-  body('dateEmbauche').isISO8601().withMessage('Date d\'embauche invalide'),
+  body('email').optional().isEmail().withMessage('Email invalide'),
+  body('dateEmbauche').optional().isISO8601().withMessage('Date d\'embauche invalide'),
   body('poste').notEmpty().withMessage('Le poste est requis'),
   body('departement').notEmpty().withMessage('Le département est requis'),
-  body('salaire').isNumeric().withMessage('Le salaire doit être un nombre')
+  body('salaire').optional().isNumeric().withMessage('Le salaire doit être un nombre')
 ];
 
 const updateValidation = [

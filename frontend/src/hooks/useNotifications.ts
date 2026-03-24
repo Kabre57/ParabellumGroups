@@ -3,6 +3,7 @@ import { apiClient } from '@/shared/api/shared/client';
 import { useAuth } from '@/hooks/useAuth';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
 import communicationService from '@/shared/api/communication';
+import { useNotificationStream } from './useNotificationStream';
 
 export interface Notification {
   id: string;
@@ -26,6 +27,7 @@ export function useNotifications() {
     isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'messages.read']);
   const currentUserId = user?.id != null ? String(user.id) : '';
   const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
+  useNotificationStream();
 
   return useQuery<NotificationsResponse>({
     queryKey: ['notifications', currentUserId, currentUserEmail],

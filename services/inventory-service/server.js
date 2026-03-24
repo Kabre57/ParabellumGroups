@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const authenticateUser = require('./middleware/auth');
 
 const articleRoutes = require('./routes/article.routes');
 const mouvementRoutes = require('./routes/mouvement.routes');
@@ -18,6 +19,7 @@ const PORT = process.env.PORT || 4005;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(authenticateUser);
 
 // Rate limiting
 const limiter = rateLimit({

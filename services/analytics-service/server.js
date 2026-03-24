@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const authenticate = require('./middleware/auth');
 
 const dashboardRoutes = require('./routes/dashboard.routes');
 const widgetRoutes = require('./routes/widget.routes');
@@ -13,6 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(authenticate);
 
 app.use('/api/dashboards', dashboardRoutes);
 app.use('/api/widgets', widgetRoutes);
