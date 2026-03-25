@@ -6,12 +6,12 @@ import { useAuth } from '@/hooks/useAuth';
  * Lightweight SSE listener to keep notifications in sync in near‑real‑time.
  * Relies on the API gateway allowing ?token=<jwt> for EventSource.
  */
-export function useNotificationStream() {
+export function useNotificationStream(enabled = true) {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!isAuthenticated || typeof window === 'undefined') {
+    if (!enabled || !isAuthenticated || typeof window === 'undefined') {
       return;
     }
 
@@ -33,5 +33,5 @@ export function useNotificationStream() {
     return () => {
       source.close();
     };
-  }, [isAuthenticated, queryClient]);
+  }, [enabled, isAuthenticated, queryClient]);
 }

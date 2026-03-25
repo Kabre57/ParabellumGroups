@@ -4,14 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Bell, Check, X, Trash2 } from 'lucide-react';
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
-import { useNotificationStream } from '@/hooks/useNotificationStream';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  useNotificationStream();
   const { data, isLoading, refetch } = useNotifications();
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead();

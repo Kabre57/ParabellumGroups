@@ -19,7 +19,7 @@ module.exports = {
     {
       path: '/notifications',
       auth: true,
-      permission: { GET: 'messages.read' },
+      permission: { GET: ['notifications.read', 'notifications.read_own'] },
     },
   ],
 };

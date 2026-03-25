@@ -415,7 +415,7 @@ export default function PurchaseQuotesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="grid h-[96vh] max-h-[96vh] max-w-[92vw] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+        <DialogContent className="grid h-[96vh] max-h-[96vh] w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] 2xl:max-w-[1500px] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
           <DialogHeader>
             <DialogTitle>Nouvelle DPA</DialogTitle>
             <DialogDescription>
@@ -522,11 +522,12 @@ export default function PurchaseQuotesPage() {
             />
           </div>
 
-          <DialogFooter className="items-center justify-between border-t bg-background pt-4 sm:justify-between">
-            <div className="text-sm text-muted-foreground">
+          <DialogFooter className="gap-3 border-t bg-background pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
+            <div className="min-w-0 text-sm text-muted-foreground">
               Total estimé : {draftTotals.montantTTC.toLocaleString('fr-FR')} F
             </div>
             <Button
+              className="shrink-0"
               onClick={() => createMutation.mutate()}
               disabled={!title || !selectedServiceId || (!supplierId && !manualSupplierName.trim()) || createMutation.isPending}
             >

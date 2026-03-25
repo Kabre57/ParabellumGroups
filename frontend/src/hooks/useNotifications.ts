@@ -23,19 +23,31 @@ interface NotificationsResponse {
 
 export function useNotifications() {
   const { user, isAuthenticated } = useAuth();
-  const canReadNotifications =
-    isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'messages.read']);
+  const canReadSystemNotifications =
+    isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'notifications.read_own']);
+  const canReadMessages = isAdminRole(user) || hasAnyPermission(user, ['messages.read']);
+  const canReadNotifications = canReadSystemNotifications || canReadMessages;
   const currentUserId = user?.id != null ? String(user.id) : '';
   const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
-  useNotificationStream();
+  useNotificationStream(canReadSystemNotifications);
 
   return useQuery<NotificationsResponse>({
-    queryKey: ['notifications', currentUserId, currentUserEmail],
+    queryKey: [
+      'notifications',
+      currentUserId,
+      currentUserEmail,
+      canReadSystemNotifications,
+      canReadMessages,
+    ],
     queryFn: async () => {
       const [notificationResponse, inboxById, inboxByEmail] = await Promise.all([
-        apiClient.get('/notifications'),
-        currentUserId ? communicationService.getMessages({ destinataireId: currentUserId }) : Promise.resolve([]),
-        currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()
+        canReadSystemNotifications
+          ? apiClient.get('/notifications')
+          : Promise.resolve({ data: { data: [], unreadCount: 0 } }),
+        canReadMessages && currentUserId
+          ? communicationService.getMessages({ destinataireId: currentUserId })
+          : Promise.resolve([]),
+        canReadMessages && currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()
           ? communicationService.getMessages({ destinataireId: currentUserEmail })
           : Promise.resolve([]),
       ]);
@@ -89,17 +101,22 @@ export function useMarkNotificationAsRead() {
 
 export function useMarkAllNotificationsAsRead() {
   const { user } = useAuth();
+  const canReadSystemNotifications =
+    isAdminRole(user) || hasAnyPermission(user, ['notifications.read', 'notifications.read_own']);
+  const canReadMessages = isAdminRole(user) || hasAnyPermission(user, ['messages.read']);
   const currentUserId = user?.id != null ? String(user.id) : '';
   const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
 
   return async () => {
-    await apiClient.patch('/notifications/mark-all-read');
+    if (canReadSystemNotifications) {
+      await apiClient.patch('/notifications/mark-all-read');
+    }
 
     const requests = [];
-    if (currentUserId) {
+    if (canReadMessages && currentUserId) {
       requests.push(communicationService.getMessages({ destinataireId: currentUserId }));
     }
-    if (currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()) {
+    if (canReadMessages && currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()) {
       requests.push(communicationService.getMessages({ destinataireId: currentUserEmail }));
     }
 
