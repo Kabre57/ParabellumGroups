@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
@@ -42,7 +42,8 @@ import { clientsService } from '@/shared/api/crm/clients.service';
 import type { ClientsStats } from '@/shared/api/crm/types';
 import { employeesService } from '@/shared/api/hr/employees.service';
 
-type DashboardPeriod = '7d' | '30d' | '90d' | '1y';
+type DashboardPeriod = 'day' | 'week' | 'month' | 'year';
+type ServiceView = 'all' | 'achats' | 'comptabilite' | 'technique' | 'crm' | 'rh';
 
 type EnterpriseDashboardSnapshot = {
   overview: OverviewDashboard | null;
@@ -72,10 +73,19 @@ interface EnterpriseRealtimeDashboardProps {
 }
 
 const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
-  { value: '7d', label: '7 derniers jours' },
-  { value: '30d', label: '30 derniers jours' },
-  { value: '90d', label: '3 derniers mois' },
-  { value: '1y', label: 'Cette année' },
+  { value: 'day', label: 'Jour' },
+  { value: 'week', label: 'Semaine' },
+  { value: 'month', label: 'Mois' },
+  { value: 'year', label: 'Année' },
+];
+
+const serviceOptions: Array<{ value: ServiceView; label: string }> = [
+  { value: 'all', label: 'Tous les services' },
+  { value: 'achats', label: 'Achats' },
+  { value: 'comptabilite', label: 'Comptabilité' },
+  { value: 'technique', label: 'Technique' },
+  { value: 'crm', label: 'CRM' },
+  { value: 'rh', label: 'RH' },
 ];
 
 const chartMonthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jui', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -85,15 +95,53 @@ const formatCurrency = (value: number) =>
 
 const normalizeAccountingPeriod = (period: DashboardPeriod): 'week' | 'month' | 'quarter' | 'year' => {
   switch (period) {
-    case '7d':
+    case 'day':
+    case 'week':
       return 'week';
-    case '90d':
-      return 'quarter';
-    case '1y':
+    case 'year':
       return 'year';
     default:
       return 'month';
   }
+};
+
+const normalizeAnalyticsPeriod = (period: DashboardPeriod) => {
+  switch (period) {
+    case 'day':
+      return '1d';
+    case 'week':
+      return '7d';
+    case 'year':
+      return '1y';
+    default:
+      return '30d';
+  }
+};
+
+const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const buildRangeParams = (period: DashboardPeriod) => {
+  const end = new Date();
+  const start = new Date(end);
+
+  switch (period) {
+    case 'day':
+      break;
+    case 'week':
+      start.setDate(end.getDate() - 6);
+      break;
+    case 'year':
+      start.setFullYear(end.getFullYear(), 0, 1);
+      break;
+    default:
+      start.setMonth(end.getMonth() - 1);
+      break;
+  }
+
+  return {
+    startDate: toIsoDate(start),
+    endDate: toIsoDate(end),
+  };
 };
 
 const buildActivityType = (status: string) => {
@@ -107,11 +155,12 @@ export function EnterpriseRealtimeDashboard({
   title = "Cockpit entreprise",
   description = 'Pilotage temps réel des KPI et graphes de tous les services.',
   showQuickActions = false,
-  period = '30d',
+  period = 'month',
   onPeriodChange,
 }: EnterpriseRealtimeDashboardProps) {
   const { user } = useAuth();
   const isAdmin = isAdminRole(user);
+  const [serviceView, setServiceView] = useState<ServiceView>('all');
 
   const canReadFinance = isAdmin || hasPermission(user, 'reports.read_financial');
   const canReadProcurement =
@@ -122,6 +171,7 @@ export function EnterpriseRealtimeDashboard({
   const canReadTechnical = isAdmin || hasPermission(user, 'missions.read');
   const canReadCustomers = isAdmin || hasPermission(user, 'customers.read');
   const canReadEmployees = isAdmin || hasPermission(user, 'employees.read');
+  const rangeParams = useMemo(() => buildRangeParams(period), [period]);
 
   const dashboardQuery = useQuery({
     queryKey: ['enterprise-dashboard', period, isAdmin, canReadFinance, canReadProcurement, canReadTechnical, canReadCustomers, canReadEmployees],
@@ -137,11 +187,17 @@ export function EnterpriseRealtimeDashboard({
         employeesTotalResult,
         employeesActiveResult,
       ] = await Promise.allSettled([
-        analyticsService.getOverviewDashboard({ period }),
-        canReadFinance ? billingService.getAccountingOverview(normalizeAccountingPeriod(period)) : Promise.resolve(null),
+        analyticsService.getOverviewDashboard({ period: normalizeAnalyticsPeriod(period), ...rangeParams }),
+        canReadFinance
+          ? billingService.getAccountingOverview(normalizeAccountingPeriod(period), rangeParams)
+          : Promise.resolve(null),
         canReadProcurement ? procurementService.getRequestsStats() : Promise.resolve(null),
-        canReadProcurement ? procurementService.getRequests({ limit: 5, sortBy: 'dateDemande', sortOrder: 'desc' }) : Promise.resolve(null),
-        canReadProcurement ? procurementService.getOrders({ limit: 5, sortBy: 'dateCommande', sortOrder: 'desc' }) : Promise.resolve(null),
+        canReadProcurement
+          ? procurementService.getRequests({ limit: 5, sortBy: 'dateDemande', sortOrder: 'desc', ...rangeParams })
+          : Promise.resolve(null),
+        canReadProcurement
+          ? procurementService.getOrders({ limit: 5, sortBy: 'dateCommande', sortOrder: 'desc', ...rangeParams })
+          : Promise.resolve(null),
         canReadTechnical ? missionsService.getMissionsStats() : Promise.resolve(null),
         canReadCustomers ? clientsService.getClientsStats() : Promise.resolve(null),
         canReadEmployees ? employeesService.getEmployees({ page: 1, pageSize: 1 }) : Promise.resolve(null),
@@ -299,6 +355,68 @@ export function EnterpriseRealtimeDashboard({
       .map(({ sortDate: _sortDate, ...activity }) => activity);
   }, [snapshot]);
 
+  const executiveServiceCards = useMemo(() => {
+    const cards = [
+      {
+        key: 'achats' as const,
+        title: 'Achats',
+        icon: ClipboardList,
+        accent: 'text-amber-600',
+        metrics: [
+          { label: 'DPA en attente', value: String(snapshot?.procurementStats?.pendingApproval ?? 0) },
+          { label: 'BC du mois', value: String(snapshot?.procurementStats?.ordersThisMonth ?? 0) },
+          { label: 'Budget restant', value: formatCurrency(snapshot?.procurementStats?.budgetRemaining ?? 0) },
+        ],
+      },
+      {
+        key: 'comptabilite' as const,
+        title: 'Comptabilité',
+        icon: Receipt,
+        accent: 'text-green-600',
+        metrics: [
+          { label: 'Décaissements', value: formatCurrency(snapshot?.financeOverview?.summary.totalDisbursed ?? 0) },
+          { label: 'Recouvrements', value: formatCurrency(snapshot?.financeOverview?.summary.totalReceived ?? 0) },
+          { label: 'Résultat net', value: formatCurrency(snapshot?.financeOverview?.summary.netResult ?? 0) },
+        ],
+      },
+      {
+        key: 'technique' as const,
+        title: 'Technique',
+        icon: Wrench,
+        accent: 'text-indigo-600',
+        metrics: [
+          { label: 'Missions planifiées', value: String(snapshot?.missionsStats?.planifiees ?? 0) },
+          { label: 'Missions en cours', value: String(snapshot?.missionsStats?.enCours ?? 0) },
+          { label: 'Missions terminées', value: String(snapshot?.missionsStats?.terminees ?? 0) },
+        ],
+      },
+      {
+        key: 'crm' as const,
+        title: 'CRM',
+        icon: Building2,
+        accent: 'text-blue-600',
+        metrics: [
+          { label: 'Clients actifs', value: String(snapshot?.clientsStats?.totals.active ?? 0) },
+          { label: 'Nouveaux clients', value: String(snapshot?.clientsStats?.totals.newThisMonth ?? 0) },
+          { label: 'CA total HT', value: formatCurrency(snapshot?.clientsStats?.revenue.totalHT ?? 0) },
+        ],
+      },
+      {
+        key: 'rh' as const,
+        title: 'Ressources humaines',
+        icon: Users,
+        accent: 'text-purple-600',
+        metrics: [
+          { label: 'Effectif total', value: String(snapshot?.employeesTotal ?? 0) },
+          { label: 'Employés actifs', value: String(snapshot?.employeesActive ?? 0) },
+          { label: 'Comptes utilisateurs', value: String(snapshot?.overview?.users ?? 0) },
+        ],
+      },
+    ];
+
+    return serviceView === 'all' ? cards : cards.filter((card) => card.key === serviceView);
+  }, [serviceView, snapshot]);
+
   const lastRefresh = snapshot?.refreshedAt ? new Date(snapshot.refreshedAt) : null;
 
   if (dashboardQuery.isLoading && !snapshot) {
@@ -336,6 +454,17 @@ export function EnterpriseRealtimeDashboard({
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               {periodOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={serviceView}
+              onChange={(event) => setServiceView(event.target.value as ServiceView)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {serviceOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -423,58 +552,30 @@ export function EnterpriseRealtimeDashboard({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              Vue services
+              Vue exécutive par service
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <ClipboardList className="h-4 w-4 text-amber-600" />
-                  Achats
-                </div>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between"><span>DPA en attente</span><strong>{snapshot?.procurementStats?.pendingApproval ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>BC du mois</span><strong>{snapshot?.procurementStats?.ordersThisMonth ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>BC en attente</span><strong>{snapshot?.procurementStats?.pendingOrders ?? 0}</strong></div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Receipt className="h-4 w-4 text-green-600" />
-                  Comptabilité
-                </div>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between"><span>Décaissements</span><strong>{formatCurrency(snapshot?.financeOverview?.summary.totalDisbursed ?? 0)}</strong></div>
-                  <div className="flex items-center justify-between"><span>Recouvrements</span><strong>{formatCurrency(snapshot?.financeOverview?.summary.totalReceived ?? 0)}</strong></div>
-                  <div className="flex items-center justify-between"><span>Résultat net</span><strong>{formatCurrency(snapshot?.financeOverview?.summary.netResult ?? 0)}</strong></div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Wrench className="h-4 w-4 text-indigo-600" />
-                  Technique
-                </div>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between"><span>Missions planifiées</span><strong>{snapshot?.missionsStats?.planifiees ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>Missions en cours</span><strong>{snapshot?.missionsStats?.enCours ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>Missions terminées</span><strong>{snapshot?.missionsStats?.terminees ?? 0}</strong></div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  CRM & RH
-                </div>
-                <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between"><span>Clients actifs</span><strong>{snapshot?.clientsStats?.totals.active ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>Nouveaux clients</span><strong>{snapshot?.clientsStats?.totals.newThisMonth ?? 0}</strong></div>
-                  <div className="flex items-center justify-between"><span>Effectif total</span><strong>{snapshot?.employeesTotal ?? 0}</strong></div>
-                </div>
-              </div>
+            <div className={`grid gap-4 ${executiveServiceCards.length > 1 ? 'md:grid-cols-2' : ''}`}>
+              {executiveServiceCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <div key={card.key} className="rounded-xl border bg-slate-50 p-4">
+                    <div className={`flex items-center gap-2 text-sm font-semibold text-slate-700 ${card.accent}`}>
+                      <Icon className={`h-4 w-4 ${card.accent}`} />
+                      {card.title}
+                    </div>
+                    <div className="mt-3 space-y-2 text-sm text-slate-600">
+                      {card.metrics.map((metric) => (
+                        <div key={`${card.key}-${metric.label}`} className="flex items-center justify-between">
+                          <span>{metric.label}</span>
+                          <strong>{metric.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

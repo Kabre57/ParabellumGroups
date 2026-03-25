@@ -94,7 +94,7 @@ export default function PurchaseProformasPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Proformas fournisseurs</h1>
           <p className="text-sm text-muted-foreground">
-            Espace achat dédié à la comparaison des fournisseurs, à la sélection du meilleur prix et à la préparation du bon de commande.
+            Gérez vos proformas et leurs informations.
           </p>
         </div>
       </div>
@@ -109,9 +109,7 @@ export default function PurchaseProformasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Liste des proformas</CardTitle>
-          <CardDescription>
-            Chaque proforma reste rattachée à sa DPA d&apos;origine. Ouvre la DPA pour modifier, soumettre ou convertir.
-          </CardDescription>
+          <CardDescription>Rechercher, consulter et comparer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">

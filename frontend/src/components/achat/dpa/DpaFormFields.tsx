@@ -49,7 +49,7 @@ export function DpaFormFields({
 }: DpaFormFieldsProps) {
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showServiceSelector ? (
           <div className="space-y-2">
             <label className="text-sm font-medium">Service demandeur</label>
@@ -69,7 +69,7 @@ export function DpaFormFields({
           </div>
         ) : null}
 
-        <div className="space-y-2">
+        <div className="space-y-2 xl:col-span-1">
           <label className="text-sm font-medium">Objet</label>
           <Input
             value={title}
@@ -79,7 +79,7 @@ export function DpaFormFields({
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 xl:col-span-1">
           <label className="text-sm font-medium">Date de besoin</label>
           <Input
             type="date"
@@ -89,7 +89,7 @@ export function DpaFormFields({
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 xl:col-span-1">
           <label className="text-sm font-medium">Fournisseur existant</label>
           <select
             value={supplierId}
@@ -106,7 +106,7 @@ export function DpaFormFields({
           </select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 xl:col-span-2">
           <label className="text-sm font-medium">Nouveau fournisseur</label>
           <Input
             value={manualSupplierName}
@@ -116,7 +116,7 @@ export function DpaFormFields({
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 xl:col-span-2">
           <label className="text-sm font-medium">Notes</label>
           <Input
             value={notes}

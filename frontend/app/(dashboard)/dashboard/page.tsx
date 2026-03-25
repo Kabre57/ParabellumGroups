@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
   const [hasToken, setHasToken] = useState(false);
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
+  const [dateRange, setDateRange] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const isAdmin = isAdminRole(user);
   const preferredServiceRoute = getPreferredServiceRoute(user);
 

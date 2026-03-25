@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { EnterpriseRealtimeDashboard } from './EnterpriseRealtimeDashboard';
 
 export function OverviewDashboard() {
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
+  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
 
   return (
     <EnterpriseRealtimeDashboard

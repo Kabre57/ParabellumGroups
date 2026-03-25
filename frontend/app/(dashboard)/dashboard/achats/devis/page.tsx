@@ -253,9 +253,9 @@ export default function PurchaseQuotesPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats">Retour aux achats</Link>
           </Button>
-          <h1 className="mt-2 text-3xl font-bold">DPA internes</h1>
+          <h1 className="mt-2 text-3xl font-bold">DPA</h1>
           <p className="text-sm text-muted-foreground">
-            Les services créent ici leurs DPA avec fournisseur, prix et quantités. Les proformas fournisseurs sont ensuite gérées dans l&apos;espace achat dédié.
+            Gérez vos DPA et leurs informations.
           </p>
         </div>
         {canCreate && (
@@ -276,7 +276,7 @@ export default function PurchaseQuotesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Liste des DPA</CardTitle>
-          <CardDescription>Suivi par service, fournisseur et statut d&apos;approbation.</CardDescription>
+          <CardDescription>Rechercher, consulter et suivre.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
@@ -337,7 +337,7 @@ export default function PurchaseQuotesPage() {
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" variant="outline">
-                            <Link href={`/dashboard/achats/devis/${request.id}`}>Ouvrir</Link>
+                            <Link href={`/dashboard/achats/devis/${request.id}`}>Voir</Link>
                           </Button>
                           {canSubmit && (request.status === 'BROUILLON' || request.status === 'REJETEE') && (
                             <Button size="sm" variant="outline" onClick={() => submitMutation.mutate(request.id)}>

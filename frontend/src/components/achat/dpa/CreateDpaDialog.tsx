@@ -85,12 +85,12 @@ export function CreateDpaDialog({
   onSubmit,
 }: CreateDpaDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(96vw,1500px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5 lg:px-6">
         <DialogHeader>
           <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>
-            La DPA sera créée au nom du service <strong>{displayServiceName}</strong> avec fournisseur, prix et lignes d&apos;achat.
+            Gérez la DPA et ses informations avant soumission et validation.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,7 +120,7 @@ export function CreateDpaDialog({
             description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="min-h-[340px] max-h-[48vh]"
+            maxBodyHeightClass="min-h-[360px] max-h-[52vh]"
             tableMinWidthClass="min-w-[1100px]"
             onAddLine={onAddLine}
             onDuplicateLine={onDuplicateLine}

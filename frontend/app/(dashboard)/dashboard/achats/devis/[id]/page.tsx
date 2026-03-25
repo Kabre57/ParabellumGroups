@@ -33,15 +33,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchaseRequestPrint from '@/components/printComponents/PurchaseRequestPrint';
 import PurchaseCommissionPrint from '@/components/printComponents/PurchaseCommissionPrint';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
-import { PurchaseProformaDialog } from '@/components/procurement/PurchaseProformaDialog';
 import { EditDpaCard } from '@/components/achat/dpa/EditDpaCard';
 import {
   createEmptyDpaDraftLine,
   type DpaDraftLine,
 } from '@/components/achat/dpa';
+import {
+  CreateProformaDialog,
+  ProformaDecisionBoard,
+  ProformaSuppliersSection,
+} from '@/components/achat/proforma';
 import {
   Table,
   TableBody,
@@ -771,7 +776,7 @@ export default function PurchaseQuoteDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            DPA du service {request.serviceName || 'Non attribue'}, validée d&apos;abord par le DG puis enrichie par des proformas avant génération du bon de commande.
+            Gérez cette DPA et ses informations avant décision achat, validation DG et conversion en bon de commande.
           </p>
         </div>
 
@@ -849,465 +854,145 @@ export default function PurchaseQuoteDetailPage() {
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
-      <div className="grid min-w-0 gap-6">
-        <Card className="min-w-0">
-          <CardHeader>
-            <CardTitle>Edition de la demande</CardTitle>
-            <CardDescription>
-              Le service demandeur saisit ici la DPA avec son fournisseur, ses prix et ses quantités avant soumission au DG.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <EditDpaCard
-              canEdit={canEditRequest}
-              showServiceSelector={canChooseService || !request.serviceId}
-              selectedServiceId={selectedServiceId}
-              services={services}
-              onServiceChange={(value) => {
-                setIsDirty(true);
-                setSelectedServiceId(value);
-              }}
-              title={title}
-              onTitleChange={(value) => {
-                setIsDirty(true);
-                setTitle(value);
-              }}
-              dateBesoin={dateBesoin}
-              onDateBesoinChange={(value) => {
-                setIsDirty(true);
-                setDateBesoin(value);
-              }}
-              supplierId={supplierId}
-              suppliers={suppliers}
-              onSupplierChange={(value) => {
-                setIsDirty(true);
-                setSupplierId(value);
-                if (value) {
-                  setManualSupplierName('');
-                }
-              }}
-              manualSupplierName={manualSupplierName}
-              onManualSupplierNameChange={(value) => {
-                setIsDirty(true);
-                setManualSupplierName(value);
-                if (value.trim()) {
-                  setSupplierId('');
-                }
-              }}
-              notes={notes}
-              onNotesChange={(value) => {
-                setIsDirty(true);
-                setNotes(value);
-              }}
-              description={description}
-              onDescriptionChange={(value) => {
-                setIsDirty(true);
-                setDescription(value);
-              }}
-              lines={lines}
-              articles={articles}
-              onAddLine={() => {
-                setIsDirty(true);
-                setLines((current) => [...current, createEmptyDpaDraftLine()]);
-              }}
-              onDuplicateLine={(index) => {
-                setIsDirty(true);
-                setLines((current) => {
-                  const source = current[index];
-                  return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
-                });
-              }}
-              onRemoveLine={(index) => {
-                setIsDirty(true);
-                setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
-              }}
-              onUpdateLine={(index, patch) => {
-                setIsDirty(true);
-                updateLine(index, patch);
-              }}
-              onSelectArticle={(index, articleId) => {
-                setIsDirty(true);
-                updateLineArticle(index, articleId);
-              }}
-              formatCurrency={formatCurrency}
-              totals={totals}
-            />
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="informations" className="space-y-6">
+        <TabsList className="grid w-full max-w-[760px] grid-cols-2 md:grid-cols-4">
+          <TabsTrigger value="informations">Informations</TabsTrigger>
+          <TabsTrigger value="decision">Décision achat</TabsTrigger>
+          <TabsTrigger value="proformas">Proformas</TabsTrigger>
+          <TabsTrigger value="historique">Historique</TabsTrigger>
+        </TabsList>
 
-        <div className="min-w-0 space-y-6">
-          {canReadCommittee ? (
+        <TabsContent value="informations" className="space-y-6">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Tableau de décision achat</CardTitle>
+              <CardTitle>Informations DPA</CardTitle>
               <CardDescription>
-                Vue d&apos;arbitrage multi-fournisseurs avec moins-disant, délai, disponibilité, recommandation achat et détail par ligne.
+                Gérez la DPA, son service, son fournisseur, ses lignes et ses montants.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {proformaComparison.proformas.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Aucune proforma à comparer pour cette DPA.
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border bg-slate-50 p-4">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proformas reçues</div>
-                      <div className="mt-2 text-2xl font-semibold">{proformaComparison.proformas.length}</div>
-                    </div>
-                    <div className="rounded-lg border bg-green-50 p-4">
-                      <div className="text-xs uppercase tracking-wide text-green-700">Meilleure offre globale</div>
-                      <div className="mt-2 text-lg font-semibold text-green-900">
-                        {proformaComparison.proformas.find((item) => item.id === proformaComparison.bestProformaId)?.fournisseurNom || '—'}
-                      </div>
-                      <div className="text-sm text-green-800">{formatCurrency(proformaComparison.bestAmount)}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-4">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proforma recommandée</div>
-                      <div className="mt-2 text-lg font-semibold">
-                        {request.proformas?.find((item) => item.recommendedForApproval)?.fournisseurNom || 'Aucune recommandation'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {request.proformas?.find((item) => item.recommendedForApproval)?.numeroProforma || 'En attente de décision achat'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {canManageProformasFlow && canRecommendSupplier && proformaComparison.bestProformaId ? (
-                    <div className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        onClick={() => recommendProformaMutation.mutate(proformaComparison.bestProformaId!)}
-                        disabled={recommendProformaMutation.isPending}
-                      >
-                        Retenir automatiquement le moins-disant
-                      </Button>
-                    </div>
-                  ) : null}
-
-                  <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full min-w-[1480px] text-sm">
-                      <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
-                        <tr className="border-b">
-                          <th className="px-3 py-3 font-semibold">Fournisseur</th>
-                          <th className="px-3 py-3 font-semibold">Proforma</th>
-                          <th className="px-3 py-3 font-semibold text-right">Total TTC</th>
-                          <th className="px-3 py-3 font-semibold text-right">Score prix</th>
-                          <th className="px-3 py-3 font-semibold">Délai</th>
-                          <th className="px-3 py-3 font-semibold text-right">Score délai</th>
-                          <th className="px-3 py-3 font-semibold">Disponibilité</th>
-                          <th className="px-3 py-3 font-semibold text-right">Score dispo</th>
-                          <th className="px-3 py-3 font-semibold text-right">Score fournisseur</th>
-                          <th className="px-3 py-3 font-semibold text-right">Score total</th>
-                          <th className="px-3 py-3 font-semibold">Justification</th>
-                          <th className="px-3 py-3 font-semibold">Statut</th>
-                          <th className="px-3 py-3 font-semibold text-right">Décision</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {commissionDecisionRows.map((row) => {
-                          const isBest = row.proformaId === proformaComparison.bestProformaId;
-                          const isRecommended = row.recommendedForApproval;
-                          const isSelected = row.selectedForOrder;
-
-                          return (
-                            <tr
-                              key={`decision-${row.proformaId}`}
-                              className={`border-b align-top last:border-0 ${
-                                isSelected
-                                  ? 'bg-blue-50/60'
-                                  : isRecommended
-                                  ? 'bg-amber-50/60'
-                                  : isBest
-                                  ? 'bg-green-50/60'
-                                  : ''
-                              }`}
-                            >
-                              <td className="px-3 py-3">
-                                <div className="font-medium">{row.fournisseurNom}</div>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {isBest ? <Badge variant="outline">Moins-disant</Badge> : null}
-                                  {isRecommended ? <Badge variant="secondary">Recommandée achat</Badge> : null}
-                                  {isSelected ? <Badge>Retenue DG</Badge> : null}
-                                </div>
-                              </td>
-                              <td className="px-3 py-3">
-                                <div className="font-medium">{row.numeroProforma}</div>
-                                <div className="text-xs text-muted-foreground">{isBest ? 'Base comparatif' : 'Offre fournisseur'}</div>
-                              </td>
-                              <td className="px-3 py-3 text-right font-semibold whitespace-nowrap">
-                                {formatCurrency(row.montantTTC)}
-                              </td>
-                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
-                                {row.priceScore.toFixed(1)}
-                              </td>
-                              <td className="px-3 py-3">
-                                {row.delaiLivraisonJours != null ? `${row.delaiLivraisonJours} j` : '—'}
-                              </td>
-                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
-                                {row.delayScore.toFixed(1)}
-                              </td>
-                              <td className="px-3 py-3">{row.disponibilite || '—'}</td>
-                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
-                                {row.availabilityScore.toFixed(1)}
-                              </td>
-                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
-                                {row.supplierScore.toFixed(1)}
-                              </td>
-                              <td className="px-3 py-3 text-right text-base font-semibold whitespace-nowrap">
-                                {row.totalScore.toFixed(1)}
-                              </td>
-                              <td className="max-w-[320px] px-3 py-3 text-sm text-muted-foreground">
-                                {row.justification || row.observationsAchat || '—'}
-                              </td>
-                              <td className="px-3 py-3">
-                                <Badge variant={isSelected ? 'default' : isRecommended ? 'secondary' : 'outline'}>
-                                  {isSelected ? 'Retenue DG' : isRecommended ? 'Recommandée' : row.status}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-3 text-right">
-                                {canManageProformasFlow && !isSelected ? (
-                                  <Button
-                                    size="sm"
-                                    variant={isRecommended ? 'secondary' : 'outline'}
-                                    onClick={() => recommendProformaMutation.mutate(row.proformaId)}
-                                    disabled={recommendProformaMutation.isPending}
-                                  >
-                                    {isRecommended ? 'Recommandée' : 'Retenir'}
-                                  </Button>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full min-w-[980px] text-sm">
-                      <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
-                        <tr className="border-b">
-                          <th className="min-w-[220px] px-3 py-3 font-semibold">Article</th>
-                          <th className="w-24 px-3 py-3 font-semibold">Qté</th>
-                          {proformaComparison.proformas.map((proforma) => (
-                            <th key={proforma.id} className="min-w-[180px] px-3 py-3 font-semibold">
-                              <div>{proforma.fournisseurNom || 'Fournisseur'}</div>
-                              <div className="mt-1 text-[11px] normal-case text-muted-foreground">
-                                {proforma.numeroProforma} · {formatCurrency(proforma.montantTTC)}
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {proformaComparison.rows.map((row) => (
-                          <tr key={row.key} className="border-b align-top last:border-0">
-                            <td className="px-3 py-3">
-                              <div className="font-medium">{row.designation}</div>
-                              <div className="text-xs text-muted-foreground">{row.categorie}</div>
-                            </td>
-                            <td className="px-3 py-3 text-base font-medium">{row.quantite}</td>
-                            {proformaComparison.proformas.map((proforma) => {
-                              const offer = row.offers[proforma.id];
-                              const isSelected = proforma.selectedForOrder;
-                              return (
-                                <td
-                                  key={`${row.key}-${proforma.id}`}
-                                  className={`px-3 py-3 ${
-                                    isSelected ? 'bg-blue-50/70' : offer?.isLowest ? 'bg-green-50/70' : ''
-                                  }`}
-                                >
-                                  {offer?.prixUnitaire != null ? (
-                                    <div className="space-y-1">
-                                      <div className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                        isSelected
-                                          ? 'bg-blue-100 text-blue-700'
-                                          : proforma.recommendedForApproval
-                                          ? 'bg-amber-100 text-amber-700'
-                                          : offer.isLowest
-                                          ? 'bg-green-100 text-green-700'
-                                          : 'bg-slate-100 text-slate-700'
-                                      }`}>
-                                        {isSelected ? 'Retenue' : proforma.recommendedForApproval ? 'Recommandée' : offer.isLowest ? 'Moins cher' : 'Offre'}
-                                      </div>
-                                      <div className="text-base font-semibold whitespace-nowrap">
-                                        PU {formatCurrency(offer.prixUnitaire)}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground whitespace-nowrap">
-                                        TTC {formatCurrency(offer.montantTTC || 0)}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">Non chiffré</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                        <tr className="bg-slate-50">
-                          <td className="px-3 py-3 font-semibold">Total TTC</td>
-                          <td />
-                          {proformaComparison.proformas.map((proforma) => (
-                            <td
-                              key={`total-${proforma.id}`}
-                              className={`px-3 py-3 text-base font-semibold whitespace-nowrap ${
-                                proforma.id === proformaComparison.bestProformaId ? 'text-green-700' : ''
-                              }`}
-                            >
-                              {formatCurrency(proforma.montantTTC)}
-                            </td>
-                          ))}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+            <CardContent className="space-y-6">
+              <EditDpaCard
+                canEdit={canEditRequest}
+                showServiceSelector={canChooseService || !request.serviceId}
+                selectedServiceId={selectedServiceId}
+                services={services}
+                onServiceChange={(value) => {
+                  setIsDirty(true);
+                  setSelectedServiceId(value);
+                }}
+                title={title}
+                onTitleChange={(value) => {
+                  setIsDirty(true);
+                  setTitle(value);
+                }}
+                dateBesoin={dateBesoin}
+                onDateBesoinChange={(value) => {
+                  setIsDirty(true);
+                  setDateBesoin(value);
+                }}
+                supplierId={supplierId}
+                suppliers={suppliers}
+                onSupplierChange={(value) => {
+                  setIsDirty(true);
+                  setSupplierId(value);
+                  if (value) {
+                    setManualSupplierName('');
+                  }
+                }}
+                manualSupplierName={manualSupplierName}
+                onManualSupplierNameChange={(value) => {
+                  setIsDirty(true);
+                  setManualSupplierName(value);
+                  if (value.trim()) {
+                    setSupplierId('');
+                  }
+                }}
+                notes={notes}
+                onNotesChange={(value) => {
+                  setIsDirty(true);
+                  setNotes(value);
+                }}
+                description={description}
+                onDescriptionChange={(value) => {
+                  setIsDirty(true);
+                  setDescription(value);
+                }}
+                lines={lines}
+                articles={articles}
+                onAddLine={() => {
+                  setIsDirty(true);
+                  setLines((current) => [...current, createEmptyDpaDraftLine()]);
+                }}
+                onDuplicateLine={(index) => {
+                  setIsDirty(true);
+                  setLines((current) => {
+                    const source = current[index];
+                    return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
+                  });
+                }}
+                onRemoveLine={(index) => {
+                  setIsDirty(true);
+                  setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+                }}
+                onUpdateLine={(index, patch) => {
+                  setIsDirty(true);
+                  updateLine(index, patch);
+                }}
+                onSelectArticle={(index, articleId) => {
+                  setIsDirty(true);
+                  updateLineArticle(index, articleId);
+                }}
+                formatCurrency={formatCurrency}
+                totals={totals}
+              />
             </CardContent>
           </Card>
-          ) : null}
+        </TabsContent>
 
+        <TabsContent value="decision" className="space-y-6">
+          <ProformaDecisionBoard
+            request={request}
+            proformas={proformaComparison.proformas}
+            bestProformaId={proformaComparison.bestProformaId}
+            bestAmount={proformaComparison.bestAmount}
+            commissionDecisionRows={commissionDecisionRows}
+            comparisonRows={proformaComparison.rows}
+            canReadCommittee={canReadCommittee}
+            canManageProformasFlow={canManageProformasFlow}
+            canRecommendSupplier={canRecommendSupplier}
+            isRecommendPending={recommendProformaMutation.isPending}
+            onRecommend={(proformaId) => recommendProformaMutation.mutate(proformaId)}
+            formatCurrency={formatCurrency}
+          />
+        </TabsContent>
+
+        <TabsContent value="proformas" className="space-y-6">
+          <ProformaSuppliersSection
+            request={request}
+            canManageProformasFlow={canManageProformasFlow}
+            canApprove={canApprove}
+            canReject={canReject}
+            canGenerateOrder={canGenerateOrder}
+            isRecommendPending={recommendProformaMutation.isPending}
+            isSubmitPending={submitProformaMutation.isPending}
+            isApprovePending={approveProformaMutation.isPending}
+            isRejectPending={rejectProformaMutation.isPending}
+            isGeneratePending={generateOrderMutation.isPending}
+            onRecommend={(proformaId) => recommendProformaMutation.mutate(proformaId)}
+            onSubmit={(proformaId) => submitProformaMutation.mutate(proformaId)}
+            onApprove={(proformaId) => approveProformaMutation.mutate(proformaId)}
+            onReject={(proforma) => setRejectProformaTarget(proforma)}
+            onGenerateOrder={() => generateOrderMutation.mutate()}
+            formatCurrency={formatCurrency}
+          />
+        </TabsContent>
+
+        <TabsContent value="historique" className="space-y-6">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Proformas fournisseurs</CardTitle>
+              <CardTitle>Timeline métier</CardTitle>
               <CardDescription>
-                Après validation de la DPA, le service achat enregistre plusieurs proformas. La proforma retenue est ensuite soumise au DG.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(request.proformas || []).length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Aucune proforma enregistrée pour cette DPA.
-                </div>
-              ) : (
-                (request.proformas || []).map((proforma) => (
-                  <div key={proforma.id} className="rounded-xl border p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold">{proforma.numeroProforma}</div>
-                          <Badge variant={proforma.selectedForOrder ? 'default' : 'outline'}>
-                            {proforma.selectedForOrder ? 'Retenue' : proforma.recommendedForApproval ? 'Recommandée achat' : proforma.status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {proforma.fournisseurNom || 'Fournisseur non attribué'} · {formatCurrency(proforma.montantTTC)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {[
-                            proforma.delaiLivraisonJours != null ? `Délai ${proforma.delaiLivraisonJours} j` : null,
-                            proforma.disponibilite || null,
-                            proforma.observationsAchat || proforma.notes || null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ') || 'Sans commentaire'}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {canManageProformasFlow && !proforma.selectedForOrder && (
-                          <Button
-                            size="sm"
-                            variant={proforma.recommendedForApproval ? 'secondary' : 'outline'}
-                            onClick={() => recommendProformaMutation.mutate(proforma.id)}
-                            disabled={recommendProformaMutation.isPending}
-                          >
-                            {proforma.recommendedForApproval ? 'Recommandée' : 'Retenir'}
-                          </Button>
-                        )}
-                        {canManageProformasFlow &&
-                          (proforma.status === 'BROUILLON' || proforma.status === 'REJETEE') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => submitProformaMutation.mutate(proforma.id)}
-                              disabled={submitProformaMutation.isPending}
-                            >
-                              <Send className="mr-2 h-4 w-4" />
-                              Soumettre au DG
-                            </Button>
-                          )}
-
-                        {canApprove && proforma.status === 'SOUMISE' && (
-                          <Button
-                            size="sm"
-                            onClick={() => approveProformaMutation.mutate(proforma.id)}
-                            disabled={approveProformaMutation.isPending}
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Valider proforma
-                          </Button>
-                        )}
-
-                        {canReject && proforma.status === 'SOUMISE' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setRejectProformaTarget(proforma)}
-                            disabled={rejectProformaMutation.isPending}
-                          >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Rejeter proforma
-                          </Button>
-                        )}
-
-                        {canGenerateOrder &&
-                          proforma.status === 'APPROUVEE' &&
-                          proforma.selectedForOrder && (
-                            <Button
-                              size="sm"
-                              onClick={() => generateOrderMutation.mutate()}
-                              disabled={generateOrderMutation.isPending}
-                            >
-                              <PackagePlus className="mr-2 h-4 w-4" />
-                              Générer le BC
-                            </Button>
-                          )}
-                      </div>
-                    </div>
-
-                    {(proforma.lignes || []).length > 0 && (
-                      <div className="mt-4 min-w-0 overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Désignation</TableHead>
-                              <TableHead>Qté</TableHead>
-                              <TableHead>PU</TableHead>
-                              <TableHead>TVA</TableHead>
-                              <TableHead className="text-right">Total TTC</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {(proforma.lignes || []).map((line) => (
-                              <TableRow key={line.id}>
-                                <TableCell>{line.designation}</TableCell>
-                                <TableCell>{line.quantite}</TableCell>
-                                <TableCell>{formatCurrency(line.prixUnitaire)}</TableCell>
-                                <TableCell>{line.tva}%</TableCell>
-                                <TableCell className="text-right">{formatCurrency(line.montantTTC)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="min-w-0">
-            <CardHeader>
-              <CardTitle>Timeline metier</CardTitle>
-              <CardDescription>
-                Chronologie complète depuis la création de la DPA jusqu&apos;à la conversion en bon de commande.
+                Chronologie de la DPA depuis sa création jusqu&apos;au bon de commande.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1342,9 +1027,7 @@ export default function PurchaseQuoteDetailPage() {
           <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Historique DPA</CardTitle>
-              <CardDescription>
-                Journal détaillé des actions sur la DPA.
-              </CardDescription>
+              <CardDescription>Journal détaillé des actions et transitions sur cette DPA.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1376,8 +1059,8 @@ export default function PurchaseQuoteDetailPage() {
               </Table>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <RejectPurchaseRequestDialog
         open={rejectDialogOpen}
@@ -1409,7 +1092,7 @@ export default function PurchaseQuoteDetailPage() {
         }}
       />
 
-      <PurchaseProformaDialog
+      <CreateProformaDialog
         open={createProformaOpen}
         onOpenChange={setCreateProformaOpen}
         suppliers={suppliers}
