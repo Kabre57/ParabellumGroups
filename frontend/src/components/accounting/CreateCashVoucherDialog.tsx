@@ -236,15 +236,15 @@ export function CreateCashVoucherDialog({
         </div>
 
         <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
-          <div className="overflow-auto h-[260px]">
-            <table className="w-full min-w-[900px] text-sm">
+          <div className="overflow-auto h-[300px]">
+            <table className="w-full min-w-[1020px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr className="border-b">
                   <th className="w-20 px-3 py-3 font-semibold">Ligne</th>
-                  <th className="min-w-[220px] px-3 py-3 font-semibold">Rubrique</th>
-                  <th className="min-w-[260px] px-3 py-3 font-semibold">Description</th>
-                  <th className="w-36 px-3 py-3 font-semibold text-right">Montant</th>
-                  <th className="w-24 px-3 py-3 font-semibold">Mode</th>
+                  <th className="min-w-[240px] px-3 py-3 font-semibold">Rubrique</th>
+                  <th className="min-w-[320px] px-3 py-3 font-semibold">Description</th>
+                  <th className="w-40 px-3 py-3 font-semibold text-right">Montant</th>
+                  <th className="w-28 px-3 py-3 font-semibold">Mode</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,7 +253,7 @@ export function CreateCashVoucherDialog({
                   <td className="px-3 py-3">{form.expenseCategory || 'Dépense'}</td>
                   <td className="px-3 py-3">{form.description || 'Sans description'}</td>
                   <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountHT} onChange={(event) => updateField('amountHT', event.target.value)} />
+                    <Input type="number" value={form.amountHT} onChange={(event) => updateField('amountHT', event.target.value)} className="h-11 text-base font-medium" />
                   </td>
                   <td className="px-3 py-3">{form.paymentMethod}</td>
                 </tr>
@@ -262,7 +262,7 @@ export function CreateCashVoucherDialog({
                   <td className="px-3 py-3">TVA</td>
                   <td className="px-3 py-3">Taxe appliquée sur le décaissement</td>
                   <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountTVA} onChange={(event) => updateField('amountTVA', event.target.value)} />
+                    <Input type="number" value={form.amountTVA} onChange={(event) => updateField('amountTVA', event.target.value)} className="h-11 text-base font-medium" />
                   </td>
                   <td className="px-3 py-3">-</td>
                 </tr>
@@ -271,7 +271,7 @@ export function CreateCashVoucherDialog({
                   <td className="px-3 py-3 font-medium">Total TTC</td>
                   <td className="px-3 py-3">Montant total à décaisser</td>
                   <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountTTC} onChange={(event) => updateField('amountTTC', event.target.value)} />
+                    <Input type="number" value={form.amountTTC} onChange={(event) => updateField('amountTTC', event.target.value)} className="h-11 text-base font-medium" />
                   </td>
                   <td className="px-3 py-3">{form.paymentMethod}</td>
                 </tr>

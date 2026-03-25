@@ -64,16 +64,16 @@ export function DocumentLinesTable({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
         <div className={`min-h-0 overflow-auto ${heightClass}`}>
-          <table className="w-full min-w-[860px] text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
-                <th className="min-w-[260px] px-3 py-3 font-semibold">Désignation</th>
-                <th className="min-w-[160px] px-3 py-3 font-semibold">Catégorie</th>
-                <th className="w-24 px-3 py-3 font-semibold">Qté</th>
-                <th className="w-32 px-3 py-3 font-semibold">P.U. HT</th>
-                <th className="w-24 px-3 py-3 font-semibold">TVA %</th>
-                <th className="w-36 px-3 py-3 font-semibold text-right">Total TTC</th>
+                <th className="min-w-[300px] px-3 py-3 font-semibold">Désignation</th>
+                <th className="min-w-[180px] px-3 py-3 font-semibold">Catégorie</th>
+                <th className="w-28 px-3 py-3 font-semibold">Qté</th>
+                <th className="w-36 px-3 py-3 font-semibold">P.U. HT</th>
+                <th className="w-28 px-3 py-3 font-semibold">TVA %</th>
+                <th className="w-40 px-3 py-3 font-semibold text-right">Total TTC</th>
               </tr>
             </thead>
             <tbody>
@@ -91,10 +91,10 @@ export function DocumentLinesTable({
                       <div className="font-medium">{line.designation || '-'}</div>
                     </td>
                     <td className="px-3 py-3 text-muted-foreground">{line.categorie || '-'}</td>
-                    <td className="px-3 py-3">{line.quantite}</td>
-                    <td className="px-3 py-3">{formatCurrency(line.prixUnitaire, currencyLabel)}</td>
-                    <td className="px-3 py-3">{Number(line.tva || 0)}%</td>
-                    <td className="px-3 py-3 text-right font-semibold">{formatCurrency(montantTTC, currencyLabel)}</td>
+                    <td className="px-3 py-3 text-base font-medium">{line.quantite}</td>
+                    <td className="px-3 py-3 text-base font-medium whitespace-nowrap">{formatCurrency(line.prixUnitaire, currencyLabel)}</td>
+                    <td className="px-3 py-3 text-base font-medium">{Number(line.tva || 0)}%</td>
+                    <td className="px-3 py-3 text-right text-base font-semibold whitespace-nowrap">{formatCurrency(montantTTC, currencyLabel)}</td>
                   </tr>
                 );
               })}

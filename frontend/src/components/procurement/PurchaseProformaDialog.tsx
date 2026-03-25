@@ -113,7 +113,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+      <DialogContent className="grid h-[94vh] max-h-[94vh] max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -121,8 +121,8 @@ export function PurchaseProformaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium">Intitulé</label>
             <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Proforma fournisseur principale" />
           </div>
@@ -141,7 +141,7 @@ export function PurchaseProformaDialog({
               ))}
             </select>
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-3">
             <label className="text-sm font-medium">Notes</label>
             <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Commentaire achat / délai / conditions" />
           </div>
@@ -153,8 +153,8 @@ export function PurchaseProformaDialog({
             description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="h-[42vh]"
-            tableMinWidthClass="min-w-[980px]"
+            maxBodyHeightClass="h-[46vh]"
+            tableMinWidthClass="min-w-[1180px]"
             onAddLine={() => setLines((current) => [...current, emptyLine()])}
             onDuplicateLine={(index) =>
               setLines((current) => {
@@ -172,8 +172,8 @@ export function PurchaseProformaDialog({
         </div>
 
         <DialogFooter className="items-center justify-between border-t bg-background pt-4 sm:justify-between">
-          <div className="text-sm font-medium">
-            Total proforma : {totals.montantTTC.toLocaleString('fr-FR')} F
+          <div className="text-sm text-muted-foreground">
+            Total TTC saisi : {totals.montantTTC.toLocaleString('fr-FR')} F
           </div>
           <Button
             onClick={() => {

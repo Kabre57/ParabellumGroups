@@ -267,7 +267,7 @@ export default function PurchaseQuotesPage() {
   };
 
   const supplierName = (id?: string | null) =>
-    suppliers.find((item) => item.id === id)?.name || '-';
+    suppliers.find((item) => item.id === id)?.name || '';
 
   return (
     <div className="space-y-6 p-6">
@@ -415,15 +415,15 @@ export default function PurchaseQuotesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+        <DialogContent className="grid h-[94vh] max-h-[94vh] max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Nouvelle DPA</DialogTitle>
-          <DialogDescription>
-            La DPA sera créée au nom du service <strong>{displayServiceName}</strong> avec fournisseur, prix et lignes d&apos;achat.
-          </DialogDescription>
+            <DialogDescription>
+              La DPA sera créée au nom du service <strong>{displayServiceName}</strong> avec fournisseur, prix et lignes d&apos;achat.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             {(canChooseService || !userServiceId) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Service demandeur</label>
@@ -445,14 +445,9 @@ export default function PurchaseQuotesPage() {
               <label className="text-sm font-medium">Objet</label>
               <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Achat équipements réseau" />
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Description</label>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Contexte du besoin achat"
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date de besoin</label>
+              <Input type="date" value={dateBesoin} onChange={(event) => setDateBesoin(event.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Fournisseur existant</label>
@@ -475,10 +470,6 @@ export default function PurchaseQuotesPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date de besoin</label>
-              <Input type="date" value={dateBesoin} onChange={(event) => setDateBesoin(event.target.value)} />
-            </div>
-            <div className="space-y-2">
               <label className="text-sm font-medium">Nouveau fournisseur</label>
               <Input
                 value={manualSupplierName}
@@ -496,6 +487,15 @@ export default function PurchaseQuotesPage() {
               <label className="text-sm font-medium">Notes</label>
               <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Urgent / validation budgetaire" />
             </div>
+            <div className="space-y-2 md:col-span-3">
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Contexte du besoin achat"
+              />
+            </div>
           </div>
 
           <div className="min-h-0 flex-1">
@@ -504,8 +504,8 @@ export default function PurchaseQuotesPage() {
               description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
               lines={lines}
               articles={articles as InventoryArticle[]}
-              maxBodyHeightClass="h-[38vh]"
-              tableMinWidthClass="min-w-[980px]"
+              maxBodyHeightClass="h-[40vh]"
+              tableMinWidthClass="min-w-[1180px]"
               onAddLine={() => setLines((current) => [...current, emptyLine()])}
               onDuplicateLine={(index) =>
                 setLines((current) => {
@@ -523,8 +523,8 @@ export default function PurchaseQuotesPage() {
           </div>
 
           <DialogFooter className="items-center justify-between border-t bg-background pt-4 sm:justify-between">
-            <div className="text-sm font-medium">
-              Total estimé: {draftTotals.montantTTC.toLocaleString('fr-FR')} F
+            <div className="text-sm text-muted-foreground">
+              Total estimé : {draftTotals.montantTTC.toLocaleString('fr-FR')} F
             </div>
             <Button
               onClick={() => createMutation.mutate()}

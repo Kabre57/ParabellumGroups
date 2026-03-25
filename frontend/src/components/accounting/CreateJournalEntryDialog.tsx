@@ -145,15 +145,15 @@ export function CreateJournalEntryDialog({
         </div>
 
         <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
-          <div className="overflow-auto h-[320px]">
-            <table className="w-full min-w-[960px] text-sm">
+          <div className="overflow-auto h-[340px]">
+            <table className="w-full min-w-[1080px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr className="border-b">
                   <th className="w-20 px-3 py-3 font-semibold">Ligne</th>
-                  <th className="min-w-[280px] px-3 py-3 font-semibold">Compte</th>
-                  <th className="min-w-[280px] px-3 py-3 font-semibold">Libellé</th>
-                  <th className="w-40 px-3 py-3 font-semibold text-right">Débit</th>
-                  <th className="w-40 px-3 py-3 font-semibold text-right">Crédit</th>
+                  <th className="min-w-[320px] px-3 py-3 font-semibold">Compte</th>
+                  <th className="min-w-[320px] px-3 py-3 font-semibold">Libellé</th>
+                  <th className="w-44 px-3 py-3 font-semibold text-right">Débit</th>
+                  <th className="w-44 px-3 py-3 font-semibold text-right">Crédit</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,7 +174,7 @@ export function CreateJournalEntryDialog({
                     </Select>
                   </td>
                   <td className="px-3 py-3">{form.label || 'Ligne débit'}</td>
-                  <td className="px-3 py-3 text-right font-semibold text-green-600">
+                  <td className="px-3 py-3 text-right text-base font-semibold text-green-600 whitespace-nowrap">
                     {new Intl.NumberFormat('fr-FR').format(amount)} F CFA
                   </td>
                   <td className="px-3 py-3 text-right text-muted-foreground">0 F CFA</td>
@@ -197,7 +197,7 @@ export function CreateJournalEntryDialog({
                   </td>
                   <td className="px-3 py-3">{form.label || 'Ligne crédit'}</td>
                   <td className="px-3 py-3 text-right text-muted-foreground">0 F CFA</td>
-                  <td className="px-3 py-3 text-right font-semibold text-red-600">
+                  <td className="px-3 py-3 text-right text-base font-semibold text-red-600 whitespace-nowrap">
                     {new Intl.NumberFormat('fr-FR').format(amount)} F CFA
                   </td>
                 </tr>

@@ -34,15 +34,15 @@ export function ReceptionLinesGrid({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
       <div className={`min-h-0 overflow-auto ${heightClass}`}>
-        <table className="w-full min-w-[920px] text-sm">
+        <table className="w-full min-w-[1040px] text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
             <tr className="border-b">
               <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
-              <th className="min-w-[260px] px-3 py-3 font-semibold">Désignation</th>
-              <th className="min-w-[260px] px-3 py-3 font-semibold">Article stock</th>
-              <th className="w-24 px-3 py-3 font-semibold">Qté reçue</th>
-              <th className="w-28 px-3 py-3 font-semibold">P.U.</th>
-              <th className="w-24 px-3 py-3 font-semibold">TVA %</th>
+              <th className="min-w-[300px] px-3 py-3 font-semibold">Désignation</th>
+              <th className="min-w-[320px] px-3 py-3 font-semibold">Article stock</th>
+              <th className="w-28 px-3 py-3 font-semibold">Qté reçue</th>
+              <th className="w-32 px-3 py-3 font-semibold">P.U.</th>
+              <th className="w-28 px-3 py-3 font-semibold">TVA %</th>
             </tr>
           </thead>
           <tbody>
@@ -52,7 +52,7 @@ export function ReceptionLinesGrid({
                 <td className="px-3 py-3 font-medium">{line.designation}</td>
                 <td className="px-3 py-3">
                   <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                     value={selections[index] ?? line.articleId ?? ''}
                     onChange={(event) => onSelectArticle(index, event.target.value)}
                   >
@@ -65,9 +65,9 @@ export function ReceptionLinesGrid({
                     ))}
                   </select>
                 </td>
-                <td className="px-3 py-3">{line.quantiteRecue}</td>
-                <td className="px-3 py-3">{line.prixUnitaire.toLocaleString('fr-FR')} F</td>
-                <td className="px-3 py-3">{Number(line.tva || 0)}%</td>
+                <td className="px-3 py-3 text-base font-medium">{line.quantiteRecue}</td>
+                <td className="px-3 py-3 text-base font-medium whitespace-nowrap">{line.prixUnitaire.toLocaleString('fr-FR')} F</td>
+                <td className="px-3 py-3 text-base font-medium">{Number(line.tva || 0)}%</td>
               </tr>
             ))}
           </tbody>

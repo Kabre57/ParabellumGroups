@@ -65,6 +65,26 @@ type TimelineItem = {
   tone: 'neutral' | 'success' | 'warning' | 'danger';
 };
 
+type ProformaComparisonSummary = {
+  proformas: PurchaseProforma[];
+  bestProformaId: string | null;
+  bestAmount: number;
+  rows: Array<{
+    key: string;
+    designation: string;
+    categorie: string;
+    quantite: number;
+    offers: Record<
+      string,
+      {
+        prixUnitaire: number | null;
+        montantTTC: number | null;
+        isLowest: boolean;
+      }
+    >;
+  }>;
+};
+
 const emptyLine = (): DraftLine => ({
   articleId: '',
   designation: '',
@@ -224,6 +244,65 @@ const normalizeTimeline = (
   return items.sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
 };
 
+const buildProformaComparison = (request?: PurchaseRequest): ProformaComparisonSummary => {
+  const proformas = [...(request?.proformas || [])].sort((left, right) => left.montantTTC - right.montantTTC);
+  const bestAmount = proformas.length > 0 ? proformas[0].montantTTC : 0;
+  const bestProformaId = proformas.length > 0 ? proformas[0].id : null;
+  const sourceLines = request?.lines || [];
+
+  const rows = sourceLines.map((line, index) => {
+    const key =
+      line.articleId ||
+      line.referenceArticle ||
+      `${line.designation.trim().toLowerCase()}-${index}`;
+
+    const rawOffers = Object.fromEntries(
+      proformas.map((proforma) => {
+        const matchingLine =
+          (proforma.lignes || []).find((candidate) =>
+            line.articleId
+              ? candidate.articleId === line.articleId
+              : candidate.designation.trim().toLowerCase() === line.designation.trim().toLowerCase()
+          ) || null;
+
+        return [
+          proforma.id,
+          {
+            prixUnitaire: matchingLine ? matchingLine.prixUnitaire : null,
+            montantTTC: matchingLine ? matchingLine.montantTTC : null,
+            isLowest: false,
+          },
+        ];
+      })
+    ) as Record<string, { prixUnitaire: number | null; montantTTC: number | null; isLowest: boolean }>;
+
+    const unitPrices = Object.values(rawOffers)
+      .map((offer) => offer.prixUnitaire)
+      .filter((value): value is number => value != null && value > 0);
+    const lowestUnitPrice = unitPrices.length > 0 ? Math.min(...unitPrices) : null;
+
+    const offers = Object.fromEntries(
+      Object.entries(rawOffers).map(([proformaId, offer]) => [
+        proformaId,
+        {
+          ...offer,
+          isLowest: lowestUnitPrice != null && offer.prixUnitaire === lowestUnitPrice,
+        },
+      ])
+    );
+
+    return {
+      key,
+      designation: line.designation,
+      categorie: line.categorie || '-',
+      quantite: line.quantite,
+      offers,
+    };
+  });
+
+  return { proformas, bestProformaId, bestAmount, rows };
+};
+
 export default function PurchaseQuoteDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || '';
@@ -353,6 +432,7 @@ export default function PurchaseQuoteDetailPage() {
   }, [lines]);
 
   const timeline = useMemo(() => normalizeTimeline(request, approvalHistory), [approvalHistory, request]);
+  const proformaComparison = useMemo(() => buildProformaComparison(request), [request]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -646,7 +726,7 @@ export default function PurchaseQuoteDetailPage() {
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr),minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)]">
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Edition de la demande</CardTitle>
@@ -771,8 +851,8 @@ export default function PurchaseQuoteDetailPage() {
               lines={lines}
               articles={articles as InventoryArticle[]}
               disabled={!canEditRequest}
-              maxBodyHeightClass="h-[460px]"
-              tableMinWidthClass="min-w-[920px]"
+              maxBodyHeightClass="h-[420px]"
+              tableMinWidthClass="min-w-[1180px]"
               onAddLine={() => {
                 setIsDirty(true);
                 setLines((current) => [...current, emptyLine()]);
@@ -808,6 +888,125 @@ export default function PurchaseQuoteDetailPage() {
         </Card>
 
         <div className="min-w-0 space-y-6">
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle>Comparatif fournisseurs</CardTitle>
+              <CardDescription>
+                Vue achat multi-proformas pour repérer rapidement l&apos;offre la plus basse par ligne et le meilleur total global.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {proformaComparison.proformas.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Aucune proforma à comparer pour cette DPA.
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border bg-slate-50 p-4">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proformas reçues</div>
+                      <div className="mt-2 text-2xl font-semibold">{proformaComparison.proformas.length}</div>
+                    </div>
+                    <div className="rounded-lg border bg-green-50 p-4">
+                      <div className="text-xs uppercase tracking-wide text-green-700">Meilleure offre globale</div>
+                      <div className="mt-2 text-lg font-semibold text-green-900">
+                        {proformaComparison.proformas.find((item) => item.id === proformaComparison.bestProformaId)?.fournisseurNom || '—'}
+                      </div>
+                      <div className="text-sm text-green-800">{formatCurrency(proformaComparison.bestAmount)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-4">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proforma retenue</div>
+                      <div className="mt-2 text-lg font-semibold">
+                        {request.proformas?.find((item) => item.selectedForOrder)?.fournisseurNom || 'Aucune retenue'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {request.proformas?.find((item) => item.selectedForOrder)?.numeroProforma || 'En attente de décision'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="w-full min-w-[980px] text-sm">
+                      <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                        <tr className="border-b">
+                          <th className="min-w-[220px] px-3 py-3 font-semibold">Article</th>
+                          <th className="w-24 px-3 py-3 font-semibold">Qté</th>
+                          {proformaComparison.proformas.map((proforma) => (
+                            <th key={proforma.id} className="min-w-[180px] px-3 py-3 font-semibold">
+                              <div>{proforma.fournisseurNom || 'Fournisseur'}</div>
+                              <div className="mt-1 text-[11px] normal-case text-muted-foreground">
+                                {proforma.numeroProforma} · {formatCurrency(proforma.montantTTC)}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {proformaComparison.rows.map((row) => (
+                          <tr key={row.key} className="border-b align-top last:border-0">
+                            <td className="px-3 py-3">
+                              <div className="font-medium">{row.designation}</div>
+                              <div className="text-xs text-muted-foreground">{row.categorie}</div>
+                            </td>
+                            <td className="px-3 py-3 text-base font-medium">{row.quantite}</td>
+                            {proformaComparison.proformas.map((proforma) => {
+                              const offer = row.offers[proforma.id];
+                              const isSelected = proforma.selectedForOrder;
+                              return (
+                                <td
+                                  key={`${row.key}-${proforma.id}`}
+                                  className={`px-3 py-3 ${
+                                    isSelected ? 'bg-blue-50/70' : offer?.isLowest ? 'bg-green-50/70' : ''
+                                  }`}
+                                >
+                                  {offer?.prixUnitaire != null ? (
+                                    <div className="space-y-1">
+                                      <div className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                        isSelected
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : offer.isLowest
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-slate-100 text-slate-700'
+                                      }`}>
+                                        {isSelected ? 'Retenue' : offer.isLowest ? 'Moins cher' : 'Offre'}
+                                      </div>
+                                      <div className="text-base font-semibold whitespace-nowrap">
+                                        PU {formatCurrency(offer.prixUnitaire)}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                                        TTC {formatCurrency(offer.montantTTC || 0)}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">Non chiffré</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                        <tr className="bg-slate-50">
+                          <td className="px-3 py-3 font-semibold">Total TTC</td>
+                          <td />
+                          {proformaComparison.proformas.map((proforma) => (
+                            <td
+                              key={`total-${proforma.id}`}
+                              className={`px-3 py-3 text-base font-semibold whitespace-nowrap ${
+                                proforma.id === proformaComparison.bestProformaId ? 'text-green-700' : ''
+                              }`}
+                            >
+                              {formatCurrency(proforma.montantTTC)}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Proformas fournisseurs</CardTitle>

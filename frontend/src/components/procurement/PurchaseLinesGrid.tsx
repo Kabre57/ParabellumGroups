@@ -42,7 +42,7 @@ export function PurchaseLinesGrid({
   articles,
   disabled = false,
   maxBodyHeightClass = 'max-h-[360px]',
-  tableMinWidthClass = 'min-w-[1020px]',
+  tableMinWidthClass = 'min-w-[1180px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -87,13 +87,13 @@ export function PurchaseLinesGrid({
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
-                <th className="min-w-[240px] px-3 py-3 font-semibold">Article</th>
-                <th className="min-w-[220px] px-3 py-3 font-semibold">Désignation</th>
-                <th className="min-w-[140px] px-3 py-3 font-semibold">Catégorie</th>
-                <th className="w-24 px-3 py-3 font-semibold">Qté</th>
-                <th className="w-32 px-3 py-3 font-semibold">P.U. HT</th>
-                <th className="w-24 px-3 py-3 font-semibold">TVA %</th>
-                <th className="w-36 px-3 py-3 font-semibold text-right">Total TTC</th>
+                <th className="min-w-[260px] px-3 py-3 font-semibold">Article</th>
+                <th className="min-w-[260px] px-3 py-3 font-semibold">Désignation</th>
+                <th className="min-w-[180px] px-3 py-3 font-semibold">Catégorie</th>
+                <th className="w-28 px-3 py-3 font-semibold">Qté</th>
+                <th className="w-36 px-3 py-3 font-semibold">P.U. HT</th>
+                <th className="w-28 px-3 py-3 font-semibold">TVA %</th>
+                <th className="w-40 px-3 py-3 font-semibold text-right">Total TTC</th>
                 <th className="w-28 px-3 py-3 font-semibold text-center">Actions</th>
               </tr>
             </thead>
@@ -103,13 +103,13 @@ export function PurchaseLinesGrid({
 
                 return (
                   <tr key={`${line.id || 'line'}-${index}`} className="border-b align-top last:border-0">
-                    <td className="px-3 py-2 text-xs font-semibold text-muted-foreground">{index + 1}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">{index + 1}</td>
+                    <td className="px-3 py-3">
                       <select
                         value={line.articleId}
                         onChange={(event) => onSelectArticle(index, event.target.value)}
                         disabled={disabled}
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                       >
                         <option value="">Sélectionner un article</option>
                         {articles.map((article) => (
@@ -119,45 +119,45 @@ export function PurchaseLinesGrid({
                         ))}
                       </select>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <Input
                         value={line.designation}
                         onChange={(event) => onUpdateLine(index, { designation: event.target.value })}
                         disabled={disabled}
                         placeholder="Désignation"
-                        className="h-10"
+                        className="h-11 text-base"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <Input
                         value={line.categorie}
                         onChange={(event) => onUpdateLine(index, { categorie: event.target.value })}
                         disabled={disabled}
                         placeholder="Catégorie"
-                        className="h-10"
+                        className="h-11 text-base"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <Input
                         type="number"
                         min="1"
                         value={line.quantite}
                         onChange={(event) => onUpdateLine(index, { quantite: Number(event.target.value) || 1 })}
                         disabled={disabled}
-                        className="h-10"
+                        className="h-11 min-w-[88px] text-base font-medium"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <Input
                         type="number"
                         min="0"
                         value={line.prixUnitaire}
                         onChange={(event) => onUpdateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
                         disabled={disabled}
-                        className="h-10"
+                        className="h-11 min-w-[120px] text-base font-medium"
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <Input
                         type="number"
                         min="0"
@@ -165,13 +165,13 @@ export function PurchaseLinesGrid({
                         value={line.tva}
                         onChange={(event) => onUpdateLine(index, { tva: Number(event.target.value) || 0 })}
                         disabled={disabled}
-                        className="h-10"
+                        className="h-11 min-w-[88px] text-base font-medium"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right align-middle font-semibold">
+                    <td className="px-3 py-3 text-right align-middle text-base font-semibold whitespace-nowrap">
                       {formatCurrency(lineTotal)}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <div className="flex items-center justify-center gap-1">
                         {onDuplicateLine ? (
                           <Button
