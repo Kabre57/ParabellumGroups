@@ -14,6 +14,7 @@ const receptionRoutes = require('./routes/reception.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4005;
+app.set('trust proxy', 1);
 
 // Middlewares de sécurité
 app.use(helmet());

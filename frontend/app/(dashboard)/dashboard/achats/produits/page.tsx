@@ -462,7 +462,10 @@ export default function ProductsPage() {
           <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Reference</label>
-              <Input {...form.register('reference')} />
+              <Input
+                {...form.register('reference')}
+                placeholder="Laisser vide pour génération automatique"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Nom</label>

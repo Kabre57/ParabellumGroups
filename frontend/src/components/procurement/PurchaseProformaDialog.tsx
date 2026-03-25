@@ -123,7 +123,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="grid h-[96vh] max-h-[96vh] w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] 2xl:max-w-[1500px] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(1500px,calc(100vw-1rem))] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -131,8 +131,8 @@ export function PurchaseProformaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 lg:grid-cols-4">
-          <div className="space-y-2 lg:col-span-2">
+        <div className="grid gap-3 xl:grid-cols-4">
+          <div className="space-y-2 xl:col-span-2">
             <label className="text-sm font-medium">Intitulé</label>
             <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Proforma fournisseur principale" />
           </div>
@@ -169,7 +169,7 @@ export function PurchaseProformaDialog({
               placeholder="En stock / partiel / sur commande"
             />
           </div>
-          <div className="space-y-2 lg:col-span-3">
+          <div className="space-y-2 xl:col-span-3">
             <label className="text-sm font-medium">Observations achat</label>
             <Textarea
               value={purchasingObservations}
@@ -190,8 +190,8 @@ export function PurchaseProformaDialog({
             description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="h-[52vh]"
-            tableMinWidthClass="min-w-[1320px]"
+            maxBodyHeightClass="min-h-[320px] max-h-[45vh]"
+            tableMinWidthClass="min-w-[1180px]"
             onAddLine={() => setLines((current) => [...current, emptyLine()])}
             onDuplicateLine={(index) =>
               setLines((current) => {

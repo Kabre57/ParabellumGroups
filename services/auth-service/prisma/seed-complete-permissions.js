@@ -563,11 +563,14 @@ const completePermissions = {
       { name: 'purchase_requests.read', description: 'Consulter les demandes d\'achat' },
       { name: 'purchase_requests.read_all', description: 'Voir toutes les demandes' },
       { name: 'purchase_requests.read_own', description: 'Voir uniquement ses demandes' },
+      { name: 'purchase_requests.read_committee', description: 'Consulter le tableau de décision et la commission achat' },
       { name: 'purchase_requests.create', description: 'Créer des demandes d\'achat' },
       { name: 'purchase_requests.update', description: 'Modifier les demandes' },
       { name: 'purchase_requests.delete', description: 'Supprimer des demandes' },
       { name: 'purchase_requests.approve', description: 'Approuver les demandes' },
-      { name: 'purchase_requests.reject', description: 'Rejeter les demandes' }
+      { name: 'purchase_requests.reject', description: 'Rejeter les demandes' },
+      { name: 'purchase_requests.recommend_supplier', description: 'Recommander une offre fournisseur pour validation' },
+      { name: 'purchase_requests.export_committee', description: 'Exporter le PV et le rapport de commission achat' }
     ]
   },
 

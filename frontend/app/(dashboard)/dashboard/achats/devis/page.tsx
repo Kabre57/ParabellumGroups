@@ -7,9 +7,8 @@ import { Plus, Send, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
-import type { InventoryArticle } from '@/shared/api/inventory/types';
 import type { PurchaseRequest, PurchaseRequestStatus } from '@/services/procurement';
-import { adminServicesService, type Service } from '@/shared/api/admin';
+import { adminServicesService } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,24 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
-import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
+import { CreateDpaDialog } from '@/components/achat/dpa/CreateDpaDialog';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
-type DraftLine = {
-  articleId: string;
-  designation: string;
-  categorie: string;
-  quantite: number;
-  prixUnitaire: number;
-  tva: number;
-};
+  createEmptyDpaDraftLine,
+  type DpaDraftLine,
+} from '@/components/achat/dpa';
 
 const statusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
@@ -59,15 +45,6 @@ const statusColors: Record<PurchaseRequestStatus, string> = {
   COMMANDEE: 'bg-green-100 text-green-800',
 };
 
-const emptyLine = (): DraftLine => ({
-  articleId: '',
-  designation: '',
-  categorie: '',
-  quantite: 1,
-  prixUnitaire: 0,
-  tva: 18,
-});
-
 export default function PurchaseQuotesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -81,7 +58,7 @@ export default function PurchaseQuotesPage() {
   const [manualSupplierName, setManualSupplierName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
-  const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
+  const [lines, setLines] = useState<DpaDraftLine[]>([createEmptyDpaDraftLine()]);
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
@@ -215,7 +192,7 @@ export default function PurchaseQuotesPage() {
       setManualSupplierName('');
       setSelectedServiceId(userServiceId);
       setDateBesoin('');
-      setLines([emptyLine()]);
+      setLines([createEmptyDpaDraftLine()]);
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Erreur lors de la création de la DPA.');
@@ -260,7 +237,7 @@ export default function PurchaseQuotesPage() {
     );
   };
 
-  const updateLine = (index: number, patch: Partial<DraftLine>) => {
+  const updateLine = (index: number, patch: Partial<DpaDraftLine>) => {
     setLines((current) =>
       current.map((line, lineIndex) => (lineIndex === index ? { ...line, ...patch } : line))
     );
@@ -414,128 +391,54 @@ export default function PurchaseQuotesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="grid h-[96vh] max-h-[96vh] w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] 2xl:max-w-[1500px] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
-          <DialogHeader>
-            <DialogTitle>Nouvelle DPA</DialogTitle>
-            <DialogDescription>
-              La DPA sera créée au nom du service <strong>{displayServiceName}</strong> avec fournisseur, prix et lignes d&apos;achat.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 lg:grid-cols-4">
-            {(canChooseService || !userServiceId) && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Service demandeur</label>
-                <select
-                  value={selectedServiceId}
-                  onChange={(event) => setSelectedServiceId(event.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Sélectionner un service</option>
-                  {services.map((service: Service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Objet</label>
-              <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Achat équipements réseau" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date de besoin</label>
-              <Input type="date" value={dateBesoin} onChange={(event) => setDateBesoin(event.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Fournisseur existant</label>
-              <select
-                value={supplierId}
-                onChange={(event) => {
-                  setSupplierId(event.target.value);
-                  if (event.target.value) {
-                    setManualSupplierName('');
-                  }
-                }}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Saisir un nouveau fournisseur ci-dessous</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nouveau fournisseur</label>
-              <Input
-                value={manualSupplierName}
-                onChange={(event) => {
-                  setManualSupplierName(event.target.value);
-                  if (event.target.value.trim()) {
-                    setSupplierId('');
-                  }
-                }}
-                placeholder="Nom fournisseur si absent de la liste"
-                disabled={Boolean(supplierId)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
-              <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Urgent / validation budgetaire" />
-            </div>
-            <div className="space-y-2 lg:col-span-4">
-              <label className="text-sm font-medium">Description</label>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Contexte du besoin achat"
-              />
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1">
-            <PurchaseLinesGrid
-              title="Lignes de la demande"
-              description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
-              lines={lines}
-              articles={articles as InventoryArticle[]}
-              maxBodyHeightClass="h-[50vh]"
-              tableMinWidthClass="min-w-[1320px]"
-              onAddLine={() => setLines((current) => [...current, emptyLine()])}
-              onDuplicateLine={(index) =>
-                setLines((current) => {
-                  const source = current[index];
-                  return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
-                })
-              }
-              onRemoveLine={(index) =>
-                setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))
-              }
-              onUpdateLine={updateLine}
-              onSelectArticle={updateLineArticle}
-              formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
-            />
-          </div>
-
-          <DialogFooter className="gap-3 border-t bg-background pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
-            <div className="min-w-0 text-sm text-muted-foreground">
-              Total estimé : {draftTotals.montantTTC.toLocaleString('fr-FR')} F
-            </div>
-            <Button
-              className="shrink-0"
-              onClick={() => createMutation.mutate()}
-              disabled={!title || !selectedServiceId || (!supplierId && !manualSupplierName.trim()) || createMutation.isPending}
-            >
-              {createMutation.isPending ? 'Enregistrement...' : 'Créer la DPA'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateDpaDialog
+        open={open}
+        onOpenChange={setOpen}
+        displayServiceName={displayServiceName}
+        showServiceSelector={canChooseService || !userServiceId}
+        selectedServiceId={selectedServiceId}
+        services={services}
+        onServiceChange={setSelectedServiceId}
+        title={title}
+        onTitleChange={setTitle}
+        dateBesoin={dateBesoin}
+        onDateBesoinChange={setDateBesoin}
+        supplierId={supplierId}
+        suppliers={suppliers}
+        onSupplierChange={(value) => {
+          setSupplierId(value);
+          if (value) {
+            setManualSupplierName('');
+          }
+        }}
+        manualSupplierName={manualSupplierName}
+        onManualSupplierNameChange={(value) => {
+          setManualSupplierName(value);
+          if (value.trim()) {
+            setSupplierId('');
+          }
+        }}
+        notes={notes}
+        onNotesChange={setNotes}
+        description={description}
+        onDescriptionChange={setDescription}
+        lines={lines}
+        articles={articles}
+        onAddLine={() => setLines((current) => [...current, createEmptyDpaDraftLine()])}
+        onDuplicateLine={(index) =>
+          setLines((current) => {
+            const source = current[index];
+            return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
+          })
+        }
+        onRemoveLine={(index) => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}
+        onUpdateLine={updateLine}
+        onSelectArticle={updateLineArticle}
+        totalTTC={draftTotals.montantTTC}
+        isPending={createMutation.isPending}
+        canSubmit={Boolean(title && selectedServiceId && (supplierId || manualSupplierName.trim()))}
+        onSubmit={() => createMutation.mutate()}
+      />
 
       <RejectPurchaseRequestDialog
         open={Boolean(rejectTarget)}

@@ -165,7 +165,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
       purchases: 'Demandes d achat internes',
       products: 'Produits',
       suppliers: 'Fournisseurs',
-      purchase_requests: 'Validation DG des demandes',
+      purchase_requests: 'DPA, commission achat et validation DG',
       purchase_orders: 'Commandes d\'achat & réceptions',
       inventory: 'Stocks',
     },

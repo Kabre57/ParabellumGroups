@@ -33,13 +33,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import PurchaseRequestPrint from '@/components/printComponents/PurchaseRequestPrint';
 import PurchaseCommissionPrint from '@/components/printComponents/PurchaseCommissionPrint';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
-import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 import { PurchaseProformaDialog } from '@/components/procurement/PurchaseProformaDialog';
+import { EditDpaCard } from '@/components/achat/dpa/EditDpaCard';
+import {
+  createEmptyDpaDraftLine,
+  type DpaDraftLine,
+} from '@/components/achat/dpa';
 import {
   Table,
   TableBody,
@@ -48,16 +50,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-type DraftLine = {
-  id?: string;
-  articleId: string;
-  designation: string;
-  categorie: string;
-  quantite: number;
-  prixUnitaire: number;
-  tva: number;
-};
 
 type TimelineItem = {
   id: string;
@@ -106,15 +98,6 @@ type CommissionDecisionRow = {
   totalScore: number;
   justification: string;
 };
-
-const emptyLine = (): DraftLine => ({
-  articleId: '',
-  designation: '',
-  categorie: '',
-  quantite: 1,
-  prixUnitaire: 0,
-  tva: 18,
-});
 
 const statusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
@@ -415,7 +398,7 @@ export default function PurchaseQuoteDetailPage() {
   const [manualSupplierName, setManualSupplierName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
-  const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
+  const [lines, setLines] = useState<DpaDraftLine[]>([createEmptyDpaDraftLine()]);
   const [isDirty, setIsDirty] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [createProformaOpen, setCreateProformaOpen] = useState(false);
@@ -434,6 +417,16 @@ export default function PurchaseQuoteDetailPage() {
   const canChooseService = isAdminRole(user) || hasDirectPermission('services.read_all');
   const canCreateOrder =
     isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
+  const canReadCommittee =
+    isAdminRole(user) ||
+    hasDirectPermission('purchase_requests.read_committee', 'purchase_requests.read_all', 'purchase_requests.approve');
+  const canRecommendSupplier =
+    isAdminRole(user) ||
+    hasDirectPermission('purchase_requests.recommend_supplier') ||
+    canCreateOrder;
+  const canExportCommittee =
+    isAdminRole(user) ||
+    hasDirectPermission('purchase_requests.export_committee', 'reports.export', 'purchase_requests.approve');
   const canSubmit =
     isAdminRole(user) ||
     (hasDirectPermission('purchases.submit') && canCreateOrder);
@@ -506,7 +499,7 @@ export default function PurchaseQuoteDetailPage() {
             prixUnitaire: line.prixUnitaire,
             tva: line.tva,
           }))
-        : [emptyLine()]
+        : [createEmptyDpaDraftLine()]
     );
   }, [isDirty, request]);
 
@@ -723,7 +716,7 @@ export default function PurchaseQuoteDetailPage() {
     },
   });
 
-  const updateLine = (index: number, patch: Partial<DraftLine>) => {
+  const updateLine = (index: number, patch: Partial<DpaDraftLine>) => {
     setIsDirty(true);
     setLines((current) =>
       current.map((line, lineIndex) => (lineIndex === index ? { ...line, ...patch } : line))
@@ -783,10 +776,12 @@ export default function PurchaseQuoteDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setIsCommissionPrintOpen(true)}>
-            <FileText className="mr-2 h-4 w-4" />
-            PV commission
-          </Button>
+          {canExportCommittee && (
+            <Button variant="outline" onClick={() => setIsCommissionPrintOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" />
+              PV commission
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="mr-2 h-4 w-4" />
             Imprimer
@@ -863,127 +858,57 @@ export default function PurchaseQuoteDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              {(canChooseService || !request.serviceId) && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Service demandeur</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    value={selectedServiceId}
-                    onChange={(event) => {
-                      setIsDirty(true);
-                      setSelectedServiceId(event.target.value);
-                    }}
-                    disabled={!canEditRequest}
-                  >
-                    <option value="">Selectionner un service</option>
-                    {services.map((service: Service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Objet</label>
-                <Input
-                  value={title}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setTitle(event.target.value);
-                  }}
-                  disabled={!canEditRequest}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Date de besoin</label>
-                <Input
-                  type="date"
-                  value={dateBesoin}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setDateBesoin(event.target.value);
-                  }}
-                  disabled={!canEditRequest}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fournisseur existant</label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={supplierId}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setSupplierId(event.target.value);
-                    if (event.target.value) {
-                      setManualSupplierName('');
-                    }
-                  }}
-                  disabled={!canEditRequest}
-                >
-                  <option value="">Saisir un nouveau fournisseur ci-dessous</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nouveau fournisseur</label>
-                <Input
-                  value={manualSupplierName}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setManualSupplierName(event.target.value);
-                    if (event.target.value.trim()) {
-                      setSupplierId('');
-                    }
-                  }}
-                  disabled={!canEditRequest || Boolean(supplierId)}
-                  placeholder="Nom fournisseur si absent du référentiel"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Commentaire interne</label>
-                <Input
-                  value={notes}
-                  onChange={(event) => {
-                    setIsDirty(true);
-                    setNotes(event.target.value);
-                  }}
-                  disabled={!canEditRequest}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={description}
-                onChange={(event) => {
-                  setIsDirty(true);
-                  setDescription(event.target.value);
-                }}
-                disabled={!canEditRequest}
-              />
-            </div>
-
-            <PurchaseLinesGrid
-              title="Lignes d achat"
-              description="Présentation compacte type ERP pour garder les en-têtes visibles et travailler confortablement même avec beaucoup de lignes."
+            <EditDpaCard
+              canEdit={canEditRequest}
+              showServiceSelector={canChooseService || !request.serviceId}
+              selectedServiceId={selectedServiceId}
+              services={services}
+              onServiceChange={(value) => {
+                setIsDirty(true);
+                setSelectedServiceId(value);
+              }}
+              title={title}
+              onTitleChange={(value) => {
+                setIsDirty(true);
+                setTitle(value);
+              }}
+              dateBesoin={dateBesoin}
+              onDateBesoinChange={(value) => {
+                setIsDirty(true);
+                setDateBesoin(value);
+              }}
+              supplierId={supplierId}
+              suppliers={suppliers}
+              onSupplierChange={(value) => {
+                setIsDirty(true);
+                setSupplierId(value);
+                if (value) {
+                  setManualSupplierName('');
+                }
+              }}
+              manualSupplierName={manualSupplierName}
+              onManualSupplierNameChange={(value) => {
+                setIsDirty(true);
+                setManualSupplierName(value);
+                if (value.trim()) {
+                  setSupplierId('');
+                }
+              }}
+              notes={notes}
+              onNotesChange={(value) => {
+                setIsDirty(true);
+                setNotes(value);
+              }}
+              description={description}
+              onDescriptionChange={(value) => {
+                setIsDirty(true);
+                setDescription(value);
+              }}
               lines={lines}
-              articles={articles as InventoryArticle[]}
-              disabled={!canEditRequest}
-              maxBodyHeightClass="h-[420px]"
-              tableMinWidthClass="min-w-[1320px]"
+              articles={articles}
               onAddLine={() => {
                 setIsDirty(true);
-                setLines((current) => [...current, emptyLine()]);
+                setLines((current) => [...current, createEmptyDpaDraftLine()]);
               }}
               onDuplicateLine={(index) => {
                 setIsDirty(true);
@@ -1005,17 +930,13 @@ export default function PurchaseQuoteDetailPage() {
                 updateLineArticle(index, articleId);
               }}
               formatCurrency={formatCurrency}
+              totals={totals}
             />
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{formatCurrency(totals.montantHT)}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">TVA</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTVA)}</div></CardContent></Card>
-              <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total TTC</div><div className="text-lg font-semibold">{formatCurrency(totals.montantTTC)}</div></CardContent></Card>
-            </div>
           </CardContent>
         </Card>
 
         <div className="min-w-0 space-y-6">
+          {canReadCommittee ? (
           <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Tableau de décision achat</CardTitle>
@@ -1053,7 +974,7 @@ export default function PurchaseQuoteDetailPage() {
                     </div>
                   </div>
 
-                  {canManageProformasFlow && proformaComparison.bestProformaId ? (
+                  {canManageProformasFlow && canRecommendSupplier && proformaComparison.bestProformaId ? (
                     <div className="flex justify-end">
                       <Button
                         variant="outline"
@@ -1249,6 +1170,7 @@ export default function PurchaseQuoteDetailPage() {
               )}
             </CardContent>
           </Card>
+          ) : null}
 
           <Card className="min-w-0">
             <CardHeader>

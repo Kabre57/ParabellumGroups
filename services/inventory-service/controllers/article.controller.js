@@ -1,10 +1,57 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const slugifyReferenceSegment = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toUpperCase();
+
+const buildArticleReference = async ({ categorie, nom }) => {
+  const categorySegment = slugifyReferenceSegment(categorie).slice(0, 6) || 'ART';
+  const nameSegment = slugifyReferenceSegment(nom).slice(0, 6) || 'ITEM';
+  let candidate = '';
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const suffix = `${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 90 + 10)}`;
+    candidate = `${categorySegment}-${nameSegment}-${suffix}`;
+    const existing = await prisma.article.findUnique({ where: { reference: candidate } });
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  return `${categorySegment}-${nameSegment}-${Math.floor(Math.random() * 1000000)}`;
+};
+
+const normalizeArticlePayload = async (payload, { keepExistingReference = false } = {}) => {
+  const reference = typeof payload.reference === 'string' ? payload.reference.trim() : '';
+  const normalized = {
+    ...payload,
+    reference: reference || undefined,
+    nom: typeof payload.nom === 'string' ? payload.nom.trim() : payload.nom,
+    description: typeof payload.description === 'string' ? payload.description.trim() || null : payload.description,
+    categorie: typeof payload.categorie === 'string' ? payload.categorie.trim() || null : payload.categorie,
+    emplacement: typeof payload.emplacement === 'string' ? payload.emplacement.trim() || null : payload.emplacement,
+  };
+
+  if (!normalized.reference && !keepExistingReference) {
+    normalized.reference = await buildArticleReference({
+      categorie: normalized.categorie,
+      nom: normalized.nom,
+    });
+  }
+
+  return normalized;
+};
+
 exports.createArticle = async (req, res) => {
   try {
+    const data = await normalizeArticlePayload(req.body);
     const article = await prisma.article.create({
-      data: req.body
+      data
     });
     res.status(201).json(article);
   } catch (error) {
@@ -63,9 +110,10 @@ exports.getArticleById = async (req, res) => {
 
 exports.updateArticle = async (req, res) => {
   try {
+    const data = await normalizeArticlePayload(req.body, { keepExistingReference: true });
     const article = await prisma.article.update({
       where: { id: req.params.id },
-      data: req.body
+      data
     });
     res.json(article);
   } catch (error) {
