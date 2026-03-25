@@ -171,7 +171,8 @@ export const serviceDefinitions: ServiceDefinition[] = [
     },
     dashboards: [
       { label: 'Dashboard achats', href: '/dashboard/achats', permissions: ['purchases.read'] },
-      { label: 'DPA & proformas', href: '/dashboard/achats/devis', permissions: ['purchases.read'] },
+      { label: 'DPA internes', href: '/dashboard/achats/devis', permissions: ['purchases.read'] },
+      { label: 'Proformas fournisseurs', href: '/dashboard/achats/proformas', permissions: ['purchase_orders.read'] },
       { label: 'Catalogue produits', href: '/dashboard/achats/produits', permissions: ['products.read'] },
       { label: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', permissions: ['suppliers.read'] },
       { label: 'Commandes d\'achat', href: '/dashboard/achats/commandes', permissions: ['purchase_orders.read'] },

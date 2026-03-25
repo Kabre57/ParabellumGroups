@@ -147,7 +147,13 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
     serviceId: request?.serviceId != null ? Number(request.serviceId) : null,
     serviceName: request?.serviceName || null,
     supplierId: request?.supplierId || request?.fournisseurId || null,
-    supplierName: request?.supplierName || request?.fournisseurNom || request?.fournisseur?.nom || null,
+    supplierName:
+      request?.supplierName ||
+      request?.fournisseurNom ||
+      request?.fournisseurNomLibre ||
+      request?.fournisseur?.nom ||
+      null,
+    manualSupplierName: request?.manualSupplierName || request?.fournisseurNomLibre || null,
     devise: request?.devise || 'XOF',
     status: request?.status || 'BROUILLON',
     estimatedAmount: normalizeNumber(request?.estimatedAmount ?? request?.montantEstime ?? request?.montantTTC, 0),
@@ -450,6 +456,7 @@ export const procurementService = {
     description?: string;
     objet?: string;
     fournisseurId?: string;
+    fournisseurNomLibre?: string;
     dateBesoin?: string;
     notes?: string;
     devise?: string;
@@ -479,6 +486,7 @@ export const procurementService = {
       objet: data.objet,
       description: data.description,
       fournisseurId: data.supplierId,
+      fournisseurNomLibre: data.manualSupplierName,
       dateBesoin: data.dateBesoin,
       notes: data.notes,
       devise: data.devise,

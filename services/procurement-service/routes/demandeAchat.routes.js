@@ -18,6 +18,10 @@ const validateQuote = [
     .optional({ values: 'falsy' })
     .isString()
     .withMessage('Le fournisseur est invalide'),
+  body('fournisseurNomLibre')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('Le nom du fournisseur libre est invalide'),
   body('devise')
     .optional()
     .isString()

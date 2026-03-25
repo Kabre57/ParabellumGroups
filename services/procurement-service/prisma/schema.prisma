@@ -71,6 +71,7 @@ model DemandeAchat {
   serviceId             Int?
   serviceName           String?
   fournisseurId         String?
+  fournisseurNomLibre   String?
   objet                 String?
   devise                String                    @default("XOF")
   dateDemande           DateTime                  @default(now())

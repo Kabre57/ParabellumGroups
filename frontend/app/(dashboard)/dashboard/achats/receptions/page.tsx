@@ -13,6 +13,7 @@ import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.se
 import type { Reception, ReceptionStatus } from "@/shared/api/inventory/types";
 import { procurementService } from "@/services/procurement";
 import ReceptionPrint from "@/components/printComponents/ReceptionPrint";
+import { DocumentLinesTable } from "@/components/procurement/DocumentLinesTable";
 
 const statusColors: Record<ReceptionStatus, string> = {
   EN_ATTENTE: "bg-yellow-100 text-yellow-800",
@@ -109,15 +110,9 @@ export default function ReceptionsPage() {
     staleTime: 5 * 60 * 1000,
   });
   const lignes = current?.lignes || [];
-  const sousTotal = lignes.reduce((sum, l) => sum + (l.prixUnitaire || 0) * (l.quantiteRecue || 0), 0);
-  const totalTVA = lignes.reduce((sum, l) => {
-    const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
-    return sum + (l.tva ? ht * (l.tva / 100) : 0);
-  }, 0);
-  const totalTTC = sousTotal + totalTVA;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 overflow-x-hidden p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <Button asChild variant="ghost" size="sm">
@@ -163,7 +158,7 @@ export default function ReceptionsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="h-full">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <CardTitle>Liste des réceptions</CardTitle>
             <CardDescription>Suivi des réceptions de bons de commande.</CardDescription>
@@ -254,7 +249,7 @@ export default function ReceptionsPage() {
           </CardContent>
         </Card>
 
-        <Card className="h-full">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <CardTitle>Détails de la réception</CardTitle>
             <CardDescription>Sélectionnez une réception dans la liste</CardDescription>
@@ -291,56 +286,22 @@ export default function ReceptionsPage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Désignation</th>
-                        <th className="px-4 py-3 font-medium">Qté reçue</th>
-                        <th className="px-4 py-3 font-medium">PU</th>
-                        <th className="px-4 py-3 font-medium">TVA %</th>
-                        <th className="px-4 py-3 font-medium">Total TTC</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lignes.map((l) => {
-                        const ht = (l.prixUnitaire || 0) * (l.quantiteRecue || 0);
-                        const tva = l.tva ? ht * (l.tva / 100) : 0;
-                        return (
-                          <tr key={l.id} className="border-t">
-                            <td className="px-4 py-3">{l.designation || "-"}</td>
-                            <td className="px-4 py-3">{l.quantiteRecue}</td>
-                            <td className="px-4 py-3">{(l.prixUnitaire || 0).toLocaleString("fr-FR")} F</td>
-                            <td className="px-4 py-3">{l.tva ?? "—"}</td>
-                            <td className="px-4 py-3 font-medium">{(ht + tva).toLocaleString("fr-FR")} F</td>
-                          </tr>
-                        );
-                      })}
-                      {lignes.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                            Aucune ligne disponible.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="grid gap-2 rounded-md bg-slate-50 p-3 text-sm">
-                  <div className="flex justify-between">
-                    <span>Sous-total HT</span>
-                    <span>{sousTotal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>TVA</span>
-                    <span>{totalTVA.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                  </div>
-                  <div className="flex justify-between font-semibold">
-                    <span>Total TTC</span>
-                    <span>{totalTTC.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                  </div>
-                </div>
+                <DocumentLinesTable
+                  title="Lignes réceptionnées"
+                  description="Lecture compacte type ERP pour contrôler rapidement les quantités et montants reçus."
+                  lines={lignes.map((l) => ({
+                    id: l.id,
+                    designation: l.designation || "-",
+                    categorie: null,
+                    quantite: l.quantiteRecue || 0,
+                    prixUnitaire: l.prixUnitaire || 0,
+                    tva: l.tva ?? 0,
+                    montantHT: (l.prixUnitaire || 0) * (l.quantiteRecue || 0),
+                    montantTTC:
+                      (l.prixUnitaire || 0) * (l.quantiteRecue || 0) * (1 + (l.tva || 0) / 100),
+                  }))}
+                  heightClass="h-[320px]"
+                />
 
                 <div className="flex gap-2">
                   {current.status !== "VERIFIEE" && (

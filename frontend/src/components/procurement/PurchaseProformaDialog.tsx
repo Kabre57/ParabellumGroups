@@ -113,7 +113,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="flex max-h-[92vh] max-w-6xl flex-col overflow-hidden">
+      <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -153,7 +153,8 @@ export function PurchaseProformaDialog({
             description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="max-h-[42vh]"
+            maxBodyHeightClass="h-[42vh]"
+            tableMinWidthClass="min-w-[980px]"
             onAddLine={() => setLines((current) => [...current, emptyLine()])}
             onDuplicateLine={(index) =>
               setLines((current) => {
@@ -170,7 +171,7 @@ export function PurchaseProformaDialog({
           />
         </div>
 
-        <DialogFooter className="items-center justify-between sm:justify-between">
+        <DialogFooter className="items-center justify-between border-t bg-background pt-4 sm:justify-between">
           <div className="text-sm font-medium">
             Total proforma : {totals.montantTTC.toLocaleString('fr-FR')} F
           </div>

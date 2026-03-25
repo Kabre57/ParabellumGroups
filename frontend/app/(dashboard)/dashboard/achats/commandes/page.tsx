@@ -31,6 +31,8 @@ import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception } from "@/shared/api/inventory/types";
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { DocumentLinesTable } from '@/components/procurement/DocumentLinesTable';
+import { ReceptionLinesGrid } from '@/components/procurement/ReceptionLinesGrid';
 
 const statusColors: Record<PurchaseOrderStatus, string> = {
   BROUILLON: "bg-yellow-100 text-yellow-800",
@@ -246,7 +248,7 @@ export default function PurchaseOrdersPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 overflow-x-hidden p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <Button asChild variant="ghost" size="sm">
@@ -299,7 +301,7 @@ export default function PurchaseOrdersPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="h-full">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <CardTitle>Liste des commandes</CardTitle>
             <CardDescription>Suivi des commandes fournisseurs.</CardDescription>
@@ -415,7 +417,7 @@ export default function PurchaseOrdersPage() {
           </CardContent>
         </Card>
 
-        <Card className="h-full">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <CardTitle>Détails de la commande</CardTitle>
             <CardDescription>Sélectionnez une commande dans la liste</CardDescription>
@@ -435,22 +437,8 @@ export default function PurchaseOrdersPage() {
                 const date = d.date || d.dateCommande || d.createdAt || "";
                 const existingReception = d?.id ? receptionsByOrderId.get(d.id) : undefined;
 
-                const sousTotalHT = lines.reduce((sum: number, item: any) => {
-                  const ht =
-                    item.montantHT ??
-                    (item.unitPrice ?? item.prixUnitaire ?? 0) * (item.quantity ?? item.quantite ?? 0);
-                  return sum + ht;
-                }, 0);
-                const totalTVA = lines.reduce((sum: number, item: any) => {
-                  const ht =
-                    item.montantHT ??
-                    (item.unitPrice ?? item.prixUnitaire ?? 0) * (item.quantity ?? item.quantite ?? 0);
-                  const ttc = item.montantTTC ?? item.amount ?? ht;
-                  return sum + (ttc - ht);
-                }, 0);
-
                 return (
-                  <div className="space-y-4">
+                  <div className="min-w-0 space-y-4">
                     <div className="grid gap-3 md:grid-cols-2 text-sm">
                       <div>
                         <div className="text-muted-foreground">Fournisseur</div>
@@ -481,62 +469,23 @@ export default function PurchaseOrdersPage() {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-md border">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-muted-foreground">
-                          <tr>
-                            <th className="px-4 py-3 font-medium">Désignation</th>
-                            <th className="px-4 py-3 font-medium">Qté</th>
-                            <th className="px-4 py-3 font-medium">PU</th>
-                            <th className="px-4 py-3 font-medium">TVA %</th>
-                            <th className="px-4 py-3 font-medium">Total TTC</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lines.map((item: any) => (
-                            <tr key={item.id || item.designation} className="border-t">
-                              <td className="px-4 py-3">{item.designation}</td>
-                              <td className="px-4 py-3">{item.quantity ?? item.quantite}</td>
-                              <td className="px-4 py-3">
-                                {(item.unitPrice ?? item.prixUnitaire ?? 0).toLocaleString("fr-FR", {
-                                  minimumFractionDigits: 2,
-                                })}{" "}
-                                F
-                              </td>
-                              <td className="px-4 py-3">{item.tva ?? "—"}</td>
-                              <td className="px-4 py-3 font-medium">
-                                {(item.amount ?? item.montantTTC ?? 0).toLocaleString("fr-FR", {
-                                  minimumFractionDigits: 2,
-                                })}{" "}
-                                F
-                              </td>
-                            </tr>
-                          ))}
-                          {lines.length === 0 && (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                                Aucune ligne disponible.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="grid gap-2 rounded-md bg-slate-50 p-3 text-sm">
-                      <div className="flex justify-between">
-                        <span>Sous-total HT</span>
-                        <span>{sousTotalHT.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>TVA</span>
-                        <span>{totalTVA.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                      </div>
-                      <div className="flex justify-between font-semibold">
-                        <span>Total TTC</span>
-                        <span>{amount.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} F</span>
-                      </div>
-                    </div>
+                    <DocumentLinesTable
+                      title="Lignes de la commande"
+                      description="Lecture dense type ERP pour garder les colonnes visibles même sur les grosses commandes."
+                      lines={lines.map((item: any) => ({
+                        id: item.id,
+                        designation: item.designation,
+                        categorie: item.categorie,
+                        quantite: item.quantity ?? item.quantite ?? 0,
+                        prixUnitaire: item.unitPrice ?? item.prixUnitaire ?? 0,
+                        tva: item.tva ?? 0,
+                        montantHT:
+                          item.montantHT ??
+                          (item.unitPrice ?? item.prixUnitaire ?? 0) * (item.quantity ?? item.quantite ?? 0),
+                        montantTTC: item.amount ?? item.montantTTC ?? 0,
+                      }))}
+                      heightClass="h-[320px]"
+                    />
 
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => setViewOrder(d)}>Voir</Button>
@@ -593,7 +542,7 @@ export default function PurchaseOrdersPage() {
 
       {canUpdate && (
       <Dialog open={showReceptionModal} onOpenChange={setShowReceptionModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="grid max-h-[92vh] max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Créer une réception</DialogTitle>
             <DialogDescription>
@@ -655,7 +604,7 @@ export default function PurchaseOrdersPage() {
             );
 
             return (
-              <div className="space-y-4">
+              <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-4">
                 <div className="text-sm text-muted-foreground">
                   Bon de commande : <strong>{d.number || d.numeroBon}</strong>
                 </div>
@@ -665,49 +614,17 @@ export default function PurchaseOrdersPage() {
                     Sélectionnez des articles dans la commande avant de créer la réception.
                   </div>
                 )}
-                <div className="max-h-64 overflow-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-2">Désignation</th>
-                        <th className="px-4 py-2">Qté reçue</th>
-                        <th className="px-4 py-2">PU</th>
-                        <th className="px-4 py-2">TVA</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payload.lignes.map((l: (typeof payload.lignes)[number], idx: number) => (
-                        <tr key={idx} className="border-t">
-                          <td className="px-4 py-2">
-                            <div className="font-medium">{l.designation}</div>
-                            <div className="mt-2">
-                              <select
-                                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                                value={receptionArticleSelections[idx] ?? l.articleId ?? ""}
-                                onChange={(e) =>
-                                  setReceptionArticleSelections((prev) => ({
-                                    ...prev,
-                                    [idx]: e.target.value,
-                                  }))
-                                }
-                              >
-                                <option value="">Associer à un article…</option>
-                                {articles.map((a) => (
-                                  <option key={a.id} value={a.id}>
-                                    {a.nom || a.reference} {a.reference ? `(${a.reference})` : ""}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2">{l.quantiteRecue}</td>
-                          <td className="px-4 py-2">{l.prixUnitaire}</td>
-                          <td className="px-4 py-2">{l.tva ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ReceptionLinesGrid
+                  lines={payload.lignes}
+                  articles={articles}
+                  selections={receptionArticleSelections}
+                  onSelectArticle={(index, articleId) =>
+                    setReceptionArticleSelections((prev) => ({
+                      ...prev,
+                      [index]: articleId,
+                    }))
+                  }
+                />
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Observations de réception</label>
@@ -719,7 +636,7 @@ export default function PurchaseOrdersPage() {
                   />
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="border-t bg-background pt-4">
                   <Button variant="outline" onClick={() => setShowReceptionModal(false)}>
                     Annuler
                   </Button>

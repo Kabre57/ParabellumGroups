@@ -207,6 +207,7 @@ const buildQuoteWhere = (req) => {
       { titre: { contains: String(search), mode: 'insensitive' } },
       { objet: { contains: String(search), mode: 'insensitive' } },
       { numeroDemande: { contains: String(search), mode: 'insensitive' } },
+      { fournisseurNomLibre: { contains: String(search), mode: 'insensitive' } },
       { fournisseur: { is: { nom: { contains: String(search), mode: 'insensitive' } } } },
       {
         proformas: {
@@ -254,7 +255,7 @@ const buildActorContext = async (req, fallbackName = null, fallbackServiceId = n
 };
 
 const validateRequestForSubmission = (demande) => {
-  if (!demande.fournisseurId) {
+  if (!demande.fournisseurId && !String(demande.fournisseurNomLibre || '').trim()) {
     return 'Le fournisseur est obligatoire avant la soumission au DG';
   }
 
@@ -442,6 +443,7 @@ exports.create = async (req, res) => {
       objet,
       description,
       fournisseurId,
+      fournisseurNomLibre,
       dateDemande,
       dateBesoin,
       notes,
@@ -472,6 +474,7 @@ exports.create = async (req, res) => {
           serviceId: serviceContext.serviceId,
           serviceName: serviceContext.serviceName,
           fournisseurId: fournisseurId || null,
+          fournisseurNomLibre: fournisseurId ? null : String(fournisseurNomLibre || '').trim() || null,
           devise: devise || 'XOF',
           dateDemande: toDateOrNull(dateDemande) || new Date(),
           dateBesoin: toDateOrNull(dateBesoin),
@@ -578,6 +581,7 @@ exports.update = async (req, res) => {
       objet,
       description,
       fournisseurId,
+      fournisseurNomLibre,
       dateBesoin,
       notes,
       devise,
@@ -612,6 +616,12 @@ exports.update = async (req, res) => {
           objet: objet !== undefined ? String(objet || titre || existing.objet || existing.titre).trim() : undefined,
           description: description !== undefined ? description || null : undefined,
           fournisseurId: fournisseurId !== undefined ? fournisseurId || null : undefined,
+          fournisseurNomLibre:
+            fournisseurNomLibre !== undefined || fournisseurId !== undefined
+              ? fournisseurId
+                ? null
+                : String(fournisseurNomLibre || '').trim() || null
+              : undefined,
           dateBesoin: dateBesoin !== undefined ? toDateOrNull(dateBesoin) : undefined,
           notes: notes !== undefined ? notes || null : undefined,
           devise: devise !== undefined ? devise || 'XOF' : undefined,

@@ -114,6 +114,10 @@ export function CreateCashVoucherDialog({
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const amountHT = Number(form.amountHT || 0);
+  const amountTVA = Number(form.amountTVA || 0);
+  const amountTTC = Number(form.amountTTC || 0);
+
   const handleSubmit = async () => {
     await onSubmit({
       sourceType: form.sourceType || undefined,
@@ -140,15 +144,15 @@ export function CreateCashVoucherDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Créer un bon de caisse</DialogTitle>
           <DialogDescription>
-            Enregistrez un décaissement comptable par chèque ou espèces, lié à un engagement achat ou à une dépense diverse.
+            Présentation compacte type ERP pour saisir un décaissement sans empiler un long formulaire.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-4">
           <div className="space-y-2">
             <Label>Origine</Label>
             <Select value={form.sourceType} onValueChange={(value) => updateField('sourceType', value)}>
@@ -217,33 +221,85 @@ export function CreateCashVoucherDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-4">
             <Label>Description</Label>
             <Textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Objet du décaissement" />
-          </div>
-          <div className="space-y-2">
-            <Label>Montant HT</Label>
-            <Input type="number" value={form.amountHT} onChange={(event) => updateField('amountHT', event.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>TVA</Label>
-            <Input type="number" value={form.amountTVA} onChange={(event) => updateField('amountTVA', event.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Total TTC</Label>
-            <Input type="number" value={form.amountTTC} onChange={(event) => updateField('amountTTC', event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Référence paiement</Label>
             <Input value={form.reference} onChange={(event) => updateField('reference', event.target.value)} placeholder="Numéro de chèque, pièce..." />
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-3">
             <Label>Notes comptables</Label>
             <Textarea value={form.notes} onChange={(event) => updateField('notes', event.target.value)} placeholder="Observations comptables, justification, pièces..." />
           </div>
         </div>
 
-        <DialogFooter>
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
+          <div className="overflow-auto h-[260px]">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                <tr className="border-b">
+                  <th className="w-20 px-3 py-3 font-semibold">Ligne</th>
+                  <th className="min-w-[220px] px-3 py-3 font-semibold">Rubrique</th>
+                  <th className="min-w-[260px] px-3 py-3 font-semibold">Description</th>
+                  <th className="w-36 px-3 py-3 font-semibold text-right">Montant</th>
+                  <th className="w-24 px-3 py-3 font-semibold">Mode</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">1</td>
+                  <td className="px-3 py-3">{form.expenseCategory || 'Dépense'}</td>
+                  <td className="px-3 py-3">{form.description || 'Sans description'}</td>
+                  <td className="px-3 py-3 text-right">
+                    <Input type="number" value={form.amountHT} onChange={(event) => updateField('amountHT', event.target.value)} />
+                  </td>
+                  <td className="px-3 py-3">{form.paymentMethod}</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">2</td>
+                  <td className="px-3 py-3">TVA</td>
+                  <td className="px-3 py-3">Taxe appliquée sur le décaissement</td>
+                  <td className="px-3 py-3 text-right">
+                    <Input type="number" value={form.amountTVA} onChange={(event) => updateField('amountTVA', event.target.value)} />
+                  </td>
+                  <td className="px-3 py-3">-</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">3</td>
+                  <td className="px-3 py-3 font-medium">Total TTC</td>
+                  <td className="px-3 py-3">Montant total à décaisser</td>
+                  <td className="px-3 py-3 text-right">
+                    <Input type="number" value={form.amountTTC} onChange={(event) => updateField('amountTTC', event.target.value)} />
+                  </td>
+                  <td className="px-3 py-3">{form.paymentMethod}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
+            <div className="rounded-md border bg-white px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">HT</div>
+              <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountHT)} F CFA</div>
+            </div>
+            <div className="rounded-md border bg-white px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">TVA</div>
+              <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountTVA)} F CFA</div>
+            </div>
+            <div className="rounded-md border bg-blue-50 px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-blue-700">Total TTC</div>
+              <div className="font-semibold text-blue-900">{new Intl.NumberFormat('fr-FR').format(amountTTC)} F CFA</div>
+            </div>
+            <div className="rounded-md border bg-white px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Décaissement</div>
+              <div className="font-semibold">{form.paymentMethod === 'CHEQUE' ? 'Chèque' : 'Espèces'}</div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="border-t bg-background pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Annuler
           </Button>

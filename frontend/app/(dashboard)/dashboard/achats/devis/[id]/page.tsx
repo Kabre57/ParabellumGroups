@@ -234,6 +234,7 @@ export default function PurchaseQuoteDetailPage() {
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplierId, setSupplierId] = useState('');
+  const [manualSupplierName, setManualSupplierName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
@@ -305,6 +306,7 @@ export default function PurchaseQuoteDetailPage() {
     setDescription(request.description || '');
     setNotes(request.notes || '');
     setSupplierId(request.supplierId || '');
+    setManualSupplierName(request.manualSupplierName || (!request.supplierId ? request.supplierName || '' : ''));
     setSelectedServiceId(String(request.serviceId ?? userServiceId ?? ''));
     setDateBesoin(request.dateBesoin ? request.dateBesoin.slice(0, 10) : '');
     setLines(
@@ -359,6 +361,7 @@ export default function PurchaseQuoteDetailPage() {
         objet: title,
         description,
         supplierId: supplierId || null,
+        manualSupplierName: supplierId ? null : manualSupplierName || null,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
         serviceName: selectedService?.name || request?.serviceName || null,
         dateBesoin: dateBesoin || null,
@@ -552,7 +555,7 @@ export default function PurchaseQuoteDetailPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 overflow-x-hidden p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <Button asChild variant="ghost" size="sm">
@@ -638,13 +641,13 @@ export default function PurchaseQuoteDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Service</div><div className="text-lg font-semibold">{request.serviceName || 'Non attribue'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur DPA</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || 'A définir'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur DPA</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || request.manualSupplierName || 'A définir'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC DPA</div><div className="text-lg font-semibold">{(request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : '0 F CFA'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr,1fr]">
-        <Card>
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr),minmax(0,1fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Edition de la demande</CardTitle>
             <CardDescription>
@@ -701,23 +704,41 @@ export default function PurchaseQuoteDetailPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Fournisseur DPA</label>
+                <label className="text-sm font-medium">Fournisseur existant</label>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={supplierId}
                   onChange={(event) => {
                     setIsDirty(true);
                     setSupplierId(event.target.value);
+                    if (event.target.value) {
+                      setManualSupplierName('');
+                    }
                   }}
                   disabled={!canEditRequest}
                 >
-                  <option value="">Selectionner un fournisseur</option>
+                  <option value="">Saisir un nouveau fournisseur ci-dessous</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.name}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nouveau fournisseur</label>
+                <Input
+                  value={manualSupplierName}
+                  onChange={(event) => {
+                    setIsDirty(true);
+                    setManualSupplierName(event.target.value);
+                    if (event.target.value.trim()) {
+                      setSupplierId('');
+                    }
+                  }}
+                  disabled={!canEditRequest || Boolean(supplierId)}
+                  placeholder="Nom fournisseur si absent du référentiel"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Commentaire interne</label>
@@ -750,7 +771,8 @@ export default function PurchaseQuoteDetailPage() {
               lines={lines}
               articles={articles as InventoryArticle[]}
               disabled={!canEditRequest}
-              maxBodyHeightClass="max-h-[460px]"
+              maxBodyHeightClass="h-[460px]"
+              tableMinWidthClass="min-w-[920px]"
               onAddLine={() => {
                 setIsDirty(true);
                 setLines((current) => [...current, emptyLine()]);
@@ -785,8 +807,8 @@ export default function PurchaseQuoteDetailPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          <Card>
+        <div className="min-w-0 space-y-6">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Proformas fournisseurs</CardTitle>
               <CardDescription>
@@ -870,7 +892,7 @@ export default function PurchaseQuoteDetailPage() {
                     </div>
 
                     {(proforma.lignes || []).length > 0 && (
-                      <div className="mt-4 overflow-x-auto">
+                      <div className="mt-4 min-w-0 overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -901,7 +923,7 @@ export default function PurchaseQuoteDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Timeline metier</CardTitle>
               <CardDescription>
@@ -937,7 +959,7 @@ export default function PurchaseQuoteDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Historique DPA</CardTitle>
               <CardDescription>

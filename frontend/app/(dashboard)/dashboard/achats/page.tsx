@@ -438,11 +438,11 @@ export default function ProcurementOverviewPage() {
         icon: FileText,
         accent: 'text-slate-700',
       },
-      {
-        key: 'approval' as const,
-        label: 'Validations DG',
-        value: pendingApprovalRequests.length + pendingProformaApprovals.length,
-        description: 'DPA et proformas en attente',
+        {
+          key: 'approval' as const,
+          label: 'Validations DG',
+          value: pendingApprovalRequests.length + pendingProformaApprovals.length,
+          description: 'DPA et proformas a arbitrer',
         icon: FileClock,
         accent: 'text-amber-600',
       },
@@ -566,7 +566,10 @@ export default function ProcurementOverviewPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href="/dashboard/achats/devis">DPA &amp; proformas</Link>
+            <Link href="/dashboard/achats/devis">DPA internes</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/achats/proformas">Proformas fournisseurs</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard/achats/commandes">Bons de commande</Link>

@@ -224,6 +224,7 @@ export interface PurchaseRequest {
   serviceName?: string | null;
   supplierId?: string | null;
   supplierName?: string | null;
+  manualSupplierName?: string | null;
   devise?: string;
   status: PurchaseRequestStatus;
   estimatedAmount?: number;

@@ -78,6 +78,7 @@ export default function PurchaseQuotesPage() {
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplierId, setSupplierId] = useState('');
+  const [manualSupplierName, setManualSupplierName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
@@ -188,6 +189,7 @@ export default function PurchaseQuotesPage() {
         objet: title,
         description,
         fournisseurId: supplierId || undefined,
+        fournisseurNomLibre: supplierId ? undefined : manualSupplierName || undefined,
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
         serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
@@ -210,6 +212,7 @@ export default function PurchaseQuotesPage() {
       setDescription('');
       setNotes('');
       setSupplierId('');
+      setManualSupplierName('');
       setSelectedServiceId(userServiceId);
       setDateBesoin('');
       setLines([emptyLine()]);
@@ -273,9 +276,9 @@ export default function PurchaseQuotesPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats">Retour aux achats</Link>
           </Button>
-          <h1 className="mt-2 text-3xl font-bold">DPA et proformas</h1>
+          <h1 className="mt-2 text-3xl font-bold">DPA internes</h1>
           <p className="text-sm text-muted-foreground">
-            Les services créent ici leurs DPA avec fournisseur, prix et quantités. Après validation DG, le service achat gère les proformas puis génère le bon de commande.
+            Les services créent ici leurs DPA avec fournisseur, prix et quantités. Les proformas fournisseurs sont ensuite gérées dans l&apos;espace achat dédié.
           </p>
         </div>
         {canCreate && (
@@ -345,7 +348,7 @@ export default function PurchaseQuotesPage() {
                       <td className="px-4 py-3 font-medium">{request.number}</td>
                       <td className="px-4 py-3">{request.objet || request.title}</td>
                       <td className="px-4 py-3">{request.serviceName || '-'}</td>
-                      <td className="px-4 py-3">{supplierName(request.supplierId) || request.supplierName}</td>
+                      <td className="px-4 py-3">{supplierName(request.supplierId) || request.supplierName || request.manualSupplierName || '-'}</td>
                       <td className="px-4 py-3 font-medium">
                         {(request.montantTTC || request.estimatedAmount || 0) > 0
                           ? `${(request.montantTTC || request.estimatedAmount || 0).toLocaleString('fr-FR')} F`
@@ -412,7 +415,7 @@ export default function PurchaseQuotesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[92vh] max-w-6xl flex-col overflow-hidden">
+        <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>
@@ -452,13 +455,18 @@ export default function PurchaseQuotesPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Fournisseur</label>
+              <label className="text-sm font-medium">Fournisseur existant</label>
               <select
                 value={supplierId}
-                onChange={(event) => setSupplierId(event.target.value)}
+                onChange={(event) => {
+                  setSupplierId(event.target.value);
+                  if (event.target.value) {
+                    setManualSupplierName('');
+                  }
+                }}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Sélectionner un fournisseur</option>
+                <option value="">Saisir un nouveau fournisseur ci-dessous</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.name}
@@ -469,6 +477,20 @@ export default function PurchaseQuotesPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Date de besoin</label>
               <Input type="date" value={dateBesoin} onChange={(event) => setDateBesoin(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nouveau fournisseur</label>
+              <Input
+                value={manualSupplierName}
+                onChange={(event) => {
+                  setManualSupplierName(event.target.value);
+                  if (event.target.value.trim()) {
+                    setSupplierId('');
+                  }
+                }}
+                placeholder="Nom fournisseur si absent de la liste"
+                disabled={Boolean(supplierId)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Notes</label>
@@ -482,7 +504,8 @@ export default function PurchaseQuotesPage() {
               description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
               lines={lines}
               articles={articles as InventoryArticle[]}
-              maxBodyHeightClass="max-h-[38vh]"
+              maxBodyHeightClass="h-[38vh]"
+              tableMinWidthClass="min-w-[980px]"
               onAddLine={() => setLines((current) => [...current, emptyLine()])}
               onDuplicateLine={(index) =>
                 setLines((current) => {
@@ -499,13 +522,13 @@ export default function PurchaseQuotesPage() {
             />
           </div>
 
-          <DialogFooter className="items-center justify-between sm:justify-between">
+          <DialogFooter className="items-center justify-between border-t bg-background pt-4 sm:justify-between">
             <div className="text-sm font-medium">
               Total estimé: {draftTotals.montantTTC.toLocaleString('fr-FR')} F
             </div>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!title || !selectedServiceId || !supplierId || createMutation.isPending}
+              disabled={!title || !selectedServiceId || (!supplierId && !manualSupplierName.trim()) || createMutation.isPending}
             >
               {createMutation.isPending ? 'Enregistrement...' : 'Créer la DPA'}
             </Button>

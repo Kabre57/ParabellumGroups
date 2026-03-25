@@ -23,6 +23,7 @@ interface PurchaseLinesGridProps {
   articles: InventoryArticle[];
   disabled?: boolean;
   maxBodyHeightClass?: string;
+  tableMinWidthClass?: string;
   onAddLine: () => void;
   onDuplicateLine?: (index: number) => void;
   onRemoveLine: (index: number) => void;
@@ -41,6 +42,7 @@ export function PurchaseLinesGrid({
   articles,
   disabled = false,
   maxBodyHeightClass = 'max-h-[360px]',
+  tableMinWidthClass = 'min-w-[1020px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -62,7 +64,7 @@ export function PurchaseLinesGrid({
   }, [lines]);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">{title}</h3>
@@ -79,9 +81,9 @@ export function PurchaseLinesGrid({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-background">
-        <div className={`overflow-auto ${maxBodyHeightClass}`}>
-          <table className="w-full min-w-[1100px] text-sm">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
+        <div className={`min-h-0 overflow-auto ${maxBodyHeightClass}`}>
+          <table className={`w-full ${tableMinWidthClass} text-sm`}>
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
@@ -202,7 +204,7 @@ export function PurchaseLinesGrid({
           </table>
         </div>
 
-        <div className="grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
+        <div className="shrink-0 grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
           <div className="rounded-md border bg-white px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Volume</div>
             <div className="font-semibold">{lines.length} ligne{lines.length > 1 ? 's' : ''}</div>
