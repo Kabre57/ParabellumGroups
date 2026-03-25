@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 
 type DraftLine = {
@@ -45,6 +46,9 @@ interface Props {
     titre?: string;
     fournisseurId: string;
     notes?: string;
+    delaiLivraisonJours?: number;
+    disponibilite?: string;
+    observationsAchat?: string;
     lignes: PurchaseProformaLine[];
   }) => void;
 }
@@ -62,6 +66,9 @@ export function PurchaseProformaDialog({
   const [title, setTitle] = useState(defaultTitle || '');
   const [supplierId, setSupplierId] = useState(defaultSupplierId || '');
   const [notes, setNotes] = useState('');
+  const [deliveryDelayDays, setDeliveryDelayDays] = useState('0');
+  const [availability, setAvailability] = useState('');
+  const [purchasingObservations, setPurchasingObservations] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
 
   const totals = useMemo(() => {
@@ -77,6 +84,9 @@ export function PurchaseProformaDialog({
     setTitle(defaultTitle || '');
     setSupplierId(defaultSupplierId || '');
     setNotes('');
+    setDeliveryDelayDays('0');
+    setAvailability('');
+    setPurchasingObservations('');
     setLines([emptyLine()]);
   };
 
@@ -113,7 +123,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="grid h-[94vh] max-h-[94vh] max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+      <DialogContent className="grid h-[96vh] max-h-[96vh] max-w-[92vw] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -121,8 +131,8 @@ export function PurchaseProformaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2 md:col-span-2">
+        <div className="grid gap-3 lg:grid-cols-4">
+          <div className="space-y-2 lg:col-span-2">
             <label className="text-sm font-medium">Intitulé</label>
             <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Proforma fournisseur principale" />
           </div>
@@ -141,9 +151,36 @@ export function PurchaseProformaDialog({
               ))}
             </select>
           </div>
-          <div className="space-y-2 md:col-span-3">
-            <label className="text-sm font-medium">Notes</label>
-            <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Commentaire achat / délai / conditions" />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Délai (jours)</label>
+            <Input
+              type="number"
+              min="0"
+              value={deliveryDelayDays}
+              onChange={(event) => setDeliveryDelayDays(event.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Disponibilité</label>
+            <Input
+              value={availability}
+              onChange={(event) => setAvailability(event.target.value)}
+              placeholder="En stock / partiel / sur commande"
+            />
+          </div>
+          <div className="space-y-2 lg:col-span-3">
+            <label className="text-sm font-medium">Observations achat</label>
+            <Textarea
+              value={purchasingObservations}
+              onChange={(event) => setPurchasingObservations(event.target.value)}
+              placeholder="Conditions, risques, délais réels, disponibilité..."
+              className="min-h-[76px] resize-none"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Notes internes</label>
+            <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Référence / commentaire interne" />
           </div>
         </div>
 
@@ -153,8 +190,8 @@ export function PurchaseProformaDialog({
             description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="h-[46vh]"
-            tableMinWidthClass="min-w-[1180px]"
+            maxBodyHeightClass="h-[52vh]"
+            tableMinWidthClass="min-w-[1320px]"
             onAddLine={() => setLines((current) => [...current, emptyLine()])}
             onDuplicateLine={(index) =>
               setLines((current) => {
@@ -181,6 +218,9 @@ export function PurchaseProformaDialog({
                 titre: title || undefined,
                 fournisseurId: supplierId,
                 notes: notes || undefined,
+                delaiLivraisonJours: Number(deliveryDelayDays) > 0 ? Number(deliveryDelayDays) : undefined,
+                disponibilite: availability || undefined,
+                observationsAchat: purchasingObservations || undefined,
                 lignes: lines
                   .filter((line) => line.designation && line.quantite > 0)
                   .map((line) => ({

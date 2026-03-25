@@ -286,6 +286,24 @@ const validateProformaReadiness = (proforma) => {
   return null;
 };
 
+const parseNullableNonNegativeInt = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const normalizeOptionalText = (value) => {
+  const normalized = String(value || '').trim();
+  return normalized || null;
+};
+
 const purchaseQuoteCreatedPayload = (quote) => ({
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
@@ -928,7 +946,16 @@ exports.createProforma = async (req, res) => {
       });
     }
 
-    const { fournisseurId, notes, devise, lignes = [], titre } = req.body;
+    const {
+      fournisseurId,
+      notes,
+      devise,
+      lignes = [],
+      titre,
+      delaiLivraisonJours,
+      disponibilite,
+      observationsAchat,
+    } = req.body;
     const normalizedLines = normalizeProformaLines(lignes);
     if (!fournisseurId) {
       return res.status(422).json({ success: false, message: 'Le fournisseur de la proforma est obligatoire' });
@@ -951,6 +978,9 @@ exports.createProforma = async (req, res) => {
           montantHT: totals.montantHT,
           montantTVA: totals.montantTVA,
           montantTTC: totals.montantTTC,
+          delaiLivraisonJours: parseNullableNonNegativeInt(delaiLivraisonJours),
+          disponibilite: normalizeOptionalText(disponibilite),
+          observationsAchat: normalizeOptionalText(observationsAchat),
           status: 'BROUILLON',
           notes: notes || null,
           lignes: {
@@ -995,6 +1025,66 @@ exports.createProforma = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la création de la proforma',
+    });
+  }
+};
+
+exports.recommendProforma = async (req, res) => {
+  try {
+    if (!canManageProformas(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Seul le service achat peut retenir une proforma',
+      });
+    }
+
+    const demande = await ensureQuoteExists(req.params.id);
+    if (!demande) {
+      return res.status(404).json({ success: false, message: 'DPA non trouvée' });
+    }
+
+    const existing = await ensureProformaExists(demande.id, req.params.proformaId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Proforma non trouvée' });
+    }
+
+    if (!['BROUILLON', 'REJETEE', 'SOUMISE', 'APPROUVEE'].includes(existing.status)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cette proforma ne peut pas être retenue dans son état actuel',
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.proforma.updateMany({
+        where: {
+          demandeAchatId: demande.id,
+          id: { not: existing.id },
+        },
+        data: {
+          recommendedForApproval: false,
+        },
+      });
+
+      return tx.proforma.update({
+        where: { id: existing.id },
+        data: {
+          recommendedForApproval: true,
+        },
+        include: proformaInclude,
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'La proforma recommandée a été mise à jour',
+      data: serializeProforma(updated),
+    });
+  } catch (error) {
+    console.error('Error recommending proforma:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la sélection de la proforma recommandée',
     });
   }
 };
@@ -1056,8 +1146,19 @@ exports.submitProforma = async (req, res) => {
           status: 'SOUMISE',
           submittedAt: new Date(),
           rejectionReason: null,
+          recommendedForApproval: true,
         },
         include: proformaInclude,
+      });
+
+      await tx.proforma.updateMany({
+        where: {
+          demandeAchatId: demande.id,
+          id: { not: existing.id },
+        },
+        data: {
+          recommendedForApproval: false,
+        },
       });
 
       await tx.demandeAchat.update({
@@ -1167,6 +1268,7 @@ exports.approveProforma = async (req, res) => {
           approvedByServiceName: actorContext.actorServiceName,
           rejectionReason: null,
           selectedForOrder: true,
+          recommendedForApproval: true,
         },
         include: proformaInclude,
       });
@@ -1269,6 +1371,7 @@ exports.rejectProforma = async (req, res) => {
           status: 'REJETEE',
           rejectionReason: req.body?.commentaire || req.body?.raison || null,
           selectedForOrder: false,
+          recommendedForApproval: false,
         },
         include: proformaInclude,
       });

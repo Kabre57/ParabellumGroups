@@ -276,17 +276,37 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { fournisseurId, dateLivraison, montantTotal } = req.body;
+    const { fournisseurId, dateLivraison, montantTotal, amount, status } = req.body;
+
+    const data = {};
+
+    if (fournisseurId !== undefined) {
+      data.fournisseurId = fournisseurId || null;
+    }
+
+    if (dateLivraison !== undefined) {
+      data.dateLivraison = dateLivraison ? new Date(dateLivraison) : null;
+    }
+
+    if (montantTotal !== undefined || amount !== undefined) {
+      data.montantTotal = montantTotal ?? amount;
+    }
+
+    if (status !== undefined) {
+      data.status = status;
+    }
 
     const bon = await prisma.bonCommande.update({
       where: { id },
-      data: {
-        fournisseurId,
-        dateLivraison: dateLivraison ? new Date(dateLivraison) : null,
-        montantTotal
-      },
+      data,
       include: {
         fournisseur: true,
+        proforma: {
+          select: {
+            id: true,
+            numeroProforma: true,
+          },
+        },
         demandeAchat: true,
         lignes: true
       }

@@ -42,7 +42,7 @@ export function PurchaseLinesGrid({
   articles,
   disabled = false,
   maxBodyHeightClass = 'max-h-[360px]',
-  tableMinWidthClass = 'min-w-[1180px]',
+  tableMinWidthClass = 'min-w-[1320px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -87,13 +87,13 @@ export function PurchaseLinesGrid({
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
-                <th className="min-w-[260px] px-3 py-3 font-semibold">Article</th>
-                <th className="min-w-[260px] px-3 py-3 font-semibold">Désignation</th>
-                <th className="min-w-[180px] px-3 py-3 font-semibold">Catégorie</th>
-                <th className="w-28 px-3 py-3 font-semibold">Qté</th>
-                <th className="w-36 px-3 py-3 font-semibold">P.U. HT</th>
-                <th className="w-28 px-3 py-3 font-semibold">TVA %</th>
-                <th className="w-40 px-3 py-3 font-semibold text-right">Total TTC</th>
+                <th className="min-w-[300px] px-3 py-3 font-semibold">Article</th>
+                <th className="min-w-[280px] px-3 py-3 font-semibold">Désignation</th>
+                <th className="min-w-[200px] px-3 py-3 font-semibold">Catégorie</th>
+                <th className="w-32 px-3 py-3 font-semibold">Qté</th>
+                <th className="w-40 px-3 py-3 font-semibold">P.U. HT</th>
+                <th className="w-32 px-3 py-3 font-semibold">TVA %</th>
+                <th className="w-44 px-3 py-3 font-semibold text-right">Total TTC</th>
                 <th className="w-28 px-3 py-3 font-semibold text-center">Actions</th>
               </tr>
             </thead>
@@ -109,7 +109,7 @@ export function PurchaseLinesGrid({
                         value={line.articleId}
                         onChange={(event) => onSelectArticle(index, event.target.value)}
                         disabled={disabled}
-                        className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        className="h-12 w-full rounded-md border border-input bg-background px-3 text-base"
                       >
                         <option value="">Sélectionner un article</option>
                         {articles.map((article) => (
@@ -125,7 +125,7 @@ export function PurchaseLinesGrid({
                         onChange={(event) => onUpdateLine(index, { designation: event.target.value })}
                         disabled={disabled}
                         placeholder="Désignation"
-                        className="h-11 text-base"
+                        className="h-12 text-base"
                       />
                     </td>
                     <td className="px-3 py-3">
@@ -134,7 +134,7 @@ export function PurchaseLinesGrid({
                         onChange={(event) => onUpdateLine(index, { categorie: event.target.value })}
                         disabled={disabled}
                         placeholder="Catégorie"
-                        className="h-11 text-base"
+                        className="h-12 text-base"
                       />
                     </td>
                     <td className="px-3 py-3">
@@ -144,7 +144,7 @@ export function PurchaseLinesGrid({
                         value={line.quantite}
                         onChange={(event) => onUpdateLine(index, { quantite: Number(event.target.value) || 1 })}
                         disabled={disabled}
-                        className="h-11 min-w-[88px] text-base font-medium"
+                        className="h-12 min-w-[112px] text-lg font-medium"
                       />
                     </td>
                     <td className="px-3 py-3">
@@ -154,7 +154,7 @@ export function PurchaseLinesGrid({
                         value={line.prixUnitaire}
                         onChange={(event) => onUpdateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
                         disabled={disabled}
-                        className="h-11 min-w-[120px] text-base font-medium"
+                        className="h-12 min-w-[136px] text-lg font-medium"
                       />
                     </td>
                     <td className="px-3 py-3">
@@ -165,7 +165,7 @@ export function PurchaseLinesGrid({
                         value={line.tva}
                         onChange={(event) => onUpdateLine(index, { tva: Number(event.target.value) || 0 })}
                         disabled={disabled}
-                        className="h-11 min-w-[88px] text-base font-medium"
+                        className="h-12 min-w-[104px] text-lg font-medium"
                       />
                     </td>
                     <td className="px-3 py-3 text-right align-middle text-base font-semibold whitespace-nowrap">

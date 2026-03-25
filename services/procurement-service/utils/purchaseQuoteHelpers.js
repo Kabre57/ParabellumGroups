@@ -86,6 +86,10 @@ const serializeProforma = (proforma = {}) => ({
   montantHT: Number(proforma.montantHT ?? 0),
   montantTVA: Number(proforma.montantTVA ?? 0),
   montantTTC: Number(proforma.montantTTC ?? 0),
+  delaiLivraisonJours:
+    proforma.delaiLivraisonJours != null ? Number(proforma.delaiLivraisonJours) : null,
+  disponibilite: proforma.disponibilite || null,
+  observationsAchat: proforma.observationsAchat || null,
   status: proforma.status || 'BROUILLON',
   notes: proforma.notes || null,
   submittedAt: proforma.submittedAt || null,
@@ -95,6 +99,7 @@ const serializeProforma = (proforma = {}) => ({
   approvedByServiceName: proforma.approvedByServiceName || null,
   rejectionReason: proforma.rejectionReason || null,
   selectedForOrder: Boolean(proforma.selectedForOrder),
+  recommendedForApproval: Boolean(proforma.recommendedForApproval),
   bonCommandeId: proforma.bonCommande?.id || null,
   numeroBon: proforma.bonCommande?.numeroBon || null,
   createdAt: proforma.createdAt,

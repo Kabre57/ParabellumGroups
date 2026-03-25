@@ -192,6 +192,9 @@ model Proforma {
   montantHT             Decimal              @default(0) @db.Decimal(12, 2)
   montantTVA            Decimal              @default(0) @db.Decimal(12, 2)
   montantTTC            Decimal              @default(0) @db.Decimal(12, 2)
+  delaiLivraisonJours   Int?
+  disponibilite         String?
+  observationsAchat     String?
   status                StatusProforma       @default(BROUILLON)
   notes                 String?
   submittedAt           DateTime?
@@ -201,6 +204,7 @@ model Proforma {
   approvedByServiceName String?
   rejectionReason       String?
   selectedForOrder      Boolean              @default(false)
+  recommendedForApproval Boolean             @default(false)
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 

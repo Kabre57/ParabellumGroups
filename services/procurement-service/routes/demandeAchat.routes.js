@@ -64,6 +64,18 @@ const validateProforma = [
     .isString()
     .isLength({ min: 3, max: 3 })
     .withMessage('La devise doit etre un code ISO sur 3 caracteres'),
+  body('delaiLivraisonJours')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 0 })
+    .withMessage('Le delai de livraison doit etre un entier positif ou nul'),
+  body('disponibilite')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('La disponibilite est invalide'),
+  body('observationsAchat')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('Les observations achat sont invalides'),
   body('lignes')
     .isArray({ min: 1 })
     .withMessage('La proforma doit contenir au moins une ligne'),
@@ -97,6 +109,7 @@ router.post('/:id/submit', demandeAchatController.submit);
 router.post('/:id/approve', demandeAchatController.approve);
 router.post('/:id/reject', demandeAchatController.reject);
 router.post('/:id/proformas', validateProforma, demandeAchatController.createProforma);
+router.post('/:id/proformas/:proformaId/recommend', demandeAchatController.recommendProforma);
 router.post('/:id/proformas/:proformaId/submit', demandeAchatController.submitProforma);
 router.post('/:id/proformas/:proformaId/approve', demandeAchatController.approveProforma);
 router.post('/:id/proformas/:proformaId/reject', demandeAchatController.rejectProforma);

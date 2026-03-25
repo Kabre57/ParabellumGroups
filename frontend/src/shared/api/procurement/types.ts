@@ -193,6 +193,9 @@ export interface PurchaseProforma {
   montantHT: number;
   montantTVA: number;
   montantTTC: number;
+  delaiLivraisonJours?: number | null;
+  disponibilite?: string | null;
+  observationsAchat?: string | null;
   status: PurchaseProformaStatus;
   notes?: string | null;
   submittedAt?: string | null;
@@ -202,6 +205,7 @@ export interface PurchaseProforma {
   approvedByServiceName?: string | null;
   rejectionReason?: string | null;
   selectedForOrder?: boolean;
+  recommendedForApproval?: boolean;
   bonCommandeId?: string | null;
   numeroBon?: string | null;
   createdAt?: string;

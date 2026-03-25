@@ -85,6 +85,12 @@ const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
     montantHT: normalizeNumber(proforma?.montantHT, 0),
     montantTVA: normalizeNumber(proforma?.montantTVA, 0),
     montantTTC: normalizeNumber(proforma?.montantTTC, 0),
+    delaiLivraisonJours:
+      proforma?.delaiLivraisonJours != null
+        ? normalizeNumber(proforma.delaiLivraisonJours, 0)
+        : null,
+    disponibilite: proforma?.disponibilite || null,
+    observationsAchat: proforma?.observationsAchat || null,
     status: (proforma?.status || 'BROUILLON') as PurchaseProformaStatus,
     notes: proforma?.notes || null,
     submittedAt: proforma?.submittedAt || null,
@@ -94,6 +100,7 @@ const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
     approvedByServiceName: proforma?.approvedByServiceName || null,
     rejectionReason: proforma?.rejectionReason || null,
     selectedForOrder: Boolean(proforma?.selectedForOrder),
+    recommendedForApproval: Boolean(proforma?.recommendedForApproval),
     bonCommandeId: proforma?.bonCommandeId || proforma?.bonCommande?.id || null,
     numeroBon: proforma?.numeroBon || proforma?.bonCommande?.numeroBon || null,
     createdAt: proforma?.createdAt || undefined,
@@ -537,6 +544,9 @@ export const procurementService = {
       fournisseurId: string;
       devise?: string;
       notes?: string;
+      delaiLivraisonJours?: number;
+      disponibilite?: string;
+      observationsAchat?: string;
       lignes: Array<{
         articleId?: string | null;
         referenceArticle?: string | null;
@@ -596,6 +606,20 @@ export const procurementService = {
     const response = await apiClient.post(
       `/procurement/devis-achat/${requestId}/proformas/${proformaId}/reject`,
       { commentaire: raison }
+    );
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
+  async recommendProforma(
+    requestId: string,
+    proformaId: string
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(
+      `/procurement/devis-achat/${requestId}/proformas/${proformaId}/recommend`
     );
     const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
     return {

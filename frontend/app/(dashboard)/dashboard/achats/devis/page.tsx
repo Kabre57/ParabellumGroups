@@ -415,7 +415,7 @@ export default function PurchaseQuotesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="grid h-[94vh] max-h-[94vh] max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+        <DialogContent className="grid h-[96vh] max-h-[96vh] max-w-[92vw] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Nouvelle DPA</DialogTitle>
             <DialogDescription>
@@ -423,7 +423,7 @@ export default function PurchaseQuotesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-4">
             {(canChooseService || !userServiceId) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Service demandeur</label>
@@ -487,7 +487,7 @@ export default function PurchaseQuotesPage() {
               <label className="text-sm font-medium">Notes</label>
               <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Urgent / validation budgetaire" />
             </div>
-            <div className="space-y-2 md:col-span-3">
+            <div className="space-y-2 lg:col-span-4">
               <label className="text-sm font-medium">Description</label>
               <textarea
                 value={description}
@@ -504,8 +504,8 @@ export default function PurchaseQuotesPage() {
               description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
               lines={lines}
               articles={articles as InventoryArticle[]}
-              maxBodyHeightClass="h-[40vh]"
-              tableMinWidthClass="min-w-[1180px]"
+              maxBodyHeightClass="h-[50vh]"
+              tableMinWidthClass="min-w-[1320px]"
               onAddLine={() => setLines((current) => [...current, emptyLine()])}
               onDuplicateLine={(index) =>
                 setLines((current) => {

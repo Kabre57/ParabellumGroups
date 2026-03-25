@@ -2,9 +2,15 @@ const jwt = require('jsonwebtoken');
 const config = require('../utils/config');
 const { logWarn, logInfo } = require('../utils/logger');
 
-const authenticateToken = (req, res, next) => {
+const extractToken = (req) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const bearerToken = authHeader && authHeader.split(' ')[1];
+  const queryToken = typeof req.query?.token === 'string' ? req.query.token : null;
+  return bearerToken || queryToken || null;
+};
+
+const authenticateToken = (req, res, next) => {
+  const token = extractToken(req);
 
   if (!token) {
     logWarn('Authentication attempt without token', {
@@ -52,8 +58,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = extractToken(req);
 
   if (!token) {
     return next();

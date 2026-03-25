@@ -69,6 +69,7 @@ type ProformaComparisonSummary = {
   proformas: PurchaseProforma[];
   bestProformaId: string | null;
   bestAmount: number;
+  recommendedProformaId: string | null;
   rows: Array<{
     key: string;
     designation: string;
@@ -248,6 +249,8 @@ const buildProformaComparison = (request?: PurchaseRequest): ProformaComparisonS
   const proformas = [...(request?.proformas || [])].sort((left, right) => left.montantTTC - right.montantTTC);
   const bestAmount = proformas.length > 0 ? proformas[0].montantTTC : 0;
   const bestProformaId = proformas.length > 0 ? proformas[0].id : null;
+  const recommendedProformaId =
+    proformas.find((proforma) => proforma.recommendedForApproval)?.id || null;
   const sourceLines = request?.lines || [];
 
   const rows = sourceLines.map((line, index) => {
@@ -300,7 +303,7 @@ const buildProformaComparison = (request?: PurchaseRequest): ProformaComparisonS
     };
   });
 
-  return { proformas, bestProformaId, bestAmount, rows };
+  return { proformas, bestProformaId, bestAmount, recommendedProformaId, rows };
 };
 
 export default function PurchaseQuoteDetailPage() {
@@ -563,6 +566,19 @@ export default function PurchaseQuoteDetailPage() {
     },
   });
 
+  const recommendProformaMutation = useMutation({
+    mutationFn: (proformaId: string) => procurementService.recommendProforma(id, proformaId),
+    onSuccess: () => {
+      toast.success('La proforma recommandée a été mise à jour.');
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la sélection de la proforma.');
+    },
+  });
+
   const rejectProformaMutation = useMutation({
     mutationFn: ({ proformaId, commentaire }: { proformaId: string; commentaire: string }) =>
       procurementService.rejectProforma(id, proformaId, commentaire),
@@ -726,7 +742,7 @@ export default function PurchaseQuoteDetailPage() {
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
-      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-6">
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Edition de la demande</CardTitle>
@@ -852,7 +868,7 @@ export default function PurchaseQuoteDetailPage() {
               articles={articles as InventoryArticle[]}
               disabled={!canEditRequest}
               maxBodyHeightClass="h-[420px]"
-              tableMinWidthClass="min-w-[1180px]"
+              tableMinWidthClass="min-w-[1320px]"
               onAddLine={() => {
                 setIsDirty(true);
                 setLines((current) => [...current, emptyLine()]);
@@ -890,9 +906,9 @@ export default function PurchaseQuoteDetailPage() {
         <div className="min-w-0 space-y-6">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Comparatif fournisseurs</CardTitle>
+              <CardTitle>Tableau de décision achat</CardTitle>
               <CardDescription>
-                Vue achat multi-proformas pour repérer rapidement l&apos;offre la plus basse par ligne et le meilleur total global.
+                Vue d&apos;arbitrage multi-fournisseurs avec moins-disant, délai, disponibilité, recommandation achat et détail par ligne.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -915,14 +931,107 @@ export default function PurchaseQuoteDetailPage() {
                       <div className="text-sm text-green-800">{formatCurrency(proformaComparison.bestAmount)}</div>
                     </div>
                     <div className="rounded-lg border bg-white p-4">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proforma retenue</div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Proforma recommandée</div>
                       <div className="mt-2 text-lg font-semibold">
-                        {request.proformas?.find((item) => item.selectedForOrder)?.fournisseurNom || 'Aucune retenue'}
+                        {request.proformas?.find((item) => item.recommendedForApproval)?.fournisseurNom || 'Aucune recommandation'}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {request.proformas?.find((item) => item.selectedForOrder)?.numeroProforma || 'En attente de décision'}
+                        {request.proformas?.find((item) => item.recommendedForApproval)?.numeroProforma || 'En attente de décision achat'}
                       </div>
                     </div>
+                  </div>
+
+                  {canManageProformasFlow && proformaComparison.bestProformaId ? (
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => recommendProformaMutation.mutate(proformaComparison.bestProformaId!)}
+                        disabled={recommendProformaMutation.isPending}
+                      >
+                        Retenir automatiquement le moins-disant
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="w-full min-w-[1120px] text-sm">
+                      <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                        <tr className="border-b">
+                          <th className="px-3 py-3 font-semibold">Fournisseur</th>
+                          <th className="px-3 py-3 font-semibold">Proforma</th>
+                          <th className="px-3 py-3 font-semibold text-right">Total TTC</th>
+                          <th className="px-3 py-3 font-semibold">Délai</th>
+                          <th className="px-3 py-3 font-semibold">Disponibilité</th>
+                          <th className="px-3 py-3 font-semibold">Observations</th>
+                          <th className="px-3 py-3 font-semibold">Statut</th>
+                          <th className="px-3 py-3 font-semibold text-right">Décision</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {proformaComparison.proformas.map((proforma) => {
+                          const isBest = proforma.id === proformaComparison.bestProformaId;
+                          const isRecommended = Boolean(proforma.recommendedForApproval);
+                          const isSelected = Boolean(proforma.selectedForOrder);
+
+                          return (
+                            <tr
+                              key={`decision-${proforma.id}`}
+                              className={`border-b align-top last:border-0 ${
+                                isSelected
+                                  ? 'bg-blue-50/60'
+                                  : isRecommended
+                                  ? 'bg-amber-50/60'
+                                  : isBest
+                                  ? 'bg-green-50/60'
+                                  : ''
+                              }`}
+                            >
+                              <td className="px-3 py-3">
+                                <div className="font-medium">{proforma.fournisseurNom || 'Fournisseur'}</div>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {isBest ? <Badge variant="outline">Moins-disant</Badge> : null}
+                                  {isRecommended ? <Badge variant="secondary">Recommandée achat</Badge> : null}
+                                  {isSelected ? <Badge>Retenue DG</Badge> : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3">
+                                <div className="font-medium">{proforma.numeroProforma}</div>
+                                <div className="text-xs text-muted-foreground">{proforma.titre || 'Sans intitulé'}</div>
+                              </td>
+                              <td className="px-3 py-3 text-right font-semibold whitespace-nowrap">
+                                {formatCurrency(proforma.montantTTC)}
+                              </td>
+                              <td className="px-3 py-3">
+                                {proforma.delaiLivraisonJours != null ? `${proforma.delaiLivraisonJours} j` : '—'}
+                              </td>
+                              <td className="px-3 py-3">{proforma.disponibilite || '—'}</td>
+                              <td className="max-w-[280px] px-3 py-3 text-sm text-muted-foreground">
+                                {proforma.observationsAchat || proforma.notes || '—'}
+                              </td>
+                              <td className="px-3 py-3">
+                                <Badge variant={isSelected ? 'default' : isRecommended ? 'secondary' : 'outline'}>
+                                  {isSelected ? 'Retenue DG' : isRecommended ? 'Recommandée' : proforma.status}
+                                </Badge>
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {canManageProformasFlow && !isSelected ? (
+                                  <Button
+                                    size="sm"
+                                    variant={isRecommended ? 'secondary' : 'outline'}
+                                    onClick={() => recommendProformaMutation.mutate(proforma.id)}
+                                    disabled={recommendProformaMutation.isPending}
+                                  >
+                                    {isRecommended ? 'Recommandée' : 'Retenir'}
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
                   <div className="overflow-x-auto rounded-xl border">
@@ -964,11 +1073,13 @@ export default function PurchaseQuoteDetailPage() {
                                       <div className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
                                         isSelected
                                           ? 'bg-blue-100 text-blue-700'
+                                          : proforma.recommendedForApproval
+                                          ? 'bg-amber-100 text-amber-700'
                                           : offer.isLowest
                                           ? 'bg-green-100 text-green-700'
                                           : 'bg-slate-100 text-slate-700'
                                       }`}>
-                                        {isSelected ? 'Retenue' : offer.isLowest ? 'Moins cher' : 'Offre'}
+                                        {isSelected ? 'Retenue' : proforma.recommendedForApproval ? 'Recommandée' : offer.isLowest ? 'Moins cher' : 'Offre'}
                                       </div>
                                       <div className="text-base font-semibold whitespace-nowrap">
                                         PU {formatCurrency(offer.prixUnitaire)}
@@ -1027,18 +1138,34 @@ export default function PurchaseQuoteDetailPage() {
                         <div className="flex items-center gap-2">
                           <div className="font-semibold">{proforma.numeroProforma}</div>
                           <Badge variant={proforma.selectedForOrder ? 'default' : 'outline'}>
-                            {proforma.selectedForOrder ? 'Retenue' : proforma.status}
+                            {proforma.selectedForOrder ? 'Retenue' : proforma.recommendedForApproval ? 'Recommandée achat' : proforma.status}
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {proforma.fournisseurNom || 'Fournisseur non attribué'} · {formatCurrency(proforma.montantTTC)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {proforma.notes || 'Sans commentaire'}
+                          {[
+                            proforma.delaiLivraisonJours != null ? `Délai ${proforma.delaiLivraisonJours} j` : null,
+                            proforma.disponibilite || null,
+                            proforma.observationsAchat || proforma.notes || null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'Sans commentaire'}
                         </div>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
+                        {canManageProformasFlow && !proforma.selectedForOrder && (
+                          <Button
+                            size="sm"
+                            variant={proforma.recommendedForApproval ? 'secondary' : 'outline'}
+                            onClick={() => recommendProformaMutation.mutate(proforma.id)}
+                            disabled={recommendProformaMutation.isPending}
+                          >
+                            {proforma.recommendedForApproval ? 'Recommandée' : 'Retenir'}
+                          </Button>
+                        )}
                         {canManageProformasFlow &&
                           (proforma.status === 'BROUILLON' || proforma.status === 'REJETEE') && (
                             <Button

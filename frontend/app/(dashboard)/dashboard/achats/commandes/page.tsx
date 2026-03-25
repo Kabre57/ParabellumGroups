@@ -136,8 +136,27 @@ export default function PurchaseOrdersPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, status, amount }: { id: string; status: PurchaseOrderStatus; amount?: number }) =>
-      procurementService.updateOrder(id, { status, amount }),
+    mutationFn: async ({
+      id,
+      status,
+      amount,
+      currentStatus,
+    }: {
+      id: string;
+      status: PurchaseOrderStatus;
+      amount?: number;
+      currentStatus?: PurchaseOrderStatus;
+    }) => {
+      if (status !== currentStatus) {
+        await procurementService.updateOrderStatus(id, status);
+      }
+
+      if (amount !== undefined) {
+        return procurementService.updateOrder(id, { amount });
+      }
+
+      return procurementService.getOrder(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["purchase-order-detail", selectedOrderId] });
@@ -529,7 +548,12 @@ export default function PurchaseOrdersPage() {
           defaultAmount={editOrder?.amount}
           onSubmit={(data) => {
             if (!editOrder) return;
-            updateMutation.mutate({ id: editOrder.id, status: data.status, amount: data.amount });
+            updateMutation.mutate({
+              id: editOrder.id,
+              status: data.status,
+              amount: data.amount,
+              currentStatus: editOrder.status,
+            });
           }}
         />
       )}
