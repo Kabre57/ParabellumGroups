@@ -86,7 +86,7 @@ export function CreateDpaDialog({
 }: CreateDpaDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(1500px,calc(100vw-1rem))] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(96vw,1500px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
         <DialogHeader>
           <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>
@@ -120,8 +120,8 @@ export function CreateDpaDialog({
             description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="min-h-[320px] max-h-[45vh]"
-            tableMinWidthClass="min-w-[1180px]"
+            maxBodyHeightClass="min-h-[340px] max-h-[48vh]"
+            tableMinWidthClass="min-w-[1100px]"
             onAddLine={onAddLine}
             onDuplicateLine={onDuplicateLine}
             onRemoveLine={onRemoveLine}

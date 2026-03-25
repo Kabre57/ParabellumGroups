@@ -41,8 +41,8 @@ export function PurchaseLinesGrid({
   lines,
   articles,
   disabled = false,
-  maxBodyHeightClass = 'min-h-[280px] max-h-[360px]',
-  tableMinWidthClass = 'min-w-[1180px]',
+  maxBodyHeightClass = 'min-h-[300px] max-h-[380px]',
+  tableMinWidthClass = 'min-w-[1100px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -87,14 +87,14 @@ export function PurchaseLinesGrid({
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
-                <th className="min-w-[240px] px-3 py-3 font-semibold">Article</th>
-                <th className="min-w-[220px] px-3 py-3 font-semibold">Désignation</th>
-                <th className="min-w-[170px] px-3 py-3 font-semibold">Catégorie</th>
-                <th className="w-28 px-3 py-3 font-semibold">Qté</th>
-                <th className="w-36 px-3 py-3 font-semibold">P.U. HT</th>
+                <th className="min-w-[220px] px-3 py-3 font-semibold">Article</th>
+                <th className="min-w-[210px] px-3 py-3 font-semibold">Désignation</th>
+                <th className="min-w-[150px] px-3 py-3 font-semibold">Catégorie</th>
+                <th className="w-24 px-3 py-3 font-semibold">Qté</th>
+                <th className="w-32 px-3 py-3 font-semibold">P.U. HT</th>
                 <th className="w-24 px-3 py-3 font-semibold">TVA %</th>
-                <th className="w-36 px-3 py-3 font-semibold text-right">Total TTC</th>
-                <th className="w-24 px-3 py-3 font-semibold text-center">Actions</th>
+                <th className="w-32 px-3 py-3 font-semibold text-right">Total TTC</th>
+                <th className="w-28 px-3 py-3 font-semibold text-center">Actions</th>
               </tr>
             </thead>
             <tbody>

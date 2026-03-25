@@ -123,7 +123,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(1500px,calc(100vw-1rem))] grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(96vw,1500px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -190,8 +190,8 @@ export function PurchaseProformaDialog({
             description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="min-h-[320px] max-h-[45vh]"
-            tableMinWidthClass="min-w-[1180px]"
+            maxBodyHeightClass="min-h-[340px] max-h-[48vh]"
+            tableMinWidthClass="min-w-[1100px]"
             onAddLine={() => setLines((current) => [...current, emptyLine()])}
             onDuplicateLine={(index) =>
               setLines((current) => {
