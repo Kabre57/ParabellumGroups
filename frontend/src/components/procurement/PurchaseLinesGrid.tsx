@@ -65,12 +65,12 @@ export function PurchaseLinesGrid({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold">{title}</h3>
           {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
             {lines.length} ligne{lines.length > 1 ? 's' : ''}
           </div>
@@ -81,7 +81,7 @@ export function PurchaseLinesGrid({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
         <div className={`min-h-0 overflow-auto ${maxBodyHeightClass}`}>
           <table className={`w-full ${tableMinWidthClass} text-sm`}>
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">

@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  FileText,
   PackagePlus,
   Printer,
   Save,
@@ -35,6 +36,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import PurchaseRequestPrint from '@/components/printComponents/PurchaseRequestPrint';
+import PurchaseCommissionPrint from '@/components/printComponents/PurchaseCommissionPrint';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
 import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 import { PurchaseProformaDialog } from '@/components/procurement/PurchaseProformaDialog';
@@ -84,6 +86,25 @@ type ProformaComparisonSummary = {
       }
     >;
   }>;
+};
+
+type CommissionDecisionRow = {
+  proformaId: string;
+  numeroProforma: string;
+  fournisseurNom: string;
+  montantTTC: number;
+  delaiLivraisonJours: number | null;
+  disponibilite: string | null;
+  observationsAchat: string | null;
+  status: string;
+  selectedForOrder: boolean;
+  recommendedForApproval: boolean;
+  priceScore: number;
+  delayScore: number;
+  availabilityScore: number;
+  supplierScore: number;
+  totalScore: number;
+  justification: string;
 };
 
 const emptyLine = (): DraftLine => ({
@@ -139,6 +160,20 @@ const formatDate = (value?: string | null) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '-';
   return parsed.toLocaleString('fr-FR');
+};
+
+const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value * 10) / 10));
+
+const normalizeAvailability = (value?: string | null) => String(value || '').trim().toLowerCase();
+
+const computeAvailabilityScore = (availability?: string | null) => {
+  const normalized = normalizeAvailability(availability);
+  if (!normalized) return 6;
+  if (normalized.includes('stock') || normalized.includes('immédiat') || normalized.includes('immediat')) return 15;
+  if (normalized.includes('partiel')) return 10;
+  if (normalized.includes('commande')) return 6;
+  if (normalized.includes('rupture') || normalized.includes('indisponible')) return 0;
+  return 8;
 };
 
 const normalizeTimeline = (
@@ -306,6 +341,67 @@ const buildProformaComparison = (request?: PurchaseRequest): ProformaComparisonS
   return { proformas, bestProformaId, bestAmount, recommendedProformaId, rows };
 };
 
+const buildCommissionDecisionRows = (
+  request: PurchaseRequest | undefined,
+  supplierRatings: Map<string, number>
+): CommissionDecisionRow[] => {
+  const proformas = [...(request?.proformas || [])];
+  if (proformas.length === 0) {
+    return [];
+  }
+
+  const bestAmount = Math.min(...proformas.map((proforma) => proforma.montantTTC || 0).filter((amount) => amount > 0));
+  const deliveryCandidates = proformas
+    .map((proforma) => proforma.delaiLivraisonJours)
+    .filter((value): value is number => value != null && value >= 0);
+  const bestDelay = deliveryCandidates.length > 0 ? Math.min(...deliveryCandidates) : null;
+
+  return proformas
+    .map((proforma) => {
+      const supplierRating = supplierRatings.get(proforma.fournisseurId) ?? 3;
+      const priceScore =
+        bestAmount > 0 && proforma.montantTTC > 0 ? clampScore((bestAmount / proforma.montantTTC) * 50) : 0;
+      const delayScore =
+        bestDelay != null && proforma.delaiLivraisonJours != null && proforma.delaiLivraisonJours > 0
+          ? clampScore((bestDelay / proforma.delaiLivraisonJours) * 20)
+          : bestDelay === 0 && proforma.delaiLivraisonJours === 0
+          ? 20
+          : 0;
+      const availabilityScore = computeAvailabilityScore(proforma.disponibilite);
+      const supplierScore = clampScore((Math.max(0, Math.min(supplierRating, 5)) / 5) * 15);
+      const totalScore = clampScore(priceScore + delayScore + availabilityScore + supplierScore);
+
+      const justification = [
+        proforma.recommendedForApproval ? 'Recommandée par le service achat' : null,
+        proforma.selectedForOrder ? 'Retenue après validation DG' : null,
+        bestAmount > 0 && proforma.montantTTC === bestAmount ? 'Offre la moins-disante' : null,
+        proforma.observationsAchat || null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      return {
+        proformaId: proforma.id,
+        numeroProforma: proforma.numeroProforma,
+        fournisseurNom: proforma.fournisseurNom || 'Fournisseur',
+        montantTTC: proforma.montantTTC,
+        delaiLivraisonJours: proforma.delaiLivraisonJours ?? null,
+        disponibilite: proforma.disponibilite || null,
+        observationsAchat: proforma.observationsAchat || proforma.notes || null,
+        status: proforma.status,
+        selectedForOrder: Boolean(proforma.selectedForOrder),
+        recommendedForApproval: Boolean(proforma.recommendedForApproval),
+        priceScore,
+        delayScore,
+        availabilityScore,
+        supplierScore,
+        totalScore,
+        justification,
+      };
+    })
+    .sort((left, right) => right.totalScore - left.totalScore);
+};
+
 export default function PurchaseQuoteDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || '';
@@ -325,6 +421,7 @@ export default function PurchaseQuoteDetailPage() {
   const [createProformaOpen, setCreateProformaOpen] = useState(false);
   const [rejectProformaTarget, setRejectProformaTarget] = useState<PurchaseProforma | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [isCommissionPrintOpen, setIsCommissionPrintOpen] = useState(false);
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const hasDirectPermission = (...permissions: string[]) =>
@@ -380,6 +477,13 @@ export default function PurchaseQuoteDetailPage() {
   const serviceForPrint =
     selectedService ||
     services.find((service) => String(service.id) === String(request?.serviceId ?? ''));
+  const supplierRatings = useMemo(
+    () =>
+      new Map(
+        suppliers.map((supplier) => [supplier.id, Number.isFinite(Number(supplier.rating)) ? Number(supplier.rating) : 3])
+      ),
+    [suppliers]
+  );
 
   useEffect(() => {
     if (!request || isDirty) return;
@@ -436,6 +540,10 @@ export default function PurchaseQuoteDetailPage() {
 
   const timeline = useMemo(() => normalizeTimeline(request, approvalHistory), [approvalHistory, request]);
   const proformaComparison = useMemo(() => buildProformaComparison(request), [request]);
+  const commissionDecisionRows = useMemo(
+    () => buildCommissionDecisionRows(request, supplierRatings),
+    [request, supplierRatings]
+  );
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -675,6 +783,10 @@ export default function PurchaseQuoteDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setIsCommissionPrintOpen(true)}>
+            <FileText className="mr-2 h-4 w-4" />
+            PV commission
+          </Button>
           <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="mr-2 h-4 w-4" />
             Imprimer
@@ -954,28 +1066,33 @@ export default function PurchaseQuoteDetailPage() {
                   ) : null}
 
                   <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full min-w-[1120px] text-sm">
+                    <table className="w-full min-w-[1480px] text-sm">
                       <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
                         <tr className="border-b">
                           <th className="px-3 py-3 font-semibold">Fournisseur</th>
                           <th className="px-3 py-3 font-semibold">Proforma</th>
                           <th className="px-3 py-3 font-semibold text-right">Total TTC</th>
+                          <th className="px-3 py-3 font-semibold text-right">Score prix</th>
                           <th className="px-3 py-3 font-semibold">Délai</th>
+                          <th className="px-3 py-3 font-semibold text-right">Score délai</th>
                           <th className="px-3 py-3 font-semibold">Disponibilité</th>
-                          <th className="px-3 py-3 font-semibold">Observations</th>
+                          <th className="px-3 py-3 font-semibold text-right">Score dispo</th>
+                          <th className="px-3 py-3 font-semibold text-right">Score fournisseur</th>
+                          <th className="px-3 py-3 font-semibold text-right">Score total</th>
+                          <th className="px-3 py-3 font-semibold">Justification</th>
                           <th className="px-3 py-3 font-semibold">Statut</th>
                           <th className="px-3 py-3 font-semibold text-right">Décision</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {proformaComparison.proformas.map((proforma) => {
-                          const isBest = proforma.id === proformaComparison.bestProformaId;
-                          const isRecommended = Boolean(proforma.recommendedForApproval);
-                          const isSelected = Boolean(proforma.selectedForOrder);
+                        {commissionDecisionRows.map((row) => {
+                          const isBest = row.proformaId === proformaComparison.bestProformaId;
+                          const isRecommended = row.recommendedForApproval;
+                          const isSelected = row.selectedForOrder;
 
                           return (
                             <tr
-                              key={`decision-${proforma.id}`}
+                              key={`decision-${row.proformaId}`}
                               className={`border-b align-top last:border-0 ${
                                 isSelected
                                   ? 'bg-blue-50/60'
@@ -987,7 +1104,7 @@ export default function PurchaseQuoteDetailPage() {
                               }`}
                             >
                               <td className="px-3 py-3">
-                                <div className="font-medium">{proforma.fournisseurNom || 'Fournisseur'}</div>
+                                <div className="font-medium">{row.fournisseurNom}</div>
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   {isBest ? <Badge variant="outline">Moins-disant</Badge> : null}
                                   {isRecommended ? <Badge variant="secondary">Recommandée achat</Badge> : null}
@@ -995,22 +1112,37 @@ export default function PurchaseQuoteDetailPage() {
                                 </div>
                               </td>
                               <td className="px-3 py-3">
-                                <div className="font-medium">{proforma.numeroProforma}</div>
-                                <div className="text-xs text-muted-foreground">{proforma.titre || 'Sans intitulé'}</div>
+                                <div className="font-medium">{row.numeroProforma}</div>
+                                <div className="text-xs text-muted-foreground">{isBest ? 'Base comparatif' : 'Offre fournisseur'}</div>
                               </td>
                               <td className="px-3 py-3 text-right font-semibold whitespace-nowrap">
-                                {formatCurrency(proforma.montantTTC)}
+                                {formatCurrency(row.montantTTC)}
+                              </td>
+                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
+                                {row.priceScore.toFixed(1)}
                               </td>
                               <td className="px-3 py-3">
-                                {proforma.delaiLivraisonJours != null ? `${proforma.delaiLivraisonJours} j` : '—'}
+                                {row.delaiLivraisonJours != null ? `${row.delaiLivraisonJours} j` : '—'}
                               </td>
-                              <td className="px-3 py-3">{proforma.disponibilite || '—'}</td>
-                              <td className="max-w-[280px] px-3 py-3 text-sm text-muted-foreground">
-                                {proforma.observationsAchat || proforma.notes || '—'}
+                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
+                                {row.delayScore.toFixed(1)}
+                              </td>
+                              <td className="px-3 py-3">{row.disponibilite || '—'}</td>
+                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
+                                {row.availabilityScore.toFixed(1)}
+                              </td>
+                              <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
+                                {row.supplierScore.toFixed(1)}
+                              </td>
+                              <td className="px-3 py-3 text-right text-base font-semibold whitespace-nowrap">
+                                {row.totalScore.toFixed(1)}
+                              </td>
+                              <td className="max-w-[320px] px-3 py-3 text-sm text-muted-foreground">
+                                {row.justification || row.observationsAchat || '—'}
                               </td>
                               <td className="px-3 py-3">
                                 <Badge variant={isSelected ? 'default' : isRecommended ? 'secondary' : 'outline'}>
-                                  {isSelected ? 'Retenue DG' : isRecommended ? 'Recommandée' : proforma.status}
+                                  {isSelected ? 'Retenue DG' : isRecommended ? 'Recommandée' : row.status}
                                 </Badge>
                               </td>
                               <td className="px-3 py-3 text-right">
@@ -1018,7 +1150,7 @@ export default function PurchaseQuoteDetailPage() {
                                   <Button
                                     size="sm"
                                     variant={isRecommended ? 'secondary' : 'outline'}
-                                    onClick={() => recommendProformaMutation.mutate(proforma.id)}
+                                    onClick={() => recommendProformaMutation.mutate(row.proformaId)}
                                     disabled={recommendProformaMutation.isPending}
                                   >
                                     {isRecommended ? 'Recommandée' : 'Retenir'}
@@ -1386,6 +1518,15 @@ export default function PurchaseQuoteDetailPage() {
           supplier={selectedSupplier}
           serviceLogoUrl={serviceForPrint?.imageUrl}
           onClose={() => setIsPrintOpen(false)}
+        />
+      )}
+
+      {isCommissionPrintOpen && (
+        <PurchaseCommissionPrint
+          request={request}
+          rows={commissionDecisionRows}
+          serviceLogoUrl={serviceForPrint?.imageUrl}
+          onClose={() => setIsCommissionPrintOpen(false)}
         />
       )}
     </div>

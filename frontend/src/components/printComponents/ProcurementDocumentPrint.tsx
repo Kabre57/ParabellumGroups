@@ -148,10 +148,6 @@ export default function ProcurementDocumentPrint({
                 <div style={{ fontSize: 12, color: '#475569' }}>{companyName}</div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#334155', lineHeight: 1.5 }}>
-              <div>Document généré depuis la plateforme Parabellum Groups.</div>
-              <div>Devise d’impression: F CFA</div>
-            </div>
           </div>
 
           <div style={{ flex: 1, textAlign: 'right', alignSelf: 'flex-end' }}>
