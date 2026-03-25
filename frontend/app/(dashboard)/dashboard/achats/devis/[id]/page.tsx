@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import PurchaseRequestPrint from '@/components/printComponents/PurchaseRequestPrint';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
+import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 import { PurchaseProformaDialog } from '@/components/procurement/PurchaseProformaDialog';
 import {
   Table,
@@ -743,134 +744,38 @@ export default function PurchaseQuoteDetailPage() {
               />
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Lignes d achat</h2>
-                  <p className="text-sm text-muted-foreground">
-                    La DPA contient déjà les articles, les quantités, les prix et la TVA proposés par le service demandeur.
-                  </p>
-                </div>
-                {canEditRequest && (
-                  <Button variant="outline" onClick={() => {
-                    setIsDirty(true);
-                    setLines((current) => [...current, emptyLine()]);
-                  }}>
-                    <PackagePlus className="mr-2 h-4 w-4" />
-                    Ajouter une ligne
-                  </Button>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                {lines.map((line, index) => {
-                  const lineTotal = line.quantite * line.prixUnitaire * (1 + line.tva / 100);
-
-                  return (
-                    <div key={`${line.id || 'new'}-${index}`} className="rounded-xl border bg-slate-50/40 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="font-medium">Ligne {index + 1}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {`Total TTC: ${formatCurrency(lineTotal)}`}
-                          </div>
-                        </div>
-                        {canEditRequest && lines.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setIsDirty(true);
-                              setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        <div className="space-y-2 xl:col-span-2">
-                          <label className="text-sm font-medium">Article</label>
-                          <select
-                            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
-                            value={line.articleId}
-                            onChange={(event) => updateLineArticle(index, event.target.value)}
-                            disabled={!canEditRequest}
-                          >
-                            <option value="">Selectionner un article</option>
-                            {articles.map((article: InventoryArticle) => (
-                              <option key={article.id} value={article.id}>
-                                {article.nom}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Categorie</label>
-                          <Input
-                            value={line.categorie}
-                            onChange={(event) => updateLine(index, { categorie: event.target.value })}
-                            disabled={!canEditRequest}
-                            className="h-11"
-                          />
-                        </div>
-
-                        <div className="space-y-2 xl:col-span-2">
-                          <label className="text-sm font-medium">Designation</label>
-                          <Input
-                            value={line.designation}
-                            onChange={(event) => updateLine(index, { designation: event.target.value })}
-                            disabled={!canEditRequest}
-                            className="h-11"
-                          />
-                        </div>
-
-                        <div className="grid gap-4 xl:col-span-3 grid-cols-3">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Quantite</label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={line.quantite}
-                              onChange={(event) => updateLine(index, { quantite: Number(event.target.value) || 1 })}
-                              disabled={!canEditRequest}
-                              className="h-11"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Prix unitaire achat</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={line.prixUnitaire}
-                              onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
-                              disabled={!canEditRequest}
-                              className="h-11"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">TVA (%)</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={line.tva}
-                              onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
-                              disabled={!canEditRequest}
-                              className="h-11"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PurchaseLinesGrid
+              title="Lignes d achat"
+              description="Présentation compacte type ERP pour garder les en-têtes visibles et travailler confortablement même avec beaucoup de lignes."
+              lines={lines}
+              articles={articles as InventoryArticle[]}
+              disabled={!canEditRequest}
+              maxBodyHeightClass="max-h-[460px]"
+              onAddLine={() => {
+                setIsDirty(true);
+                setLines((current) => [...current, emptyLine()]);
+              }}
+              onDuplicateLine={(index) => {
+                setIsDirty(true);
+                setLines((current) => {
+                  const source = current[index];
+                  return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
+                });
+              }}
+              onRemoveLine={(index) => {
+                setIsDirty(true);
+                setLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+              }}
+              onUpdateLine={(index, patch) => {
+                setIsDirty(true);
+                updateLine(index, patch);
+              }}
+              onSelectArticle={(index, articleId) => {
+                setIsDirty(true);
+                updateLineArticle(index, articleId);
+              }}
+              formatCurrency={formatCurrency}
+            />
 
             <div className="grid gap-4 md:grid-cols-3">
               <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Sous-total HT</div><div className="text-lg font-semibold">{formatCurrency(totals.montantHT)}</div></CardContent></Card>

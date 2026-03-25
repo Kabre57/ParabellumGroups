@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Send, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { Plus, Send, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
+import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 import {
   Dialog,
   DialogContent,
@@ -411,7 +412,7 @@ export default function PurchaseQuotesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="flex max-h-[92vh] max-w-6xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>
@@ -475,56 +476,27 @@ export default function PurchaseQuotesPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Lignes de la demande</h3>
-              <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, emptyLine()])}>
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter une ligne
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              {lines.map((line, index) => (
-                <div key={`line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_130px_110px_50px]">
-                  <select
-                    value={line.articleId}
-                    onChange={(event) => updateLineArticle(index, event.target.value)}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">Sélectionner un article du catalogue</option>
-                    {articles.map((article: InventoryArticle) => (
-                      <option key={article.id} value={article.id}>
-                        {article.nom} {article.categorie ? `- ${article.categorie}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <Input value={line.categorie} onChange={(event) => updateLine(index, { categorie: event.target.value })} placeholder="Catégorie" />
-                  <Input type="number" min={1} value={line.quantite} onChange={(event) => updateLine(index, { quantite: Number(event.target.value) || 1 })} />
-                  <Input
-                    type="number"
-                    min={0}
-                    value={line.prixUnitaire}
-                    onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
-                    placeholder="Prix unitaire"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={line.tva}
-                    onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
-                    placeholder="TVA %"
-                  />
-                  <Button type="button" variant="ghost" size="icon" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1}>
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                  <div className="md:col-span-6 text-sm text-muted-foreground">
-                    {line.designation || 'Aucun article sélectionné'} - Total TTC estimé : {(line.quantite * line.prixUnitaire * (1 + line.tva / 100)).toLocaleString('fr-FR')} F
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="min-h-0 flex-1">
+            <PurchaseLinesGrid
+              title="Lignes de la demande"
+              description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
+              lines={lines}
+              articles={articles as InventoryArticle[]}
+              maxBodyHeightClass="max-h-[38vh]"
+              onAddLine={() => setLines((current) => [...current, emptyLine()])}
+              onDuplicateLine={(index) =>
+                setLines((current) => {
+                  const source = current[index];
+                  return [...current.slice(0, index + 1), { ...source, id: undefined }, ...current.slice(index + 1)];
+                })
+              }
+              onRemoveLine={(index) =>
+                setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))
+              }
+              onUpdateLine={updateLine}
+              onSelectArticle={updateLineArticle}
+              formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
+            />
           </div>
 
           <DialogFooter className="items-center justify-between sm:justify-between">

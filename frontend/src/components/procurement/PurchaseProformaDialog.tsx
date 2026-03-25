@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import type { Supplier, PurchaseProformaLine } from '@/services/procurement';
 import {
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 
 type DraftLine = {
   articleId: string;
@@ -113,7 +113,7 @@ export function PurchaseProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="flex max-h-[92vh] max-w-6xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
@@ -147,62 +147,27 @@ export function PurchaseProformaDialog({
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Lignes de la proforma</h3>
-            <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, emptyLine()])}>
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter une ligne
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {lines.map((line, index) => (
-              <div key={`proforma-line-${index}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[2fr_1fr_110px_130px_110px_50px]">
-                <select
-                  value={line.articleId}
-                  onChange={(event) => updateLineArticle(index, event.target.value)}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Sélectionner un article du catalogue</option>
-                  {articles.map((article) => (
-                    <option key={article.id} value={article.id}>
-                      {article.nom} {article.categorie ? `- ${article.categorie}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <Input value={line.categorie} onChange={(event) => updateLine(index, { categorie: event.target.value })} placeholder="Catégorie" />
-                <Input type="number" min={1} value={line.quantite} onChange={(event) => updateLine(index, { quantite: Number(event.target.value) || 1 })} />
-                <Input
-                  type="number"
-                  min={0}
-                  value={line.prixUnitaire}
-                  onChange={(event) => updateLine(index, { prixUnitaire: Number(event.target.value) || 0 })}
-                  placeholder="Prix unitaire"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={line.tva}
-                  onChange={(event) => updateLine(index, { tva: Number(event.target.value) || 0 })}
-                  placeholder="TVA %"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}
-                  disabled={lines.length === 1}
-                >
-                  <Trash2 className="h-4 w-4 text-red-600" />
-                </Button>
-                <div className="md:col-span-6 text-sm text-muted-foreground">
-                  {line.designation || 'Aucun article sélectionné'} - Total TTC estimé : {(line.quantite * line.prixUnitaire * (1 + line.tva / 100)).toLocaleString('fr-FR')} F
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="min-h-0 flex-1">
+          <PurchaseLinesGrid
+            title="Lignes de la proforma"
+            description="Présentation dense type ERP pour comparer et saisir beaucoup de lignes sans allonger la fenêtre."
+            lines={lines}
+            articles={articles}
+            maxBodyHeightClass="max-h-[42vh]"
+            onAddLine={() => setLines((current) => [...current, emptyLine()])}
+            onDuplicateLine={(index) =>
+              setLines((current) => {
+                const source = current[index];
+                return [...current.slice(0, index + 1), { ...source }, ...current.slice(index + 1)];
+              })
+            }
+            onRemoveLine={(index) =>
+              setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))
+            }
+            onUpdateLine={updateLine}
+            onSelectArticle={updateLineArticle}
+            formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
+          />
         </div>
 
         <DialogFooter className="items-center justify-between sm:justify-between">
