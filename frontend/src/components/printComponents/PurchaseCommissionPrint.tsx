@@ -4,6 +4,7 @@ import React from 'react';
 import type { PurchaseRequest } from '@/services/procurement';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
+import { resolveProcurementCriteriaProfile } from '@/components/achat/proforma/criteriaProfiles';
 
 type CommissionDecisionRow = {
   proformaId: string;
@@ -57,6 +58,7 @@ export default function PurchaseCommissionPrint({
   const recommendedRow = rows.find((row) => row.recommendedForApproval) || null;
   const bestRow = [...rows].sort((left, right) => left.montantTTC - right.montantTTC)[0] || null;
   const logoSrc = resolvePrintLogo(serviceLogoUrl);
+  const criteriaProfile = resolveProcurementCriteriaProfile(request);
 
   return (
     <PrintLayout
@@ -89,6 +91,100 @@ export default function PurchaseCommissionPrint({
         </table>
 
         <div className="section-title">Tableau de décision achat</div>
+        {criteriaProfile ? (
+          <>
+            <table className="table-print" style={{ marginBottom: 14 }}>
+              <tbody>
+                <tr>
+                  <td style={{ ...tdStyle, width: '22%', fontWeight: 700 }}>Profil actif</td>
+                  <td style={tdStyle}>{criteriaProfile.title}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...tdStyle, fontWeight: 700 }}>Mode d’évaluation</td>
+                  <td style={tdStyle}>
+                    Comparatif achat interne + grille officielle RH/HFHCI à compléter.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="section-title">Critères éliminatoires</div>
+            <table className="table-print" style={{ marginBottom: 14 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>N°</th>
+                  <th style={thStyle}>Critère essentiel</th>
+                  <th style={thStyle}>Document justificatif requis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {criteriaProfile.eliminatoryCriteria.map((criterion) => (
+                  <tr key={`elim-${criterion.index}`}>
+                    <td style={tdStyle}>{criterion.index}</td>
+                    <td style={tdStyle}>{criterion.label}</td>
+                    <td style={tdStyle}>{criterion.requiredDocument}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="section-title">Critères techniques et financiers</div>
+            <table className="table-print" style={{ marginBottom: 14 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>N°</th>
+                  <th style={thStyle}>Critère</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {criteriaProfile.technicalCriteria.map((criterion) => (
+                  <tr key={`tech-${criterion.index}`}>
+                    <td style={tdStyle}>{criterion.index}</td>
+                    <td style={tdStyle}>{criterion.label}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{criterion.points}</td>
+                  </tr>
+                ))}
+                {criteriaProfile.financialCriteria.map((criterion) => (
+                  <tr key={`fin-${criterion.index}`}>
+                    <td style={tdStyle}>{criterion.index}</td>
+                    <td style={tdStyle}>{criterion.label}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{criterion.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="section-title">Spécifications minimales et calendrier</div>
+            <table className="table-print" style={{ marginBottom: 14 }}>
+              <tbody>
+                <tr>
+                  <td style={{ ...tdStyle, width: '25%', fontWeight: 700 }}>Spécifications minimales</td>
+                  <td style={tdStyle}>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {criteriaProfile.technicalSpecifications.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ ...tdStyle, fontWeight: 700 }}>Calendrier et modalités</td>
+                  <td style={tdStyle}>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {criteriaProfile.schedule.map((item) => (
+                        <li key={item.label}>
+                          <strong>{item.label} :</strong> {item.value}
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </>
+        ) : null}
+
         <table className="table-print">
           <thead>
             <tr>
