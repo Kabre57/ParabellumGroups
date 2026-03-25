@@ -1,6 +1,12 @@
 import { apiClient } from '../shared/client';
 import { PaginatedResponse } from '../shared/types';
-import { Payroll, CreatePayrollRequest, CalculateSalaryRequest, SalaryCalculation } from './types';
+import {
+  Payroll,
+  CreatePayrollRequest,
+  CalculateSalaryRequest,
+  SalaryCalculation,
+  PayrollOverview,
+} from './types';
 
 type PayrollListParams = {
   page?: number;
@@ -97,6 +103,11 @@ export const payrollService = {
     return mapPayrollFromApi(response.data?.data || response.data);
   },
 
+  async getPayrollOverview(params?: { month?: number; year?: number }): Promise<PayrollOverview> {
+    const response = await apiClient.get('/payroll/overview', { params });
+    return response.data?.data || response.data;
+  },
+
   async createPayroll(data: CreatePayrollRequest): Promise<Payroll> {
     const response = await apiClient.post('/payrolls', data);
     return mapPayrollFromApi(response.data?.data || response.data);
@@ -126,5 +137,21 @@ export const payrollService = {
       responseType: 'blob',
     });
     return response.data;
-  }
+  },
+
+  async exportPayrollDisa(params?: { month?: number; year?: number }): Promise<Blob> {
+    const response = await apiClient.get('/payroll/exports/disa', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async exportPayrollDgi(params?: { month?: number; year?: number }): Promise<Blob> {
+    const response = await apiClient.get('/payroll/exports/dgi', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

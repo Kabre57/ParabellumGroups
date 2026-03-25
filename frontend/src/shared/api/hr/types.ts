@@ -83,6 +83,62 @@ export interface Payroll {
   [key: string]: any;
 }
 
+export interface PayrollComplianceMetric {
+  key: string;
+  label: string;
+  status: 'ok' | 'warning' | 'critical';
+  value: string;
+  description: string;
+}
+
+export interface PayrollFeatureStatus {
+  key: string;
+  label: string;
+  available: boolean;
+  description: string;
+}
+
+export interface PayrollOverview {
+  period: {
+    month: number;
+    year: number;
+    label: string;
+  };
+  workforce: {
+    totalEmployees: number;
+    activeEmployees: number;
+    coveredEmployees: number;
+    missingCnpsCount: number;
+    missingCnamCount: number;
+    supportedInitialRange: string;
+    supportedScale: number;
+  };
+  payroll: {
+    bulletinsCount: number;
+    validatedCount: number;
+    paidCount: number;
+    totalGross: number;
+    totalNet: number;
+    totalEmployerCost: number;
+    totalTaxes: number;
+    totalEmployeeContributions: number;
+  };
+  compliance: PayrollComplianceMetric[];
+  features: PayrollFeatureStatus[];
+  legalRates: Array<{
+    key: string;
+    label: string;
+    value: number | string;
+    unit?: string;
+  }>;
+  declarations: Array<{
+    key: string;
+    label: string;
+    format: string;
+    description: string;
+  }>;
+}
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;

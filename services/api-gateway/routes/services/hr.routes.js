@@ -35,11 +35,11 @@ const hrPermissionRules = [
   {
     pattern: /^\/payroll/,
     permissions: {
-      GET: 'salaries.read',
-      POST: 'salaries.create',
-      PUT: 'salaries.update',
-      PATCH: 'salaries.update',
-      DELETE: 'salaries.delete'
+      GET: 'payroll.read',
+      POST: 'payroll.create',
+      PUT: 'payroll.update',
+      PATCH: 'payroll.update',
+      DELETE: 'payroll.delete'
     }
   },
   {

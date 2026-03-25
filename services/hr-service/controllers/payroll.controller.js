@@ -31,6 +31,25 @@ const DEFAULT_IGR = [
   { min: 1000000, max: Infinity, rate: 0.25, fixed: 163200 },
 ];
 
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const formatPeriodLabel = (month, year) => {
+  const date = new Date(Date.UTC(year, Math.max(month - 1, 0), 1));
+  return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+};
+
+const toCsv = (rows) =>
+  rows
+    .map((row) =>
+      row
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .join(';')
+    )
+    .join('\n');
+
 class PayrollController {
   constructor() {
     this.paramsPromise = null;
@@ -201,6 +220,155 @@ class PayrollController {
     };
   }
 
+  buildPayrollOverviewPayload({
+    month,
+    year,
+    employees,
+    payrolls,
+    cfg,
+    igr,
+  }) {
+    const totalEmployees = employees.length;
+    const activeEmployees = employees.filter((employee) => employee.status === 'ACTIF').length;
+    const coveredEmployees = employees.filter((employee) => employee.cnpsNumber && employee.cnamNumber).length;
+    const missingCnpsCount = employees.filter((employee) => !employee.cnpsNumber).length;
+    const missingCnamCount = employees.filter((employee) => !employee.cnamNumber).length;
+    const totalGross = payrolls.reduce((sum, row) => sum + toNumber(row.brut), 0);
+    const totalNet = payrolls.reduce((sum, row) => sum + toNumber(row.netAPayer), 0);
+    const totalEmployerCost = payrolls.reduce(
+      (sum, row) => sum + toNumber(row.brut) + toNumber(row.cotisationsPatronales),
+      0
+    );
+    const totalTaxes = payrolls.reduce((sum, row) => sum + toNumber(row.igr), 0);
+    const totalEmployeeContributions = payrolls.reduce(
+      (sum, row) => sum + toNumber(row.cotisationsSalariales),
+      0
+    );
+    const validatedCount = payrolls.filter((row) => String(row.statut || '').toUpperCase() === 'VALIDE').length;
+    const paidCount = payrolls.filter((row) => String(row.statut || '').toUpperCase() === 'PAYE').length;
+
+    const compliance = [
+      {
+        key: 'code-travail',
+        label: 'Conformité code du travail ivoirien',
+        status: activeEmployees > 0 ? 'ok' : 'warning',
+        value: activeEmployees > 0 ? 'Suivi actif' : 'Aucun salarié actif',
+        description: 'La paie est calculée sur les contrats actifs et les périodes RH en cours.',
+      },
+      {
+        key: 'cnps',
+        label: 'CNPS',
+        status: missingCnpsCount === 0 ? 'ok' : missingCnpsCount <= Math.max(totalEmployees * 0.2, 1) ? 'warning' : 'critical',
+        value: `${Math.max(totalEmployees - missingCnpsCount, 0)}/${totalEmployees} salariés couverts`,
+        description: 'Suivi des numéros CNPS et calcul automatique des cotisations retraite, PF et AT.',
+      },
+      {
+        key: 'cmu',
+        label: 'CMU / CNAM',
+        status: missingCnamCount === 0 ? 'ok' : missingCnamCount <= Math.max(totalEmployees * 0.2, 1) ? 'warning' : 'critical',
+        value: `${Math.max(totalEmployees - missingCnamCount, 0)}/${totalEmployees} salariés couverts`,
+        description: 'Prise en charge du forfait ou du taux CNAM avec ayants droit.',
+      },
+      {
+        key: 'dgi',
+        label: 'DGI / IGR / ITS',
+        status: igr.length > 0 ? 'ok' : 'warning',
+        value: `${payrolls.length} bulletins calculés`,
+        description: 'Calcul du net imposable, de l’IGR et préparation des exports fiscaux.',
+      },
+      {
+        key: 'capacite',
+        label: 'Capacité cible HFHCI',
+        status: totalEmployees <= 100 ? 'ok' : 'warning',
+        value: `${totalEmployees} salariés suivis / cible 100`,
+        description: 'Le périmètre demandé est 25-30 salariés au départ, extensible à 100.',
+      },
+    ];
+
+    return {
+      period: {
+        month,
+        year,
+        label: formatPeriodLabel(month, year),
+      },
+      workforce: {
+        totalEmployees,
+        activeEmployees,
+        coveredEmployees,
+        missingCnpsCount,
+        missingCnamCount,
+        supportedInitialRange: '25-30 salariés',
+        supportedScale: 100,
+      },
+      payroll: {
+        bulletinsCount: payrolls.length,
+        validatedCount,
+        paidCount,
+        totalGross,
+        totalNet,
+        totalEmployerCost,
+        totalTaxes,
+        totalEmployeeContributions,
+      },
+      compliance,
+      features: [
+        {
+          key: 'auto-calc',
+          label: 'Calcul automatique de paie',
+          available: true,
+          description: 'Calcul automatique des bulletins avec CNPS, CMU/CNAM, IGR, ITS et charges patronales.',
+        },
+        {
+          key: 'pdf',
+          label: 'Bulletins PDF',
+          available: true,
+          description: 'Édition et téléchargement des bulletins individuels en PDF.',
+        },
+        {
+          key: 'disa',
+          label: 'Export DISA',
+          available: true,
+          description: 'Export social prêt pour contrôle et retraitement déclaratif.',
+        },
+        {
+          key: 'dgi',
+          label: 'Export DGI',
+          available: true,
+          description: 'Export fiscal des éléments de paie pour la DGI.',
+        },
+        {
+          key: 'reports',
+          label: 'Rapports RH',
+          available: true,
+          description: 'KPIs RH, masse salariale, couverture CNPS/CMU et suivi des bulletins.',
+        },
+      ],
+      legalRates: [
+        { key: 'smig', label: 'SMIG', value: cfg.SMIG, unit: 'XOF' },
+        { key: 'cnps-ret-sal', label: 'CNPS salarié', value: cfg.CNPS_RET_EMPLOYEE * 100, unit: '%' },
+        { key: 'cnps-ret-pat', label: 'CNPS employeur', value: cfg.CNPS_RET_EMPLOYER * 100, unit: '%' },
+        { key: 'cnps-family', label: 'Prestations familiales', value: cfg.CNPS_FAMILY * 100, unit: '%' },
+        { key: 'cnps-at', label: 'AT par défaut', value: cfg.CNPS_AT * 100, unit: '%' },
+        { key: 'cnam', label: 'CMU/CNAM', value: (cfg.CNAM_MODE || '').toUpperCase() === 'FORFAIT' ? cfg.CNAM_FORFAIT : cfg.CNAM_EMPLOYER * 100, unit: (cfg.CNAM_MODE || '').toUpperCase() === 'FORFAIT' ? 'XOF' : '%' },
+        { key: 'fdfp', label: 'FDFP', value: cfg.FDFP_EMPLOYER * 100, unit: '%' },
+      ],
+      declarations: [
+        {
+          key: 'disa',
+          label: 'Déclaration sociale DISA',
+          format: 'CSV',
+          description: 'Extraction sociale par salarié, cotisations et masse salariale.',
+        },
+        {
+          key: 'dgi',
+          label: 'Déclaration fiscale DGI',
+          format: 'CSV',
+          description: 'Extraction fiscale du net imposable, IGR et éléments de paie.',
+        },
+      ],
+    };
+  }
+
   async getAllPayroll(req, res) {
     try {
       const { page = 1, pageSize = 20, search, employeeId, year, month } = req.query;
@@ -310,6 +478,148 @@ class PayrollController {
     } catch (error) {
       console.error('Error generating payroll PDF:', error);
       return res.status(500).json({ success: false, message: 'Erreur génération PDF' });
+    }
+  }
+
+  async getPayrollOverview(req, res) {
+    try {
+      const { cfg, igr } = await this.loadParams();
+      const now = new Date();
+      const month = parseInt(req.query?.month || now.getMonth() + 1, 10);
+      const year = parseInt(req.query?.year || now.getFullYear(), 10);
+
+      const [employees, payrolls] = await Promise.all([
+        prisma.employe.findMany({
+          select: {
+            id: true,
+            status: true,
+            cnpsNumber: true,
+            cnamNumber: true,
+          },
+        }),
+        prisma.payroll.findMany({
+          where: { mois: month, annee: year },
+          include: {
+            employe: {
+              select: {
+                nom: true,
+                prenom: true,
+                matricule: true,
+                cnpsNumber: true,
+                cnamNumber: true,
+              },
+            },
+          },
+          orderBy: [{ annee: 'desc' }, { mois: 'desc' }, { createdAt: 'desc' }],
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: this.buildPayrollOverviewPayload({ month, year, employees, payrolls, cfg, igr }),
+      });
+    } catch (error) {
+      console.error('Error fetching payroll overview:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la récupération du cockpit paie',
+        error: error.message,
+      });
+    }
+  }
+
+  async exportPayrollDisa(req, res) {
+    try {
+      const now = new Date();
+      const month = parseInt(req.query?.month || now.getMonth() + 1, 10);
+      const year = parseInt(req.query?.year || now.getFullYear(), 10);
+      const payrolls = await prisma.payroll.findMany({
+        where: { mois: month, annee: year },
+        include: {
+          employe: {
+            select: {
+              matricule: true,
+              nom: true,
+              prenom: true,
+              cnpsNumber: true,
+              cnamNumber: true,
+              departement: true,
+            },
+          },
+        },
+        orderBy: [{ annee: 'desc' }, { mois: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      const csv = toCsv([
+        ['MATRICULE', 'NOM', 'PRENOM', 'CNPS', 'CMU_CNAM', 'DEPARTEMENT', 'PERIODE', 'BRUT', 'CNPS_SALARIAL', 'CNPS_PATRONAL', 'FDFP', 'NET_A_PAYER'],
+        ...payrolls.map((row) => [
+          row.employe?.matricule || '',
+          row.employe?.nom || '',
+          row.employe?.prenom || '',
+          row.employe?.cnpsNumber || '',
+          row.employe?.cnamNumber || '',
+          row.employe?.departement || '',
+          row.periode || `${row.annee}-${String(row.mois).padStart(2, '0')}`,
+          toNumber(row.brut).toFixed(2),
+          toNumber(row.cnpsSalarial).toFixed(2),
+          toNumber(row.cnpsPatronal).toFixed(2),
+          toNumber(row.fdfp).toFixed(2),
+          toNumber(row.netAPayer).toFixed(2),
+        ]),
+      ]);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="disa-${year}-${String(month).padStart(2, '0')}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error('Error exporting DISA:', error);
+      res.status(500).json({ success: false, message: "Erreur lors de l'export DISA", error: error.message });
+    }
+  }
+
+  async exportPayrollDgi(req, res) {
+    try {
+      const now = new Date();
+      const month = parseInt(req.query?.month || now.getMonth() + 1, 10);
+      const year = parseInt(req.query?.year || now.getFullYear(), 10);
+      const payrolls = await prisma.payroll.findMany({
+        where: { mois: month, annee: year },
+        include: {
+          employe: {
+            select: {
+              matricule: true,
+              nom: true,
+              prenom: true,
+              cnpsNumber: true,
+            },
+          },
+        },
+        orderBy: [{ annee: 'desc' }, { mois: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      const csv = toCsv([
+        ['MATRICULE', 'NOM', 'PRENOM', 'CNPS', 'PERIODE', 'BRUT', 'NET_IMPOSABLE', 'IGR', 'AUTRES_RETENUES', 'NET_A_PAYER', 'STATUT'],
+        ...payrolls.map((row) => [
+          row.employe?.matricule || '',
+          row.employe?.nom || '',
+          row.employe?.prenom || '',
+          row.employe?.cnpsNumber || '',
+          row.periode || `${row.annee}-${String(row.mois).padStart(2, '0')}`,
+          toNumber(row.brut).toFixed(2),
+          toNumber(row.netImposable).toFixed(2),
+          toNumber(row.igr).toFixed(2),
+          toNumber(row.autresRetenues).toFixed(2),
+          toNumber(row.netAPayer).toFixed(2),
+          row.statut,
+        ]),
+      ]);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="dgi-paie-${year}-${String(month).padStart(2, '0')}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error('Error exporting DGI payroll:', error);
+      res.status(500).json({ success: false, message: "Erreur lors de l'export DGI", error: error.message });
     }
   }
 
