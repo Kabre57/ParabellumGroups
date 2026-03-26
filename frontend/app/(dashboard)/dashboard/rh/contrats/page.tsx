@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Plus, Search, Eye, Download, Trash } from 'lucide-react';
+import { FileText, Plus, Search, Download, Trash, Pencil } from 'lucide-react';
 import ContractForm from '@/components/forms/ContractForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { hrService, Contract, Employee } from '@/shared/api/hr';
@@ -20,6 +20,7 @@ export default function ContratsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [isOpen, setIsOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -30,6 +31,15 @@ export default function ContratsPage() {
         page: 1,
         limit: 200,
         contractType: typeFilter !== 'all' ? typeFilter : undefined,
+      }),
+  });
+
+  const { data: allContractsData } = useQuery({
+    queryKey: ['contracts', 'all-for-blocking'],
+    queryFn: () =>
+      hrService.getContracts({
+        page: 1,
+        limit: 500,
       }),
   });
 
@@ -79,7 +89,12 @@ export default function ContratsPage() {
   });
 
   const contracts = contractsData?.data ?? [];
+  const allContracts = allContractsData?.data ?? contracts;
   const employees: Employee[] = employeesData?.data ?? [];
+  const contractedEmployeeIds = useMemo(
+    () => Array.from(new Set(allContracts.map((contract: Contract) => contract.employeeId).filter(Boolean))),
+    [allContracts]
+  );
   const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
     read: ['contracts.read', 'contracts.read_all'],
     create: ['contracts.create'],
@@ -251,9 +266,16 @@ export default function ContratsPage() {
                     <td className="py-3 px-4">{contract.salary?.toLocaleString()} {contract.currency}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingContract(contract)}
+                            title="Modifier le contrat"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {canExport && (
                           <Button
                             size="sm"
@@ -319,21 +341,46 @@ export default function ContratsPage() {
       {/* Create Dialog */}
       {canCreate && (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="h-[92vh] max-h-[92vh] w-[min(96vw,1320px)] max-w-none overflow-hidden p-0 sm:max-w-[min(96vw,1320px)]">
             <DialogHeader>
-              <DialogTitle>Nouveau contrat</DialogTitle>
+              <DialogTitle className="px-6 pt-6">Nouveau contrat</DialogTitle>
             </DialogHeader>
-            <ContractForm
-              employees={employees}
-              onSuccess={() => {
-                setIsOpen(false);
-                queryClient.invalidateQueries({ queryKey: ['contracts'] });
-              }}
-              onCancel={() => setIsOpen(false)}
-            />
+            <div className="overflow-y-auto px-6 pb-6">
+              <ContractForm
+                employees={employees}
+                blockedEmployeeIds={contractedEmployeeIds}
+                onSuccess={() => {
+                  setIsOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ['contracts'] });
+                }}
+                onCancel={() => setIsOpen(false)}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {canUpdate && editingContract ? (
+        <Dialog open={Boolean(editingContract)} onOpenChange={(open) => !open && setEditingContract(null)}>
+          <DialogContent className="h-[92vh] max-h-[92vh] w-[min(96vw,1320px)] max-w-none overflow-hidden p-0 sm:max-w-[min(96vw,1320px)]">
+            <DialogHeader>
+              <DialogTitle className="px-6 pt-6">Modifier le contrat</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-y-auto px-6 pb-6">
+              <ContractForm
+                contract={editingContract}
+                employees={employees}
+                blockedEmployeeIds={contractedEmployeeIds}
+                onSuccess={() => {
+                  setEditingContract(null);
+                  queryClient.invalidateQueries({ queryKey: ['contracts'] });
+                }}
+                onCancel={() => setEditingContract(null)}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

@@ -1,21 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCreateContract, useUpdateContract } from '@/hooks/useContracts';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 interface ContractFormProps {
   contract?: any;
   employees?: any[];
+  blockedEmployeeIds?: string[];
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export default function ContractForm({ contract, employees = [], onSuccess, onCancel }: ContractFormProps) {
+export default function ContractForm({
+  contract,
+  employees = [],
+  blockedEmployeeIds = [],
+  onSuccess,
+  onCancel,
+}: ContractFormProps) {
   const [formData, setFormData] = useState({
     employeeId: contract?.employeeId || contract?.employee_id || '',
     contractType: contract?.contractType || contract?.contract_type || 'CDI',
@@ -34,6 +42,28 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
 
   const createMutation = useCreateContract();
   const updateMutation = useUpdateContract();
+  const isEditMode = Boolean(contract?.id);
+
+  const selectedEmployee = useMemo(
+    () => employees.find((employee) => employee.id === formData.employeeId),
+    [employees, formData.employeeId]
+  );
+
+  useEffect(() => {
+    if (!selectedEmployee || isEditMode) return;
+
+    setFormData((previous) => ({
+      ...previous,
+      position: selectedEmployee.position || previous.position,
+      department: selectedEmployee.department || previous.department,
+      salary: selectedEmployee.salary || previous.salary,
+      contractType:
+        previous.contractType && previous.contractType !== 'CDI'
+          ? previous.contractType
+          : selectedEmployee.employmentStatus || previous.contractType,
+      startDate: previous.startDate || selectedEmployee.hireDate?.slice(0, 10) || '',
+    }));
+  }, [selectedEmployee, isEditMode]);
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -84,8 +114,8 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Card className="p-6">
-      <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+    <Card className="border-0 bg-transparent p-0 shadow-none">
+      <h2 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
         {contract ? 'Modifier le contrat' : 'Nouveau contrat'}
       </h2>
 
@@ -98,10 +128,16 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
             value={formData.employeeId}
             onChange={(e) => handleChange('employeeId', e.target.value)}
             className={`w-full h-10 px-3 rounded-md border border-input bg-background ${errors.employeeId ? 'border-red-500' : ''}`}
+            disabled={isEditMode}
           >
             <option value="">Sélectionner un employé</option>
             {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
+              <option
+                key={emp.id}
+                value={emp.id}
+                disabled={!isEditMode && blockedEmployeeIds.includes(emp.id)}
+              >
+                {emp.matricule ? `${emp.matricule} - ` : ''}
                 {emp.firstName} {emp.lastName}
               </option>
             ))}
@@ -109,9 +145,46 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           {errors.employeeId && (
             <p className="text-sm text-red-600 mt-1">{errors.employeeId}</p>
           )}
+          {!isEditMode ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Les employés ayant déjà un contrat existant ne sont plus sélectionnables ici. Utilisez la modification du contrat existant.
+            </p>
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {selectedEmployee ? (
+          <div className="grid grid-cols-1 gap-3 rounded-lg border bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Matricule</div>
+              <div className="mt-1 break-all text-sm font-semibold">{selectedEmployee.matricule || '-'}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Email</div>
+              <div className="mt-1 break-all text-sm font-medium">{selectedEmployee.email || '-'}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Poste RH</div>
+              <div className="mt-1 break-words text-sm font-medium">{selectedEmployee.position || '-'}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Département</div>
+              <div className="mt-1 break-words text-sm font-medium">{selectedEmployee.department || '-'}</div>
+            </div>
+            <div className="xl:col-span-4 flex flex-wrap gap-2">
+              {selectedEmployee.employmentStatus ? (
+                <Badge variant="outline">Catégorie employé : {selectedEmployee.employmentStatus}</Badge>
+              ) : null}
+              {selectedEmployee.salary ? (
+                <Badge variant="outline">Salaire RH : {Number(selectedEmployee.salary).toLocaleString('fr-FR')} XOF</Badge>
+              ) : null}
+              {selectedEmployee.hireDate ? (
+                <Badge variant="outline">Date d&apos;embauche : {selectedEmployee.hireDate.slice(0, 10)}</Badge>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Type de contrat */}
           <div>
             <Label htmlFor="contractType">Type de contrat *</Label>
@@ -124,6 +197,7 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
               <option value="CDI">CDI - Contrat à Durée Indéterminée</option>
               <option value="CDD">CDD - Contrat à Durée Déterminée</option>
               <option value="STAGE">STAGE - Convention de Stage</option>
+              <option value="ALTERNANCE">ALTERNANCE - Contrat d'alternance</option>
               <option value="FREELANCE">FREELANCE - Contrat de Freelance</option>
             </select>
             {errors.contractType && (
@@ -148,7 +222,7 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Date de début */}
           <div>
             <Label htmlFor="startDate">Date de début *</Label>
@@ -183,7 +257,7 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           {/* Salaire */}
           <div className="md:col-span-2">
             <Label htmlFor="salary">Salaire mensuel brut *</Label>
@@ -218,7 +292,7 @@ export default function ContractForm({ contract, employees = [], onSuccess, onCa
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {/* Département */}
           <div>
             <Label htmlFor="department">Département *</Label>

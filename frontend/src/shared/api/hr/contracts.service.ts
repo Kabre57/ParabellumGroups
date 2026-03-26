@@ -29,6 +29,8 @@ export interface UpdateContractRequest {
   workHoursPerWeek?: number;
   position?: string;
   department?: string;
+  benefits?: string;
+  clauses?: string;
   status?: string;
 }
 
@@ -43,6 +45,8 @@ const mapContractFromApi = (c: any): Contract => ({
   workHoursPerWeek: c.heuresHebdo ?? c.workHoursPerWeek ?? 40,
   position: c.poste ?? c.position ?? '',
   department: c.departement ?? c.department ?? '',
+  benefits: c.autresAvantages ?? c.benefits ?? '',
+  clauses: c.clauses ?? '',
   status: c.statut ?? c.status ?? 'ACTIF',
   signedDate: c.dateDebut,
   createdAt: c.createdAt,
@@ -66,6 +70,8 @@ const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) => (
   heuresHebdo: c.workHoursPerWeek ?? 40,
   poste: c.position,
   departement: c.department,
+  autresAvantages: c.benefits,
+  clauses: c.clauses,
   statut: 'status' in c ? (c.status ?? 'ACTIF') : 'ACTIF',
 });
 
@@ -108,7 +114,7 @@ export const contractsService = {
 
   async updateContract(id: string, data: UpdateContractRequest): Promise<DetailResponse<Contract>> {
     const payload = mapContractToApi(data);
-    const response = await apiClient.patch(`/hr/contracts/${id}`, payload);
+    const response = await apiClient.put(`/hr/contracts/${id}`, payload);
     return { success: true, data: mapContractFromApi(response.data?.data || response.data) };
   },
 
@@ -118,7 +124,7 @@ export const contractsService = {
   },
 
   async terminateContract(id: string, endDate: string, reason?: string): Promise<DetailResponse<Contract>> {
-    const response = await apiClient.patch(`/hr/contracts/${id}`, {
+    const response = await apiClient.put(`/hr/contracts/${id}`, {
       statut: 'TERMINE',
       dateFin: endDate,
       terminationReason: reason,

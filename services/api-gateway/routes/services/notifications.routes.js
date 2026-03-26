@@ -4,7 +4,17 @@ const { notificationsServiceLimiter } = require('../../middleware/serviceLimiter
 /**
  * Path rewrite pour notifications-service
  */
-const rewriteNotificationsPath = (path) => path.replace(/^\/notifications/, '/api/notifications');
+const rewriteNotificationsPath = (path) => {
+  if (path.startsWith('/api/notifications')) {
+    return path;
+  }
+
+  if (path.startsWith('/notifications')) {
+    return path.replace(/^\/notifications/, '/api/notifications');
+  }
+
+  return `/api${path}`;
+};
 
 /**
  * Configuration des routes notifications-service

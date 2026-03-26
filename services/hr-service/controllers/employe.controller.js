@@ -2,6 +2,28 @@ const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
+const MATRICULE_PREFIX = 'PBL';
+const MATRICULE_PADDING = 4;
+
+const buildNextMatricule = async () => {
+  const lastEmployee = await prisma.employe.findFirst({
+    where: {
+      matricule: {
+        startsWith: MATRICULE_PREFIX,
+      },
+    },
+    orderBy: {
+      matricule: 'desc',
+    },
+    select: {
+      matricule: true,
+    },
+  });
+
+  const lastSequence = Number(lastEmployee?.matricule?.replace(MATRICULE_PREFIX, '') || 0);
+  const nextSequence = Number.isFinite(lastSequence) ? lastSequence + 1 : 1;
+  return `${MATRICULE_PREFIX}${String(nextSequence).padStart(MATRICULE_PADDING, '0')}`;
+};
 
 // Get all employees with pagination and filters
 exports.getAll = async (req, res) => {
@@ -92,9 +114,9 @@ exports.create = async (req, res) => {
       cnamNumber,
     } = req.body;
 
-    const generatedMatricule = matricule && matricule.trim()
-      ? matricule.trim()
-      : `EMP-${Date.now()}`;
+    const generatedMatricule = matricule && String(matricule).trim()
+      ? String(matricule).trim()
+      : await buildNextMatricule();
 
     const employe = await prisma.employe.create({
       data: {

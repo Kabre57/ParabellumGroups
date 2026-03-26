@@ -154,4 +154,16 @@ export const payrollService = {
     });
     return response.data;
   },
+
+  async downloadGroupedPayrollPdf(params: { month?: number; year?: number; employeeIds?: string[] }): Promise<Blob> {
+    const response = await apiClient.get('/payroll/exports/pdf-grouped', {
+      params: {
+        month: params.month,
+        year: params.year,
+        employeeIds: params.employeeIds?.length ? params.employeeIds.join(',') : undefined,
+      },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

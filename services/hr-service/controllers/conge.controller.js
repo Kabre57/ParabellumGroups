@@ -203,13 +203,17 @@ exports.delete = async (req, res) => {
 exports.approve = async (req, res) => {
   try {
     const { id } = req.params;
-    const approbateurId = req.userId;
+    const approbateurId = req.user?.id || req.userId;
+
+    if (!approbateurId) {
+      return res.status(401).json({ error: "Utilisateur approbateur introuvable" });
+    }
 
     const conge = await prisma.conge.update({
       where: { id },
       data: {
         status: 'APPROUVE',
-        approbateurId,
+        approbateurId: String(approbateurId),
         dateApprobation: new Date()
       },
       include: {
@@ -242,13 +246,17 @@ exports.approve = async (req, res) => {
 exports.reject = async (req, res) => {
   try {
     const { id } = req.params;
-    const approbateurId = req.userId;
+    const approbateurId = req.user?.id || req.userId;
+
+    if (!approbateurId) {
+      return res.status(401).json({ error: "Utilisateur approbateur introuvable" });
+    }
 
     const conge = await prisma.conge.update({
       where: { id },
       data: {
         status: 'REJETE',
-        approbateurId,
+        approbateurId: String(approbateurId),
         dateApprobation: new Date()
       },
       include: {

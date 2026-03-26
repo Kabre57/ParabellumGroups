@@ -568,7 +568,7 @@ exports.getAccountingOverview = async (req, res) => {
           clientReceivables,
           supplierLiabilities,
           totalCommitted,
-          pendingCommitted,
+          pendingCommitted: pendingCommitments,
           netResult: reportedNetResult,
         },
         accounts: mergedAccounts,

@@ -31,6 +31,8 @@ export interface Contract {
   workHoursPerWeek: number;
   position: string;
   department: string;
+  benefits?: string;
+  clauses?: string;
   signedDate?: string;
   status: string;
   createdAt: string;
@@ -216,6 +218,8 @@ export interface CreateContractRequest {
   workHoursPerWeek: number;
   position: string;
   department: string;
+  benefits?: string;
+  clauses?: string;
 }
 
 export interface CalculateSalaryRequest {

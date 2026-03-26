@@ -19,16 +19,8 @@ export interface Evaluation {
   dateEvaluation: string;
   periode: string;
   noteGlobale: number;
-  competences?: {
-    nom: string;
-    note: number;
-    commentaire?: string;
-  }[];
-  objectifs?: {
-    description: string;
-    atteint: boolean;
-    commentaire?: string;
-  }[];
+  competences?: any;
+  objectifs?: any;
   pointsForts?: string;
   pointsAmeliorer?: string;
   planAction?: string;
@@ -64,16 +56,9 @@ export interface CreateEvaluationRequest {
   dateEvaluation: string;
   periode: string;
   noteGlobale: number;
-  competences?: {
-    nom: string;
-    note: number;
-    commentaire?: string;
-  }[];
-  objectifs?: {
-    description: string;
-    atteint: boolean;
-    commentaire?: string;
-  }[];
+  competences?: any;
+  objectifs?: any;
+  commentaires?: string;
   pointsForts?: string;
   pointsAmeliorer?: string;
   planAction?: string;
@@ -83,16 +68,9 @@ export interface UpdateEvaluationRequest {
   dateEvaluation?: string;
   periode?: string;
   noteGlobale?: number;
-  competences?: {
-    nom: string;
-    note: number;
-    commentaire?: string;
-  }[];
-  objectifs?: {
-    description: string;
-    atteint: boolean;
-    commentaire?: string;
-  }[];
+  competences?: any;
+  objectifs?: any;
+  commentaires?: string;
   pointsForts?: string;
   pointsAmeliorer?: string;
   planAction?: string;
@@ -113,7 +91,14 @@ export const evaluationsService = {
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Evaluation>> {
     const response = await apiClient.get('/hr/evaluations', { params });
-    return response.data;
+    const payload = response.data?.data ?? response.data ?? [];
+    const list = Array.isArray(payload) ? payload : payload?.data ?? [];
+    const pagination = response.data?.pagination ?? payload?.pagination;
+    return {
+      success: true,
+      data: list,
+      meta: pagination ? { pagination } : undefined,
+    };
   },
 
   async getEvaluation(id: string): Promise<DetailResponse<Evaluation>> {
@@ -142,7 +127,7 @@ export const evaluationsService = {
   },
 
   async validateEvaluation(id: string): Promise<DetailResponse<Evaluation>> {
-    const response = await apiClient.patch(`/hr/evaluations/${id}`, { status: 'VALIDE' });
+    const response = await apiClient.put(`/hr/evaluations/${id}`, {});
     return response.data;
   },
 };

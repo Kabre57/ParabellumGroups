@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { Printer } from 'lucide-react';
 import { procurementService } from '@/services/procurement';
 import type { PurchaseProforma, PurchaseRequest } from '@/services/procurement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import PurchaseProformaPrint from '@/components/printComponents/PurchaseProformaPrint';
 
 type FlattenedProforma = {
   requestId: string;
@@ -32,6 +34,7 @@ const formatCurrency = (amount: number) =>
 export default function PurchaseProformasPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'ALL' | 'BROUILLON' | 'SOUMISE' | 'APPROUVEE' | 'REJETEE'>('ALL');
+  const [printingRow, setPrintingRow] = useState<FlattenedProforma | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['purchase-proformas-space', search],
@@ -147,7 +150,7 @@ export default function PurchaseProformasPage() {
                     <th className="px-4 py-3 font-medium">Fournisseur</th>
                     <th className="px-4 py-3 font-medium">Montant TTC</th>
                     <th className="px-4 py-3 font-medium">Statut</th>
-                    <th className="px-4 py-3 font-medium text-right">Action</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,9 +173,17 @@ export default function PurchaseProformasPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/dashboard/achats/devis/${row.requestId}`}>Ouvrir la DPA</Link>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {row.proforma.selectedForOrder ? (
+                            <Button size="sm" variant="outline" onClick={() => setPrintingRow(row)}>
+                              <Printer className="mr-2 h-4 w-4" />
+                              Imprimer
+                            </Button>
+                          ) : null}
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/dashboard/achats/devis/${row.requestId}`}>Ouvrir la DPA</Link>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -187,6 +198,24 @@ export default function PurchaseProformasPage() {
           )}
         </CardContent>
       </Card>
+
+      {printingRow ? (
+        <PurchaseProformaPrint
+          request={{
+            id: printingRow.requestId,
+            number: printingRow.requestNumber,
+            title: printingRow.requestObject,
+            requesterId: '',
+            status: 'APPROUVEE',
+            date: printingRow.proforma.approvedAt || printingRow.proforma.createdAt || new Date().toISOString(),
+            serviceName: printingRow.requestService,
+            supplierName: printingRow.proforma.fournisseurNom || undefined,
+            proformas: [printingRow.proforma],
+          }}
+          proforma={printingRow.proforma}
+          onClose={() => setPrintingRow(null)}
+        />
+      ) : null}
     </div>
   );
 }

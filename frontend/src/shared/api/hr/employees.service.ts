@@ -26,7 +26,7 @@ const mapEmployeeFromApi = (api: any): Employee => ({
 });
 
 const mapEmployeeToApi = (payload: CreateEmployeeRequest | UpdateEmployeeRequest) => ({
-  matricule: payload.matricule ?? `EMP-${Date.now()}`,
+  matricule: payload.matricule?.trim() || undefined,
   nom: payload.lastName,
   prenom: payload.firstName,
   email: payload.email,

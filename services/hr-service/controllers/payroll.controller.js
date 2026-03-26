@@ -1,4 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
+const { buildPuppeteerLaunchOptions } = require('../utils/pdf');
+const { buildPayrollPdfHtml, buildGroupedPayrollPdfHtml } = require('../utils/payrollPdfTemplate');
 const prisma = new PrismaClient();
 
 // Défauts ivoiriens – écrasables par la base ou les variables d'env
@@ -46,13 +48,97 @@ const toCsv = (rows) =>
     .map((row) =>
       row
         .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-        .join(';')
+    .join(';')
     )
     .join('\n');
+
+const isLikelyRate = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 1;
+};
+
+const buildCompanyPayload = () => ({
+  name: process.env.COMPANY_NAME || 'PARABELLUM GROUPS',
+  zone: process.env.COMPANY_ZONE || 'Zone industrielle',
+  address: process.env.COMPANY_ADDRESS || 'Abidjan',
+  city: process.env.COMPANY_CITY || 'Yopougon',
+  country: process.env.COMPANY_COUNTRY || "Côte d'Ivoire",
+  rccm: process.env.COMPANY_RCCM || '-',
+  taxId: process.env.COMPANY_TAX_ID || '-',
+});
+
+const buildPayrollPdfContext = async (payroll) => {
+  const [contract, yearlyPayrolls] = await Promise.all([
+    prisma.contrat.findFirst({
+      where: {
+        employeId: payroll.employeId,
+        OR: [{ statut: 'ACTIF' }, { dateDebut: { lte: payroll.createdAt } }],
+      },
+      orderBy: { dateDebut: 'desc' },
+    }),
+    prisma.payroll.findMany({
+      where: {
+        employeId: payroll.employeId,
+        annee: payroll.annee,
+        mois: { lte: payroll.mois },
+      },
+      orderBy: [{ annee: 'asc' }, { mois: 'asc' }],
+    }),
+  ]);
+
+  const cumulative = yearlyPayrolls.reduce(
+    (accumulator, row) => ({
+      gross: accumulator.gross + toNumber(row.brut),
+      taxable: accumulator.taxable + toNumber(row.netImposable),
+      tax: accumulator.tax + toNumber(row.igr),
+      net: accumulator.net + toNumber(row.netAPayer),
+    }),
+    { gross: 0, taxable: 0, tax: 0, net: 0 }
+  );
+
+  return {
+    company: buildCompanyPayload(),
+    payroll,
+    contract,
+    cumulative,
+  };
+};
 
 class PayrollController {
   constructor() {
     this.paramsPromise = null;
+  }
+
+  async resolveCnpsAtRate({ employeId, departement, currentValue, riskBands, cfg }) {
+    if (isLikelyRate(currentValue)) {
+      return Number(currentValue);
+    }
+
+    const lastContract = await prisma.contrat.findFirst({
+      where: { employeId, statut: 'ACTIF' },
+      orderBy: { dateDebut: 'desc' },
+      include: { riskBand: true },
+    });
+
+    if (lastContract?.cnpsAT && isLikelyRate(lastContract.cnpsAT)) {
+      return Number(lastContract.cnpsAT);
+    }
+
+    if (lastContract?.riskBand?.rate && isLikelyRate(lastContract.riskBand.rate)) {
+      return Number(lastContract.riskBand.rate);
+    }
+
+    const normalizedDepartment = String(lastContract?.departement || departement || '').toLowerCase();
+    if (normalizedDepartment) {
+      const matchedBand = riskBands.find(
+        (band) => String(band.departement || '').toLowerCase() === normalizedDepartment
+      );
+      if (matchedBand?.rate && isLikelyRate(matchedBand.rate)) {
+        return Number(matchedBand.rate);
+      }
+    }
+
+    return Number(cfg.CNPS_AT);
   }
 
   async loadParams() {
@@ -435,40 +521,31 @@ class PayrollController {
       const payroll = await prisma.payroll.findUnique({
         where: { id: req.params.id },
         include: {
-          employe: { select: { nom: true, prenom: true, matricule: true, departement: true, poste: true } },
+          employe: {
+            select: {
+              id: true,
+              nom: true,
+              prenom: true,
+              matricule: true,
+              departement: true,
+              poste: true,
+              cnpsNumber: true,
+              cnamNumber: true,
+              dateEmbauche: true,
+              categorie: true,
+              partsFiscales: true,
+            },
+          },
         },
       });
       if (!payroll) return res.status(404).json({ success: false, message: 'Bulletin non trouvé' });
 
-      const html = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 24px; }
-              h1 { font-size: 20px; margin-bottom: 4px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-              td, th { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
-              th { background: #f5f5f5; text-align: left; }
-            </style>
-          </head>
-          <body>
-            <h1>Bulletin de paie</h1>
-            <div>Employé : ${payroll.employe?.prenom || ''} ${payroll.employe?.nom || ''} (${payroll.employe?.matricule || ''})</div>
-            <div>Période : ${payroll.periode || payroll.mois + '/' + payroll.annee}</div>
-            <table>
-              <tr><th>Brut</th><td>${payroll.brut}</td></tr>
-              <tr><th>CNPS Sal.</th><td>${payroll.cnpsSalarial}</td></tr>
-              <tr><th>CNPS Pat.</th><td>${payroll.cnpsPatronal}</td></tr>
-              <tr><th>IGR</th><td>${payroll.igr}</td></tr>
-              <tr><th>Net à payer</th><td>${payroll.netAPayer}</td></tr>
-            </table>
-          </body>
-        </html>`;
+      const html = buildPayrollPdfHtml(await buildPayrollPdfContext(payroll));
 
       const puppeteer = require('puppeteer');
-      const browser = await puppeteer.launch({ headless: 'new' });
+      const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
       const page = await browser.newPage();
-      await page.setContent(html);
+      await page.setContent(html, { waitUntil: 'networkidle0' });
       const pdf = await page.pdf({ format: 'A4' });
       await browser.close();
 
@@ -478,6 +555,67 @@ class PayrollController {
     } catch (error) {
       console.error('Error generating payroll PDF:', error);
       return res.status(500).json({ success: false, message: 'Erreur génération PDF' });
+    }
+  }
+
+  async exportGroupedPayrollPdf(req, res) {
+    try {
+      const now = new Date();
+      const month = parseInt(req.query?.month || now.getMonth() + 1, 10);
+      const year = parseInt(req.query?.year || now.getFullYear(), 10);
+      const employeeIds = typeof req.query?.employeeIds === 'string'
+        ? req.query.employeeIds.split(',').map((value) => value.trim()).filter(Boolean)
+        : [];
+
+      const payrolls = await prisma.payroll.findMany({
+        where: {
+          mois: month,
+          annee: year,
+          ...(employeeIds.length ? { employeId: { in: employeeIds } } : {}),
+        },
+        include: {
+          employe: {
+            select: {
+              id: true,
+              nom: true,
+              prenom: true,
+              matricule: true,
+              departement: true,
+              poste: true,
+              cnpsNumber: true,
+              cnamNumber: true,
+              dateEmbauche: true,
+              categorie: true,
+              partsFiscales: true,
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'asc' }],
+      });
+
+      if (!payrolls.length) {
+        return res.status(404).json({ success: false, message: 'Aucun bulletin trouvé pour cette sélection' });
+      }
+
+      const documents = await Promise.all(payrolls.map((payroll) => buildPayrollPdfContext(payroll)));
+      const html = buildGroupedPayrollPdfHtml({
+        title: `Registre des bulletins de paie - ${formatPeriodLabel(month, year)}`,
+        documents,
+      });
+
+      const puppeteer = require('puppeteer');
+      const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({ format: 'A4' });
+      await browser.close();
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="bulletins-groupes-${year}-${String(month).padStart(2, '0')}.pdf"`);
+      return res.send(pdf);
+    } catch (error) {
+      console.error('Error generating grouped payroll PDF:', error);
+      return res.status(500).json({ success: false, message: 'Erreur génération PDF groupé' });
     }
   }
 
@@ -654,19 +792,13 @@ class PayrollController {
       const parts = Math.min(Math.max(parseInt(partsFiscales || employe?.partsFiscales || 1, 10), 1), 5);
 
       // récupérer le contrat actif pour le taux AT s'il existe
-      let cnpsATValue = cnpsAT;
-      const lastContract = await prisma.contrat.findFirst({
-        where: { employeId, statut: 'ACTIF' },
-        orderBy: { dateDebut: 'desc' },
-        include: { riskBand: true },
+      const cnpsATValue = await this.resolveCnpsAtRate({
+        employeId,
+        departement: employe?.departement,
+        currentValue: cnpsAT,
+        riskBands,
+        cfg,
       });
-      if (lastContract?.cnpsAT) cnpsATValue = parseFloat(lastContract.cnpsAT);
-      if (!cnpsATValue && lastContract?.riskBand) cnpsATValue = parseFloat(lastContract.riskBand.rate);
-      if (!cnpsATValue && lastContract?.departement) {
-        const rb = riskBands.find(r => r.departement?.toLowerCase() === lastContract.departement.toLowerCase());
-        if (rb) cnpsATValue = parseFloat(rb.rate);
-      }
-      if (!cnpsATValue) cnpsATValue = cfg.CNPS_AT;
 
       const loans = await prisma.loan.findMany({
         where: { employeId, statut: 'EN_COURS' },
@@ -713,7 +845,7 @@ class PayrollController {
           brut: amounts.brut,
           cnpsSalarial: amounts.cnps.employeeRet + amounts.cnam.salarial,
           cnpsPatronal: amounts.cnps.employerRet + amounts.cnps.employerFamily + amounts.cnps.employerAT + amounts.cnam.employer,
-          cnpsATUtilise: amounts.cnps.employerAT,
+          cnpsATUtilise: cnpsATValue,
           cnam: amounts.cnam.salarial + amounts.cnam.employer,
           fdfp: amounts.fdfp,
           igr: amounts.igrAmount,
@@ -788,11 +920,13 @@ class PayrollController {
       const heuresSupDetails = Array.isArray(req.body.heuresSupDetails) ? req.body.heuresSupDetails : [];
 
       const { cfg, igr, riskBands } = await this.loadParams();
-      const cnpsATValue =
-        existing.cnpsATUtilise ||
-        existing.cnpsAT ||
-        riskBands.find((r) => r.departement?.toLowerCase() === existing.employe.departement?.toLowerCase())?.rate ||
-        cfg.CNPS_AT;
+      const cnpsATValue = await this.resolveCnpsAtRate({
+        employeId: existing.employeId,
+        departement: existing.employe?.departement,
+        currentValue: existing.cnpsATUtilise,
+        riskBands,
+        cfg,
+      });
 
       const amounts = this.computePayrollAmounts(
         {
@@ -813,7 +947,7 @@ class PayrollController {
       );
 
       const dataUpdate = {
-        ...req.body,
+        statut: req.body.statut || existing.statut,
         primes,
         indemnite,
         autresRetenues,
@@ -822,7 +956,7 @@ class PayrollController {
         brut: amounts.brut,
         cnpsSalarial: amounts.cotSal,
         cnpsPatronal: amounts.cotPat,
-        cnpsATUtilise: amounts.cnps.employerAT,
+        cnpsATUtilise: cnpsATValue,
         cnam: amounts.cnam.salarial + amounts.cnam.employer,
         fdfp: amounts.fdfp,
         igr: amounts.igrAmount,
@@ -908,7 +1042,13 @@ class PayrollController {
         });
         if (exists) continue;
 
-        const cnpsATValue = contrat.cnpsAT || riskBands.find(r => r.departement?.toLowerCase() === contrat.departement.toLowerCase())?.rate || cfg.CNPS_AT;
+        const cnpsATValue = await this.resolveCnpsAtRate({
+          employeId: emp.id,
+          departement: contrat.departement,
+          currentValue: contrat.cnpsAT,
+          riskBands,
+          cfg,
+        });
         const loans = await prisma.loan.findMany({ where: { employeId: emp.id, statut: 'EN_COURS' } });
         const amounts = this.computePayrollAmounts({
           baseSalaire: contrat.salaireBase,
@@ -946,7 +1086,7 @@ class PayrollController {
             brut: amounts.brut,
             cnpsSalarial: amounts.cnps.employeeRet + amounts.cnam.salarial,
             cnpsPatronal: amounts.cnps.employerRet + amounts.cnps.employerFamily + amounts.cnps.employerAT + amounts.cnam.employer,
-            cnpsATUtilise: amounts.cnps.employerAT,
+            cnpsATUtilise: cnpsATValue,
             cnam: amounts.cnam.salarial + amounts.cnam.employer,
             fdfp: amounts.fdfp,
             igr: amounts.igrAmount,

@@ -52,6 +52,7 @@ export default function PaiePage() {
   const periodOptions = useMemo(buildPeriodOptions, []);
   const defaultPeriod = periodOptions[0]?.value || '2026-03';
   const [searchQuery, setSearchQuery] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState(defaultPeriod);
   const [editing, setEditing] = useState<Payroll | null>(null);
   const [formPrimes, setFormPrimes] = useState('');
@@ -66,6 +67,12 @@ export default function PaiePage() {
     queryFn: () => hrService.getPayrolls({ year, month, pageSize: 100 }),
   });
   const payrolls = data?.data ?? [];
+
+  const { data: employeesResponse } = useQuery({
+    queryKey: ['payroll-employees-for-filter'],
+    queryFn: () => hrService.getEmployees({ page: 1, pageSize: 200 }),
+  });
+  const employees = employeesResponse?.data ?? [];
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['payroll-overview', periodFilter],
@@ -110,6 +117,12 @@ export default function PaiePage() {
     onError: () => toast.error("Export DGI indisponible"),
   });
 
+  const groupedPdfMutation = useMutation({
+    mutationFn: (employeeIds?: string[]) => hrService.downloadGroupedPayrollPdf({ month, year, employeeIds }),
+    onSuccess: (blob) => downloadBlob(blob, `bulletins-groupes-${periodFilter}.pdf`),
+    onError: () => toast.error('Impression groupée indisponible'),
+  });
+
   const adjustMutation = useMutation({
     mutationFn: (payload: { id: string; data: Record<string, unknown> }) =>
       hrService.updatePayroll(payload.id, payload.data),
@@ -152,6 +165,7 @@ export default function PaiePage() {
     if (!query) return payrolls;
 
     return payrolls.filter((payroll) => {
+      const matchesEmployee = employeeFilter === 'all' || payroll.employeeId === employeeFilter;
       const haystack = [
         payroll.employee?.firstName,
         payroll.employee?.lastName,
@@ -161,9 +175,9 @@ export default function PaiePage() {
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
-      return haystack.includes(query);
+      return haystack.includes(query) && matchesEmployee;
     });
-  }, [payrolls, searchQuery]);
+  }, [employeeFilter, payrolls, searchQuery]);
 
   const { canCreate, canUpdate, canApprove, canExport } = getCrudVisibility(user, {
     read: ['payroll.read', 'payroll.read_all', 'payroll.read_own'],
@@ -267,14 +281,38 @@ export default function PaiePage() {
                   <h2 className="text-xl font-semibold">Bulletins de paie</h2>
                   <p className="text-sm text-muted-foreground">Gérez vos bulletins et leurs informations sur la période.</p>
                 </div>
-                <div className="relative w-full max-w-xl">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    className="pl-10"
-                    placeholder="Rechercher par employé, matricule ou période..."
-                  />
+                <div className="flex w-full flex-col gap-3 lg:max-w-4xl lg:flex-row lg:items-center lg:justify-end">
+                  <div className="relative w-full lg:max-w-xl">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      className="pl-10"
+                      placeholder="Rechercher par employé, matricule ou période..."
+                    />
+                  </div>
+                  <select
+                    value={employeeFilter}
+                    onChange={(event) => setEmployeeFilter(event.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm lg:min-w-[240px]"
+                  >
+                    <option value="all">Tous les employés</option>
+                    {employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.firstName} {employee.lastName} {employee.matricule ? `- ${employee.matricule}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {canExport ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => groupedPdfMutation.mutate(filteredPayrolls.map((payroll) => payroll.employeeId))}
+                      disabled={groupedPdfMutation.isPending || filteredPayrolls.length === 0}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {groupedPdfMutation.isPending ? 'Préparation...' : 'Imprimer groupé'}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </Card>
@@ -346,7 +384,8 @@ export default function PaiePage() {
                                   onClick={() => downloadMutation.mutate(payroll)}
                                   disabled={downloadMutation.isPending}
                                 >
-                                  <Download className="h-3.5 w-3.5" />
+                                  <Download className="mr-1 h-3.5 w-3.5" />
+                                  Imprimer
                                 </Button>
                               ) : null}
                               {canUpdate ? (

@@ -53,6 +53,7 @@ exports.getAll = async (req, res) => {
     ]);
 
     res.json({
+      success: true,
       data: evaluations,
       pagination: {
         total,
@@ -63,7 +64,7 @@ exports.getAll = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching evaluations:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des évaluations' });
+    res.status(500).json({ success: false, error: 'Erreur lors de la récupération des évaluations' });
   }
 };
 
@@ -106,10 +107,10 @@ exports.create = async (req, res) => {
       }
     });
 
-    res.status(201).json(evaluation);
+    res.status(201).json({ success: true, data: evaluation });
   } catch (error) {
     console.error('Error creating evaluation:', error);
-    res.status(500).json({ error: 'Erreur lors de la création de l\'évaluation' });
+    res.status(500).json({ success: false, error: 'Erreur lors de la création de l\'évaluation' });
   }
 };
 
@@ -143,13 +144,13 @@ exports.getById = async (req, res) => {
     });
 
     if (!evaluation) {
-      return res.status(404).json({ error: 'Évaluation non trouvée' });
+      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
     }
 
-    res.json(evaluation);
+    res.json({ success: true, data: evaluation });
   } catch (error) {
     console.error('Error fetching evaluation:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de l\'évaluation' });
+    res.status(500).json({ success: false, error: 'Erreur lors de la récupération de l\'évaluation' });
   }
 };
 
@@ -190,13 +191,13 @@ exports.update = async (req, res) => {
       }
     });
 
-    res.json(evaluation);
+    res.json({ success: true, data: evaluation });
   } catch (error) {
     console.error('Error updating evaluation:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Évaluation non trouvée' });
+      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
     }
-    res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'évaluation' });
+    res.status(500).json({ success: false, error: 'Erreur lors de la mise à jour de l\'évaluation' });
   }
 };
 
@@ -209,13 +210,13 @@ exports.delete = async (req, res) => {
       where: { id }
     });
 
-    res.json({ message: 'Évaluation supprimée avec succès' });
+    res.json({ success: true, message: 'Évaluation supprimée avec succès' });
   } catch (error) {
     console.error('Error deleting evaluation:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Évaluation non trouvée' });
+      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
     }
-    res.status(500).json({ error: 'Erreur lors de la suppression de l\'évaluation' });
+    res.status(500).json({ success: false, error: 'Erreur lors de la suppression de l\'évaluation' });
   }
 };
 

@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { buildPuppeteerLaunchOptions } = require('../utils/pdf');
 const prisma = new PrismaClient();
 
 class ContractController {
@@ -97,6 +98,20 @@ class ContractController {
 
       if (!employeId || !type || !dateDebut || !poste || !departement || !salaireBase) {
         return res.status(400).json({ success: false, message: 'Champs requis manquants' });
+      }
+
+      const existingContract = await prisma.contrat.findFirst({
+        where: { employeId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, type: true, statut: true },
+      });
+
+      if (existingContract) {
+        return res.status(409).json({
+          success: false,
+          message: 'Cet employé possède déjà un contrat. Veuillez modifier le contrat existant.',
+          data: existingContract,
+        });
       }
 
       const contrat = await prisma.contrat.create({
@@ -244,9 +259,9 @@ class ContractController {
         </html>`;
 
       const puppeteer = require('puppeteer');
-      const browser = await puppeteer.launch({ headless: 'new' });
+      const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
       const page = await browser.newPage();
-      await page.setContent(html);
+      await page.setContent(html, { waitUntil: 'networkidle0' });
       const pdf = await page.pdf({ format: 'A4' });
       await browser.close();
 
