@@ -2,11 +2,13 @@
 
 import React from 'react';
 import type { PurchaseOrder, Supplier } from '@/services/procurement';
+import type { InventoryArticle } from '@/shared/api/inventory/types';
 import ProcurementDocumentPrint from './ProcurementDocumentPrint';
 
 interface PurchaseOrderPrintProps {
   order: PurchaseOrder;
   supplier?: Supplier | null;
+  articles?: InventoryArticle[];
   serviceLogoUrl?: string | null;
   onClose: () => void;
 }
@@ -14,9 +16,11 @@ interface PurchaseOrderPrintProps {
 export default function PurchaseOrderPrint({
   order,
   supplier,
+  articles = [],
   serviceLogoUrl,
   onClose,
 }: PurchaseOrderPrintProps) {
+  const articleMap = new Map(articles.map((article) => [article.id, article]));
   return (
     <ProcurementDocumentPrint
       documentLabel="Commande d'achat"
@@ -34,6 +38,7 @@ export default function PurchaseOrderPrint({
         address: supplier?.address || supplier?.adresse || undefined,
       }}
       lines={(order.itemsDetail || []).map((line) => ({
+        imageUrl: line.imageUrl || (line.articleId ? articleMap.get(line.articleId)?.imageUrl || null : null),
         designation: line.designation,
         quantity: line.quantity ?? line.quantite ?? 0,
         unit: line.categorie || '-',

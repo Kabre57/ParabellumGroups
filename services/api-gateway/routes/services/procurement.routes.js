@@ -3,6 +3,18 @@ const { procurementServiceLimiter } = require('../../middleware/serviceLimiters'
 
 const procurementPermissionRules = [
   {
+    pattern: /^\/devis-achat\/[^/]+\/proformas\/[^/]+\/committee-evaluation$/,
+    permissions: {
+      POST: ['purchase_requests.evaluate_committee', 'purchase_requests.approve'],
+    },
+  },
+  {
+    pattern: /^\/devis-achat\/[^/]+\/proformas\/[^/]+\/recommend$/,
+    permissions: {
+      POST: ['purchase_requests.evaluate_committee', 'purchase_requests.approve', 'purchase_orders.create'],
+    },
+  },
+  {
     pattern: /^\/devis-achat\/[^/]+\/approve$/,
     permissions: {
       POST: ['purchase_requests.approve'],
@@ -38,6 +50,8 @@ const procurementPermissionRules = [
         'purchase_requests.read',
         'purchase_requests.read_own',
         'purchase_requests.read_all',
+        'purchase_requests.read_committee',
+        'purchase_requests.evaluate_committee',
         'purchase_requests.approve',
         'quotes.read',
         'quotes.read_own',
@@ -73,6 +87,8 @@ const procurementPermissionRules = [
         'purchase_requests.read',
         'purchase_requests.read_own',
         'purchase_requests.read_all',
+        'purchase_requests.read_committee',
+        'purchase_requests.evaluate_committee',
         'purchase_requests.approve',
         'quotes.read',
         'quotes.read_own',

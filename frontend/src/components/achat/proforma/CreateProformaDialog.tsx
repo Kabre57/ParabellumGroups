@@ -18,6 +18,7 @@ import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
 
 type DraftLine = {
   articleId: string;
+  imageUrl?: string;
   designation: string;
   categorie: string;
   quantite: number;
@@ -27,6 +28,7 @@ type DraftLine = {
 
 const emptyLine = (): DraftLine => ({
   articleId: '',
+  imageUrl: '',
   designation: '',
   categorie: '',
   quantite: 1,
@@ -103,6 +105,7 @@ export function CreateProformaDialog({
           ? {
               ...line,
               articleId,
+              imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
               prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
@@ -122,7 +125,7 @@ export function CreateProformaDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(96vw,1500px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5">
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(96vw,1500px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:max-w-[min(96vw,1500px)] sm:px-5">
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>

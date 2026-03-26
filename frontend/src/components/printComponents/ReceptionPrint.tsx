@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { PurchaseOrder, Supplier } from '@/services/procurement';
-import type { Reception } from '@/shared/api/inventory/types';
+import type { InventoryArticle, Reception } from '@/shared/api/inventory/types';
 import ProcurementDocumentPrint from './ProcurementDocumentPrint';
 
 const formatArticleUnit = (unit?: string | null) => {
@@ -24,6 +24,7 @@ interface ReceptionPrintProps {
   reception: Reception;
   order?: PurchaseOrder | null;
   supplier?: Supplier | null;
+  articles?: InventoryArticle[];
   serviceLogoUrl?: string | null;
   onClose: () => void;
 }
@@ -32,9 +33,11 @@ export default function ReceptionPrint({
   reception,
   order,
   supplier,
+  articles = [],
   serviceLogoUrl,
   onClose,
 }: ReceptionPrintProps) {
+  const articleMap = new Map(articles.map((article) => [article.id, article]));
   return (
     <ProcurementDocumentPrint
       documentLabel="Bon de réception"
@@ -56,6 +59,10 @@ export default function ReceptionPrint({
         const totalTTC = totalHT * (1 + Number(line.tva || 0) / 100);
 
         return {
+          imageUrl:
+            line.imageUrl ||
+            line.article?.imageUrl ||
+            (line.articleId ? articleMap.get(line.articleId)?.imageUrl || null : null),
           designation: line.designation || line.article?.nom || '-',
           quantity: line.quantiteRecue,
           unit: formatArticleUnit(line.article?.unite),

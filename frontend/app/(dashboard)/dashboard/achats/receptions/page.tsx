@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
+import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception, ReceptionStatus } from "@/shared/api/inventory/types";
 import { procurementService } from "@/services/procurement";
 import ReceptionPrint from "@/components/printComponents/ReceptionPrint";
@@ -58,6 +59,12 @@ export default function ReceptionsPage() {
     enabled: !!selectedId,
   });
 
+  const { data: articlesResponse } = useQuery({
+    queryKey: ["inventory-articles-for-receptions"],
+    queryFn: () => inventoryService.getArticles(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const mapped = useMemo(
     () =>
       receptions.filter((r) => {
@@ -97,6 +104,7 @@ export default function ReceptionsPage() {
   });
 
   const current = detail || selectedReception;
+  const articles = articlesResponse?.data ?? [];
   const { data: currentOrder } = useQuery({
     queryKey: ["reception-order-detail", current?.bonCommandeId],
     queryFn: () => procurementService.getOrder(current?.bonCommandeId || "").then((res) => res.data),
@@ -291,6 +299,10 @@ export default function ReceptionsPage() {
                   description="Lecture compacte type ERP pour contrôler rapidement les quantités et montants reçus."
                   lines={lignes.map((l) => ({
                     id: l.id,
+                    imageUrl:
+                      l.imageUrl ||
+                      l.article?.imageUrl ||
+                      (l.articleId ? articles.find((article) => article.id === l.articleId)?.imageUrl || null : null),
                     designation: l.designation || "-",
                     categorie: null,
                     quantite: l.quantiteRecue || 0,
@@ -330,6 +342,7 @@ export default function ReceptionsPage() {
           reception={current}
           order={currentOrder}
           supplier={currentSupplier}
+          articles={articles}
           onClose={() => setIsPrintOpen(false)}
         />
       )}

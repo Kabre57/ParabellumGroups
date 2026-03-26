@@ -137,6 +137,14 @@ const canRejectQuotes = (user) => canApproveQuotes(user);
 const canManageProformas = (user) =>
   isAdminUser(user) || hasPermission(user, 'purchase_orders.create', 'purchase_orders.update');
 
+const canEvaluateCommittee = (user) =>
+  isAdminUser(user) ||
+  hasPermission(
+    user,
+    'purchase_requests.evaluate_committee',
+    'purchase_requests.approve'
+  );
+
 const getCorrelationId = (req) =>
   req.headers['x-correlation-id'] || req.headers['x-correlation-id'.toLowerCase()] || null;
 
@@ -302,6 +310,118 @@ const parseNullableNonNegativeInt = (value) => {
 const normalizeOptionalText = (value) => {
   const normalized = String(value || '').trim();
   return normalized || null;
+};
+
+const clampCommitteeScore = (value, maxPoints) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.min(Number(maxPoints || 0), Math.round(parsed * 100) / 100));
+};
+
+const normalizeCommitteeChecks = (items = []) =>
+  Array.isArray(items)
+    ? items.map((item) => ({
+        criterionIndex: Number(item?.criterionIndex ?? 0),
+        label: String(item?.label || '').trim(),
+        requiredDocument: normalizeOptionalText(item?.requiredDocument),
+        passed:
+          item?.passed === true || item?.passed === false
+            ? Boolean(item.passed)
+            : null,
+        notes: normalizeOptionalText(item?.notes),
+      }))
+    : [];
+
+const normalizeCommitteeScores = (items = []) =>
+  Array.isArray(items)
+    ? items.map((item) => {
+        const maxPoints = clampCommitteeScore(item?.maxPoints ?? 0, Number(item?.maxPoints ?? 0));
+        return {
+          criterionIndex: Number(item?.criterionIndex ?? 0),
+          label: String(item?.label || '').trim(),
+          maxPoints,
+          points: clampCommitteeScore(item?.points ?? 0, maxPoints),
+          notes: normalizeOptionalText(item?.notes),
+        };
+      })
+    : [];
+
+const sumCommitteeScores = (items = []) =>
+  Math.round(
+    items.reduce((sum, item) => sum + Number(item?.points || 0), 0) * 100
+  ) / 100;
+
+const buildCommitteeEvaluation = ({
+  profileCode,
+  eliminatoryChecks,
+  technicalScores,
+  financialCriterion,
+  decision,
+  decisionNote,
+  actor,
+  signDecision = false,
+}) => {
+  const normalizedChecks = normalizeCommitteeChecks(eliminatoryChecks);
+  const normalizedTechnicalScores = normalizeCommitteeScores(technicalScores);
+  const normalizedFinancialCriterion = financialCriterion
+    ? {
+        criterionIndex: Number(financialCriterion?.criterionIndex ?? 0),
+        label: String(financialCriterion?.label || '').trim(),
+        maxPoints: clampCommitteeScore(
+          financialCriterion?.maxPoints ?? 40,
+          Number(financialCriterion?.maxPoints ?? 40)
+        ),
+        points: clampCommitteeScore(
+          financialCriterion?.points ?? 0,
+          Number(financialCriterion?.maxPoints ?? 40)
+        ),
+        notes: normalizeOptionalText(financialCriterion?.notes),
+      }
+    : null;
+
+  const eliminatoryPassed = normalizedChecks.every((item) => item.passed !== false);
+  const technicalTotal = sumCommitteeScores(normalizedTechnicalScores);
+  const financialScore = normalizedFinancialCriterion ? Number(normalizedFinancialCriterion.points || 0) : 0;
+  const totalScore = Math.round((technicalTotal + financialScore) * 100) / 100;
+  const now = new Date();
+
+  return {
+    committeeProfileCode: normalizeOptionalText(profileCode),
+    committeeDecision: normalizeOptionalText(decision),
+    committeeDecisionNote: normalizeOptionalText(decisionNote),
+    committeeEvaluatedAt: now,
+    committeeEvaluatedByUserId: actor?.userId || null,
+    committeeEvaluatedByEmail: actor?.email || null,
+    committeeEvaluatedByServiceId: actor?.serviceId ?? null,
+    committeeEvaluatedByServiceName: actor?.serviceName || null,
+    committeeSignedAt: signDecision ? now : null,
+    committeeSignedByUserId: signDecision ? actor?.userId || null : null,
+    committeeSignedByEmail: signDecision ? actor?.email || null : null,
+    committeeSignedByServiceId: signDecision ? actor?.serviceId ?? null : null,
+    committeeSignedByServiceName: signDecision ? actor?.serviceName || null : null,
+    committeeEvaluation: {
+      profileCode: normalizeOptionalText(profileCode),
+      eliminatoryChecks: normalizedChecks,
+      eliminatoryPassed,
+      technicalScores: normalizedTechnicalScores,
+      technicalTotal,
+      financialCriterion: normalizedFinancialCriterion,
+      financialScore,
+      totalScore,
+      decision: normalizeOptionalText(decision),
+      decisionNote: normalizeOptionalText(decisionNote),
+      lastUpdatedAt: now.toISOString(),
+      lastUpdatedByUserId: actor?.userId || null,
+      lastUpdatedByEmail: actor?.email || null,
+      lastUpdatedByServiceId: actor?.serviceId ?? null,
+      lastUpdatedByServiceName: actor?.serviceName || null,
+      signedAt: signDecision ? now.toISOString() : null,
+      signedByUserId: signDecision ? actor?.userId || null : null,
+      signedByEmail: signDecision ? actor?.email || null : null,
+      signedByServiceId: signDecision ? actor?.serviceId ?? null : null,
+      signedByServiceName: signDecision ? actor?.serviceName || null : null,
+    },
+  };
 };
 
 const purchaseQuoteCreatedPayload = (quote) => ({
@@ -1085,6 +1205,94 @@ exports.recommendProforma = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la sélection de la proforma recommandée',
+    });
+  }
+};
+
+exports.saveProformaCommitteeEvaluation = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation échouée',
+        errors: errors.array(),
+      });
+    }
+
+    if (!canEvaluateCommittee(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas la permission de renseigner la grille de commission",
+      });
+    }
+
+    const demande = await ensureQuoteExists(req.params.id);
+    if (!demande) {
+      return res.status(404).json({ success: false, message: 'DPA non trouvée' });
+    }
+
+    const existing = await ensureProformaExists(demande.id, req.params.proformaId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Proforma non trouvée' });
+    }
+
+    const actorContext = await buildActorContext(req, demande.serviceName, demande.serviceId);
+    if (actorContext.status) {
+      return res.status(actorContext.status).json(actorContext.body);
+    }
+
+    const bestAmount = Math.min(
+      ...demande.proformas
+        .map((proforma) => Number(proforma.montantTTC || 0))
+        .filter((amount) => Number.isFinite(amount) && amount > 0)
+    );
+    const thisAmount = Number(existing.montantTTC || 0);
+    const computedFinancialScore =
+      Number.isFinite(bestAmount) && bestAmount > 0 && thisAmount > 0
+        ? clampCommitteeScore((bestAmount / thisAmount) * 40, 40)
+        : 0;
+
+    const evaluationPayload = buildCommitteeEvaluation({
+      profileCode: req.body?.profileCode || existing.committeeProfileCode || null,
+      eliminatoryChecks: req.body?.eliminatoryChecks,
+      technicalScores: req.body?.technicalScores,
+      financialCriterion: {
+        criterionIndex: Number(req.body?.financialCriterion?.criterionIndex ?? 15),
+        label: req.body?.financialCriterion?.label || 'Offre économiquement la plus avantageuse',
+        maxPoints: Number(req.body?.financialCriterion?.maxPoints ?? 40),
+        points: computedFinancialScore,
+        notes: req.body?.financialCriterion?.notes || null,
+      },
+      decision: req.body?.decision,
+      decisionNote: req.body?.decisionNote,
+      actor: {
+        userId: actorContext.actorUserId,
+        email: actorContext.actorEmail,
+        serviceId: actorContext.actorServiceId,
+        serviceName: actorContext.actorServiceName,
+      },
+      signDecision: Boolean(req.body?.signDecision),
+    });
+
+    const updated = await prisma.proforma.update({
+      where: { id: existing.id },
+      data: evaluationPayload,
+      include: proformaInclude,
+    });
+
+    res.json({
+      success: true,
+      message: req.body?.signDecision
+        ? 'Décision finale signée et enregistrée'
+        : 'Évaluation de commission enregistrée',
+      data: serializeProforma(updated),
+    });
+  } catch (error) {
+    console.error('Error saving proforma committee evaluation:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'enregistrement de l'évaluation de commission",
     });
   }
 };

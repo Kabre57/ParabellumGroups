@@ -6,6 +6,7 @@ export interface InventoryArticle {
   id: string;
   reference?: string;
   nom: string;
+  imageUrl?: string;
   description?: string;
   categorie?: string;
   unite?: ArticleUnit;
@@ -41,6 +42,7 @@ export interface ReceptionLine {
   id: string;
   articleId: string | null;
   designation?: string;
+  imageUrl?: string | null;
   quantitePrev: number;
   quantiteRecue: number;
   prixUnitaire: number;

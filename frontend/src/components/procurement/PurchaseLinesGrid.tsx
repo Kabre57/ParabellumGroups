@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 export type PurchaseLineDraft = {
   id?: string;
   articleId: string;
+  imageUrl?: string;
   designation: string;
   categorie: string;
   quantite: number;
@@ -42,7 +43,7 @@ export function PurchaseLinesGrid({
   articles,
   disabled = false,
   maxBodyHeightClass = 'min-h-[300px] max-h-[380px]',
-  tableMinWidthClass = 'min-w-[1100px]',
+  tableMinWidthClass = 'min-w-[1260px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -87,6 +88,7 @@ export function PurchaseLinesGrid({
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
+                <th className="w-20 px-3 py-3 font-semibold">Image</th>
                 <th className="min-w-[220px] px-3 py-3 font-semibold">Article</th>
                 <th className="min-w-[210px] px-3 py-3 font-semibold">Désignation</th>
                 <th className="min-w-[150px] px-3 py-3 font-semibold">Catégorie</th>
@@ -100,10 +102,25 @@ export function PurchaseLinesGrid({
             <tbody>
               {lines.map((line, index) => {
                 const lineTotal = line.quantite * line.prixUnitaire * (1 + line.tva / 100);
+                const selectedArticle = articles.find((article) => article.id === line.articleId);
+                const lineImageUrl = line.imageUrl || selectedArticle?.imageUrl || '';
 
                 return (
                   <tr key={`${line.id || 'line'}-${index}`} className="border-b align-top last:border-0">
                     <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">{index + 1}</td>
+                    <td className="px-3 py-3">
+                      {lineImageUrl ? (
+                        <img
+                          src={lineImageUrl}
+                          alt={line.designation || selectedArticle?.nom || `Article ${index + 1}`}
+                          className="h-14 w-14 rounded-md border object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-14 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
+                          Sans image
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <select
                         value={line.articleId}

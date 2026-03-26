@@ -32,6 +32,7 @@ const normalizeArticlePayload = async (payload, { keepExistingReference = false 
     ...payload,
     reference: reference || undefined,
     nom: typeof payload.nom === 'string' ? payload.nom.trim() : payload.nom,
+    imageUrl: typeof payload.imageUrl === 'string' ? payload.imageUrl.trim() || null : payload.imageUrl,
     description: typeof payload.description === 'string' ? payload.description.trim() || null : payload.description,
     categorie: typeof payload.categorie === 'string' ? payload.categorie.trim() || null : payload.categorie,
     emplacement: typeof payload.emplacement === 'string' ? payload.emplacement.trim() || null : payload.emplacement,

@@ -216,6 +216,26 @@ exports.createCashVoucher = async (req, res) => {
       });
     }
 
+    if (sourceType && sourceId) {
+      const existingVoucher = await prisma.cashVoucher.findFirst({
+        where: {
+          sourceType: String(sourceType),
+          sourceId: String(sourceId),
+          status: {
+            not: 'ANNULE',
+          },
+        },
+      });
+
+      if (existingVoucher) {
+        return res.status(409).json({
+          success: false,
+          message: 'Un bon de caisse actif existe déjà pour cette pièce achat',
+          data: serializeCashVoucher(existingVoucher),
+        });
+      }
+    }
+
     const voucher = await prisma.cashVoucher.create({
       data: {
         voucherNumber: await nextVoucherNumber(),

@@ -17,11 +17,10 @@ type CommissionDecisionRow = {
   status: string;
   selectedForOrder: boolean;
   recommendedForApproval: boolean;
-  priceScore: number;
-  delayScore: number;
-  availabilityScore: number;
-  supplierScore: number;
+  financialScore: number;
+  technicalScore: number;
   totalScore: number;
+  committeeDecision: string | null;
   justification: string;
 };
 
@@ -191,14 +190,13 @@ export default function PurchaseCommissionPrint({
               <th style={thStyle}>Fournisseur</th>
               <th style={thStyle}>Proforma</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Prix TTC</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Score prix</th>
               <th style={thStyle}>Délai</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Score délai</th>
               <th style={thStyle}>Disponibilité</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Score dispo</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Score fournisseur</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Score technique</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Score financier</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Score total</th>
               <th style={thStyle}>Justification de choix</th>
+              <th style={thStyle}>Décision commission</th>
             </tr>
           </thead>
           <tbody>
@@ -216,16 +214,15 @@ export default function PurchaseCommissionPrint({
                 </td>
                 <td style={tdStyle}>{row.numeroProforma}</td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>{formatFCFA(row.montantTTC)}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.priceScore.toFixed(1)}</td>
                 <td style={tdStyle}>
                   {row.delaiLivraisonJours != null ? `${row.delaiLivraisonJours} j` : '-'}
                 </td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.delayScore.toFixed(1)}</td>
                 <td style={tdStyle}>{textOrDash(row.disponibilite)}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.availabilityScore.toFixed(1)}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.supplierScore.toFixed(1)}</td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.technicalScore.toFixed(1)}</td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>{row.financialScore.toFixed(1)}</td>
                 <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>{row.totalScore.toFixed(1)}</td>
                 <td style={tdStyle}>{textOrDash(row.justification || row.observationsAchat)}</td>
+                <td style={tdStyle}>{textOrDash(row.committeeDecision)}</td>
               </tr>
             ))}
           </tbody>

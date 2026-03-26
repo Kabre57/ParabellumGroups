@@ -2,11 +2,13 @@
 
 import React from 'react';
 import type { PurchaseRequest, Supplier } from '@/services/procurement';
+import type { InventoryArticle } from '@/shared/api/inventory/types';
 import ProcurementDocumentPrint from './ProcurementDocumentPrint';
 
 interface PurchaseRequestPrintProps {
   request: PurchaseRequest;
   supplier?: Supplier | null;
+  articles?: InventoryArticle[];
   serviceLogoUrl?: string | null;
   onClose: () => void;
 }
@@ -14,9 +16,11 @@ interface PurchaseRequestPrintProps {
 export default function PurchaseRequestPrint({
   request,
   supplier,
+  articles = [],
   serviceLogoUrl,
   onClose,
 }: PurchaseRequestPrintProps) {
+  const articleMap = new Map(articles.map((article) => [article.id, article]));
   return (
     <ProcurementDocumentPrint
       documentLabel="Devis d'achat"
@@ -34,6 +38,7 @@ export default function PurchaseRequestPrint({
         address: supplier?.address || supplier?.adresse || undefined,
       }}
       lines={(request.lines || []).map((line) => ({
+        imageUrl: line.imageUrl || (line.articleId ? articleMap.get(line.articleId)?.imageUrl || null : null),
         designation: line.designation,
         quantity: line.quantite,
         unit: line.categorie || '-',

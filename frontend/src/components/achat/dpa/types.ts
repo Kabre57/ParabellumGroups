@@ -3,6 +3,7 @@
 export type DpaDraftLine = {
   id?: string;
   articleId: string;
+  imageUrl?: string;
   designation: string;
   categorie: string;
   quantite: number;
@@ -12,6 +13,7 @@ export type DpaDraftLine = {
 
 export const createEmptyDpaDraftLine = (): DpaDraftLine => ({
   articleId: '',
+  imageUrl: '',
   designation: '',
   categorie: '',
   quantite: 1,

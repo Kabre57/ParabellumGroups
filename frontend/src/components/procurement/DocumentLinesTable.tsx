@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 
 type DocumentLine = {
   id?: string;
+  imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
   quantite: number;
@@ -64,10 +65,11 @@ export function DocumentLinesTable({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
         <div className={`min-h-0 overflow-auto ${heightClass}`}>
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr className="border-b">
                 <th className="w-14 px-3 py-3 font-semibold">Ligne</th>
+                <th className="w-20 px-3 py-3 font-semibold">Image</th>
                 <th className="min-w-[300px] px-3 py-3 font-semibold">Désignation</th>
                 <th className="min-w-[180px] px-3 py-3 font-semibold">Catégorie</th>
                 <th className="w-28 px-3 py-3 font-semibold">Qté</th>
@@ -88,6 +90,19 @@ export function DocumentLinesTable({
                   <tr key={`${line.id || line.designation}-${index}`} className="border-b align-top last:border-0">
                     <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">{index + 1}</td>
                     <td className="px-3 py-3">
+                      {line.imageUrl ? (
+                        <img
+                          src={line.imageUrl}
+                          alt={line.designation || `Ligne ${index + 1}`}
+                          className="h-12 w-12 rounded-md border object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
+                          Sans image
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
                       <div className="font-medium">{line.designation || '-'}</div>
                     </td>
                     <td className="px-3 py-3 text-muted-foreground">{line.categorie || '-'}</td>
@@ -100,7 +115,7 @@ export function DocumentLinesTable({
               })}
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                     Aucune ligne disponible.
                   </td>
                 </tr>

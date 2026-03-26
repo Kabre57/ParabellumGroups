@@ -97,6 +97,37 @@ const validateProforma = [
     .withMessage('La TVA doit etre comprise entre 0 et 100'),
 ];
 
+const validateCommitteeEvaluation = [
+  body('profileCode')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('Le profil de critères est invalide'),
+  body('eliminatoryChecks')
+    .optional()
+    .isArray()
+    .withMessage('Les critères éliminatoires sont invalides'),
+  body('technicalScores')
+    .optional()
+    .isArray()
+    .withMessage('Les scores techniques sont invalides'),
+  body('financialCriterion')
+    .optional()
+    .isObject()
+    .withMessage('Le critère financier est invalide'),
+  body('decision')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('La décision finale est invalide'),
+  body('decisionNote')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('Le commentaire de décision est invalide'),
+  body('signDecision')
+    .optional()
+    .isBoolean()
+    .withMessage('L indicateur de signature est invalide'),
+];
+
 router.use(authMiddleware);
 
 router.get('/', demandeAchatController.getAll);
@@ -110,6 +141,7 @@ router.post('/:id/approve', demandeAchatController.approve);
 router.post('/:id/reject', demandeAchatController.reject);
 router.post('/:id/proformas', validateProforma, demandeAchatController.createProforma);
 router.post('/:id/proformas/:proformaId/recommend', demandeAchatController.recommendProforma);
+router.post('/:id/proformas/:proformaId/committee-evaluation', validateCommitteeEvaluation, demandeAchatController.saveProformaCommitteeEvaluation);
 router.post('/:id/proformas/:proformaId/submit', demandeAchatController.submitProforma);
 router.post('/:id/proformas/:proformaId/approve', demandeAchatController.approveProforma);
 router.post('/:id/proformas/:proformaId/reject', demandeAchatController.rejectProforma);

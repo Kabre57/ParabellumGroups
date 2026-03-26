@@ -195,6 +195,20 @@ model Proforma {
   delaiLivraisonJours   Int?
   disponibilite         String?
   observationsAchat     String?
+  committeeProfileCode  String?
+  committeeEvaluation   Json?
+  committeeDecision     String?
+  committeeDecisionNote String?
+  committeeEvaluatedAt  DateTime?
+  committeeEvaluatedByUserId String?
+  committeeEvaluatedByEmail String?
+  committeeEvaluatedByServiceId Int?
+  committeeEvaluatedByServiceName String?
+  committeeSignedAt     DateTime?
+  committeeSignedByUserId String?
+  committeeSignedByEmail String?
+  committeeSignedByServiceId Int?
+  committeeSignedByServiceName String?
   status                StatusProforma       @default(BROUILLON)
   notes                 String?
   submittedAt           DateTime?

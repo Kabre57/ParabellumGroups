@@ -12,6 +12,7 @@ type ProcurementRecipient = {
 };
 
 type ProcurementLine = {
+  imageUrl?: string | null;
   designation: string;
   quantity: number;
   unit?: string | null;
@@ -205,17 +206,29 @@ export default function ProcurementDocumentPrint({
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCellStyle, width: '32%' }}>Désignation des produits ou prestations</th>
-                <th style={{ ...tableHeaderCellStyle, width: '10%' }}>Quantité</th>
-                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>Unité</th>
-                <th style={{ ...tableHeaderCellStyle, width: '18%' }}>Prix unitaire HT</th>
-                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>TVA applicable</th>
-                <th style={{ ...tableHeaderCellStyle, width: '22%' }}>TOTAL HT</th>
+                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>Image</th>
+                <th style={{ ...tableHeaderCellStyle, width: '28%' }}>Désignation des produits ou prestations</th>
+                <th style={{ ...tableHeaderCellStyle, width: '9%' }}>Quantité</th>
+                <th style={{ ...tableHeaderCellStyle, width: '8%' }}>Unité</th>
+                <th style={{ ...tableHeaderCellStyle, width: '17%' }}>Prix unitaire HT</th>
+                <th style={{ ...tableHeaderCellStyle, width: '8%' }}>TVA applicable</th>
+                <th style={{ ...tableHeaderCellStyle, width: '21%' }}>TOTAL HT</th>
               </tr>
             </thead>
             <tbody>
               {enrichedLines.map((line, index) => (
                 <tr key={`${line.designation}-${index}`}>
+                  <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>
+                    {line.imageUrl ? (
+                      <img
+                        src={line.imageUrl}
+                        alt={line.designation}
+                        style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: 9, color: '#64748b' }}>Sans image</div>
+                    )}
+                  </td>
                   <td style={tableBodyCellStyle}>{textOrDash(line.designation)}</td>
                   <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.quantity)}</td>
                   <td style={{ ...tableBodyCellStyle, textAlign: 'center' }}>{textOrDash(line.unit)}</td>
@@ -232,11 +245,13 @@ export default function ProcurementDocumentPrint({
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
+                  <td style={tableBodyCellStyle} />
                 </tr>
               )}
               {enrichedLines.length > 0 && fillerHeightMm > 0 && (
                 <tr>
                   <td style={{ ...tableBodyCellStyle, height: `${fillerHeightMm}mm` }} />
+                  <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />
                   <td style={tableBodyCellStyle} />

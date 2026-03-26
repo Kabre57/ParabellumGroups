@@ -1,0 +1,15 @@
+ALTER TABLE "proformas"
+  ADD COLUMN IF NOT EXISTS "committeeProfileCode" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeEvaluation" JSONB,
+  ADD COLUMN IF NOT EXISTS "committeeDecision" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeDecisionNote" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeEvaluatedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "committeeEvaluatedByUserId" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeEvaluatedByEmail" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeEvaluatedByServiceId" INTEGER,
+  ADD COLUMN IF NOT EXISTS "committeeEvaluatedByServiceName" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeSignedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "committeeSignedByUserId" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeSignedByEmail" TEXT,
+  ADD COLUMN IF NOT EXISTS "committeeSignedByServiceId" INTEGER,
+  ADD COLUMN IF NOT EXISTS "committeeSignedByServiceName" TEXT;

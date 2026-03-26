@@ -26,11 +26,14 @@ import { CreateCommandeModal } from "@/components/achat/CreateCommandeModal";
 import type { CreateCommandePayload } from "@/components/achat/CreateCommandeModal";
 import { EditCommandeModal } from "@/components/achat/EditCommandeModal";
 import { ViewCommandeModal } from "@/components/achat/ViewCommandeModal";
+import billingService, { type CashVoucher, type PurchaseCommitment } from "@/shared/api/billing";
+import { CreateCashVoucherDialog } from "@/components/accounting/CreateCashVoucherDialog";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception } from "@/shared/api/inventory/types";
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { DocumentLinesTable } from '@/components/procurement/DocumentLinesTable';
 import { ReceptionLinesGrid } from '@/components/procurement/ReceptionLinesGrid';
 
@@ -63,8 +66,10 @@ export default function PurchaseOrdersPage() {
   const [editOrder, setEditOrder] = useState<PurchaseOrder | null>(null);
   const [viewOrder, setViewOrder] = useState<PurchaseOrder | null>(null);
   const [showReceptionModal, setShowReceptionModal] = useState(false);
+  const [showCashVoucherDialog, setShowCashVoucherDialog] = useState(false);
   const [receptionArticleSelections, setReceptionArticleSelections] = useState<Record<number, string>>({});
   const [receptionNotes, setReceptionNotes] = useState("");
+  const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
 
   const { data: ordersResponse, isLoading } = useQuery({
     queryKey: ["purchase-orders", statusFilter, searchTerm],
@@ -190,6 +195,23 @@ export default function PurchaseOrdersPage() {
     },
   });
 
+  const createCashVoucherMutation = useMutation({
+    mutationFn: billingService.createCashVoucher,
+    onSuccess: () => {
+      toast.success("Bon de caisse créé avec succès.");
+      setShowCashVoucherDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["purchase-order-cash-vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["billing-spending-overview"] });
+      router.push("/dashboard/comptabilite/depenses");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message ||
+          "Impossible de créer le bon de caisse lié à cette commande."
+      );
+    },
+  });
+
   const filteredOrders = useMemo(() => {
     const search = (searchTerm || "").toLowerCase();
     return orders.filter((order) => {
@@ -211,9 +233,23 @@ export default function PurchaseOrdersPage() {
     queryFn: () => inventoryReceptionsService.list({ limit: 200 }),
     staleTime: 60 * 1000,
   });
+  const canReadCashVouchers =
+    isAdminRole(user) ||
+    ['expenses.read', 'expenses.read_all', 'expenses.read_own', 'payments.read', 'payments.read_all'].some(
+      (permission) => permissionSet.has(permission)
+    );
+  const canCreateCashVoucher =
+    isAdminRole(user) || permissionSet.has('expenses.create');
+  const { data: cashVouchersResponse } = useQuery({
+    queryKey: ["purchase-order-cash-vouchers"],
+    queryFn: () => billingService.getCashVouchers({ sourceType: "PURCHASE_ORDER" }),
+    enabled: canReadCashVouchers,
+    staleTime: 60 * 1000,
+  });
   const articles = articlesResponse?.data ?? [];
   const receptions: Reception[] =
     (Array.isArray(receptionsResponse) ? receptionsResponse : receptionsResponse?.data) ?? [];
+  const cashVouchers: CashVoucher[] = cashVouchersResponse?.data ?? [];
   const receptionsByOrderId = useMemo(() => {
     const map = new Map<string, Reception>();
     receptions.forEach((reception) => {
@@ -223,6 +259,15 @@ export default function PurchaseOrdersPage() {
     });
     return map;
   }, [receptions]);
+  const cashVoucherByOrderId = useMemo(() => {
+    const map = new Map<string, CashVoucher>();
+    cashVouchers.forEach((voucher) => {
+      if (voucher?.sourceType === "PURCHASE_ORDER" && voucher?.sourceId && !map.has(voucher.sourceId)) {
+        map.set(voucher.sourceId, voucher);
+      }
+    });
+    return map;
+  }, [cashVouchers]);
   const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
     read: ['purchase_orders.read'],
     create: ['purchase_orders.create'],
@@ -265,6 +310,40 @@ export default function PurchaseOrdersPage() {
       }
     }
   };
+
+  const selectedOrderForAccounting = useMemo(() => {
+    const order: any = selectedDetail || selectedOrder;
+    if (!order?.id) {
+      return null;
+    }
+
+    const supplierId = order.fournisseurId ?? order.supplierId ?? null;
+    const supplierName =
+      resolveSupplierName(supplierId || undefined, order.fournisseurNom ?? order.supplier) || null;
+    const amountHT = Number(order.montantHT ?? order.amountHT ?? order.amount ?? order.montantTotal ?? 0);
+    const amountTVA = Number(order.montantTVA ?? order.amountTVA ?? 0);
+    const amountTTC = Number(order.montantTotal ?? order.amount ?? amountHT + amountTVA);
+
+    return {
+      voucher: cashVoucherByOrderId.get(order.id) || null,
+      commitment: {
+        id: `purchase-order-${order.id}`,
+        sourceType: "PURCHASE_ORDER" as const,
+        sourceId: order.id,
+        sourceNumber: order.numeroBon ?? order.number ?? "BC",
+        serviceId: order.serviceId != null ? Number(order.serviceId) : null,
+        serviceName: order.serviceName || null,
+        supplierId,
+        supplierName,
+        amountHT,
+        amountTVA,
+        amountTTC,
+        currency: order.devise || "XOF",
+        status: order.status || "BROUILLON",
+        createdAt: order.dateCommande || order.date || order.createdAt || null,
+      } satisfies PurchaseCommitment,
+    };
+  }, [cashVoucherByOrderId, resolveSupplierName, selectedDetail, selectedOrder]);
 
   return (
     <div className="space-y-6 overflow-x-hidden p-6">
@@ -455,6 +534,7 @@ export default function PurchaseOrdersPage() {
                 const amount = Number(d.amount ?? d.montantTotal ?? 0);
                 const date = d.date || d.dateCommande || d.createdAt || "";
                 const existingReception = d?.id ? receptionsByOrderId.get(d.id) : undefined;
+                const existingCashVoucher = d?.id ? cashVoucherByOrderId.get(d.id) : undefined;
 
                 return (
                   <div className="min-w-0 space-y-4">
@@ -493,6 +573,9 @@ export default function PurchaseOrdersPage() {
                       description="Lecture dense type ERP pour garder les colonnes visibles même sur les grosses commandes."
                       lines={lines.map((item: any) => ({
                         id: item.id,
+                        imageUrl:
+                          item.imageUrl ||
+                          (item.articleId ? articles.find((article) => article.id === item.articleId)?.imageUrl || null : null),
                         designation: item.designation,
                         categorie: item.categorie,
                         quantite: item.quantity ?? item.quantite ?? 0,
@@ -508,6 +591,25 @@ export default function PurchaseOrdersPage() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => setViewOrder(d)}>Voir</Button>
+                      {existingCashVoucher ? (
+                        <div className="flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                          Bon de caisse : {existingCashVoucher.voucherNumber}
+                        </div>
+                      ) : null}
+                      {canCreateCashVoucher && ['CONFIRME', 'LIVRE'].includes(String(d.status || '')) ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowCashVoucherDialog(true)}
+                          disabled={Boolean(existingCashVoucher)}
+                        >
+                          {existingCashVoucher ? 'Bon de caisse déjà créé' : 'Créer un bon de caisse'}
+                        </Button>
+                      ) : null}
+                      {existingCashVoucher ? (
+                        <Button variant="secondary" onClick={() => router.push('/dashboard/comptabilite/depenses')}>
+                          Voir le décaissement
+                        </Button>
+                      ) : null}
                       {existingReception && (
                         <div className="flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
                           Réception déjà créée : {existingReception.numero}
@@ -563,6 +665,16 @@ export default function PurchaseOrdersPage() {
         onClose={() => setViewOrder(null)}
         order={viewOrder || selectedDetail || selectedOrder || undefined}
       />
+
+      {canCreateCashVoucher && selectedOrderForAccounting ? (
+        <CreateCashVoucherDialog
+          open={showCashVoucherDialog}
+          onOpenChange={setShowCashVoucherDialog}
+          defaultCommitment={selectedOrderForAccounting.commitment}
+          onSubmit={(payload) => createCashVoucherMutation.mutate(payload)}
+          isSubmitting={createCashVoucherMutation.isPending}
+        />
+      ) : null}
 
       {canUpdate && (
       <Dialog open={showReceptionModal} onOpenChange={setShowReceptionModal}>

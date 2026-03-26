@@ -31,6 +31,7 @@ interface Product {
   reference?: string;
   code?: string;
   supplier?: string;
+  imageUrl?: string;
   name: string;
   category: string;
   stock: number;
@@ -67,6 +68,7 @@ const UNIT_OPTIONS: { value: ArticleUnit; label: string }[] = [
 interface ProductFormValues {
   reference?: string;
   nom: string;
+  imageUrl?: string;
   description?: string;
   categorie?: string;
   unite?: ArticleUnit;
@@ -106,6 +108,7 @@ export default function ProductsPage() {
       reference: item.reference,
       code: item.reference,
       supplier: item.fournisseurId,
+      imageUrl: item.imageUrl,
       name: item.nom,
       category: item.categorie || 'Non categorise',
       stock: item.quantiteStock ?? 0,
@@ -147,6 +150,7 @@ export default function ProductsPage() {
       inventoryService.createArticle({
         reference: values.reference || undefined,
         nom: values.nom,
+        imageUrl: values.imageUrl || undefined,
         description: values.description || undefined,
         categorie: values.categorie || undefined,
         unite: values.unite,
@@ -168,6 +172,7 @@ export default function ProductsPage() {
       inventoryService.updateArticle(id, {
         reference: values.reference || undefined,
         nom: values.nom,
+        imageUrl: values.imageUrl || undefined,
         description: values.description || undefined,
         categorie: values.categorie || undefined,
         unite: values.unite,
@@ -195,6 +200,7 @@ export default function ProductsPage() {
     defaultValues: {
       reference: '',
       nom: '',
+      imageUrl: '',
       description: '',
       categorie: '',
       unite: 'PIECE',
@@ -214,6 +220,7 @@ export default function ProductsPage() {
       form.reset({
         reference: editingProduct.reference || '',
         nom: editingProduct.nom || '',
+        imageUrl: editingProduct.imageUrl || '',
         description: editingProduct.description || '',
         categorie: editingProduct.categorie || '',
         unite: editingProduct.unite || 'PIECE',
@@ -229,6 +236,7 @@ export default function ProductsPage() {
       form.reset({
         reference: '',
         nom: '',
+        imageUrl: '',
         description: '',
         categorie: '',
         unite: 'PIECE',
@@ -369,6 +377,7 @@ export default function ProductsPage() {
               <table className="w-full text-sm">
                 <thead className="border-b text-left text-muted-foreground">
                   <tr>
+                    <th className="px-4 py-3 font-medium">Image</th>
                     <th className="px-4 py-3 font-medium">Reference</th>
                     <th className="px-4 py-3 font-medium">Nom</th>
                     <th className="px-4 py-3 font-medium">Categorie</th>
@@ -383,6 +392,19 @@ export default function ProductsPage() {
                 <tbody>
                   {filteredProducts.map((product) => (
                     <tr key={product.id} className="border-b last:border-0">
+                      <td className="px-4 py-3">
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="h-12 w-12 rounded-md border object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
+                            Sans image
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         {product.reference || product.id}
                       </td>
@@ -470,6 +492,13 @@ export default function ProductsPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Nom</label>
               <Input {...form.register('nom', { required: true })} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Image du produit</label>
+              <Input
+                {...form.register('imageUrl')}
+                placeholder="https://... ou URL publique de l'image"
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Description</label>

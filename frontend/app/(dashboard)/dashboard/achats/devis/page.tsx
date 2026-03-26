@@ -226,6 +226,7 @@ export default function PurchaseQuotesPage() {
         lineIndex === index
           ? {
               articleId,
+              imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
               quantite: line.quantite,

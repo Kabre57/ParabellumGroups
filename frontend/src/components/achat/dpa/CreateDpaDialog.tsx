@@ -86,7 +86,7 @@ export function CreateDpaDialog({
 }: CreateDpaDialogProps) {
   return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:px-5 lg:px-6">
+      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
         <DialogHeader>
           <DialogTitle>Nouvelle DPA</DialogTitle>
           <DialogDescription>

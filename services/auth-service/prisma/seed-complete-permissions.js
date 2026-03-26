@@ -569,6 +569,7 @@ const completePermissions = {
       { name: 'purchase_requests.delete', description: 'Supprimer des demandes' },
       { name: 'purchase_requests.approve', description: 'Approuver les demandes' },
       { name: 'purchase_requests.reject', description: 'Rejeter les demandes' },
+      { name: 'purchase_requests.evaluate_committee', description: 'Renseigner et signer la grille de commission achat' },
       { name: 'purchase_requests.recommend_supplier', description: 'Recommander une offre fournisseur pour validation' },
       { name: 'purchase_requests.export_committee', description: 'Exporter le PV et le rapport de commission achat' }
     ]

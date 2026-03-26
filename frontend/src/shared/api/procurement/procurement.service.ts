@@ -91,6 +91,80 @@ const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
         : null,
     disponibilite: proforma?.disponibilite || null,
     observationsAchat: proforma?.observationsAchat || null,
+    committeeProfileCode: proforma?.committeeProfileCode || null,
+    committeeEvaluation: proforma?.committeeEvaluation
+      ? {
+          profileCode: proforma.committeeEvaluation?.profileCode || proforma?.committeeProfileCode || null,
+          eliminatoryChecks: Array.isArray(proforma.committeeEvaluation?.eliminatoryChecks)
+            ? proforma.committeeEvaluation.eliminatoryChecks.map((item: any) => ({
+                criterionIndex: normalizeNumber(item?.criterionIndex, 0),
+                label: String(item?.label || ''),
+                requiredDocument: item?.requiredDocument || null,
+                passed:
+                  item?.passed === true || item?.passed === false ? Boolean(item.passed) : null,
+                notes: item?.notes || null,
+              }))
+            : [],
+          eliminatoryPassed: Boolean(proforma.committeeEvaluation?.eliminatoryPassed),
+          technicalScores: Array.isArray(proforma.committeeEvaluation?.technicalScores)
+            ? proforma.committeeEvaluation.technicalScores.map((item: any) => ({
+                criterionIndex: normalizeNumber(item?.criterionIndex, 0),
+                label: String(item?.label || ''),
+                maxPoints: normalizeNumber(item?.maxPoints, 0),
+                points: normalizeNumber(item?.points, 0),
+                notes: item?.notes || null,
+              }))
+            : [],
+          technicalTotal: normalizeNumber(proforma.committeeEvaluation?.technicalTotal, 0),
+          financialCriterion: proforma.committeeEvaluation?.financialCriterion
+            ? {
+                criterionIndex: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.criterionIndex, 15),
+                label: String(proforma.committeeEvaluation.financialCriterion?.label || ''),
+                maxPoints: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.maxPoints, 40),
+                points: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.points, 0),
+                notes: proforma.committeeEvaluation.financialCriterion?.notes || null,
+              }
+            : null,
+          financialScore: normalizeNumber(proforma.committeeEvaluation?.financialScore, 0),
+          totalScore: normalizeNumber(proforma.committeeEvaluation?.totalScore, 0),
+          decision: proforma.committeeEvaluation?.decision || null,
+          decisionNote: proforma.committeeEvaluation?.decisionNote || null,
+          lastUpdatedAt: proforma.committeeEvaluation?.lastUpdatedAt || null,
+          lastUpdatedByUserId: proforma.committeeEvaluation?.lastUpdatedByUserId || null,
+          lastUpdatedByEmail: proforma.committeeEvaluation?.lastUpdatedByEmail || null,
+          lastUpdatedByServiceId:
+            proforma.committeeEvaluation?.lastUpdatedByServiceId != null
+              ? Number(proforma.committeeEvaluation.lastUpdatedByServiceId)
+              : null,
+          lastUpdatedByServiceName: proforma.committeeEvaluation?.lastUpdatedByServiceName || null,
+          signedAt: proforma.committeeEvaluation?.signedAt || null,
+          signedByUserId: proforma.committeeEvaluation?.signedByUserId || null,
+          signedByEmail: proforma.committeeEvaluation?.signedByEmail || null,
+          signedByServiceId:
+            proforma.committeeEvaluation?.signedByServiceId != null
+              ? Number(proforma.committeeEvaluation.signedByServiceId)
+              : null,
+          signedByServiceName: proforma.committeeEvaluation?.signedByServiceName || null,
+        }
+      : null,
+    committeeDecision: proforma?.committeeDecision || null,
+    committeeDecisionNote: proforma?.committeeDecisionNote || null,
+    committeeEvaluatedAt: proforma?.committeeEvaluatedAt || null,
+    committeeEvaluatedByUserId: proforma?.committeeEvaluatedByUserId || null,
+    committeeEvaluatedByEmail: proforma?.committeeEvaluatedByEmail || null,
+    committeeEvaluatedByServiceId:
+      proforma?.committeeEvaluatedByServiceId != null
+        ? normalizeNumber(proforma.committeeEvaluatedByServiceId, 0)
+        : null,
+    committeeEvaluatedByServiceName: proforma?.committeeEvaluatedByServiceName || null,
+    committeeSignedAt: proforma?.committeeSignedAt || null,
+    committeeSignedByUserId: proforma?.committeeSignedByUserId || null,
+    committeeSignedByEmail: proforma?.committeeSignedByEmail || null,
+    committeeSignedByServiceId:
+      proforma?.committeeSignedByServiceId != null
+        ? normalizeNumber(proforma.committeeSignedByServiceId, 0)
+        : null,
+    committeeSignedByServiceName: proforma?.committeeSignedByServiceName || null,
     status: (proforma?.status || 'BROUILLON') as PurchaseProformaStatus,
     notes: proforma?.notes || null,
     submittedAt: proforma?.submittedAt || null,
@@ -109,6 +183,7 @@ const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
       id: String(ligne?.id ?? ''),
       articleId: ligne?.articleId || null,
       referenceArticle: ligne?.referenceArticle || null,
+      imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
       designation: ligne?.designation || '',
       categorie: ligne?.categorie || null,
       quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
@@ -186,6 +261,7 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
       id: String(ligne?.id ?? ''),
       articleId: ligne?.articleId || null,
       referenceArticle: ligne?.referenceArticle || null,
+      imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
       designation: ligne?.designation || ligne?.description || '',
       categorie: ligne?.categorie || null,
       quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
@@ -242,6 +318,7 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
         id: String(ligne?.id ?? ''),
         articleId: ligne?.articleId || null,
         referenceArticle: ligne?.referenceArticle || null,
+        imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
         designation: ligne?.designation || '',
         categorie: ligne?.categorie || null,
         quantity: normalizeNumber(ligne?.quantity ?? ligne?.quantite, 0),
@@ -258,6 +335,7 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
         id: String(ligne?.id ?? ''),
         articleId: ligne?.articleId || null,
         referenceArticle: ligne?.referenceArticle || null,
+        imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
         designation: ligne?.designation || '',
         categorie: ligne?.categorie || null,
         quantity: normalizeNumber(ligne?.quantite, 0),
@@ -620,6 +698,47 @@ export const procurementService = {
   ): Promise<DetailResponse<PurchaseProforma>> {
     const response = await apiClient.post(
       `/procurement/devis-achat/${requestId}/proformas/${proformaId}/recommend`
+    );
+    const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseProforma(normalized.data),
+    };
+  },
+
+  async saveProformaCommitteeEvaluation(
+    requestId: string,
+    proformaId: string,
+    data: {
+      profileCode?: string;
+      eliminatoryChecks?: Array<{
+        criterionIndex: number;
+        label: string;
+        requiredDocument?: string | null;
+        passed: boolean | null;
+        notes?: string | null;
+      }>;
+      technicalScores?: Array<{
+        criterionIndex: number;
+        label: string;
+        maxPoints: number;
+        points: number;
+        notes?: string | null;
+      }>;
+      financialCriterion?: {
+        criterionIndex: number;
+        label: string;
+        maxPoints: number;
+        notes?: string | null;
+      } | null;
+      decision?: string | null;
+      decisionNote?: string | null;
+      signDecision?: boolean;
+    }
+  ): Promise<DetailResponse<PurchaseProforma>> {
+    const response = await apiClient.post(
+      `/procurement/devis-achat/${requestId}/proformas/${proformaId}/committee-evaluation`,
+      data
     );
     const normalized = normalizeDetailResponse<PurchaseProforma>(response.data);
     return {

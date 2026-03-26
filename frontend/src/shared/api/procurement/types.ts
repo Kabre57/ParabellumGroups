@@ -70,6 +70,7 @@ export interface PurchaseOrderItem {
   id: string;
   articleId?: string | null;
   referenceArticle?: string | null;
+  imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
   quantity: number;
@@ -133,6 +134,7 @@ export interface PurchaseRequestLine {
   id?: string;
   articleId?: string | null;
   referenceArticle?: string | null;
+  imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
   quantite: number;
@@ -159,6 +161,7 @@ export interface PurchaseProformaLine {
   id?: string;
   articleId?: string | null;
   referenceArticle?: string | null;
+  imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
   quantite: number;
@@ -181,6 +184,45 @@ export interface PurchaseProformaApprovalLog {
   createdAt: string;
 }
 
+export interface PurchaseProformaCommitteeCheck {
+  criterionIndex: number;
+  label: string;
+  requiredDocument?: string | null;
+  passed: boolean | null;
+  notes?: string | null;
+}
+
+export interface PurchaseProformaCommitteeScore {
+  criterionIndex: number;
+  label: string;
+  maxPoints: number;
+  points: number;
+  notes?: string | null;
+}
+
+export interface PurchaseProformaCommitteeEvaluation {
+  profileCode?: string | null;
+  eliminatoryChecks: PurchaseProformaCommitteeCheck[];
+  eliminatoryPassed: boolean;
+  technicalScores: PurchaseProformaCommitteeScore[];
+  technicalTotal: number;
+  financialCriterion?: PurchaseProformaCommitteeScore | null;
+  financialScore: number;
+  totalScore: number;
+  decision?: string | null;
+  decisionNote?: string | null;
+  lastUpdatedAt?: string | null;
+  lastUpdatedByUserId?: string | null;
+  lastUpdatedByEmail?: string | null;
+  lastUpdatedByServiceId?: number | null;
+  lastUpdatedByServiceName?: string | null;
+  signedAt?: string | null;
+  signedByUserId?: string | null;
+  signedByEmail?: string | null;
+  signedByServiceId?: number | null;
+  signedByServiceName?: string | null;
+}
+
 export interface PurchaseProforma {
   id: string;
   numeroProforma: string;
@@ -196,6 +238,20 @@ export interface PurchaseProforma {
   delaiLivraisonJours?: number | null;
   disponibilite?: string | null;
   observationsAchat?: string | null;
+  committeeProfileCode?: string | null;
+  committeeEvaluation?: PurchaseProformaCommitteeEvaluation | null;
+  committeeDecision?: string | null;
+  committeeDecisionNote?: string | null;
+  committeeEvaluatedAt?: string | null;
+  committeeEvaluatedByUserId?: string | null;
+  committeeEvaluatedByEmail?: string | null;
+  committeeEvaluatedByServiceId?: number | null;
+  committeeEvaluatedByServiceName?: string | null;
+  committeeSignedAt?: string | null;
+  committeeSignedByUserId?: string | null;
+  committeeSignedByEmail?: string | null;
+  committeeSignedByServiceId?: number | null;
+  committeeSignedByServiceName?: string | null;
   status: PurchaseProformaStatus;
   notes?: string | null;
   submittedAt?: string | null;

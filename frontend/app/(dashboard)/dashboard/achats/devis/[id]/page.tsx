@@ -96,11 +96,10 @@ type CommissionDecisionRow = {
   status: string;
   selectedForOrder: boolean;
   recommendedForApproval: boolean;
-  priceScore: number;
-  delayScore: number;
-  availabilityScore: number;
-  supplierScore: number;
+  financialScore: number;
+  technicalScore: number;
   totalScore: number;
+  committeeDecision: string | null;
   justification: string;
 };
 
@@ -347,7 +346,7 @@ const buildCommissionDecisionRows = (
   return proformas
     .map((proforma) => {
       const supplierRating = supplierRatings.get(proforma.fournisseurId) ?? 3;
-      const priceScore =
+      const fallbackFinancialScore =
         bestAmount > 0 && proforma.montantTTC > 0 ? clampScore((bestAmount / proforma.montantTTC) * 50) : 0;
       const delayScore =
         bestDelay != null && proforma.delaiLivraisonJours != null && proforma.delaiLivraisonJours > 0
@@ -357,9 +356,14 @@ const buildCommissionDecisionRows = (
           : 0;
       const availabilityScore = computeAvailabilityScore(proforma.disponibilite);
       const supplierScore = clampScore((Math.max(0, Math.min(supplierRating, 5)) / 5) * 15);
-      const totalScore = clampScore(priceScore + delayScore + availabilityScore + supplierScore);
+      const fallbackTechnicalScore = clampScore(delayScore + availabilityScore + supplierScore);
+      const committeeEvaluation = proforma.committeeEvaluation;
+      const financialScore = committeeEvaluation?.financialScore ?? fallbackFinancialScore;
+      const technicalScore = committeeEvaluation?.technicalTotal ?? fallbackTechnicalScore;
+      const totalScore = committeeEvaluation?.totalScore ?? clampScore(technicalScore + financialScore);
 
       const justification = [
+        committeeEvaluation?.decisionNote || null,
         proforma.recommendedForApproval ? 'Recommandée par le service achat' : null,
         proforma.selectedForOrder ? 'Retenue après validation DG' : null,
         bestAmount > 0 && proforma.montantTTC === bestAmount ? 'Offre la moins-disante' : null,
@@ -379,11 +383,10 @@ const buildCommissionDecisionRows = (
         status: proforma.status,
         selectedForOrder: Boolean(proforma.selectedForOrder),
         recommendedForApproval: Boolean(proforma.recommendedForApproval),
-        priceScore,
-        delayScore,
-        availabilityScore,
-        supplierScore,
+        financialScore,
+        technicalScore,
         totalScore,
+        committeeDecision: committeeEvaluation?.decision || proforma.committeeDecision || null,
         justification,
       };
     })
@@ -425,6 +428,9 @@ export default function PurchaseQuoteDetailPage() {
   const canReadCommittee =
     isAdminRole(user) ||
     hasDirectPermission('purchase_requests.read_committee', 'purchase_requests.read_all', 'purchase_requests.approve');
+  const canEvaluateCommittee =
+    isAdminRole(user) ||
+    hasDirectPermission('purchase_requests.evaluate_committee', 'purchase_requests.approve');
   const canRecommendSupplier =
     isAdminRole(user) ||
     hasDirectPermission('purchase_requests.recommend_supplier') ||
@@ -498,6 +504,7 @@ export default function PurchaseQuoteDetailPage() {
         ? request.lines.map((line) => ({
             id: line.id,
             articleId: line.articleId || '',
+            imageUrl: line.imageUrl || '',
             designation: line.designation,
             categorie: line.categorie || '',
             quantite: line.quantite,
@@ -685,6 +692,31 @@ export default function PurchaseQuoteDetailPage() {
     },
   });
 
+  const committeeEvaluationMutation = useMutation({
+    mutationFn: ({
+      proformaId,
+      payload,
+    }: {
+      proformaId: string;
+      payload: Parameters<typeof procurementService.saveProformaCommitteeEvaluation>[2];
+    }) => procurementService.saveProformaCommitteeEvaluation(id, proformaId, payload),
+    onSuccess: (_response, variables) => {
+      toast.success(
+        variables.payload.signDecision
+          ? 'La décision de commission a été signée.'
+          : 'La grille de commission a été enregistrée.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message || "Erreur lors de l'enregistrement de la grille de commission."
+      );
+    },
+  });
+
   const rejectProformaMutation = useMutation({
     mutationFn: ({ proformaId, commentaire }: { proformaId: string; commentaire: string }) =>
       procurementService.rejectProforma(id, proformaId, commentaire),
@@ -737,6 +769,7 @@ export default function PurchaseQuoteDetailPage() {
           ? {
               ...line,
               articleId,
+              imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
               prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
@@ -958,10 +991,15 @@ export default function PurchaseQuoteDetailPage() {
             commissionDecisionRows={commissionDecisionRows}
             comparisonRows={proformaComparison.rows}
             canReadCommittee={canReadCommittee}
+            canEvaluateCommittee={canEvaluateCommittee}
             canManageProformasFlow={canManageProformasFlow}
             canRecommendSupplier={canRecommendSupplier}
             isRecommendPending={recommendProformaMutation.isPending}
+            savingCommitteeProformaId={committeeEvaluationMutation.variables?.proformaId || null}
             onRecommend={(proformaId) => recommendProformaMutation.mutate(proformaId)}
+            onSaveCommitteeEvaluation={(proformaId, payload) =>
+              committeeEvaluationMutation.mutate({ proformaId, payload })
+            }
             formatCurrency={formatCurrency}
           />
         </TabsContent>
@@ -1111,6 +1149,7 @@ export default function PurchaseQuoteDetailPage() {
             lines: lines.map((line) => ({
               id: line.id,
               articleId: line.articleId || null,
+              imageUrl: line.imageUrl || null,
               designation: line.designation,
               categorie: line.categorie || null,
               quantite: line.quantite,
@@ -1121,6 +1160,7 @@ export default function PurchaseQuoteDetailPage() {
             })),
           }}
           supplier={selectedSupplier}
+          articles={articles}
           serviceLogoUrl={serviceForPrint?.imageUrl}
           onClose={() => setIsPrintOpen(false)}
         />
