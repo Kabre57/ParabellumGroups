@@ -145,7 +145,7 @@ export const employeeProjectShortcuts: SidebarItem[] = [
 
 export const quickAccessItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read' },
-  { name: 'Nouveau Devis', href: '/dashboard/quotes?action=create', icon: FileText, permission: 'quotes.create' },
+  { name: 'Nouveau Devis', href: '/dashboard/commercial/quotes', icon: FileText, permission: 'quotes.create' },
   { name: 'Nouvelle Intervention', href: '/dashboard/technical/interventions?action=create', icon: Wrench, permission: 'interventions.create' },
   { name: 'Bon de caisse', href: '/dashboard/comptabilite/depenses?action=create', icon: DollarSign, permission: 'expenses.create' },
   { name: 'Commande Achat', href: '/dashboard/achats/commandes?action=create', icon: ShoppingCart, permission: 'purchase_orders.create' },

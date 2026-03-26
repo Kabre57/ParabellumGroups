@@ -26,6 +26,7 @@ import {
 import InvoiceForm from '@/components/billing/InvoiceForm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { useClients } from '@/hooks/useCrm';
 
 export default function FacturesPage() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function FacturesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { data: clients = [] } = useClients({ pageSize: 200 });
 
   const { data: invoicesResponse, isLoading } = useQuery({
     queryKey: ['invoices', searchQuery, statusFilter],
@@ -60,6 +62,7 @@ export default function FacturesPage() {
       PAYEE: { label: 'Payée', variant: 'success' },
       EN_RETARD: { label: 'En retard', variant: 'destructive' },
       ANNULEE: { label: 'Annulée', variant: 'secondary' },
+      PARTIELLEMENT_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
       PARTIALLY_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
     };
 
@@ -68,10 +71,7 @@ export default function FacturesPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
+    return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
   };
 
   const formatDate = (dateString?: string) => {
@@ -86,10 +86,10 @@ export default function FacturesPage() {
     }
   };
 
-  const handleDownloadPDF = (invoiceNum: string) => {
-    // TODO: Implémenter le téléchargement PDF
-    console.log('Download PDF:', invoiceNum);
-    alert('Fonctionnalité de téléchargement PDF à implémenter');
+  const handleDownloadPDF = async (invoiceId: string) => {
+    const blob = await billingService.getInvoicePDF(invoiceId);
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleSendInvoice = async (invoiceNum: string) => {
@@ -99,6 +99,7 @@ export default function FacturesPage() {
   };
 
   const invoices = invoicesResponse?.data ?? [];
+  const clientMap = new Map((Array.isArray(clients) ? clients : []).map((client: any) => [client.id, client]));
   const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
     read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
     create: ['invoices.create'],
@@ -175,7 +176,7 @@ export default function FacturesPage() {
                   <TableCell className="font-medium">
                     {invoice.numeroFacture}
                   </TableCell>
-                  <TableCell>{invoice.client?.nom || invoice.clientId || 'Client'}</TableCell>
+                  <TableCell>{invoice.client?.nom || clientMap.get(invoice.clientId)?.nom || invoice.clientId || 'Client'}</TableCell>
                   <TableCell>{formatDate(invoice.dateFacture)}</TableCell>
                   <TableCell>{formatDate(invoice.dateEcheance)}</TableCell>
                   <TableCell>{formatCurrency(invoice.montantTTC || 0)}</TableCell>
@@ -193,7 +194,7 @@ export default function FacturesPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}/edit`)}
+                          onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}`)}
                         >
                           Modifier
                         </Button>

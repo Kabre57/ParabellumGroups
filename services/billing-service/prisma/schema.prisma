@@ -74,6 +74,8 @@ model Devis {
   id            String       @id @default(uuid())
   numeroDevis   String       @unique
   clientId      String
+  objet         String?
+  notes         String?
   serviceId     String?
   serviceName   String?
   serviceLogoUrl String?
@@ -83,10 +85,23 @@ model Devis {
   montantTVA    Float
   montantTTC    Float
   status        DevisStatus  @default(BROUILLON)
+  sentAt        DateTime?
+  clientRespondedAt DateTime?
+  clientComment String?
+  revisionNumber Int         @default(1)
+  clientAccessToken String?  @unique
+  clientAccessTokenExpiresAt DateTime?
+  forwardedToBillingAt DateTime?
+  forwardedToBillingBy String?
+  convertedInvoiceId String?
+  convertedInvoiceNumber String?
+  acceptedAt    DateTime?
+  refusedAt     DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   lignes        LigneDevis[]
+  evenements    DevisEvent[]
 
   @@index([clientId])
   @@index([status])
@@ -111,6 +126,25 @@ model LigneDevis {
 
   @@index([devisId])
   @@map("lignes_devis")
+}
+
+model DevisEvent {
+  id          String   @id @default(uuid())
+  devisId     String
+  type        String
+  actorId     String?
+  actorEmail  String?
+  actorRole   String?
+  note        String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  devis       Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@index([devisId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("devis_events")
 }
 
 model PurchaseCommitment {
@@ -257,9 +291,12 @@ enum FactureStatus {
 enum DevisStatus {
   BROUILLON
   ENVOYE
+  MODIFICATION_DEMANDEE
   ACCEPTE
   REFUSE
   EXPIRE
+  TRANSMIS_FACTURATION
+  FACTURE
 }
 
 enum MethodePaiement {

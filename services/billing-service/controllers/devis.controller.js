@@ -1,15 +1,33 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const crypto = require('crypto');
+const path = require('path');
 const moment = require('moment');
+const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
 const { generateDevisNumber, generateFactureNumber } = require('../utils/billingNumberGenerator');
 const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateDevisPDF } = require('../utils/pdfGenerator');
-const axios = require('axios');
-const path = require('path');
+
+const prisma = new PrismaClient();
+
+const QUOTE_READ_INCLUDE = {
+  lignes: true,
+  evenements: {
+    orderBy: { createdAt: 'desc' },
+  },
+};
+
+const CLIENT_RESPONSE_STATUS = ['ACCEPTE', 'REFUSE', 'MODIFICATION_DEMANDEE'];
+const BILLING_READY_STATUS = ['ACCEPTE', 'TRANSMIS_FACTURATION'];
 
 const normalizeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeText = (value) => {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
 };
 
 const buildBillingLine = (ligne = {}) => {
@@ -58,6 +76,27 @@ const getDefaultDate = (value, daysToAdd = 30) => {
   const date = new Date();
   date.setDate(date.getDate() + daysToAdd);
   return date;
+};
+
+const buildActorContext = (req) => ({
+  actorId: req.user?.id ? String(req.user.id) : null,
+  actorEmail: req.user?.email || null,
+  actorRole: req.user?.role || null,
+});
+
+const createQuoteEvent = async (tx, devisId, type, req, note = null, payload = null) => {
+  const actor = buildActorContext(req);
+  return tx.devisEvent.create({
+    data: {
+      devisId,
+      type,
+      actorId: actor.actorId,
+      actorEmail: actor.actorEmail,
+      actorRole: actor.actorRole,
+      note: note || null,
+      payload: payload || undefined,
+    },
+  });
 };
 
 const getNextDevisNumber = async (tx = prisma) => {
@@ -117,8 +156,8 @@ const fetchServiceMeta = async (req, serviceId) => {
       serviceName: resp.data?.data?.name || null,
       serviceLogoUrl: resp.data?.data?.imageUrl || null,
     };
-  } catch (e) {
-    console.warn('Meta service non recuperee', e?.response?.status || e.message);
+  } catch (error) {
+    console.warn('Meta service non recuperee', error?.response?.status || error.message);
     return {
       serviceName: null,
       serviceLogoUrl: null,
@@ -126,16 +165,18 @@ const fetchServiceMeta = async (req, serviceId) => {
   }
 };
 
+const buildApprovalUrl = (req, token) => {
+  const baseUrl =
+    process.env.APP_PUBLIC_URL ||
+    `${req.headers['x-forwarded-proto'] || req.protocol || 'http'}://${req.get('host')}`;
+  return `${baseUrl.replace(/\/$/, '')}/quotes/respond/${token}`;
+};
+
 const createInvoiceFromQuote = async (tx, devis, options = {}) => {
   const numeroFacture = await getNextFactureNumber(tx);
   const dateEcheance = getDefaultDate(options.dateEcheance || devis.dateValidite, 30);
-  const approvalSuffix = options.approvedServiceName
-    ? ` - approuve au nom du service ${options.approvedServiceName}`
-    : options.approvedBy
-    ? ` - approuve par ${options.approvedBy}`
-    : '';
 
-  return tx.facture.create({
+  const invoice = await tx.facture.create({
     data: {
       numeroFacture,
       clientId: devis.clientId,
@@ -145,7 +186,7 @@ const createInvoiceFromQuote = async (tx, devis, options = {}) => {
       montantTTC: devis.montantTTC,
       notes:
         options.notes ||
-        `Convertie du devis ${devis.numeroDevis}${approvalSuffix}`,
+        `Convertie du devis ${devis.numeroDevis}${devis.objet ? ` - ${devis.objet}` : ''}`,
       serviceId: devis.serviceId,
       serviceName: devis.serviceName,
       serviceLogoUrl: devis.serviceLogoUrl,
@@ -166,353 +207,516 @@ const createInvoiceFromQuote = async (tx, devis, options = {}) => {
       paiements: true,
     },
   });
+
+  return invoice;
 };
 
-/**
- * Recupere tous les devis avec filtres optionnels
- */
+const updateQuoteLines = async (tx, devisId, lignes) => {
+  await tx.ligneDevis.deleteMany({ where: { devisId } });
+  if (lignes.length > 0) {
+    await tx.ligneDevis.createMany({
+      data: lignes.map((ligne) => ({
+        devisId,
+        ...ligne,
+      })),
+    });
+  }
+};
+
+const getQuoteOrThrow = async (id, queryConfig = { include: QUOTE_READ_INCLUDE }) => {
+  const devis = await prisma.devis.findUnique({
+    where: { id },
+    ...queryConfig,
+  });
+
+  if (!devis) {
+    const error = new Error('Devis non trouve');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return devis;
+};
+
 exports.getAllDevis = async (req, res) => {
   try {
-    const { clientId, status, dateDebut, dateFin } = req.query;
-
+    const { clientId, status, dateDebut, dateFin, search, limit, page } = req.query;
     const where = {};
+
     if (clientId) where.clientId = clientId;
     if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { numeroDevis: { contains: search, mode: 'insensitive' } },
+        { objet: { contains: search, mode: 'insensitive' } },
+        { notes: { contains: search, mode: 'insensitive' } },
+        { clientId: { contains: search, mode: 'insensitive' } },
+        { serviceName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
     if (dateDebut || dateFin) {
       where.dateEmission = {};
       if (dateDebut) where.dateEmission.gte = new Date(dateDebut);
       if (dateFin) where.dateEmission.lte = new Date(dateFin);
     }
 
-    const devis = await prisma.devis.findMany({
-      where,
-      include: {
-        lignes: true,
-      },
-      orderBy: { dateEmission: 'desc' },
-    });
+    const take = Math.min(Math.max(Number(limit) || 200, 1), 500);
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const skip = (currentPage - 1) * take;
 
-    res.json(devis);
+    const [items, total] = await Promise.all([
+      prisma.devis.findMany({
+        where,
+        include: { lignes: true },
+        orderBy: { dateEmission: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.devis.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: items,
+      meta: {
+        pagination: {
+          total,
+          page: currentPage,
+          limit: take,
+          totalPages: Math.max(1, Math.ceil(total / take)),
+        },
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Recupere un devis par ID
- */
 exports.getDevisById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const devis = await prisma.devis.findUnique({
-      where: { id },
-      include: {
-        lignes: true,
-      },
-    });
-
-    if (!devis) {
-      return res.status(404).json({ error: 'Devis non trouve' });
-    }
-
-    res.json(devis);
+    const devis = await getQuoteOrThrow(req.params.id);
+    res.json({ success: true, data: devis });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Cree un nouveau devis
- */
 exports.createDevis = async (req, res) => {
   try {
-    const { clientId } = req.body;
+    const clientId = normalizeText(req.body.clientId);
     const lignesData = normalizeLines(req.body.lignes);
+
+    if (!clientId) {
+      return res.status(400).json({ error: 'clientId est requis' });
+    }
+
+    if (lignesData.length === 0) {
+      return res.status(400).json({ error: 'Le devis doit contenir au moins une ligne' });
+    }
+
     const totaux = buildTotals(lignesData);
     const serviceId = req.user?.serviceId || null;
     const serviceMeta = await fetchServiceMeta(req, serviceId);
-    const numeroDevis = await getNextDevisNumber(prisma);
 
-    const devis = await prisma.devis.create({
-      data: {
-        numeroDevis,
-        clientId,
-        dateValidite: getDefaultDate(req.body.dateValidite),
-        montantHT: totaux.totalHT,
-        montantTVA: totaux.totalTVA,
-        montantTTC: totaux.totalTTC,
-        serviceId,
-        serviceName: serviceMeta.serviceName,
-        serviceLogoUrl: serviceMeta.serviceLogoUrl,
-        lignes: lignesData.length
-          ? {
-              create: lignesData,
-            }
-          : undefined,
-      },
-      include: {
-        lignes: true,
-      },
+    const devis = await prisma.$transaction(async (tx) => {
+      const numeroDevis = await getNextDevisNumber(tx);
+
+      const created = await tx.devis.create({
+        data: {
+          numeroDevis,
+          clientId,
+          objet: normalizeText(req.body.objet),
+          notes: normalizeText(req.body.notes),
+          dateValidite: getDefaultDate(req.body.dateValidite),
+          montantHT: totaux.totalHT,
+          montantTVA: totaux.totalTVA,
+          montantTTC: totaux.totalTTC,
+          serviceId,
+          serviceName: serviceMeta.serviceName,
+          serviceLogoUrl: serviceMeta.serviceLogoUrl,
+          lignes: {
+            create: lignesData,
+          },
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(tx, created.id, 'CREATED', req, 'Devis client cree');
+      return created;
     });
 
-    res.status(201).json(devis);
+    res.status(201).json({ success: true, data: devis });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Met a jour un devis
- */
 exports.updateDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    const { clientId, dateValidite, status } = req.body;
+    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
 
-    const devis = await prisma.devis.update({
-      where: { id },
-      data: {
-        clientId,
-        dateValidite: dateValidite ? new Date(dateValidite) : undefined,
-        status,
-      },
-      include: {
-        lignes: true,
-      },
+    if (current.status === 'FACTURE') {
+      return res.status(400).json({ error: 'Un devis facture ne peut plus etre modifie' });
+    }
+
+    const lignesData = req.body.lignes ? normalizeLines(req.body.lignes) : null;
+    if (Array.isArray(req.body.lignes) && lignesData.length === 0) {
+      return res.status(400).json({ error: 'Le devis doit contenir au moins une ligne valide' });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (lignesData) {
+        await updateQuoteLines(tx, id, lignesData);
+      }
+
+      const totaux = lignesData ? buildTotals(lignesData) : buildTotals(current.lignes);
+      const nextStatus =
+        req.body.status && req.body.status !== current.status && current.status === 'ACCEPTE'
+          ? current.status
+          : req.body.status;
+
+      const devis = await tx.devis.update({
+        where: { id },
+        data: {
+          clientId: normalizeText(req.body.clientId) || current.clientId,
+          objet: req.body.objet !== undefined ? normalizeText(req.body.objet) : undefined,
+          notes: req.body.notes !== undefined ? normalizeText(req.body.notes) : undefined,
+          dateValidite: req.body.dateValidite ? new Date(req.body.dateValidite) : undefined,
+          status: nextStatus || undefined,
+          montantHT: totaux.totalHT,
+          montantTVA: totaux.totalTVA,
+          montantTTC: totaux.totalTTC,
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(tx, id, 'UPDATED', req, 'Devis client modifie', {
+        linesUpdated: Boolean(lignesData),
+        status: devis.status,
+      });
+
+      return devis;
     });
 
-    res.json(devis);
+    res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Supprime un devis
- */
 exports.deleteDevis = async (req, res) => {
   try {
     const { id } = req.params;
+    const devis = await getQuoteOrThrow(id, { select: { id: true, status: true } });
 
-    await prisma.devis.delete({
-      where: { id },
-    });
+    if (['TRANSMIS_FACTURATION', 'FACTURE'].includes(devis.status)) {
+      return res.status(400).json({ error: 'Impossible de supprimer un devis deja transmis ou facture' });
+    }
 
-    res.json({ message: 'Devis supprime avec succes' });
+    await prisma.devis.delete({ where: { id } });
+    res.json({ success: true, message: 'Devis supprime avec succes' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Ajoute une ligne a un devis
- */
 exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
     const ligneData = buildBillingLine(req.body);
 
-    await prisma.ligneDevis.create({
-      data: {
-        devisId: id,
-        ...ligneData,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.ligneDevis.create({
+        data: {
+          devisId: id,
+          ...ligneData,
+        },
+      });
+
+      const lignes = await tx.ligneDevis.findMany({ where: { devisId: id } });
+      const totaux = calculateTotal(lignes);
+
+      await tx.devis.update({
+        where: { id },
+        data: {
+          montantHT: totaux.totalHT,
+          montantTVA: totaux.totalTVA,
+          montantTTC: totaux.totalTTC,
+        },
+      });
+
+      await createQuoteEvent(tx, id, 'LINE_ADDED', req, 'Nouvelle ligne ajoutee au devis');
     });
 
-    const lignes = await prisma.ligneDevis.findMany({
-      where: { devisId: id },
-    });
-
-    const totaux = calculateTotal(lignes);
-
-    const devis = await prisma.devis.update({
-      where: { id },
-      data: {
-        montantHT: totaux.totalHT,
-        montantTVA: totaux.totalTVA,
-        montantTTC: totaux.totalTTC,
-      },
-      include: {
-        lignes: true,
-      },
-    });
-
-    res.status(201).json(devis);
+    const devis = await getQuoteOrThrow(id);
+    res.status(201).json({ success: true, data: devis });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Approuve un devis et le transforme en facture
- */
-exports.acceptDevis = async (req, res) => {
+exports.sendDevis = async (req, res) => {
   try {
     const { id } = req.params;
+    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
 
-    const devis = await prisma.devis.findUnique({
-      where: { id },
-      include: { lignes: true },
-    });
-
-    if (!devis) {
-      return res.status(404).json({ error: 'Devis non trouve' });
+    if (!current.lignes.length) {
+      return res.status(400).json({ error: 'Le devis doit contenir au moins une ligne avant envoi' });
     }
 
-    if (!Array.isArray(devis.lignes) || devis.lignes.length === 0) {
-      return res.status(400).json({ error: 'Un devis doit contenir au moins une ligne avant approbation' });
-    }
+    const needsRevisionIncrement = ['ENVOYE', 'MODIFICATION_DEMANDEE', 'REFUSE'].includes(current.status);
+    const clientAccessToken = current.clientAccessToken || crypto.randomBytes(24).toString('hex');
 
-    const approverLabel = req.user?.email || req.user?.id || req.user?.userId || null;
-    const approvedServiceName = devis.serviceName || null;
-
-    const facture = await prisma.$transaction(async (tx) => {
-      const approvedQuote = await tx.devis.update({
+    const devis = await prisma.$transaction(async (tx) => {
+      const updated = await tx.devis.update({
         where: { id },
         data: {
-          status: 'ACCEPTE',
+          status: 'ENVOYE',
+          sentAt: new Date(),
+          clientAccessToken,
+          clientAccessTokenExpiresAt: moment().add(90, 'days').toDate(),
+          revisionNumber: needsRevisionIncrement ? current.revisionNumber + 1 : current.revisionNumber,
         },
-        include: {
-          lignes: true,
-        },
+        include: QUOTE_READ_INCLUDE,
       });
 
-      const createdInvoice = await createInvoiceFromQuote(tx, approvedQuote, {
-        dateEcheance: req.body?.dateEcheance,
-        notes: req.body?.notes,
-        approvedBy: approverLabel,
-        approvedServiceName,
-      });
+      await createQuoteEvent(
+        tx,
+        id,
+        needsRevisionIncrement ? 'RESENT_TO_CLIENT' : 'SENT_TO_CLIENT',
+        req,
+        req.body?.message || 'Devis envoye au client',
+        { revisionNumber: updated.revisionNumber }
+      );
 
-      await tx.devis.delete({
-        where: { id },
-      });
-
-      return createdInvoice;
+      return updated;
     });
 
     res.json({
       success: true,
-      message: 'Devis approuve et transforme en facture',
+      message: 'Devis envoye au client',
       data: {
-        quoteId: id,
-        invoice: facture,
+        ...devis,
+        approvalUrl: buildApprovalUrl(req, clientAccessToken),
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Refuse un devis
- */
+exports.acceptDevis = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
+
+    if (!current.lignes.length) {
+      return res.status(400).json({ error: 'Un devis doit contenir au moins une ligne avant validation' });
+    }
+
+    const devis = await prisma.$transaction(async (tx) => {
+      const updated = await tx.devis.update({
+        where: { id },
+        data: {
+          status: 'ACCEPTE',
+          acceptedAt: new Date(),
+          clientRespondedAt: new Date(),
+          clientComment: normalizeText(req.body?.comment),
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(
+        tx,
+        id,
+        'CLIENT_APPROVED',
+        req,
+        req.body?.comment || 'Devis valide par le client'
+      );
+
+      return updated;
+    });
+
+    res.json({
+      success: true,
+      message: 'Devis valide par le client. Il peut maintenant etre transmis a la facturation.',
+      data: devis,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+exports.requestModificationDevis = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await getQuoteOrThrow(id, { select: { id: true, status: true } });
+
+    const devis = await prisma.$transaction(async (tx) => {
+      const updated = await tx.devis.update({
+        where: { id },
+        data: {
+          status: 'MODIFICATION_DEMANDEE',
+          clientRespondedAt: new Date(),
+          clientComment: normalizeText(req.body?.comment),
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(
+        tx,
+        id,
+        'CLIENT_REQUESTED_CHANGES',
+        req,
+        req.body?.comment || 'Le client demande des modifications'
+      );
+
+      return updated;
+    });
+
+    res.json({
+      success: true,
+      message: 'Le devis est revenu en modification demandee.',
+      data: devis,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
 exports.refuseDevis = async (req, res) => {
   try {
     const { id } = req.params;
+    await getQuoteOrThrow(id, { select: { id: true, status: true } });
 
-    const devis = await prisma.devis.update({
-      where: { id },
-      data: {
-        status: 'REFUSE',
-      },
-      include: {
-        lignes: true,
-      },
+    const devis = await prisma.$transaction(async (tx) => {
+      const updated = await tx.devis.update({
+        where: { id },
+        data: {
+          status: 'REFUSE',
+          refusedAt: new Date(),
+          clientRespondedAt: new Date(),
+          clientComment: normalizeText(req.body?.raison || req.body?.comment),
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(
+        tx,
+        id,
+        'CLIENT_REJECTED',
+        req,
+        req.body?.raison || req.body?.comment || 'Le client a refuse le devis'
+      );
+
+      return updated;
     });
 
-    res.json(devis);
+    res.json({ success: true, data: devis });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Convertit un devis accepte en facture
- */
+exports.forwardToBilling = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const current = await getQuoteOrThrow(id, { select: { id: true, status: true } });
+
+    if (!BILLING_READY_STATUS.includes(current.status)) {
+      return res.status(400).json({ error: 'Seul un devis valide client peut etre transmis a la facturation' });
+    }
+
+    const devis = await prisma.$transaction(async (tx) => {
+      const updated = await tx.devis.update({
+        where: { id },
+        data: {
+          status: 'TRANSMIS_FACTURATION',
+          forwardedToBillingAt: new Date(),
+          forwardedToBillingBy: req.user?.email || req.user?.id || null,
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(tx, id, 'FORWARDED_TO_BILLING', req, 'Devis transmis a la facturation');
+      return updated;
+    });
+
+    res.json({
+      success: true,
+      message: 'Devis transmis a la facturation.',
+      data: devis,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
 exports.convertToFacture = async (req, res) => {
   try {
     const { id } = req.params;
+    const devis = await getQuoteOrThrow(id, { include: { lignes: true } });
 
-    const devis = await prisma.devis.findUnique({
-      where: { id },
-      include: { lignes: true },
-    });
-
-    if (!devis) {
-      return res.status(404).json({ error: 'Devis non trouve' });
+    if (!BILLING_READY_STATUS.includes(devis.status)) {
+      return res.status(400).json({ error: 'Le devis doit etre valide client puis transmis a la facturation' });
     }
 
-    if (devis.status !== 'ACCEPTE') {
-      return res.status(400).json({ error: 'Seul un devis accepte peut etre converti en facture' });
+    if (devis.convertedInvoiceId) {
+      const existingInvoice = await prisma.facture.findUnique({
+        where: { id: devis.convertedInvoiceId },
+        include: { lignes: true, paiements: true },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Ce devis a deja ete converti en facture.',
+        data: existingInvoice,
+      });
     }
 
-    const facture = await prisma.$transaction(async (tx) => {
+    const invoice = await prisma.$transaction(async (tx) => {
       const createdInvoice = await createInvoiceFromQuote(tx, devis, {
         dateEcheance: req.body?.dateEcheance,
         notes: req.body?.notes,
       });
 
-      await tx.devis.delete({
+      await tx.devis.update({
         where: { id },
+        data: {
+          status: 'FACTURE',
+          convertedInvoiceId: createdInvoice.id,
+          convertedInvoiceNumber: createdInvoice.numeroFacture,
+        },
+      });
+
+      await createQuoteEvent(tx, id, 'CONVERTED_TO_INVOICE', req, `Facture ${createdInvoice.numeroFacture} creee`, {
+        invoiceId: createdInvoice.id,
+        invoiceNumber: createdInvoice.numeroFacture,
       });
 
       return createdInvoice;
     });
 
-    res.status(201).json(facture);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-/**
- * Envoie un devis (change le statut a ENVOYE)
- */
-exports.sendDevis = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const devis = await prisma.devis.update({
-      where: { id },
-      data: {
-        status: 'ENVOYE',
-      },
-      include: {
-        lignes: true,
-      },
+    res.status(201).json({
+      success: true,
+      message: 'Devis transforme en facture.',
+      data: invoice,
     });
-
-    res.json(devis);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
-/**
- * Genere le PDF d'un devis
- */
 exports.generatePDF = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const devis = await prisma.devis.findUnique({
-      where: { id },
-      include: {
-        lignes: true,
-      },
-    });
-
-    if (!devis) {
-      return res.status(404).json({ error: 'Devis non trouve' });
-    }
+    const devis = await getQuoteOrThrow(id, { include: { lignes: true } });
 
     const outputPath = path.join(__dirname, '..', 'temp', `${devis.numeroDevis}.pdf`);
     await generateDevisPDF(devis, outputPath);
-
     res.download(outputPath);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };

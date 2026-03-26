@@ -6,10 +6,16 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   vatRate: number;
+  quantite?: number;
+  prixUnitaire?: number;
+  tauxTVA?: number;
   total?: number;
   totalHT?: number;
   totalTVA?: number;
   totalTTC?: number;
+  montantHT?: number;
+  montantTVA?: number;
+  montantTTC?: number;
 }
 
 export interface Invoice {
@@ -42,6 +48,8 @@ export interface Quote {
   id: string;
   numeroDevis: string;
   clientId: string;
+  objet?: string | null;
+  notes?: string | null;
   serviceId?: string;
   serviceName?: string;
   serviceLogoUrl?: string;
@@ -54,13 +62,44 @@ export interface Quote {
   dateDevis: string;
   dateValidite?: string;
   lignes: InvoiceItem[];
-  notes?: string;
-  status: 'BROUILLON' | 'ENVOYE' | 'ACCEPTE' | 'REFUSE' | 'EXPIRE' | 'CONVERTI';
+  status:
+    | 'BROUILLON'
+    | 'ENVOYE'
+    | 'MODIFICATION_DEMANDEE'
+    | 'ACCEPTE'
+    | 'REFUSE'
+    | 'EXPIRE'
+    | 'TRANSMIS_FACTURATION'
+    | 'FACTURE';
   montantHT: number;
   montantTTC: number;
   montantTVA: number;
+  sentAt?: string | null;
+  clientRespondedAt?: string | null;
+  clientComment?: string | null;
+  revisionNumber?: number;
+  approvalUrl?: string;
+  forwardedToBillingAt?: string | null;
+  forwardedToBillingBy?: string | null;
+  convertedInvoiceId?: string | null;
+  convertedInvoiceNumber?: string | null;
+  acceptedAt?: string | null;
+  refusedAt?: string | null;
+  evenements?: QuoteEvent[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface QuoteEvent {
+  id: string;
+  devisId: string;
+  type: string;
+  actorId?: string | null;
+  actorEmail?: string | null;
+  actorRole?: string | null;
+  note?: string | null;
+  payload?: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 export interface Payment {
@@ -428,6 +467,7 @@ export const billingService = {
 
   async createQuote(data: {
     clientId: string;
+    objet?: string;
     dateDevis?: string;
     dateValidite?: string;
     lignes: InvoiceItem[];
@@ -452,8 +492,13 @@ export const billingService = {
     return normalizeDetailResponse<Quote>(response.data);
   },
 
-  async acceptQuote(id: string): Promise<DetailResponse<Quote>> {
-    const response = await apiClient.post(`/billing/quotes/${id}/accept`);
+  async acceptQuote(id: string, comment?: string): Promise<DetailResponse<Quote>> {
+    const response = await apiClient.post(`/billing/quotes/${id}/accept`, { comment });
+    return normalizeDetailResponse<Quote>(response.data);
+  },
+
+  async requestQuoteModification(id: string, comment?: string): Promise<DetailResponse<Quote>> {
+    const response = await apiClient.post(`/billing/quotes/${id}/request-modification`, { comment });
     return normalizeDetailResponse<Quote>(response.data);
   },
 
@@ -462,13 +507,18 @@ export const billingService = {
     return normalizeDetailResponse<Quote>(response.data);
   },
 
+  async forwardQuoteToBilling(id: string): Promise<DetailResponse<Quote>> {
+    const response = await apiClient.post(`/billing/quotes/${id}/forward-to-billing`);
+    return normalizeDetailResponse<Quote>(response.data);
+  },
+
   async convertQuoteToInvoice(id: string): Promise<DetailResponse<Invoice>> {
     const response = await apiClient.post(`/billing/quotes/${id}/convert-to-facture`);
     return normalizeDetailResponse<Invoice>(response.data);
   },
 
-  async sendQuote(id: string): Promise<DetailResponse<Quote>> {
-    const response = await apiClient.post(`/billing/quotes/${id}/send`);
+  async sendQuote(id: string, message?: string): Promise<DetailResponse<Quote>> {
+    const response = await apiClient.post(`/billing/quotes/${id}/send`, { message });
     return normalizeDetailResponse<Quote>(response.data);
   },
 

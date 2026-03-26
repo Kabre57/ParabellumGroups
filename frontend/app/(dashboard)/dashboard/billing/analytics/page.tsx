@@ -58,7 +58,7 @@ export default function BillingAnalyticsPage() {
     totalInvoices: invoices.length,
     totalQuotes: quotes.length,
     paidInvoices: invoices.filter((i: any) => i.status === 'PAID').length,
-    acceptedQuotes: quotes.filter((q: any) => q.status === 'ACCEPTED').length,
+    acceptedQuotes: quotes.filter((q: any) => ['ACCEPTE', 'TRANSMIS_FACTURATION', 'FACTURE'].includes(q.status)).length,
     totalRevenue,
     pendingAmount,
     overdueAmount,

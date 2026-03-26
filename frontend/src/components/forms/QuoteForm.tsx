@@ -233,9 +233,12 @@ export default function QuoteForm({ quote, customers = [], onSuccess, onCancel }
               className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="BROUILLON">Brouillon</option>
-              <option value="ENVOYE">Envoyé</option>
-              <option value="ACCEPTE">Accepté</option>
-              <option value="REFUSE">Rejeté</option>
+              <option value="ENVOYE">Envoyé client</option>
+              <option value="MODIFICATION_DEMANDEE">Modification demandée</option>
+              <option value="ACCEPTE">Validé client</option>
+              <option value="REFUSE">Refusé</option>
+              <option value="TRANSMIS_FACTURATION">Transmis facturation</option>
+              <option value="FACTURE">Facturé</option>
             </select>
           </div>
         </div>

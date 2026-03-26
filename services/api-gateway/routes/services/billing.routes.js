@@ -31,6 +31,18 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/quotes\/[^/]+\/request-modification$/,
+    permissions: {
+      POST: ['quotes.update', 'quotes.approve']
+    }
+  },
+  {
+    pattern: /^\/quotes\/[^/]+\/forward-to-billing$/,
+    permissions: {
+      POST: ['quotes.approve', 'quotes.convert', 'invoices.create']
+    }
+  },
+  {
     pattern: /^\/quotes\/[^/]+\/convert-to-facture$/,
     permissions: {
       POST: ['quotes.convert', 'quotes.approve', 'invoices.create']

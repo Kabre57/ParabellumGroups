@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { billingService } from '@/shared/api/billing';
 import { analyticsService } from '@/shared/api/analytics/analytics.service';
+import { useClients } from '@/hooks/useCrm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -58,6 +59,8 @@ export default function FacturationPage() {
     queryFn: () => billingService.getPurchaseCommitmentsStats(),
   });
 
+  const { data: clients = [] } = useClients({ pageSize: 200 });
+
   const monthLabels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
   const monthlyRevenue = (overviewResponse?.data?.monthly_revenue || []).map((value: number, idx: number) => ({
     month: monthLabels[idx % 12],
@@ -71,6 +74,7 @@ export default function FacturationPage() {
       PAYEE: { label: 'Payée', variant: 'success' },
       EN_RETARD: { label: 'En retard', variant: 'destructive' },
       ANNULEE: { label: 'Annulée', variant: 'secondary' },
+      PARTIELLEMENT_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
       PARTIALLY_PAYEE: { label: 'Partiellement payée', variant: 'warning' },
     };
 
@@ -79,10 +83,7 @@ export default function FacturationPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
+    return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
   };
 
   const formatDate = (dateString?: string) => {
@@ -95,6 +96,7 @@ export default function FacturationPage() {
   const invoices = invoicesResponse?.data ?? [];
   const purchaseStats = purchaseStatsResponse?.data;
   const purchaseCommitments = purchaseCommitmentsResponse?.data ?? [];
+  const clientMap = new Map((Array.isArray(clients) ? clients : []).map((client: any) => [client.id, client]));
 
   return (
     <div className="space-y-6">
@@ -244,7 +246,7 @@ export default function FacturationPage() {
                 <TableHead>Numéro</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Ã‰chéance</TableHead>
+                <TableHead>Échéance</TableHead>
                 <TableHead>Montant</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -256,7 +258,7 @@ export default function FacturationPage() {
                   <TableCell className="font-medium">
                     {invoice.numeroFacture}
                   </TableCell>
-                  <TableCell>{invoice.client?.nom || invoice.clientId || 'Client'}</TableCell>
+                  <TableCell>{invoice.client?.nom || clientMap.get(invoice.clientId)?.nom || invoice.clientId || 'Client'}</TableCell>
                   <TableCell>{formatDate(invoice.dateFacture)}</TableCell>
                   <TableCell>{formatDate(invoice.dateEcheance)}</TableCell>
                   <TableCell>{formatCurrency(invoice.montantTTC || 0)}</TableCell>
@@ -368,5 +370,4 @@ export default function FacturationPage() {
     </div>
   );
 }
-
 

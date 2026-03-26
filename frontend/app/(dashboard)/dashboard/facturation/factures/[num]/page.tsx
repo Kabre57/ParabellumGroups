@@ -68,10 +68,8 @@ export default function InvoiceDetailPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
+  const formatCurrency = (amount: number) =>
+    `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
@@ -101,6 +99,12 @@ export default function InvoiceDetailPage() {
   const totalPaid = payments.reduce((sum, p) => sum + p.montant, 0);
   const remainingAmount = total - totalPaid;
 
+  const handlePrintInvoice = async () => {
+    const blob = await billingService.getInvoicePDF(invoice.id);
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center gap-4">
@@ -112,7 +116,7 @@ export default function InvoiceDetailPage() {
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{getStatusBadge(invoice.status)}</p>
         </div>
         <div className="flex gap-2">
-          {canExport && <Button variant="outline" onClick={() => alert('Telechargement PDF a implementer')}>Telecharger PDF</Button>}
+          {canExport && <Button variant="outline" onClick={() => void handlePrintInvoice()}>Telecharger PDF</Button>}
           {canUpdate && <Button variant="outline" onClick={() => alert('Envoi par email a implementer')}>Envoyer par email</Button>}
           {canCreate && <Button onClick={() => setIsPaymentDialogOpen(true)}>Enregistrer paiement</Button>}
         </div>
