@@ -69,6 +69,7 @@ export default function PurchaseOrdersPage() {
   const [showCashVoucherDialog, setShowCashVoucherDialog] = useState(false);
   const [receptionArticleSelections, setReceptionArticleSelections] = useState<Record<number, string>>({});
   const [receptionNotes, setReceptionNotes] = useState("");
+  const [receptionInvoiceFile, setReceptionInvoiceFile] = useState<File | null>(null);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
 
   const { data: ordersResponse, isLoading } = useQuery({
@@ -176,14 +177,20 @@ export default function PurchaseOrdersPage() {
   });
 
   const createReceptionMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof inventoryReceptionsService.create>[0]) =>
-      inventoryReceptionsService.create(payload),
+    mutationFn: async (payload: Parameters<typeof inventoryReceptionsService.create>[0]) => {
+      const created = await inventoryReceptionsService.create(payload);
+      if (receptionInvoiceFile && created?.data?.id) {
+        await inventoryReceptionsService.uploadSupplierInvoice(created.data.id, receptionInvoiceFile);
+      }
+      return created;
+    },
     onSuccess: () => {
       toast.success("La réception a été créée avec succès.");
       queryClient.invalidateQueries({ queryKey: ["receptions"] });
       queryClient.invalidateQueries({ queryKey: ["receptions-for-orders"] });
       setShowReceptionModal(false);
       setReceptionNotes("");
+      setReceptionInvoiceFile(null);
       router.push("/dashboard/achats/receptions");
     },
     onError: (error: any) => {
@@ -698,7 +705,13 @@ export default function PurchaseOrdersPage() {
                     commande.
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowReceptionModal(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowReceptionModal(false);
+                        setReceptionInvoiceFile(null);
+                      }}
+                    >
                       Fermer
                     </Button>
                   </DialogFooter>
@@ -771,9 +784,29 @@ export default function PurchaseOrdersPage() {
                     className="min-h-[96px]"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Facture fournisseur</label>
+                  <Input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setReceptionInvoiceFile(file);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Joignez la facture fournisseur pour l&apos;archivage de la réception.
+                  </p>
+                </div>
 
                 <DialogFooter className="border-t bg-background pt-4">
-                  <Button variant="outline" onClick={() => setShowReceptionModal(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowReceptionModal(false);
+                      setReceptionInvoiceFile(null);
+                    }}
+                  >
                     Annuler
                   </Button>
                   <Button

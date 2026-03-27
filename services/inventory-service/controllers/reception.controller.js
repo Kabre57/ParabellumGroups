@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { uploadToS3, isS3Configured } = require('../utils/s3');
 const prisma = new PrismaClient();
 
 const generateNumero = () => {
@@ -10,7 +11,7 @@ const generateNumero = () => {
 
 exports.createReception = async (req, res) => {
   try {
-    const { bonCommandeId, fournisseurId, notes, lignes = [] } = req.body;
+    const { bonCommandeId, fournisseurId, notes, lignes = [], factureFournisseurUrl, factureFournisseurName } = req.body;
 
     if (!bonCommandeId || !Array.isArray(lignes) || lignes.length === 0) {
       return res.status(400).json({ error: 'bonCommandeId et au moins une ligne sont requis' });
@@ -61,6 +62,8 @@ exports.createReception = async (req, res) => {
         bonCommandeId,
         fournisseurId: fournisseurId || null,
         notes: notes || null,
+        factureFournisseurUrl: factureFournisseurUrl || null,
+        factureFournisseurName: factureFournisseurName || null,
         lignes: {
           create: mappedLines,
         },
@@ -99,6 +102,46 @@ exports.getReception = async (req, res) => {
   } catch (error) {
     console.error('Erreur récupération réception:', error);
     res.status(500).json({ error: 'Erreur lors de la récupération de la réception' });
+  }
+};
+
+exports.uploadSupplierInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ error: 'Fichier manquant' });
+    }
+
+    if (!isS3Configured()) {
+      return res.status(500).json({ error: 'Stockage fichier non configuré' });
+    }
+
+    const reception = await prisma.reception.findUnique({
+      where: { id },
+      include: { lignes: true },
+    });
+    if (!reception) {
+      return res.status(404).json({ error: 'Réception non trouvée' });
+    }
+
+    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'receptions');
+    if (!url) {
+      return res.status(500).json({ error: 'Impossible de téléverser la facture fournisseur' });
+    }
+
+    const updated = await prisma.reception.update({
+      where: { id },
+      data: {
+        factureFournisseurUrl: url,
+        factureFournisseurName: req.file.originalname || null,
+      },
+      include: { lignes: true },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Erreur upload facture fournisseur:', error);
+    res.status(500).json({ error: 'Erreur lors de l’upload de la facture fournisseur' });
   }
 };
 

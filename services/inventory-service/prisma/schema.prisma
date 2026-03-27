@@ -198,6 +198,8 @@ model Reception {
   dateReception  DateTime         @default(now())
   status         StatusReception  @default(EN_ATTENTE)
   notes          String?
+  factureFournisseurUrl  String?
+  factureFournisseurName String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

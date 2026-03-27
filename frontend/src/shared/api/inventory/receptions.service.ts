@@ -44,4 +44,13 @@ export const inventoryReceptionsService = {
     const response = await apiClient.patch(`/inventory/receptions/${id}/validate`, payload ?? {});
     return response.data;
   },
+
+  async uploadSupplierInvoice(id: string, file: File): Promise<ApiResponse<Reception>> {
+    const formData = new FormData();
+    formData.append('invoice', file);
+    const response = await apiClient.post(`/inventory/receptions/${id}/invoice`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 };

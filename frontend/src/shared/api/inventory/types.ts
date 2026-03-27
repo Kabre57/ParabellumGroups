@@ -59,6 +59,8 @@ export interface Reception {
   dateReception: string;
   status: ReceptionStatus;
   notes?: string;
+  factureFournisseurUrl?: string | null;
+  factureFournisseurName?: string | null;
   lignes: ReceptionLine[];
   createdAt?: string;
   updatedAt?: string;

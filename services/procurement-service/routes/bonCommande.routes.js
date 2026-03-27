@@ -38,6 +38,7 @@ router.use(authMiddleware);
 // Routes
 router.get('/', bonCommandeController.getAll);
 router.get('/validations', bonCommandeController.getValidationHistory);
+router.post('/from-proforma', bonCommandeController.createFromProforma);
 router.post('/', validateCreateBonCommande, bonCommandeController.create);
 router.get('/fournisseur/:fournisseurId', bonCommandeController.getByFournisseur);
 router.get('/:id/validations', bonCommandeController.getValidationLogs);

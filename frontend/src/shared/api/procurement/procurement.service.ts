@@ -838,6 +838,18 @@ export const procurementService = {
     };
   },
 
+  async createOrderFromProforma(data: {
+    proformaId: string;
+    status?: PurchaseOrderStatus;
+  }): Promise<DetailResponse<PurchaseOrder>> {
+    const response = await apiClient.post('/procurement/bons-commande/from-proforma', data);
+    const normalized = normalizeDetailResponse<PurchaseOrder>(response.data);
+    return {
+      ...normalized,
+      data: normalizePurchaseOrder(normalized.data),
+    };
+  },
+
   async updateOrder(id: string, data: Partial<PurchaseOrder>): Promise<DetailResponse<PurchaseOrder>> {
     const response = await apiClient.put(`/procurement/bons-commande/${id}`, data);
     const normalized = normalizeDetailResponse<PurchaseOrder>(response.data);

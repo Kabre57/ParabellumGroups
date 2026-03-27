@@ -91,8 +91,7 @@ const buildMissionOrderHtml = (order) => {
           </div>
 
           <div class="signature">
-            <div class="role">LE DIRECTEUR</div>
-            <div class="name">M. AMOAKON ADADE</div>
+            <div class="role">DIECTEUR DES OPERATIONS</div>
           </div>
         </div>
       </body>

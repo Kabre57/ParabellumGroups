@@ -13,6 +13,7 @@ import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.se
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception, ReceptionStatus } from "@/shared/api/inventory/types";
 import { procurementService } from "@/services/procurement";
+import { adminServicesService } from "@/shared/api/admin/admin.service";
 import ReceptionPrint from "@/components/printComponents/ReceptionPrint";
 import { DocumentLinesTable } from "@/components/procurement/DocumentLinesTable";
 
@@ -117,7 +118,14 @@ export default function ReceptionsPage() {
     enabled: Boolean(currentOrder?.supplierId),
     staleTime: 5 * 60 * 1000,
   });
+  const { data: servicesResponse } = useQuery({
+    queryKey: ["reception-print-services", currentOrder?.serviceName],
+    queryFn: () => adminServicesService.getServices(),
+    staleTime: 5 * 60 * 1000,
+  });
   const lignes = current?.lignes || [];
+  const serviceLogoUrl =
+    servicesResponse?.data?.find((service: any) => service.name === currentOrder?.serviceName)?.imageUrl || null;
 
   return (
     <div className="space-y-6 overflow-x-hidden p-6">
@@ -292,6 +300,21 @@ export default function ReceptionsPage() {
                       {currentOrder?.number || currentOrder?.numeroBon || current.bonCommandeId}
                     </div>
                   </div>
+                  <div>
+                    <div className="text-muted-foreground">Facture fournisseur</div>
+                    {current.factureFournisseurUrl ? (
+                      <a
+                        href={current.factureFournisseurUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-blue-600 hover:underline"
+                      >
+                        {current.factureFournisseurName || 'Voir la facture'}
+                      </a>
+                    ) : (
+                      <div className="font-semibold">Non renseignée</div>
+                    )}
+                  </div>
                 </div>
 
                 <DocumentLinesTable
@@ -343,6 +366,7 @@ export default function ReceptionsPage() {
           order={currentOrder}
           supplier={currentSupplier}
           articles={articles}
+          serviceLogoUrl={serviceLogoUrl}
           onClose={() => setIsPrintOpen(false)}
         />
       )}
