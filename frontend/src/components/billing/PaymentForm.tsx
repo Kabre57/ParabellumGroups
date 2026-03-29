@@ -94,6 +94,7 @@ export default function PaymentForm({
         queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
         queryClient.invalidateQueries({ queryKey: ['invoicePayments', invoiceId] });
       }
+      onSuccess?.();
     },
   });
 
@@ -116,7 +117,6 @@ export default function PaymentForm({
     }
     try {
       await createMutation.mutateAsync(data);
-      onSuccess?.();
     } catch {
       // errors are handled by react-query
     }
