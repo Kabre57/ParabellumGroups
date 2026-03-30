@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
 import { projectsService } from '@/shared/api/projects';
 import { crmService } from '@/shared/api/crm';
+import { ProjectStatus } from '@/shared/api/shared/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ export default function ProjectsListPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | ''>('');
   const [showCreate, setShowCreate] = useState(false);
 
   const [form, setForm] = useState({
