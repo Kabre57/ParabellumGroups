@@ -4,6 +4,43 @@ const { generateProjetNumber } = require('../utils/projetNumberGenerator');
 
 const prisma = new PrismaClient();
 
+const projectStatusMap = {
+  PLANIFIE: 'PLANNING',
+  EN_COURS: 'ACTIVE',
+  SUSPENDU: 'ON_HOLD',
+  TERMINE: 'COMPLETED',
+  ANNULE: 'CANCELLED',
+};
+
+const serializeProjet = (projet) => ({
+  id: projet.id,
+  projectNumber: projet.numeroProjet,
+  numeroProjet: projet.numeroProjet,
+  name: projet.nom,
+  nom: projet.nom,
+  description: projet.description,
+  customerId: projet.clientId,
+  clientId: projet.clientId,
+  status: projectStatusMap[projet.status] || projet.status,
+  rawStatus: projet.status,
+  startDate: projet.dateDebut,
+  endDate: projet.dateFin,
+  budget: projet.budget != null ? Number(projet.budget) : 0,
+  spent: projet.coutReel != null ? Number(projet.coutReel) : 0,
+  currency: 'XOF',
+  priority: projet.priorite,
+  managerId: '',
+  completion: Array.isArray(projet.taches) && projet.taches.length > 0
+    ? Math.round(
+        (projet.taches.filter((tache) => tache.status === 'TERMINEE').length / projet.taches.length) * 100
+      )
+    : 0,
+  tasksCount: Array.isArray(projet.taches) ? projet.taches.length : 0,
+  milestonesCount: Array.isArray(projet.jalons) ? projet.jalons.length : 0,
+  createdAt: projet.createdAt,
+  updatedAt: projet.updatedAt,
+});
+
 /**
  * Créer un nouveau projet
  */
@@ -36,7 +73,11 @@ const createProjet = async (req, res) => {
       }
     });
 
-    res.status(201).json(projet);
+    res.status(201).json({
+      success: true,
+      data: serializeProjet(projet),
+      message: 'Projet créé avec succès',
+    });
   } catch (error) {
     console.error('Erreur création projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création du projet' });
@@ -48,14 +89,37 @@ const createProjet = async (req, res) => {
  */
 const getAllProjets = async (req, res) => {
   try {
-    const { status, clientId, priorite, page = 1, limit = 10 } = req.query;
+    const {
+      status,
+      clientId,
+      customerId,
+      priorite,
+      search,
+      page = 1,
+      limit = 10,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+    } = req.query;
 
     const where = {};
-    if (status) where.status = status;
-    if (clientId) where.clientId = clientId;
+    if (status) {
+      const requestedStatus = Object.entries(projectStatusMap).find(([, frontendStatus]) => frontendStatus === status);
+      where.status = requestedStatus?.[0] || status;
+    }
+    if (clientId || customerId) where.clientId = clientId || customerId;
     if (priorite) where.priorite = priorite;
+    if (search) {
+      where.OR = [
+        { nom: { contains: String(search), mode: 'insensitive' } },
+        { description: { contains: String(search), mode: 'insensitive' } },
+        { numeroProjet: { contains: String(search), mode: 'insensitive' } },
+      ];
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortableFields = new Set(['createdAt', 'updatedAt', 'dateDebut', 'dateFin', 'budget', 'coutReel']);
+    const orderField = sortableFields.has(String(sortBy)) ? String(sortBy) : 'updatedAt';
+    const direction = String(sortOrder).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     const [projets, total] = await Promise.all([
       prisma.projet.findMany({
@@ -78,18 +142,21 @@ const getAllProjets = async (req, res) => {
         },
         skip,
         take: parseInt(limit),
-        orderBy: { createdAt: 'desc' }
+        orderBy: { [orderField]: direction }
       }),
       prisma.projet.count({ where })
     ]);
 
     res.json({
-      projets,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+      success: true,
+      data: projets.map(serializeProjet),
+      meta: {
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit))
+        }
       }
     });
   } catch (error) {
@@ -121,7 +188,10 @@ const getProjetById = async (req, res) => {
       return res.status(404).json({ error: 'Projet non trouvé' });
     }
 
-    res.json(projet);
+    res.json({
+      success: true,
+      data: serializeProjet(projet),
+    });
   } catch (error) {
     console.error('Erreur récupération projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération du projet' });
@@ -155,7 +225,11 @@ const updateProjet = async (req, res) => {
       }
     });
 
-    res.json(projet);
+    res.json({
+      success: true,
+      data: serializeProjet(projet),
+      message: 'Projet mis à jour avec succès',
+    });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Projet non trouvé' });
@@ -176,13 +250,52 @@ const deleteProjet = async (req, res) => {
       where: { id }
     });
 
-    res.status(204).send();
+    res.json({ success: true, message: 'Projet supprimé avec succès' });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Projet non trouvé' });
     }
     console.error('Erreur suppression projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la suppression du projet' });
+  }
+};
+
+/**
+ * Obtenir les statistiques globales des projets
+ */
+const getGlobalProjetStats = async (_req, res) => {
+  try {
+    const projets = await prisma.projet.findMany({
+      include: {
+        taches: true,
+      },
+    });
+
+    const totalProjects = projets.length;
+    const projectsEnCours = projets.filter((projet) => projet.status === 'EN_COURS').length;
+    const projectsTermines = projets.filter((projet) => projet.status === 'TERMINE').length;
+    const budgetTotal = projets.reduce((sum, projet) => sum + Number(projet.budget || 0), 0);
+    const budgetConsomme = projets.reduce((sum, projet) => sum + Number(projet.coutReel || 0), 0);
+    const totalTasks = projets.reduce((sum, projet) => sum + projet.taches.length, 0);
+    const completedTasks = projets.reduce(
+      (sum, projet) => sum + projet.taches.filter((tache) => tache.status === 'TERMINEE').length,
+      0
+    );
+
+    res.json({
+      success: true,
+      data: {
+        totalProjects,
+        projectsEnCours,
+        projectsTermines,
+        budgetTotal,
+        budgetConsomme,
+        tauxCompletion: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+      },
+    });
+  } catch (error) {
+    console.error('Erreur récupération stats globales projets:', error);
+    res.status(500).json({ error: 'Erreur serveur lors de la récupération des statistiques globales' });
   }
 };
 
@@ -245,7 +358,10 @@ const getProjetStats = async (req, res) => {
       }
     };
 
-    res.json(stats);
+    res.json({
+      success: true,
+      data: stats,
+    });
   } catch (error) {
     console.error('Erreur récupération stats projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des statistiques' });
@@ -258,5 +374,6 @@ module.exports = {
   getProjetById,
   updateProjet,
   deleteProjet,
-  getProjetStats
+  getProjetStats,
+  getGlobalProjetStats
 };

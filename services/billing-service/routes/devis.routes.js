@@ -3,6 +3,9 @@ const router = express.Router();
 const devisController = require('../controllers/devis.controller');
 const { authenticateToken } = require('../middleware/auth');
 
+router.get('/respond/:token', devisController.getDevisForClientResponse);
+router.post('/respond/:token', devisController.submitClientResponse);
+
 // Routes protégées par authentification
 router.use(authenticateToken);
 

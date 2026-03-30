@@ -144,7 +144,7 @@ export function CreateCashVoucherDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid max-h-[92vh] max-w-6xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
+      <DialogContent className="grid max-h-[92vh] w-[min(98vw,1600px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Créer un bon de caisse</DialogTitle>
           <DialogDescription>
@@ -152,149 +152,211 @@ export function CreateCashVoucherDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <div className="space-y-2">
-            <Label>Origine</Label>
-            <Select value={form.sourceType} onValueChange={(value) => updateField('sourceType', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choisir l'origine" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PURCHASE_ORDER">Bon de commande</SelectItem>
-                <SelectItem value="PURCHASE_QUOTE">Demande d'achat validée</SelectItem>
-                <SelectItem value="SUPPLIER_INVOICE">Facture fournisseur</SelectItem>
-                <SelectItem value="EXPENSE">Dépense diverse</SelectItem>
-                <SelectItem value="OTHER">Autre</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Mode de décaissement</Label>
-            <Select value={form.paymentMethod} onValueChange={(value) => updateField('paymentMethod', value as FormState['paymentMethod'])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choisir un mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CHEQUE">Chèque</SelectItem>
-                <SelectItem value="ESPECES">Espèces</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Référence source</Label>
-            <Input value={form.sourceNumber} onChange={(event) => updateField('sourceNumber', event.target.value)} placeholder="BCA-202603-0001 / Facture..." />
-          </div>
-          <div className="space-y-2">
-            <Label>Catégorie comptable</Label>
-            <Input value={form.expenseCategory} onChange={(event) => updateField('expenseCategory', event.target.value)} placeholder="Achats, frais généraux..." />
-          </div>
-          <div className="space-y-2">
-            <Label>Bénéficiaire</Label>
-            <Input value={form.beneficiaryName} onChange={(event) => updateField('beneficiaryName', event.target.value)} placeholder="Fournisseur ou bénéficiaire" />
-          </div>
-          <div className="space-y-2">
-            <Label>Téléphone bénéficiaire</Label>
-            <Input value={form.beneficiaryPhone} onChange={(event) => updateField('beneficiaryPhone', event.target.value)} placeholder="Numéro de téléphone" />
-          </div>
-          <div className="space-y-2">
-            <Label>Service imputé</Label>
-            <Input value={form.serviceName} onChange={(event) => updateField('serviceName', event.target.value)} placeholder="Direction Technique, Achat..." />
-          </div>
-          <div className="space-y-2">
-            <Label>Fournisseur</Label>
-            <Input value={form.supplierName} onChange={(event) => updateField('supplierName', event.target.value)} placeholder="Nom du fournisseur" />
-          </div>
-          <div className="space-y-2">
-            <Label>Date d'émission</Label>
-            <Input type="date" value={form.issueDate} onChange={(event) => updateField('issueDate', event.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Statut initial</Label>
-            <Select value={form.status} onValueChange={(value) => updateField('status', value as CashVoucher['status'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BROUILLON">Brouillon</SelectItem>
-                <SelectItem value="EN_ATTENTE">En attente</SelectItem>
-                <SelectItem value="VALIDE">Validé</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 md:col-span-4">
-            <Label>Description</Label>
-            <Textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Objet du décaissement" />
-          </div>
-          <div className="space-y-2">
-            <Label>Référence paiement</Label>
-            <Input value={form.reference} onChange={(event) => updateField('reference', event.target.value)} placeholder="Numéro de chèque, pièce..." />
-          </div>
-          <div className="space-y-2 md:col-span-3">
-            <Label>Notes comptables</Label>
-            <Textarea value={form.notes} onChange={(event) => updateField('notes', event.target.value)} placeholder="Observations comptables, justification, pièces..." />
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
-          <div className="overflow-auto h-[300px]">
-            <table className="w-full min-w-[1020px] text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
-                <tr className="border-b">
-                  <th className="w-20 px-3 py-3 font-semibold">Ligne</th>
-                  <th className="min-w-[240px] px-3 py-3 font-semibold">Rubrique</th>
-                  <th className="min-w-[320px] px-3 py-3 font-semibold">Description</th>
-                  <th className="w-40 px-3 py-3 font-semibold text-right">Montant</th>
-                  <th className="w-28 px-3 py-3 font-semibold">Mode</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b">
-                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">1</td>
-                  <td className="px-3 py-3">{form.expenseCategory || 'Dépense'}</td>
-                  <td className="px-3 py-3">{form.description || 'Sans description'}</td>
-                  <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountHT} onChange={(event) => updateField('amountHT', event.target.value)} className="h-11 text-base font-medium" />
-                  </td>
-                  <td className="px-3 py-3">{form.paymentMethod}</td>
-                </tr>
-                <tr className="border-b">
-                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">2</td>
-                  <td className="px-3 py-3">TVA</td>
-                  <td className="px-3 py-3">Taxe appliquée sur le décaissement</td>
-                  <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountTVA} onChange={(event) => updateField('amountTVA', event.target.value)} className="h-11 text-base font-medium" />
-                  </td>
-                  <td className="px-3 py-3">-</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">3</td>
-                  <td className="px-3 py-3 font-medium">Total TTC</td>
-                  <td className="px-3 py-3">Montant total à décaisser</td>
-                  <td className="px-3 py-3 text-right">
-                    <Input type="number" value={form.amountTTC} onChange={(event) => updateField('amountTTC', event.target.value)} className="h-11 text-base font-medium" />
-                  </td>
-                  <td className="px-3 py-3">{form.paymentMethod}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div className="min-h-0 overflow-y-auto pr-2">
+          <div className="grid gap-3 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label>Origine</Label>
+                <Select value={form.sourceType} onValueChange={(value) => updateField('sourceType', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir l'origine" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PURCHASE_ORDER">Bon de commande</SelectItem>
+                    <SelectItem value="PURCHASE_QUOTE">Devis interne validé</SelectItem>
+                    <SelectItem value="SUPPLIER_INVOICE">Facture fournisseur</SelectItem>
+                    <SelectItem value="EXPENSE">Dépense diverse</SelectItem>
+                    <SelectItem value="OTHER">Autre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Mode de décaissement</Label>
+                <Select
+                  value={form.paymentMethod}
+                  onValueChange={(value) => updateField('paymentMethod', value as FormState['paymentMethod'])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir un mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CHEQUE">Chèque</SelectItem>
+                    <SelectItem value="ESPECES">Espèces</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Référence source</Label>
+                <Input
+                  value={form.sourceNumber}
+                  onChange={(event) => updateField('sourceNumber', event.target.value)}
+                  placeholder="BCA-202603-0001 / Facture..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Catégorie comptable</Label>
+                <Input
+                  value={form.expenseCategory}
+                  onChange={(event) => updateField('expenseCategory', event.target.value)}
+                  placeholder="Achats, frais généraux..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Bénéficiaire</Label>
+                <Input
+                  value={form.beneficiaryName}
+                  onChange={(event) => updateField('beneficiaryName', event.target.value)}
+                  placeholder="Fournisseur ou bénéficiaire"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Téléphone bénéficiaire</Label>
+                <Input
+                  value={form.beneficiaryPhone}
+                  onChange={(event) => updateField('beneficiaryPhone', event.target.value)}
+                  placeholder="Numéro de téléphone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Service imputé</Label>
+                <Input
+                  value={form.serviceName}
+                  onChange={(event) => updateField('serviceName', event.target.value)}
+                  placeholder="Direction Technique, Achat..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Fournisseur</Label>
+                <Input
+                  value={form.supplierName}
+                  onChange={(event) => updateField('supplierName', event.target.value)}
+                  placeholder="Nom du fournisseur"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date d'émission</Label>
+                <Input type="date" value={form.issueDate} onChange={(event) => updateField('issueDate', event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Statut initial</Label>
+                <Select value={form.status} onValueChange={(value) => updateField('status', value as CashVoucher['status'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BROUILLON">Brouillon</SelectItem>
+                    <SelectItem value="EN_ATTENTE">En attente</SelectItem>
+                    <SelectItem value="VALIDE">Validé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-4">
+                <Label>Description</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={(event) => updateField('description', event.target.value)}
+                  placeholder="Objet du décaissement"
+                  className="min-h-[60px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Référence paiement</Label>
+                <Input
+                  value={form.reference}
+                  onChange={(event) => updateField('reference', event.target.value)}
+                  placeholder="Numéro de chèque, pièce..."
+                />
+              </div>
+              <div className="space-y-2 md:col-span-3">
+                <Label>Notes comptables</Label>
+                <Textarea
+                  value={form.notes}
+                  onChange={(event) => updateField('notes', event.target.value)}
+                  placeholder="Observations comptables, justification, pièces..."
+                  className="min-h-[60px]"
+                />
+              </div>
           </div>
 
-          <div className="grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
-            <div className="rounded-md border bg-white px-3 py-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">HT</div>
-              <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountHT)} F CFA</div>
+          <div className="mt-4 flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
+            <div className="flex items-center justify-between border-b bg-slate-50 px-4 py-2 text-sm">
+              <div className="font-medium">Lignes du décaissement</div>
+              <div className="text-xs text-muted-foreground">Lecture immédiate sans zoom</div>
             </div>
-            <div className="rounded-md border bg-white px-3 py-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">TVA</div>
-              <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountTVA)} F CFA</div>
+            <div className="h-[320px] overflow-auto">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                  <tr className="border-b">
+                    <th className="w-20 px-3 py-3 font-semibold">Ligne</th>
+                    <th className="min-w-[240px] px-3 py-3 font-semibold">Rubrique</th>
+                    <th className="min-w-[360px] px-3 py-3 font-semibold">Description</th>
+                    <th className="w-44 px-3 py-3 font-semibold text-right">Montant</th>
+                    <th className="w-24 px-3 py-3 font-semibold">Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">1</td>
+                    <td className="px-3 py-3">{form.expenseCategory || 'Dépense'}</td>
+                    <td className="px-3 py-3">{form.description || 'Sans description'}</td>
+                    <td className="px-3 py-3 text-right">
+                      <Input
+                        type="number"
+                        value={form.amountHT}
+                        onChange={(event) => updateField('amountHT', event.target.value)}
+                        className="h-11 text-base font-medium"
+                      />
+                    </td>
+                    <td className="px-3 py-3">{form.paymentMethod}</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">2</td>
+                    <td className="px-3 py-3">TVA</td>
+                    <td className="px-3 py-3">Taxe appliquée sur le décaissement</td>
+                    <td className="px-3 py-3 text-right">
+                      <Input
+                        type="number"
+                        value={form.amountTVA}
+                        onChange={(event) => updateField('amountTVA', event.target.value)}
+                        className="h-11 text-base font-medium"
+                      />
+                    </td>
+                    <td className="px-3 py-3">-</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">3</td>
+                    <td className="px-3 py-3 font-medium">Total TTC</td>
+                    <td className="px-3 py-3">Montant total à décaisser</td>
+                    <td className="px-3 py-3 text-right">
+                      <Input
+                        type="number"
+                        value={form.amountTTC}
+                        onChange={(event) => updateField('amountTTC', event.target.value)}
+                        className="h-11 text-base font-medium"
+                      />
+                    </td>
+                    <td className="px-3 py-3">{form.paymentMethod}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div className="rounded-md border bg-blue-50 px-3 py-2">
-              <div className="text-xs uppercase tracking-wide text-blue-700">Total TTC</div>
-              <div className="font-semibold text-blue-900">{new Intl.NumberFormat('fr-FR').format(amountTTC)} F CFA</div>
-            </div>
-            <div className="rounded-md border bg-white px-3 py-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Décaissement</div>
-              <div className="font-semibold">{form.paymentMethod === 'CHEQUE' ? 'Chèque' : 'Espèces'}</div>
+
+            <div className="grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
+              <div className="rounded-md border bg-white px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">HT</div>
+                <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountHT)} F CFA</div>
+              </div>
+              <div className="rounded-md border bg-white px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">TVA</div>
+                <div className="font-semibold">{new Intl.NumberFormat('fr-FR').format(amountTVA)} F CFA</div>
+              </div>
+              <div className="rounded-md border bg-blue-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-blue-700">Total TTC</div>
+                <div className="font-semibold text-blue-900">{new Intl.NumberFormat('fr-FR').format(amountTTC)} F CFA</div>
+              </div>
+              <div className="rounded-md border bg-white px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Décaissement</div>
+                <div className="font-semibold">{form.paymentMethod === 'CHEQUE' ? 'Chèque' : 'Espèces'}</div>
+              </div>
             </div>
           </div>
         </div>

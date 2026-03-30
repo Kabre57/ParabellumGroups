@@ -95,3 +95,84 @@ exports.createAccount = async (req, res) => {
     });
   }
 };
+
+exports.updateAccount = async (req, res) => {
+  try {
+    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de modifier un compte comptable');
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const { id } = req.params;
+    const { code, label, type, description, openingBalance, isActive } = req.body;
+
+    const account = await prisma.accountingAccount.findUnique({
+      where: { id },
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'Compte comptable introuvable',
+      });
+    }
+
+    const data = {};
+    if (code) {
+      const normalizedCode = String(code).trim();
+      if (normalizedCode && normalizedCode !== account.code) {
+        const existing = await prisma.accountingAccount.findUnique({
+          where: { code: normalizedCode },
+          select: { id: true },
+        });
+        if (existing) {
+          return res.status(409).json({
+            success: false,
+            message: 'Un compte avec ce code existe déjà',
+          });
+        }
+        data.code = normalizedCode;
+      }
+    }
+
+    if (label) {
+      data.label = String(label).trim();
+    }
+
+    if (typeof description !== 'undefined') {
+      data.description = description ? String(description).trim() : null;
+    }
+
+    const normalizedType = accountTypeFromInput(type);
+    if (normalizedType) {
+      data.type = normalizedType;
+    }
+
+    if (typeof openingBalance !== 'undefined') {
+      const normalizedOpening = amount(openingBalance);
+      data.openingBalance = normalizedOpening;
+      data.currentBalance = normalizedOpening;
+    }
+
+    if (typeof isActive !== 'undefined') {
+      data.isActive = Boolean(isActive);
+    }
+
+    const updated = await prisma.accountingAccount.update({
+      where: { id },
+      data,
+    });
+
+    return res.json({
+      success: true,
+      data: serializeAccountingAccount(updated),
+      message: 'Compte comptable mis à jour',
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour compte comptable:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du compte comptable',
+    });
+  }
+};

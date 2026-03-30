@@ -6,6 +6,7 @@ import { X, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { procurementService } from "@/services/procurement";
 import PurchaseOrderPrint from "@/components/printComponents/PurchaseOrderPrint";
+import { adminServicesService } from "@/shared/api/admin/admin.service";
 
 interface Props {
   isOpen: boolean;
@@ -21,10 +22,17 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
     enabled: isOpen && Boolean(order?.id),
     staleTime: 60 * 1000,
   });
-
   const effectiveOrder = fullOrderResponse?.data || order;
+  const { data: servicesResponse } = useQuery({
+    queryKey: ["purchase-order-print-services", effectiveOrder?.serviceName],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: isOpen,
+    staleTime: 5 * 60 * 1000,
+  });
   const lines = effectiveOrder?.itemsDetail || effectiveOrder?.lignes || [];
   const supplierName = effectiveOrder?.supplier || effectiveOrder?.supplierName || "";
+  const serviceLogoUrl =
+    servicesResponse?.data?.find((service: any) => service.name === effectiveOrder?.serviceName)?.imageUrl || null;
 
   const handlePrint = () => {
     if (!effectiveOrder) return;
@@ -169,6 +177,7 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
       {isPrintOpen && (
         <PurchaseOrderPrint
           order={effectiveOrder}
+          serviceLogoUrl={serviceLogoUrl}
           onClose={() => setIsPrintOpen(false)}
         />
       )}

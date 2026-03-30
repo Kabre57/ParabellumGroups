@@ -29,7 +29,7 @@ export function RejectPurchaseRequestDialog({
   onConfirm,
   isPending = false,
   requestNumber,
-  title = 'Rejeter la DPA',
+  title = 'Rejeter le devis interne',
   description = 'Precisez le motif pour que le demandeur puisse corriger et soumettre a nouveau.',
   defaultReason = 'Merci de completer le fournisseur, les lignes ou les montants avant nouvelle soumission.',
 }: RejectPurchaseRequestDialogProps) {

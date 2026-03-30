@@ -88,9 +88,9 @@ export function CreateDpaDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
         <DialogHeader>
-          <DialogTitle>Nouvelle DPA</DialogTitle>
+          <DialogTitle>Nouveau devis interne</DialogTitle>
           <DialogDescription>
-            Gérez la DPA et ses informations avant soumission et validation.
+            Gérez le devis interne et ses informations avant soumission et validation.
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +116,7 @@ export function CreateDpaDialog({
 
         <div className="min-h-0 flex-1">
           <PurchaseLinesGrid
-            title="Lignes de la demande"
+            title="Lignes du devis interne"
             description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
             lines={lines}
             articles={articles}
@@ -136,7 +136,7 @@ export function CreateDpaDialog({
             Total estimé : {totalTTC.toLocaleString('fr-FR')} F
           </div>
           <Button className="shrink-0" onClick={onSubmit} disabled={!canSubmit || isPending}>
-            {isPending ? 'Enregistrement...' : 'Créer la DPA'}
+            {isPending ? 'Enregistrement...' : 'Créer le devis'}
           </Button>
         </DialogFooter>
       </DialogContent>

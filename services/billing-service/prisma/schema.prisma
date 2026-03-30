@@ -26,6 +26,7 @@ model Facture {
 
   lignes         LigneFacture[]
   paiements      Paiement[]
+  avoirs         Avoir[]
 
   @@index([clientId])
   @@index([status])
@@ -37,6 +38,7 @@ model LigneFacture {
   id            String   @id @default(uuid())
   factureId     String
   description   String
+  imageUrl      String?
   quantite      Float
   prixUnitaire  Float
   tauxTVA       Float
@@ -68,6 +70,53 @@ model Paiement {
   @@index([factureId])
   @@index([datePaiement])
   @@map("paiements")
+}
+
+model Avoir {
+  id               String       @id @default(uuid())
+  numeroAvoir      String       @unique
+  factureId        String
+  factureNumero    String
+  clientId         String
+  serviceId        String?
+  serviceName      String?
+  serviceLogoUrl   String?
+  motif            String
+  notes            String?
+  montantHT        Float
+  montantTVA       Float
+  montantTTC       Float
+  status           AvoirStatus  @default(BROUILLON)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  facture          Facture      @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  lignes           LigneAvoir[]
+
+  @@index([factureId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("avoirs")
+}
+
+model LigneAvoir {
+  id            String   @id @default(uuid())
+  avoirId       String
+  description   String
+  quantite      Float
+  prixUnitaire  Float
+  tauxTVA       Float
+  montantHT     Float
+  montantTVA    Float
+  montantTTC    Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  avoir         Avoir    @relation(fields: [avoirId], references: [id], onDelete: Cascade)
+
+  @@index([avoirId])
+  @@map("lignes_avoir")
 }
 
 model Devis {
@@ -113,6 +162,7 @@ model LigneDevis {
   id            String   @id @default(uuid())
   devisId       String
   description   String
+  imageUrl      String?
   quantite      Float
   prixUnitaire  Float
   tauxTVA       Float
@@ -311,6 +361,13 @@ enum CashVoucherStatus {
   EN_ATTENTE
   VALIDE
   DECAISSE
+  ANNULE
+}
+
+enum AvoirStatus {
+  BROUILLON
+  EMISE
+  APPLIQUE
   ANNULE
 }
 

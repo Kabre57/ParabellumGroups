@@ -23,6 +23,17 @@ function generateDevisNumber(sequence) {
 }
 
 /**
+ * Génère un numéro d'avoir au format AVR-YYYYMM-NNNN
+ * @param {number} sequence - Le numéro de séquence
+ * @returns {string} Le numéro d'avoir formaté
+ */
+function generateAvoirNumber(sequence) {
+  const yearMonth = moment().format('YYYYMM');
+  const paddedSequence = String(sequence).padStart(4, '0');
+  return `AVR-${yearMonth}-${paddedSequence}`;
+}
+
+/**
  * Extrait le mois/année d'un numéro de facture
  * @param {string} numeroFacture - Le numéro de facture
  * @returns {string|null} Le mois/année ou null
@@ -45,6 +56,7 @@ function extractYearMonthFromDevis(numeroDevis) {
 module.exports = {
   generateFactureNumber,
   generateDevisNumber,
+  generateAvoirNumber,
   extractYearMonthFromFacture,
   extractYearMonthFromDevis
 };

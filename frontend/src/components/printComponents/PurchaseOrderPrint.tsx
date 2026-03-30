@@ -49,7 +49,7 @@ export default function PurchaseOrderPrint({
       }))}
       notes={
         order.requestNumber
-          ? `Document généré à partir de la DPA ${order.requestNumber}.`
+          ? `Document généré à partir du devis interne ${order.requestNumber}.`
           : "Bon de commande fournisseur."
       }
       footerNote="Une seule réception est autorisée par bon de commande."

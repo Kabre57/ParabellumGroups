@@ -57,13 +57,13 @@ export function ProformaSuppliersSection({
       <CardHeader>
         <CardTitle>Proformas fournisseurs</CardTitle>
         <CardDescription>
-          Gérez les proformas liées à cette DPA, comparez-les et préparez la validation DG.
+          Gérez les proformas liées à ce devis interne, comparez-les et préparez la validation DG.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {(request.proformas || []).length === 0 ? (
           <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-            Aucune proforma enregistrée pour cette DPA.
+            Aucune proforma enregistrée pour ce devis interne.
           </div>
         ) : (
           (request.proformas || []).map((proforma) => (

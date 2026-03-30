@@ -8,23 +8,40 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+
 interface CreateAccountingAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialValues?: {
+    code?: string;
+    label?: string;
+    type?: AccountType;
+    description?: string | null;
+    openingBalance?: number | null;
+  };
+  title?: string;
+  submitLabel?: string;
   onSubmit: (payload: {
     code: string;
     label: string;
-    type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+    type: AccountType;
     description?: string;
     openingBalance?: number;
   }) => Promise<void> | void;
   isSubmitting?: boolean;
 }
 
-const initialState = {
+const initialState: {
+  code: string;
+  label: string;
+  type: AccountType;
+  description: string;
+  openingBalance: string;
+} = {
   code: '',
   label: '',
-  type: 'ASSET' as const,
+  type: 'ASSET',
   description: '',
   openingBalance: '0',
 };
@@ -32,6 +49,9 @@ const initialState = {
 export function CreateAccountingAccountDialog({
   open,
   onOpenChange,
+  initialValues,
+  title = 'Nouveau compte comptable',
+  submitLabel = 'Créer le compte',
   onSubmit,
   isSubmitting = false,
 }: CreateAccountingAccountDialogProps) {
@@ -39,9 +59,19 @@ export function CreateAccountingAccountDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(initialState);
+      if (initialValues) {
+        setForm({
+          code: initialValues.code || '',
+          label: initialValues.label || '',
+          type: initialValues.type || 'ASSET',
+          description: initialValues.description || '',
+          openingBalance: String(initialValues.openingBalance ?? 0),
+        });
+      } else {
+        setForm(initialState);
+      }
     }
-  }, [open]);
+  }, [initialValues, open]);
 
   const handleSubmit = async () => {
     await onSubmit({
@@ -57,7 +87,7 @@ export function CreateAccountingAccountDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nouveau compte comptable</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             Créez un compte du plan comptable pour structurer vos écritures et votre grand livre.
           </DialogDescription>
@@ -76,7 +106,7 @@ export function CreateAccountingAccountDialog({
 
           <div className="space-y-2">
             <Label htmlFor="account-type">Type</Label>
-            <Select value={form.type} onValueChange={(value) => setForm((current) => ({ ...current, type: value as typeof initialState.type }))}>
+            <Select value={form.type} onValueChange={(value) => setForm((current) => ({ ...current, type: value as AccountType }))}>
               <SelectTrigger id="account-type">
                 <SelectValue placeholder="Choisir le type" />
               </SelectTrigger>
@@ -128,7 +158,7 @@ export function CreateAccountingAccountDialog({
             Annuler
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || !form.code.trim() || !form.label.trim()}>
-            Créer le compte
+            {submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -54,7 +54,8 @@ export const getQuoteStatusMeta = (status?: string) =>
 export const isQuoteReadyForClientApproval = (status?: string) =>
   ['BROUILLON', 'MODIFICATION_DEMANDEE', 'REFUSE'].includes(String(status || 'BROUILLON'));
 
-export const isQuoteClientApproved = (status?: string) => String(status) === 'ACCEPTE';
+export const isQuoteClientApproved = (status?: string) =>
+  ['ACCEPTE', 'TRANSMIS_FACTURATION', 'FACTURE'].includes(String(status));
 
 export const canQuoteBeConverted = (status?: string) =>
   ['ACCEPTE', 'TRANSMIS_FACTURATION'].includes(String(status));

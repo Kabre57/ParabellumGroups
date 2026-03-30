@@ -18,6 +18,7 @@ import {
   formatAccountingCurrency,
   formatAccountingDate,
 } from '@/components/accounting/accountingFormat';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function ComptesPage() {
   const { user } = useAuth();
@@ -25,6 +26,9 @@ export default function ComptesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<AccountingAccount | null>(null);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -58,6 +62,27 @@ export default function ComptesPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Erreur lors de la création du compte comptable.');
+    },
+  });
+
+  const updateAccountMutation = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: { code?: string; label?: string; type?: string; description?: string; openingBalance?: number } }) =>
+      billingService.updateAccountingAccount(id, {
+        code: values.code,
+        label: values.label,
+        type: values.type as any,
+        description: values.description,
+        openingBalance: values.openingBalance,
+      }),
+    onSuccess: () => {
+      toast.success('Compte comptable mis à jour.');
+      setEditDialogOpen(false);
+      setSelectedAccount(null);
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour du compte comptable.');
     },
   });
 
@@ -222,9 +247,25 @@ export default function ComptesPage() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">Détails</Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setDetailsOpen(true);
+                          }}
+                        >
+                          Détails
+                        </Button>
                         {canUpdate && (
-                          <Button size="sm" variant="outline">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedAccount(account);
+                              setEditDialogOpen(true);
+                            }}
+                          >
                             <Edit className="h-3 w-3" />
                           </Button>
                         )}
@@ -253,6 +294,68 @@ export default function ComptesPage() {
         }}
         isSubmitting={createAccountMutation.isPending}
       />
+
+      <CreateAccountingAccountDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        initialValues={{
+          code: selectedAccount?.code,
+          label: selectedAccount?.label,
+          type: selectedAccount?.type?.toUpperCase() as any,
+          description: selectedAccount?.description || '',
+          openingBalance: selectedAccount?.openingBalance ?? 0,
+        }}
+        title="Modifier le compte comptable"
+        submitLabel="Mettre à jour"
+        onSubmit={async (payload) => {
+          if (!selectedAccount) return;
+          await updateAccountMutation.mutateAsync({
+            id: selectedAccount.id,
+            values: payload,
+          });
+        }}
+        isSubmitting={updateAccountMutation.isPending}
+      />
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Détails du compte</DialogTitle>
+          </DialogHeader>
+          {selectedAccount ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Code</div>
+                <div className="font-semibold">{selectedAccount.code}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Libellé</div>
+                <div className="font-semibold">{selectedAccount.label}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Type</div>
+                <div className="font-semibold">{accountingAccountTypeLabel(selectedAccount.type)}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Solde courant</div>
+                <div className="font-semibold">{formatAccountingCurrency(selectedAccount.balance)}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Dernière transaction</div>
+                <div className="font-semibold">{formatAccountingDate(selectedAccount.lastTransaction)}</div>
+              </div>
+              {selectedAccount.description && (
+                <div>
+                  <div className="text-muted-foreground">Description</div>
+                  <div className="font-semibold">{selectedAccount.description}</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">Aucun compte sélectionné.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

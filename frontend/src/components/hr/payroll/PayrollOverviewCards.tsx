@@ -45,7 +45,7 @@ export function PayrollOverviewCards({ overview, formatCurrency }: PayrollOvervi
       ))}
       <Card className="p-5 md:col-span-2 xl:col-span-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-medium">Périmètre HFHCI :</span>
+          <span className="font-medium">Périmètre PBL :</span>
           <Badge variant="outline">{overview.workforce.supportedInitialRange}</Badge>
           <Badge variant="outline">Capacité {overview.workforce.supportedScale} salariés</Badge>
           <Badge variant={overview.workforce.missingCnpsCount === 0 ? 'default' : 'secondary'}>

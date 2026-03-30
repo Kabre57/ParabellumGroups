@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
@@ -63,6 +64,7 @@ export default function SuppliersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
 
   const resolveName = (supplier: Supplier) =>
     supplier.name || (supplier as any).nom || supplier.email || 'Sans nom';
@@ -196,9 +198,7 @@ export default function SuppliersPage() {
   };
 
   const handleDelete = (supplier: Supplier) => {
-    if (confirm(`Supprimer le fournisseur ${supplier.name} ?`)) {
-      deleteMutation.mutate(supplier.id);
-    }
+    setSupplierToDelete(supplier);
   };
 
   const onSubmit = form.handleSubmit((values) => {
@@ -497,6 +497,25 @@ export default function SuppliersPage() {
           onClose={() => setIsPrintOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(supplierToDelete)}
+        title="Supprimer le fournisseur"
+        description={
+          supplierToDelete
+            ? `Le fournisseur ${resolveName(supplierToDelete)} sera supprimé définitivement.`
+            : 'Confirmez la suppression du fournisseur.'
+        }
+        confirmLabel="Supprimer"
+        confirmVariant="destructive"
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!supplierToDelete) return;
+          deleteMutation.mutate(supplierToDelete.id);
+          setSupplierToDelete(null);
+        }}
+        onOpenChange={(open) => !open && setSupplierToDelete(null)}
+      />
     </div>
   );
 }

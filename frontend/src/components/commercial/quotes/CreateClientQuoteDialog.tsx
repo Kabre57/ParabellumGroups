@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { billingService } from '@/shared/api/billing';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { adminServicesService, type Service } from '@/shared/api/admin/admin.service';
+import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
 import type { Client } from '@/shared/api/crm/types';
 
 interface QuoteLineForm {
@@ -17,6 +19,7 @@ interface QuoteLineForm {
   quantite: string;
   prixUnitaire: string;
   tauxTVA: string;
+  imageUrl: string;
 }
 
 interface Props {
@@ -30,6 +33,7 @@ const EMPTY_LINE: QuoteLineForm = {
   quantite: '1',
   prixUnitaire: '0',
   tauxTVA: '18',
+  imageUrl: '',
 };
 
 const buildDefaultValidityDate = () => {
@@ -41,16 +45,38 @@ const buildDefaultValidityDate = () => {
 export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
+  const canChooseService =
+    isAdminRole(user) || hasAnyPermission(user, ['services.read_all', 'services.read']);
   const [clientId, setClientId] = useState('');
+  const [selectedServiceId, setSelectedServiceId] = useState(userServiceId);
   const [objet, setObjet] = useState('');
   const [dateValidite, setDateValidite] = useState(buildDefaultValidityDate());
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<QuoteLineForm[]>([{ ...EMPTY_LINE }]);
 
   const { data: clients = [] } = useClients({ pageSize: 200 }, { enabled: isOpen });
+  const { data: servicesResponse } = useQuery({
+    queryKey: ['commercial-quote-service-options'],
+    queryFn: () => adminServicesService.getServices(),
+    enabled: isOpen && (canChooseService || !userServiceId),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const clientsArray: Client[] = Array.isArray(clients) ? clients : [];
-  const serviceLabel = user?.service?.name || user?.department || '';
+  const services = servicesResponse?.data ?? [];
+  const selectedService = services.find((service: Service) => String(service.id) === String(selectedServiceId));
+  const serviceLabel =
+    selectedService?.name ||
+    user?.service?.name ||
+    user?.department ||
+    'Service commercial';
+
+  useEffect(() => {
+    if (!selectedServiceId && userServiceId) {
+      setSelectedServiceId(userServiceId);
+    }
+  }, [selectedServiceId, userServiceId]);
 
   const createMutation = useMutation({
     mutationFn: (payload: Parameters<typeof billingService.createQuote>[0]) => billingService.createQuote(payload),
@@ -88,6 +114,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
 
   const resetForm = () => {
     setClientId('');
+    setSelectedServiceId(userServiceId);
     setObjet('');
     setDateValidite(buildDefaultValidityDate());
     setNotes('');
@@ -107,18 +134,21 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
       .filter((line) => line.description.trim())
       .map((line) => ({
         description: line.description.trim(),
+        imageUrl: line.imageUrl?.trim() || undefined,
         quantity: Number(line.quantite) || 0,
         unitPrice: Number(line.prixUnitaire) || 0,
         vatRate: Number(line.tauxTVA) || 0,
       }))
       .filter((line) => line.description && line.quantity > 0);
 
-    if (!clientId || !objet.trim() || !dateValidite || lignes.length === 0) {
+    if (!clientId || !objet.trim() || !dateValidite || lignes.length === 0 || !(selectedServiceId || userServiceId)) {
       return;
     }
 
     await createMutation.mutateAsync({
       clientId,
+      serviceId: selectedServiceId || userServiceId || undefined,
+      serviceName: serviceLabel,
       objet: objet.trim(),
       dateValidite,
       notes: notes.trim() || undefined,
@@ -146,6 +176,26 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
           )}
 
           <div className="grid gap-4 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Service émetteur</label>
+              {canChooseService || !userServiceId ? (
+                <select
+                  value={selectedServiceId}
+                  onChange={(event) => setSelectedServiceId(event.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Sélectionner un service</option>
+                  {services.map((service: Service) => (
+                    <option key={service.id} value={String(service.id)}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input value={serviceLabel} readOnly />
+              )}
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Client</label>
               <select
@@ -178,30 +228,36 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border">
+          <div className="rounded-2xl border border-border bg-background">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
                 <h3 className="text-lg font-semibold">Lignes du devis</h3>
                 <p className="text-sm text-muted-foreground">Saisissez librement les prestations, articles et libellés commerciaux destinés au client.</p>
               </div>
-              <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, { ...EMPTY_LINE }])}>
+              <div className="flex items-center gap-2">
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  {lines.length} ligne{lines.length > 1 ? 's' : ''}
+                </div>
+                <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, { ...EMPTY_LINE }])}>
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter une ligne
-              </Button>
+                </Button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full">
-                <thead className="bg-muted/40">
-                  <tr className="text-left text-sm text-muted-foreground">
-                    <th className="px-4 py-3">Ligne</th>
-                    <th className="px-4 py-3">Désignation / prestation</th>
-                    <th className="px-4 py-3">Catégorie</th>
-                    <th className="px-4 py-3">Qté</th>
-                    <th className="px-4 py-3">P.U. HT</th>
-                    <th className="px-4 py-3">TVA %</th>
-                    <th className="px-4 py-3">Total TTC</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+              <table className="min-w-[1180px] w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                  <tr className="border-b">
+                    <th className="w-14 px-4 py-3 font-semibold">Ligne</th>
+                    <th className="w-24 px-4 py-3 font-semibold">Image</th>
+                    <th className="min-w-[260px] px-4 py-3 font-semibold">Désignation / prestation</th>
+                    <th className="min-w-[180px] px-4 py-3 font-semibold">Catégorie</th>
+                    <th className="w-24 px-4 py-3 font-semibold">Qté</th>
+                    <th className="w-32 px-4 py-3 font-semibold">P.U. HT</th>
+                    <th className="w-24 px-4 py-3 font-semibold">TVA %</th>
+                    <th className="w-32 px-4 py-3 font-semibold">Total TTC</th>
+                    <th className="w-20 px-4 py-3 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -212,10 +268,29 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                     const totalTtc = quantity * unitPrice * (1 + vatRate / 100);
 
                     return (
-                      <tr key={`quote-line-${index}`} className="border-t border-border align-top">
+                      <tr key={`quote-line-${index}`} className="border-b align-top">
+                        <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">
+                          {index + 1}
+                        </td>
                         <td className="px-4 py-3">
-                          <div className="flex h-10 items-center text-sm font-medium text-muted-foreground">
-                            {index + 1}
+                          <div className="flex items-center gap-2">
+                            {line.imageUrl ? (
+                              <img
+                                src={line.imageUrl}
+                                alt={line.description || `Ligne ${index + 1}`}
+                                className="h-12 w-12 rounded-md border object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
+                                Sans image
+                              </div>
+                            )}
+                            <Input
+                              value={line.imageUrl}
+                              onChange={(event) => updateLine(index, { imageUrl: event.target.value })}
+                              placeholder="URL image"
+                              className="h-12 text-sm"
+                            />
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -223,6 +298,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                             value={line.description}
                             onChange={(event) => updateLine(index, { description: event.target.value })}
                             placeholder="Libellé libre pour le client"
+                            className="h-12 text-base"
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -230,6 +306,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                             value={line.categorie}
                             onChange={(event) => updateLine(index, { categorie: event.target.value })}
                             placeholder="Produit, service, abonnement..."
+                            className="h-12 text-base"
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -238,6 +315,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                             min="1"
                             value={line.quantite}
                             onChange={(event) => updateLine(index, { quantite: event.target.value })}
+                            className="h-12 text-lg font-medium"
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -246,6 +324,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                             min="0"
                             value={line.prixUnitaire}
                             onChange={(event) => updateLine(index, { prixUnitaire: event.target.value })}
+                            className="h-12 text-lg font-medium"
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -254,9 +333,10 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                             min="0"
                             value={line.tauxTVA}
                             onChange={(event) => updateLine(index, { tauxTVA: event.target.value })}
+                            className="h-12 text-lg font-medium"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm font-semibold">{formatCurrency(totalTtc)}</td>
+                        <td className="px-4 py-3 text-base font-semibold whitespace-nowrap">{formatCurrency(totalTtc)}</td>
                         <td className="px-4 py-3 text-right">
                           <Button
                             type="button"
@@ -300,7 +380,10 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
               <Button type="button" variant="outline" onClick={handleClose}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={!clientId || !objet.trim() || createMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={!clientId || !objet.trim() || !(selectedServiceId || userServiceId) || createMutation.isPending}
+              >
                 {createMutation.isPending ? 'Enregistrement...' : 'Créer le devis'}
               </Button>
             </div>

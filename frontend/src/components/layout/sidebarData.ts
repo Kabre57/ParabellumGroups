@@ -69,7 +69,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart, permission: 'reports.read_financial', categoryId: 'dashboard' },
   { name: 'Validation DG Achats', href: '/dashboard/approbations/achats', icon: Workflow, permission: 'purchase_requests.approve', categoryId: 'dashboard' },
 
-  { name: 'Dashboard Commercial', href: '/dashboard/commercial/prospects', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
+  { name: 'Dashboard Commercial', href: '/dashboard/commercial', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
   { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Pipeline Commercial', href: '/dashboard/commercial/pipeline', icon: Workflow, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Devis & Propositions', href: '/dashboard/commercial/quotes', icon: FileText, permission: 'quotes.read', categoryId: 'commercial' },
@@ -88,11 +88,11 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Rapports', href: '/dashboard/crm/reports', icon: BarChart, permission: 'reports.read', categoryId: 'crm' },
 
   { name: 'Dashboard Facturation', href: '/dashboard/facturation', icon: Home, permission: 'invoices.read', categoryId: 'billing', isServiceDashboard: true },
-  { name: 'Factures', href: '/dashboard/facturation', icon: Receipt, permission: 'invoices.read', categoryId: 'billing' },
+  { name: 'Factures', href: '/dashboard/facturation/factures', icon: Receipt, permission: 'invoices.read', categoryId: 'billing' },
   { name: 'Suivi Paiements', href: '/dashboard/facturation/paiements', icon: CreditCard, permission: 'payments.read', categoryId: 'billing' },
-  { name: 'Avoirs & Remboursements', href: '/dashboard/facturation/avoirs', icon: FileText, permission: 'invoices.read', categoryId: 'billing' },
+  { name: 'Avoirs & notes de crédit', href: '/dashboard/facturation/avoirs', icon: FileText, permission: 'invoices.read', categoryId: 'billing' },
 
-  { name: 'Dashboard Comptable', href: '/dashboard/comptabilite/depenses', icon: Home, permission: 'expenses.read', categoryId: 'accounting', isServiceDashboard: true },
+  { name: 'Dashboard Comptable', href: '/dashboard/comptabilite', icon: Home, permission: 'expenses.read', categoryId: 'accounting', isServiceDashboard: true },
   { name: 'Bons de caisse', href: '/dashboard/comptabilite/depenses', icon: DollarSign, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'payments.read', categoryId: 'accounting' },
   { name: 'Comptes', href: '/dashboard/comptabilite/comptes', icon: BookOpen, permission: 'expenses.read', categoryId: 'accounting' },
@@ -119,7 +119,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Dashboard Achats', href: '/dashboard/achats', icon: Home, permission: 'purchases.read', categoryId: 'procurement', isServiceDashboard: true },
   { name: 'Catalogue Produits', href: '/dashboard/achats/produits', icon: Package, permission: 'products.read', categoryId: 'procurement' },
   { name: 'Fournisseurs', href: '/dashboard/achats/fournisseurs', icon: Truck, permission: 'suppliers.read', categoryId: 'procurement' },
-  { name: 'DPA internes', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
+  { name: 'Devis internes', href: '/dashboard/achats/devis', icon: FileText, permission: 'purchases.read', categoryId: 'procurement' },
   { name: 'Proformas fournisseurs', href: '/dashboard/achats/proformas', icon: FileCheck, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Commandes d\'Achat', href: '/dashboard/achats/commandes', icon: ShoppingCart, permission: 'purchase_orders.read', categoryId: 'procurement' },
   { name: 'Réceptions', href: '/dashboard/achats/receptions', icon: ClipboardList, permission: 'purchase_orders.read', categoryId: 'procurement' },

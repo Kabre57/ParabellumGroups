@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { adminPermissionsService, adminRolesService, type Permission } from '@/s
 import { groupPermissionsByService } from '@/components/users/permissionGrouping';
 import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { Building2, ChevronDown, ChevronRight, Edit, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
+import { Building2, Edit, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PermissionsPage() {
@@ -21,7 +21,6 @@ export default function PermissionsPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModule, setSelectedModule] = useState('all');
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
@@ -70,14 +69,16 @@ export default function PermissionsPage() {
 
   const permissionModules = useMemo(() => groupPermissionsByService(filteredPermissions), [filteredPermissions]);
 
-  const visibleModules = useMemo(
-    () => permissionModules.filter((module) => selectedModule === 'all' || module.id === selectedModule),
-    [permissionModules, selectedModule]
-  );
+  useEffect(() => {
+    if (selectedModule === 'all' && permissionModules.length > 0) {
+      setSelectedModule(permissionModules[0].id);
+    }
+  }, [permissionModules, selectedModule]);
 
-  React.useEffect(() => {
-    setExpandedModules(new Set(permissionModules.map((module) => module.id)));
-  }, [permissionModules]);
+  const selectedModuleData = useMemo(() => {
+    if (permissionModules.length === 0) return null;
+    return permissionModules.find((module) => module.id === selectedModule) || permissionModules[0];
+  }, [permissionModules, selectedModule]);
 
   const handleEditPermission = (permission: Permission) => {
     setSelectedPermission(permission);
@@ -88,15 +89,6 @@ export default function PermissionsPage() {
     if (confirm(`Supprimer la permission "${permission.name}" ?`)) {
       deletePermissionMutation.mutate(permission.id);
     }
-  };
-
-  const toggleModule = (moduleId: string) => {
-    setExpandedModules((current) => {
-      const next = new Set(current);
-      if (next.has(moduleId)) next.delete(moduleId);
-      else next.add(moduleId);
-      return next;
-    });
   };
 
   if (error) {
@@ -177,28 +169,14 @@ export default function PermissionsPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Rechercher une permission, une description ou un sous-module..."
-              className="pl-9"
-            />
-          </div>
-          <select
-            value={selectedModule}
-            onChange={(event) => setSelectedModule(event.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="all">Tous les modules</option>
-            {permissionModules.map((module) => (
-              <option key={module.id} value={module.id}>
-                {module.label}
-              </option>
-            ))}
-          </select>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Rechercher une permission, une description ou un sous-module..."
+            className="pl-9"
+          />
         </div>
       </Card>
 
@@ -217,124 +195,112 @@ export default function PermissionsPage() {
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+        <Card className="p-4">
+          <div className="text-sm font-semibold text-gray-700">Modules</div>
+          <p className="mt-1 text-xs text-muted-foreground">Choisissez un module pour afficher ses permissions.</p>
+          <div className="mt-4 space-y-2">
+            {permissionModules.map((module) => {
+              const isActive = module.id === selectedModuleData?.id;
+              return (
+                <button
+                  key={module.id}
+                  type="button"
+                  onClick={() => setSelectedModule(module.id)}
+                  className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left transition ${
+                    isActive ? 'border-blue-500 bg-blue-50' : 'border-border hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{module.label}</span>
+                    <Badge variant="outline">{module.permissions.length}</Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{module.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
         {isLoading ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">Chargement des permissions...</Card>
-        ) : visibleModules.length === 0 ? (
+        ) : !selectedModuleData ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
             Aucun module ne correspond aux filtres actuels.
           </Card>
         ) : (
-          visibleModules.map((module) => {
-            const isExpanded = expandedModules.has(module.id);
-            return (
-              <Card key={module.id} className="overflow-hidden">
-                <div className="border-b bg-gray-50 px-5 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <button type="button" onClick={() => toggleModule(module.id)} className="flex flex-1 items-start text-left">
-                      {isExpanded ? (
-                        <ChevronDown className="mr-3 mt-0.5 h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronRight className="mr-3 mt-0.5 h-5 w-5 text-gray-400" />
-                      )}
+          <div className="space-y-4">
+            <Card className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedModuleData.label}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{selectedModuleData.description}</p>
+                </div>
+                <Badge variant="outline">{selectedModuleData.permissions.length} permission(s)</Badge>
+              </div>
+            </Card>
+
+            {selectedModuleData.dashboards.length > 0 && (
+              <Card className="p-4">
+                <p className="text-sm font-semibold text-gray-700">Pages principales</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {selectedModuleData.dashboards.map((dashboard) => (
+                    <div key={dashboard.href} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="font-medium text-slate-900">{dashboard.label}</div>
+                      <div className="mt-1 text-xs text-slate-500">{dashboard.href}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {selectedModuleData.subgroups.map((subgroup) => (
+              <Card key={`${selectedModuleData.id}-${subgroup.id}`} className="p-4">
+                <div className="border-b pb-2">
+                  <h4 className="font-medium">{subgroup.label}</h4>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {subgroup.permissions.map((permission) => (
+                    <div
+                      key={permission.id}
+                      className="flex flex-col gap-3 rounded-lg border border-dashed px-4 py-3 md:flex-row md:items-center md:justify-between"
+                    >
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg font-semibold">{module.label}</h2>
-                          <Badge variant="outline">{module.permissions.length} permission(s)</Badge>
-                        </div>
-                        {module.description && (
-                          <p className="mt-1 text-sm text-muted-foreground">{module.description}</p>
+                        <p className="text-sm font-semibold">{permission.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {permission.description || 'Description à compléter dans le catalogue des permissions.'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{permission.category}</Badge>
+                        {canEditPermissions && (
+                          <Button variant="outline" size="sm" onClick={() => handleEditPermission(permission)}>
+                            <Edit className="mr-1 h-4 w-4" /> Modifier
+                          </Button>
+                        )}
+                        {canDeletePermissions && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePermission(permission)}
+                            disabled={deletePermissionMutation.isPending}
+                          >
+                            <Trash2 className="mr-1 h-4 w-4" /> Supprimer
+                          </Button>
                         )}
                       </div>
-                    </button>
-                  </div>
+                    </div>
+                  ))}
                 </div>
-
-                {isExpanded && (
-                  <div className="space-y-5 p-5">
-                    {module.dashboards.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold uppercase tracking-wide text-gray-500">Pages principales</div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {module.dashboards.map((dashboard) => (
-                            <div key={dashboard.href} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                              <div className="font-medium text-slate-900">{dashboard.label}</div>
-                              <div className="mt-1 text-xs text-slate-500">{dashboard.href}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {module.subgroups.map((subgroup) => (
-                      <div key={`${module.id}-${subgroup.id}`} className="space-y-3">
-                        <div className="border-b pb-2">
-                          <h3 className="font-medium">{subgroup.label}</h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[760px]">
-                            <thead>
-                              <tr className="border-b text-left text-xs uppercase tracking-wider text-gray-500">
-                                <th className="px-3 py-2">Permission</th>
-                                <th className="px-3 py-2">Description fonctionnelle</th>
-                                <th className="px-3 py-2">Catégorie</th>
-                                {(canEditPermissions || canDeletePermissions) && (
-                                  <th className="px-3 py-2 text-right">Actions</th>
-                                )}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {subgroup.permissions.map((permission) => (
-                                <tr key={permission.id} className="border-b last:border-b-0">
-                                  <td className="px-3 py-3">
-                                    <code className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                                      {permission.name}
-                                    </code>
-                                  </td>
-                                  <td className="px-3 py-3 text-sm text-gray-600">
-                                    {permission.description || 'Description à compléter dans le catalogue des permissions.'}
-                                  </td>
-                                  <td className="px-3 py-3">
-                                    <Badge variant="outline">{permission.category}</Badge>
-                                  </td>
-                                  {(canEditPermissions || canDeletePermissions) && (
-                                    <td className="px-3 py-3">
-                                      <div className="flex justify-end gap-2">
-                                        {canEditPermissions && (
-                                          <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => handleEditPermission(permission)}
-                                            className="h-8 w-8"
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                        {canDeletePermissions && (
-                                          <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => handleDeletePermission(permission)}
-                                            className="h-8 w-8 text-red-600"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  )}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </Card>
-            );
-          })
+            ))}
+
+            {selectedModuleData.subgroups.length === 0 && (
+              <Card className="p-4 text-sm text-muted-foreground">
+                Aucune permission detaillee pour ce module. Ajoutez-en depuis le catalogue.
+              </Card>
+            )}
+          </div>
         )}
       </div>
 

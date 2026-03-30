@@ -64,10 +64,8 @@ export default function PaiementsPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
+  const formatCurrency = (amount: number) =>
+    `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('fr-FR');
 
@@ -102,7 +100,6 @@ export default function PaiementsPage() {
             <option value="VIREMENT">Virement</option>
             <option value="CHEQUE">Cheque</option>
             <option value="CARTE">Carte bancaire</option>
-            <option value="PRELEVEMENT">Prelevement</option>
           </select>
         </div>
       </Card>
@@ -126,7 +123,9 @@ export default function PaiementsPage() {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="font-medium">PAY-{payment.id}</TableCell>
+                  <TableCell className="font-medium">
+                    {payment.reference || payment.facture?.numeroFacture || `PAY-${String(payment.id).slice(0, 8)}`}
+                  </TableCell>
                   <TableCell>
                     {payment.factureId ? (
                       <Button
@@ -143,8 +142,16 @@ export default function PaiementsPage() {
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(payment.montant)}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => alert('Details du paiement a implementer')}>
-                      Details
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        payment.factureId
+                          ? router.push(`/dashboard/facturation/factures/${payment.factureId}`)
+                          : router.push('/dashboard/facturation/factures')
+                      }
+                    >
+                      Voir la facture
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -158,7 +165,7 @@ export default function PaiementsPage() {
 
       {canCreate && (
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle>Enregistrer un paiement</DialogTitle>
             </DialogHeader>

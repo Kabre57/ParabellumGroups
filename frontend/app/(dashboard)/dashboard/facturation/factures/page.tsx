@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { billingService } from '@/shared/api/billing';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 import InvoiceForm from '@/components/billing/InvoiceForm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { useClients } from '@/hooks/useCrm';
+import InvoicePrint from '@/components/printComponents/InvoicePrint';
+import type { Invoice } from '@/shared/api/billing';
 
 export default function FacturesPage() {
   const router = useRouter();
@@ -35,6 +39,9 @@ export default function FacturesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<any | null>(null);
+  const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
   const { data: clients = [] } = useClients({ pageSize: 200 });
 
   const { data: invoicesResponse, isLoading } = useQuery({
@@ -59,6 +66,7 @@ export default function FacturesPage() {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'secondary' }> = {
       BROUILLON: { label: 'Brouillon', variant: 'outline' },
       ENVOYEE: { label: 'Envoyée', variant: 'default' },
+      EMISE: { label: 'Emise', variant: 'default' },
       PAYEE: { label: 'Payée', variant: 'success' },
       EN_RETARD: { label: 'En retard', variant: 'destructive' },
       ANNULEE: { label: 'Annulée', variant: 'secondary' },
@@ -81,21 +89,33 @@ export default function FacturesPage() {
   };
 
   const handleDelete = (invoice: any) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.numeroFacture}" ?`)) {
-      deleteMutation.mutate(invoice.id);
+    setInvoiceToDelete(invoice);
+  };
+
+  const handlePrintInvoice = async (invoiceId: string) => {
+    try {
+      setPrintLoading(true);
+      const response = await billingService.getInvoice(invoiceId);
+      setInvoiceToPrint(response.data);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || error?.message || "Impossible d'imprimer la facture.");
+    } finally {
+      setPrintLoading(false);
     }
   };
 
-  const handleDownloadPDF = async (invoiceId: string) => {
-    const blob = await billingService.getInvoicePDF(invoiceId);
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   const handleSendInvoice = async (invoiceNum: string) => {
-    // TODO: Implémenter l'envoi de facture
-    console.log('Send invoice:', invoiceNum);
-    alert('Fonctionnalité d\'envoi de facture à implémenter');
+    try {
+      const response = await billingService.sendInvoice(invoiceNum);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      if ((response as any)?.emailDelivery?.sent) {
+        toast.success('Facture envoyée au client par email.');
+      } else {
+        toast.success('Facture marquée comme émise.');
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || error?.message || "Impossible d'envoyer la facture.");
+    }
   };
 
   const invoices = invoicesResponse?.data ?? [];
@@ -117,7 +137,7 @@ export default function FacturesPage() {
             Factures
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Gérez vos factures clients
+            Gérez uniquement vos factures clients, leurs impressions et leurs envois.
           </p>
         </div>
         {canCreate && <Button onClick={() => setIsCreateDialogOpen(true)}>Nouvelle facture</Button>}
@@ -194,7 +214,7 @@ export default function FacturesPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}`)}
+                          onClick={() => router.push(`/dashboard/facturation/factures/${invoice.id}/edit`)}
                         >
                           Modifier
                         </Button>
@@ -203,9 +223,10 @@ export default function FacturesPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDownloadPDF(invoice.id)}
+                          onClick={() => handlePrintInvoice(invoice.id)}
+                          disabled={printLoading}
                         >
-                          PDF
+                          Imprimer
                         </Button>
                       )}
                       {canUpdate && (
@@ -255,6 +276,29 @@ export default function FacturesPage() {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(invoiceToDelete)}
+        title="Supprimer la facture"
+        description={
+          invoiceToDelete
+            ? `La facture ${invoiceToDelete.numeroFacture} sera supprimée définitivement.`
+            : 'Confirmez la suppression de la facture.'
+        }
+        confirmLabel="Supprimer"
+        confirmVariant="destructive"
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!invoiceToDelete) return;
+          deleteMutation.mutate(invoiceToDelete.id);
+          setInvoiceToDelete(null);
+        }}
+        onOpenChange={(open) => !open && setInvoiceToDelete(null)}
+      />
+
+      {invoiceToPrint && (
+        <InvoicePrint invoice={invoiceToPrint} onClose={() => setInvoiceToPrint(null)} />
       )}
     </div>
   );

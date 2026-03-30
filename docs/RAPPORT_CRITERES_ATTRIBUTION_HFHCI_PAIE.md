@@ -1,9 +1,9 @@
 # Rapport Métier
 
-## Grille d'attribution RH - Logiciel de paie HFHCI
+## Grille d'attribution RH - Logiciel de paie PBL
 
 ### Objet
-Ce rapport formalise la grille d'analyse à utiliser par le service RH, la commission achat et la Direction Générale pour l'évaluation des offres relatives au logiciel de paie HFHCI.
+Ce rapport formalise la grille d'analyse à utiliser par le service RH, la commission achat et la Direction Générale pour l'évaluation des offres relatives au logiciel de paie PBL.
 
 ### 1. Critères éliminatoires
 Un seul critère essentiel non satisfait entraîne l'élimination du soumissionnaire.
@@ -43,13 +43,13 @@ Un seul critère essentiel non satisfait entraîne l'élimination du soumissionn
 - Date limite de soumission : 31 mars 2026 à 17h00 GMT.
 - Validité de l'offre : 90 jours.
 - Paiement : 50% après livraison, 50% après formation et rapport.
-- Fiscalité : prix HT, HFHCI exonéré de TVA.
+- Fiscalité : prix HT, PBL exonéré de TVA.
 
 ### 6. Intégration dans l'ERP
 Cette grille a été intégrée dans le tableau de décision achat des DPA concernées par :
 - le service RH ;
 - les dossiers mentionnant un logiciel de paie ;
-- les dossiers mentionnant HFHCI.
+- les dossiers mentionnant PBL.
 
 Le tableau comparatif achat de l'ERP reste un outil interne d'aide à la décision.
 La notation officielle de commission doit continuer à s'appuyer sur les critères éliminatoires, techniques et financiers ci-dessus.

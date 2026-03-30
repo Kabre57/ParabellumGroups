@@ -20,9 +20,12 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import LeaveRequestForm from '@/components/hr/LeaveRequestForm';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -38,6 +41,9 @@ export default function LeavesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [pendingApprove, setPendingApprove] = useState<any | null>(null);
+  const [pendingReject, setPendingReject] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [calendarRange, setCalendarRange] = useState<{ start: string; end: string }>(() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
@@ -88,16 +94,12 @@ export default function LeavesPage() {
   });
 
   const handleApprove = (leave: any) => {
-    if (confirm(`Approuver la demande de congé de ${leave.nbJours} jour(s) ?`)) {
-      approveMutation.mutate(leave.id);
-    }
+    setPendingApprove(leave);
   };
 
   const handleReject = (leave: any) => {
-    const reason = prompt('Raison du rejet (optionnel):');
-    if (reason !== null) {
-      rejectMutation.mutate({ id: leave.id, reason: reason || undefined });
-    }
+    setRejectReason('');
+    setPendingReject(leave);
   };
 
   const leaveRequests = data?.data || [];
@@ -386,7 +388,7 @@ export default function LeavesPage() {
       {/* Create Dialog */}
       {canCreate && (
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl rounded-2xl">
             <DialogHeader>
               <DialogTitle>Nouvelle demande de congé</DialogTitle>
             </DialogHeader>
@@ -400,6 +402,87 @@ export default function LeavesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog
+        open={Boolean(pendingApprove)}
+        onOpenChange={(open) => {
+          if (!open) setPendingApprove(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Approuver la demande</DialogTitle>
+            <DialogDescription>
+              Confirmez l&apos;approbation de {pendingApprove?.nbJours} jour(s) de congé.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setPendingApprove(null)}
+              disabled={approveMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (!pendingApprove) return;
+                approveMutation.mutate(pendingApprove.id);
+                setPendingApprove(null);
+              }}
+              disabled={approveMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Approuver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingReject)}
+        onOpenChange={(open) => {
+          if (!open) setPendingReject(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Rejeter la demande</DialogTitle>
+            <DialogDescription>
+              Indiquez un motif de rejet si nécessaire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Motif (optionnel)</label>
+            <Textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Raison du rejet..."
+              className="min-h-[90px]"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setPendingReject(null)}
+              disabled={rejectMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!pendingReject) return;
+                rejectMutation.mutate({ id: pendingReject.id, reason: rejectReason || undefined });
+                setPendingReject(null);
+              }}
+              disabled={rejectMutation.isPending}
+            >
+              Rejeter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

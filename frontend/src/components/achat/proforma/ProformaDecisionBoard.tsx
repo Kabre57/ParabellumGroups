@@ -187,7 +187,7 @@ export function ProformaDecisionBoard({
       <CardContent className="space-y-4">
         {proformas.length === 0 ? (
           <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-            Aucune proforma à comparer pour cette DPA.
+            Aucune proforma à comparer pour ce devis interne.
           </div>
         ) : (
           <>

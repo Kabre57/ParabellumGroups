@@ -1,8 +1,8 @@
-# Rapport metier - Module RH / Paie HFHCI
+# Rapport metier - Module RH / Paie PBL
 
 ## Objectif
 
-Le module RH doit fonctionner comme un logiciel de gestion de paie adapte au contexte ivoirien et au cahier des charges HFHCI.
+Le module RH doit fonctionner comme un logiciel de gestion de paie adapte au contexte ivoirien et au cahier des charges PBL.
 
 ## Exigences couvertes
 
@@ -64,7 +64,7 @@ Deux exports sont produits par periode :
 
 ## Valeur metier
 
-Ce fonctionnement permet a HFHCI et a la RH de :
+Ce fonctionnement permet a PBL et a la RH de :
 
 - disposer d'une paie plus fiable
 - reduire les calculs manuels

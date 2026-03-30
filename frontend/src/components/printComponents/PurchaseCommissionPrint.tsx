@@ -71,11 +71,11 @@ export default function PurchaseCommissionPrint({
       logoAlt={request.serviceName || 'Parabellum Groups'}
     >
       <div className="print-sheet">
-        <div className="section-title">Contexte de la DPA</div>
+        <div className="section-title">Contexte du devis interne</div>
         <table className="table-print" style={{ marginBottom: 14 }}>
           <tbody>
             <tr>
-              <td style={{ ...tdStyle, width: '20%', fontWeight: 700 }}>DPA</td>
+              <td style={{ ...tdStyle, width: '20%', fontWeight: 700 }}>Devis interne</td>
               <td style={tdStyle}>{textOrDash(request.number)}</td>
               <td style={{ ...tdStyle, width: '20%', fontWeight: 700 }}>Objet</td>
               <td style={tdStyle}>{textOrDash(request.objet || request.title)}</td>
@@ -101,7 +101,7 @@ export default function PurchaseCommissionPrint({
                 <tr>
                   <td style={{ ...tdStyle, fontWeight: 700 }}>Mode d’évaluation</td>
                   <td style={tdStyle}>
-                    Comparatif achat interne + grille officielle RH/HFHCI à compléter.
+                    Comparatif achat interne + grille officielle RH/PBL à compléter.
                   </td>
                 </tr>
               </tbody>

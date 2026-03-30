@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { commercialService } from '@/shared/api/commercial';
 import { getCrudVisibility } from '@/shared/action-visibility';
@@ -83,6 +84,7 @@ export default function ProspectionWorkflowPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [prospectToDelete, setProspectToDelete] = useState<Prospect | null>(null);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['prospects.read', 'prospects.read_all', 'prospects.read_own'],
     create: ['prospects.create'],
@@ -162,9 +164,7 @@ export default function ProspectionWorkflowPage() {
   };
 
   const handleDelete = (prospect: Prospect) => {
-    if (confirm(`Supprimer le prospect "${prospect.companyName}" ?`)) {
-      deleteProspectMutation.mutate(prospect.id);
-    }
+    setProspectToDelete(prospect);
   };
 
   return (
@@ -378,6 +378,25 @@ export default function ProspectionWorkflowPage() {
           setSelectedProspect(null);
         }}
         prospect={selectedProspect}
+      />
+
+      <ConfirmDialog
+        open={Boolean(prospectToDelete)}
+        title="Supprimer le prospect"
+        description={
+          prospectToDelete
+            ? `Le prospect "${prospectToDelete.companyName}" sera supprimé définitivement.`
+            : 'Confirmez la suppression du prospect.'
+        }
+        confirmLabel="Supprimer"
+        confirmVariant="destructive"
+        isPending={deleteProspectMutation.isPending}
+        onConfirm={() => {
+          if (!prospectToDelete) return;
+          deleteProspectMutation.mutate(prospectToDelete.id);
+          setProspectToDelete(null);
+        }}
+        onOpenChange={(open) => !open && setProspectToDelete(null)}
       />
     </div>
   );

@@ -282,7 +282,7 @@ export function HRExecutiveDashboard() {
       <div className="grid gap-3 xl:grid-cols-4">
         <Card className="p-4 xl:col-span-3">
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">Périmètre HFHCI : {overview.workforce.supportedInitialRange}</Badge>
+            <Badge variant="outline">Périmètre PBL : {overview.workforce.supportedInitialRange}</Badge>
             <Badge variant="outline">Capacité {overview.workforce.supportedScale} salariés</Badge>
             <Badge className={coverageRate >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}>
               Couverture dossiers : {coverageRate}%

@@ -3,6 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import { PermissionChangeRequest } from '@/types/permissionWorkflow';
 import { permissionRequestService } from '@/services/permissionRequestService';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ListeDemandesEnAttenteProps {
   requests?: PermissionChangeRequest[];
@@ -26,6 +37,9 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
   const [internalRequests, setInternalRequests] = useState<PermissionChangeRequest[]>([]);
   const [internalLoading, setInternalLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [approveTarget, setApproveTarget] = useState<PermissionChangeRequest | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<PermissionChangeRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   // Utiliser les données externes si fournies, sinon gérer l'état interne
   const requests = externalRequests !== undefined ? externalRequests : internalRequests;
@@ -59,25 +73,24 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
     try {
       await permissionRequestService.approveRequest(id);
       await chargerDemandesEnAttente();
-      alert('Demande approuvée avec succès');
+      toast.success('Demande approuvée avec succès');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Échec de l\'approbation');
+      toast.error(err instanceof Error ? err.message : 'Échec de l\'approbation');
     }
   };
 
   const handleReject = async (id: number) => {
-    const reason = prompt('Entrez la raison du rejet (optionnel) :');
     if (externalOnReject) {
-      externalOnReject(id, reason || '');
+      externalOnReject(id, rejectReason || '');
       return;
     }
 
     try {
-      await permissionRequestService.rejectRequest(id, reason || undefined);
+      await permissionRequestService.rejectRequest(id, rejectReason || undefined);
       await chargerDemandesEnAttente();
-      alert('Demande rejetée avec succès');
+      toast.success('Demande rejetée avec succès');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Échec du rejet');
+      toast.error(err instanceof Error ? err.message : 'Échec du rejet');
     }
   };
 
@@ -100,7 +113,7 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
       {requests.map((req) => (
         <div
           key={req.id}
-          className="border border-gray-300 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition"
+          className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm hover:shadow-md transition"
         >
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
@@ -128,7 +141,7 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
           </div>
 
           {/* Détail des permissions demandées */}
-          <div className="bg-gray-50 p-4 rounded mb-4">
+          <div className="bg-gray-50 p-4 rounded-xl mb-4">
             <p className="font-semibold mb-2">Permissions demandées :</p>
             <div className="grid grid-cols-5 gap-2 text-sm">
               {req.canView !== undefined && (
@@ -162,24 +175,100 @@ export const ListeDemandesEnAttente: React.FC<ListeDemandesEnAttenteProps> = ({
           {/* Boutons d'action */}
           {canManageRequests && (
             <div className="flex gap-3">
-              <button
-                onClick={() => handleApprove(req.id)}
+              <Button
+                onClick={() => setApproveTarget(req)}
                 disabled={approving}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-2 px-4 rounded transition"
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-2 px-4 rounded-lg transition"
               >
                 {approving ? 'Approbation...' : '✓ Approuver'}
-              </button>
-              <button
-                onClick={() => handleReject(req.id)}
+              </Button>
+              <Button
+                onClick={() => {
+                  setRejectReason('');
+                  setRejectTarget(req);
+                }}
                 disabled={rejecting}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 px-4 rounded transition"
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 px-4 rounded-lg transition"
               >
                 {rejecting ? 'Rejet...' : '✗ Rejeter'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
       ))}
+
+      <Dialog
+        open={Boolean(approveTarget)}
+        onOpenChange={(open) => {
+          if (!open) setApproveTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Approuver la demande</DialogTitle>
+            <DialogDescription>
+              Confirmez l&apos;approbation de la demande de permission.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setApproveTarget(null)} disabled={approving}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (!approveTarget) return;
+                handleApprove(approveTarget.id);
+                setApproveTarget(null);
+              }}
+              disabled={approving}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Approuver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Rejeter la demande</DialogTitle>
+            <DialogDescription>
+              Indiquez un motif si nécessaire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Motif (optionnel)</label>
+            <Textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Raison du rejet..."
+              className="min-h-[90px]"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={rejecting}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!rejectTarget) return;
+                handleReject(rejectTarget.id);
+                setRejectTarget(null);
+              }}
+              disabled={rejecting}
+            >
+              Rejeter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

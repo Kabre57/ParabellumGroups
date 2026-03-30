@@ -195,7 +195,7 @@ export default function PurchaseQuotesPage() {
       setLines([createEmptyDpaDraftLine()]);
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la création de la DPA.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création du devis interne.');
     },
   });
 
@@ -254,21 +254,21 @@ export default function PurchaseQuotesPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats">Retour aux achats</Link>
           </Button>
-          <h1 className="mt-2 text-3xl font-bold">DPA</h1>
+          <h1 className="mt-2 text-3xl font-bold">Devis internes</h1>
           <p className="text-sm text-muted-foreground">
-            Gérez vos DPA et leurs informations.
+            Gérez vos devis internes et leurs informations.
           </p>
         </div>
         {canCreate && (
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Nouvelle DPA
+            Nouveau devis
           </Button>
         )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total DPA</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total devis internes</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">En attente</div><div className="text-2xl font-bold text-blue-600">{stats.pending}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Convertis en BC</div><div className="text-2xl font-bold text-green-600">{stats.converted}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant total</div><div className="text-2xl font-bold">{stats.totalAmount.toLocaleString('fr-FR')} F</div></CardContent></Card>
@@ -276,7 +276,7 @@ export default function PurchaseQuotesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Liste des DPA</CardTitle>
+          <CardTitle>Liste des devis internes</CardTitle>
           <CardDescription>Rechercher, consulter et suivre.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -384,7 +384,7 @@ export default function PurchaseQuotesPage() {
               </table>
               {requests.length === 0 && (
                 <div className="py-10 text-center text-muted-foreground">
-                  Aucune DPA trouvée.
+                  Aucun devis interne trouvé.
                 </div>
               )}
             </div>

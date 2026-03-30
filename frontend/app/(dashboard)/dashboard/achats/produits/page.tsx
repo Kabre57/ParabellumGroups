@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -89,6 +89,7 @@ export default function ProductsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<InventoryArticle | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: articlesResponse, isLoading } = useQuery({
     queryKey: ['inventory-articles', categoryFilter, searchTerm],
@@ -148,7 +149,7 @@ export default function ProductsPage() {
   const createMutation = useMutation({
     mutationFn: (values: ProductFormValues) =>
       inventoryService.createArticle({
-        reference: values.reference || undefined,
+        reference: undefined,
         nom: values.nom,
         imageUrl: values.imageUrl || undefined,
         description: values.description || undefined,
@@ -275,6 +276,18 @@ export default function ProductsPage() {
     }
     setDialogOpen(false);
   });
+
+  const imageUrlValue = form.watch('imageUrl');
+
+  const handleImagePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      form.setValue('imageUrl', String(reader.result || ''));
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -482,23 +495,57 @@ export default function ProductsPage() {
           </DialogHeader>
 
           <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reference</label>
-              <Input
-                {...form.register('reference')}
-                placeholder="Laisser vide pour génération automatique"
-              />
-            </div>
+            {editingProduct && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Référence</label>
+                <Input {...form.register('reference')} readOnly />
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Nom</label>
               <Input {...form.register('nom', { required: true })} />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Image du produit</label>
-              <Input
-                {...form.register('imageUrl')}
-                placeholder="https://... ou URL publique de l'image"
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="h-16 w-16 overflow-hidden rounded-md border bg-muted">
+                  {imageUrlValue ? (
+                    <img src={imageUrlValue} alt="Produit" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                      Sans image
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    {...form.register('imageUrl')}
+                    placeholder="Coller une URL d'image ou ajouter un fichier"
+                    className="w-[260px]"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    Ajouter une image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => form.setValue('imageUrl', '')}
+                  >
+                    Retirer
+                  </Button>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImagePick}
+                  />
+                </div>
+              </div>
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Description</label>

@@ -3,6 +3,26 @@ const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
 
+const serializeJalon = (jalon) => ({
+  id: jalon.id,
+  projetId: jalon.projetId,
+  projectId: jalon.projetId,
+  nom: jalon.nom,
+  name: jalon.nom,
+  description: jalon.description,
+  dateEcheance: jalon.dateEcheance,
+  status: jalon.status,
+  project: jalon.projet
+    ? {
+        id: jalon.projet.id,
+        projectNumber: jalon.projet.numeroProjet,
+        name: jalon.projet.nom,
+      }
+    : null,
+  createdAt: jalon.createdAt,
+  updatedAt: jalon.updatedAt,
+});
+
 /**
  * Créer un nouveau jalon
  */
@@ -34,7 +54,11 @@ const createJalon = async (req, res) => {
       }
     });
 
-    res.status(201).json(jalon);
+    res.status(201).json({
+      success: true,
+      data: serializeJalon(jalon),
+      message: 'Jalon créé avec succès',
+    });
   } catch (error) {
     console.error('Erreur création jalon:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création du jalon' });
@@ -46,13 +70,21 @@ const createJalon = async (req, res) => {
  */
 const getAllJalons = async (req, res) => {
   try {
-    const { projetId, status, page = 1, limit = 10 } = req.query;
+    const { projetId, projectId, status, page = 1, limit = 10, sortBy = 'dateEcheance', sortOrder = 'asc' } = req.query;
 
     const where = {};
-    if (projetId) where.projetId = projetId;
+    if (projetId || projectId) where.projetId = projetId || projectId;
     if (status) where.status = status;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortableFields = {
+      dateEcheance: 'dateEcheance',
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
+      nom: 'nom',
+    };
+    const orderField = sortableFields[String(sortBy)] || 'dateEcheance';
+    const direction = String(sortOrder).toLowerCase() === 'desc' ? 'desc' : 'asc';
 
     const [jalons, total] = await Promise.all([
       prisma.jalon.findMany({
@@ -68,18 +100,21 @@ const getAllJalons = async (req, res) => {
         },
         skip,
         take: parseInt(limit),
-        orderBy: { dateEcheance: 'asc' }
+        orderBy: { [orderField]: direction }
       }),
       prisma.jalon.count({ where })
     ]);
 
     res.json({
-      jalons,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+      success: true,
+      data: jalons.map(serializeJalon),
+      meta: {
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit))
+        }
       }
     });
   } catch (error) {
@@ -106,7 +141,10 @@ const getJalonById = async (req, res) => {
       return res.status(404).json({ error: 'Jalon non trouvé' });
     }
 
-    res.json(jalon);
+    res.json({
+      success: true,
+      data: serializeJalon(jalon),
+    });
   } catch (error) {
     console.error('Erreur récupération jalon:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération du jalon' });
@@ -135,7 +173,11 @@ const updateJalon = async (req, res) => {
       }
     });
 
-    res.json(jalon);
+    res.json({
+      success: true,
+      data: serializeJalon(jalon),
+      message: 'Jalon mis à jour avec succès',
+    });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });
@@ -156,7 +198,7 @@ const deleteJalon = async (req, res) => {
       where: { id }
     });
 
-    res.status(204).send();
+    res.json({ success: true, message: 'Jalon supprimé avec succès' });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });
@@ -186,7 +228,11 @@ const updateJalonStatus = async (req, res) => {
       }
     });
 
-    res.json(jalon);
+    res.json({
+      success: true,
+      data: serializeJalon(jalon),
+      message: 'Statut du jalon mis à jour avec succès',
+    });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });

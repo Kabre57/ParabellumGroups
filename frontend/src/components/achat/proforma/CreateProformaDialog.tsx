@@ -129,7 +129,7 @@ export function CreateProformaDialog({
         <DialogHeader>
           <DialogTitle>Nouvelle proforma</DialogTitle>
           <DialogDescription>
-            Enregistrez une proforma fournisseur liée à la DPA, puis soumettez la proforma retenue au DG.
+            Enregistrez une proforma fournisseur liée au devis interne, puis soumettez la proforma retenue au DG.
           </DialogDescription>
         </DialogHeader>
 

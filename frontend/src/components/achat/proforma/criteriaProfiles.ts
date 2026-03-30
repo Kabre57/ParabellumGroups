@@ -35,9 +35,9 @@ const normalize = (value?: string | null) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, ' ');
 
-export const HFHCI_PAYROLL_PROFILE: ProcurementCriteriaProfile = {
-  id: 'hfhci-payroll',
-  title: "Grille RH - Logiciel de paie HFHCI",
+export const PBL_PAYROLL_PROFILE: ProcurementCriteriaProfile = {
+  id: 'PBL-payroll',
+  title: "Grille RH - Logiciel de paie PBL",
   subtitle:
     "Cadre d'analyse officiel à utiliser par la commission achat et la RH pour les solutions de paie.",
   internalComparisonLabel:
@@ -72,7 +72,7 @@ export const HFHCI_PAYROLL_PROFILE: ProcurementCriteriaProfile = {
     { label: 'Date limite de soumission', value: '31 mars 2026 à 17h00 GMT' },
     { label: "Validité de l'offre", value: '90 jours' },
     { label: 'Paiement', value: '50% après livraison, 50% après formation et rapport' },
-    { label: 'Fiscalité', value: 'Prix Hors Taxes (HFHCI exonéré de TVA)' },
+    { label: 'Fiscalité', value: 'Prix Hors Taxes (PBL exonéré de TVA)' },
   ],
 };
 
@@ -96,9 +96,9 @@ export function resolveProcurementCriteriaProfile(
   const matchesPayroll =
     haystack.includes('logiciel de paie') ||
     haystack.includes('paie') ||
-    haystack.includes('hfhci') ||
+    haystack.includes('PBL') ||
     haystack.includes('ressources humaines') ||
     haystack.includes('rh');
 
-  return matchesPayroll ? HFHCI_PAYROLL_PROFILE : null;
+  return matchesPayroll ? PBL_PAYROLL_PROFILE : null;
 }

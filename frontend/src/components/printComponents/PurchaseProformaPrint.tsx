@@ -55,8 +55,8 @@ export default function PurchaseProformaPrint({
       }
       footerNote={
         proforma.selectedForOrder
-          ? `Proforma retenue pour commande sur la DPA ${request.number}.`
-          : `Proforma associee a la DPA ${request.number}.`
+          ? `Proforma retenue pour commande sur le devis interne ${request.number}.`
+          : `Proforma associee au devis interne ${request.number}.`
       }
       signatureLabel="Visa achat / DG"
       onClose={onClose}

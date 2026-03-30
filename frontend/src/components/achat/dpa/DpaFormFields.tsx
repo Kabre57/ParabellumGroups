@@ -48,7 +48,7 @@ export function DpaFormFields({
   disabled = false,
 }: DpaFormFieldsProps) {
   return (
-    <>
+    <div className="space-y-4 pb-2">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showServiceSelector ? (
           <div className="space-y-2">
@@ -137,7 +137,7 @@ export function DpaFormFields({
           disabled={disabled}
         />
       </div>
-    </>
+    </div>
   );
 }
 

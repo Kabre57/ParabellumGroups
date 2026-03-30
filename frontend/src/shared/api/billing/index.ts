@@ -6,6 +6,7 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   vatRate: number;
+  imageUrl?: string | null;
   quantite?: number;
   prixUnitaire?: number;
   tauxTVA?: number;
@@ -35,11 +36,12 @@ export interface Invoice {
   dateEcheance?: string;
   lignes: InvoiceItem[];
   notes?: string;
-  status: 'BROUILLON' | 'ENVOYEE' | 'PAYEE' | 'PARTIELLEMENT_PAYEE' | 'EN_RETARD' | 'ANNULEE';
+  status: 'BROUILLON' | 'ENVOYEE' | 'EMISE' | 'PAYEE' | 'PARTIELLEMENT_PAYEE' | 'EN_RETARD' | 'ANNULEE';
   montantHT: number;
   montantTTC: number;
   montantTVA: number;
   montantPaye?: number;
+  avoirs?: CreditNote[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -90,6 +92,11 @@ export interface Quote {
   updatedAt?: string;
 }
 
+export interface PublicQuoteResponsePayload {
+  action: 'ACCEPT' | 'REQUEST_MODIFICATION' | 'REFUSE';
+  comment?: string;
+}
+
 export interface QuoteEvent {
   id: string;
   devisId: string;
@@ -114,13 +121,47 @@ export interface Payment {
   createdAt?: string;
 }
 
+export interface CreditNoteLine {
+  id?: string;
+  description: string;
+  quantite: number;
+  prixUnitaire: number;
+  tauxTVA: number;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+}
+
+export interface CreditNote {
+  id: string;
+  numeroAvoir: string;
+  factureId: string;
+  factureNumero: string;
+  clientId: string;
+  serviceId?: string | null;
+  serviceName?: string | null;
+  serviceLogoUrl?: string | null;
+  motif: string;
+  notes?: string | null;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  status: 'BROUILLON' | 'EMISE' | 'APPLIQUE' | 'ANNULE';
+  lignes: CreditNoteLine[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface InvoiceStats {
-  totalFactures: number;
+  totalFactures?: number;
   chiffreAffaires: number;
   montantEnAttente: number;
   montantEnRetard: number;
   facturesPayees: number;
   facturesEnRetard: number;
+  brouillon?: number;
+  emises?: number;
+  annulees?: number;
 }
 
 export interface QuoteStats {
@@ -433,13 +474,42 @@ export const billingService = {
     return normalizeDetailResponse<Invoice>(response.data);
   },
 
-  async sendInvoice(id: string): Promise<DetailResponse<Invoice>> {
+  async sendInvoice(id: string): Promise<DetailResponse<Invoice> & { emailDelivery?: any }> {
     const response = await apiClient.post(`/billing/invoices/${id}/send`);
-    return normalizeDetailResponse<Invoice>(response.data);
+    return {
+      ...normalizeDetailResponse<Invoice>(response.data),
+      emailDelivery: response.data?.emailDelivery,
+    };
   },
 
   async getInvoicePDF(id: string): Promise<Blob> {
     const response = await apiClient.get(`/billing/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async getCreditNotes(params?: { factureId?: string; status?: string }): Promise<ListResponse<CreditNote>> {
+    const response = await apiClient.get('/billing/credit-notes', { params });
+    return normalizeListResponse<CreditNote>(response.data);
+  },
+
+  async getCreditNote(id: string): Promise<DetailResponse<CreditNote>> {
+    const response = await apiClient.get(`/billing/credit-notes/${id}`);
+    return normalizeDetailResponse<CreditNote>(response.data);
+  },
+
+  async createCreditNote(data: {
+    factureId: string;
+    motif: string;
+    notes?: string;
+  }): Promise<DetailResponse<CreditNote>> {
+    const response = await apiClient.post('/billing/credit-notes', data);
+    return normalizeDetailResponse<CreditNote>(response.data);
+  },
+
+  async getCreditNotePDF(id: string): Promise<Blob> {
+    const response = await apiClient.get(`/billing/credit-notes/${id}/pdf`, {
       responseType: 'blob',
     });
     return response.data;
@@ -467,6 +537,8 @@ export const billingService = {
 
   async createQuote(data: {
     clientId: string;
+    serviceId?: string;
+    serviceName?: string;
     objet?: string;
     dateDevis?: string;
     dateValidite?: string;
@@ -529,6 +601,41 @@ export const billingService = {
     return response.data;
   },
 
+  async getPublicQuoteResponse(token: string): Promise<DetailResponse<Quote>> {
+    const response = await fetch(`/api/billing/quotes/respond/${token}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Impossible de charger le devis client');
+    }
+
+    return normalizeDetailResponse<Quote>(payload);
+  },
+
+  async submitPublicQuoteResponse(
+    token: string,
+    data: PublicQuoteResponsePayload
+  ): Promise<DetailResponse<Quote>> {
+    const response = await fetch(`/api/billing/quotes/respond/${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Impossible d’enregistrer la réponse du client');
+    }
+
+    return normalizeDetailResponse<Quote>(payload);
+  },
+
   async getPayments(params?: {
     page?: number;
     limit?: number;
@@ -537,7 +644,14 @@ export const billingService = {
     startDate?: string;
     endDate?: string;
   }): Promise<ListResponse<Payment>> {
-    const response = await apiClient.get('/billing/payments', { params });
+    const queryParams = {
+      ...params,
+      dateDebut: params?.startDate,
+      dateFin: params?.endDate,
+    };
+    delete (queryParams as any).startDate;
+    delete (queryParams as any).endDate;
+    const response = await apiClient.get('/billing/payments', { params: queryParams });
     return normalizeListResponse<Payment>(response.data);
   },
 
@@ -555,7 +669,7 @@ export const billingService = {
     factureId: string;
     montant: number;
     datePaiement?: string;
-    modePaiement: 'VIREMENT' | 'CHEQUE' | 'ESPECES' | 'CARTE' | 'PRELEVEMENT';
+    modePaiement: 'VIREMENT' | 'CHEQUE' | 'ESPECES' | 'CARTE';
     reference?: string;
     notes?: string;
   }): Promise<DetailResponse<Payment>> {
@@ -659,6 +773,21 @@ export const billingService = {
     openingBalance?: number;
   }): Promise<DetailResponse<AccountingAccount>> {
     const response = await apiClient.post('/billing/accounting/accounts', data);
+    return normalizeDetailResponse<AccountingAccount>(response.data);
+  },
+
+  async updateAccountingAccount(
+    id: string,
+    data: {
+      code?: string;
+      label?: string;
+      type?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+      description?: string;
+      openingBalance?: number;
+      isActive?: boolean;
+    }
+  ): Promise<DetailResponse<AccountingAccount>> {
+    const response = await apiClient.patch(`/billing/accounting/accounts/${id}`, data);
     return normalizeDetailResponse<AccountingAccount>(response.data);
   },
 

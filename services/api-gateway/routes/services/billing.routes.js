@@ -25,6 +25,16 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/credit-notes/,
+    permissions: {
+      GET: 'invoices.read',
+      POST: 'invoices.credit_note',
+      PUT: 'invoices.credit_note',
+      PATCH: 'invoices.credit_note',
+      DELETE: 'invoices.credit_note'
+    }
+  },
+  {
     pattern: /^\/quotes\/[^/]+\/accept$/,
     permissions: {
       POST: 'quotes.approve'
@@ -145,6 +155,11 @@ const rewriteBillingPath = (path) => {
     console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
+  if (path.includes('/credit-notes')) {
+    const rewritten = normalize(path).replace('/credit-notes', '/avoirs');
+    console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
   if (path.includes('/payments')) {
     const rewritten = normalize(path).replace('/payments', '/paiements');
     console.log('[Billing Path Rewrite] Rewritten to:', rewritten);
@@ -166,6 +181,11 @@ module.exports = {
   limiter: billingServiceLimiter,
   
   routes: [
+    {
+      path: '/billing/quotes/respond',
+      auth: false,
+      pathRewrite: rewriteBillingPath,
+    },
     {
       path: '/billing',
       auth: true,

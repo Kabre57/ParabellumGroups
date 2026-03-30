@@ -20,6 +20,7 @@ const buildBillingLine = (ligne = {}) => {
       ligne.label ||
       ''
   ).trim();
+  const imageUrl = ligne.imageUrl || ligne.image || ligne.image_url || null;
   const quantite = normalizeNumber(
     ligne.quantite ?? ligne.quantity ?? ligne.qty ?? 1,
     1
@@ -34,6 +35,7 @@ const buildBillingLine = (ligne = {}) => {
 
   return {
     description,
+    imageUrl,
     quantite,
     prixUnitaire,
     tauxTVA,
@@ -58,6 +60,14 @@ const getDefaultDate = (value, daysToAdd = 30) => {
   const date = new Date();
   date.setDate(date.getDate() + daysToAdd);
   return date;
+};
+
+const ensureTempDir = () => {
+  const tempDir = path.join(__dirname, '..', 'temp');
+  if (!require('fs').existsSync(tempDir)) {
+    require('fs').mkdirSync(tempDir, { recursive: true });
+  }
+  return tempDir;
 };
 
 const getNextFactureNumber = async (tx = prisma) => {
@@ -106,6 +116,46 @@ const fetchServiceMeta = async (req, serviceId) => {
   }
 };
 
+const fetchClientMeta = async (req, clientId) => {
+  if (!clientId) {
+    return { clientName: null, clientEmail: null };
+  }
+
+  try {
+    const customerBase = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+    const resp = await axios.get(`${customerBase}/api/clients/${clientId}`, {
+      headers: { authorization: req.headers.authorization || '' },
+    });
+    return {
+      clientName: resp.data?.data?.nom || null,
+      clientEmail: resp.data?.data?.email || null,
+    };
+  } catch (e) {
+    console.warn('Meta client facture non recuperee', e?.response?.status || e.message);
+    return { clientName: null, clientEmail: null };
+  }
+};
+
+const sendInvoiceEmail = async (req, payload) => {
+  const communicationBase = process.env.COMMUNICATION_SERVICE_URL || 'http://communication-service:4002';
+  const createResp = await axios.post(`${communicationBase}/api/messages`, payload, {
+    headers: { authorization: req.headers.authorization || '' },
+  });
+
+  const messageId = createResp.data?.id;
+  if (!messageId) {
+    throw new Error('Message email facture non cree');
+  }
+
+  await axios.post(
+    `${communicationBase}/api/messages/${messageId}/send`,
+    {},
+    { headers: { authorization: req.headers.authorization || '' } }
+  );
+
+  return { messageId };
+};
+
 /**
  * Recupere toutes les factures avec filtres optionnels
  */
@@ -127,11 +177,25 @@ exports.getAllFactures = async (req, res) => {
       include: {
         lignes: true,
         paiements: true,
+        avoirs: true,
       },
       orderBy: { dateEmission: 'desc' },
     });
 
-    res.json(factures);
+    const facturesWithClientMeta = await Promise.all(
+      factures.map(async (facture) => {
+        const clientMeta = await fetchClientMeta(req, facture.clientId);
+        return {
+          ...facture,
+          client: {
+            nom: clientMeta.clientName,
+            email: clientMeta.clientEmail,
+          },
+        };
+      })
+    );
+
+    res.json(facturesWithClientMeta);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -149,6 +213,9 @@ exports.getFactureById = async (req, res) => {
       include: {
         lignes: true,
         paiements: true,
+        avoirs: {
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -156,7 +223,15 @@ exports.getFactureById = async (req, res) => {
       return res.status(404).json({ error: 'Facture non trouvee' });
     }
 
-    res.json(facture);
+    const clientMeta = await fetchClientMeta(req, facture.clientId);
+
+    res.json({
+      ...facture,
+      client: {
+        nom: clientMeta.clientName,
+        email: clientMeta.clientEmail,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -295,7 +370,6 @@ exports.addLigne = async (req, res) => {
 exports.sendFacture = async (req, res) => {
   try {
     const { id } = req.params;
-
     const facture = await prisma.facture.update({
       where: { id },
       data: {
@@ -304,10 +378,55 @@ exports.sendFacture = async (req, res) => {
       include: {
         lignes: true,
         paiements: true,
+        avoirs: true,
       },
     });
+    const clientMeta = await fetchClientMeta(req, facture.clientId);
+    let emailDelivery = {
+      sent: false,
+      clientEmail: clientMeta.clientEmail,
+      clientName: clientMeta.clientName,
+      reason: null,
+      messageId: null,
+    };
 
-    res.json(facture);
+    if (!clientMeta.clientEmail) {
+      emailDelivery.reason = 'Email client absent dans le CRM';
+    } else {
+      try {
+        const delivery = await sendInvoiceEmail(req, {
+          expediteurId: req.user?.email || String(req.user?.id || 'facturation'),
+          destinataireId: clientMeta.clientEmail,
+          sujet: `Facture ${facture.numeroFacture}`,
+          contenu: [
+            `Bonjour${clientMeta.clientName ? ` ${clientMeta.clientName}` : ''},`,
+            '',
+            `Votre facture ${facture.numeroFacture} est maintenant disponible.`,
+            `Montant TTC : ${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(facture.montantTTC || 0)} F CFA`,
+            `Date d'échéance : ${moment(facture.dateEcheance).format('DD/MM/YYYY')}`,
+            '',
+            req.body?.message ? `Message : ${req.body.message}` : '',
+            '',
+            'Merci.',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          type: 'EMAIL',
+        });
+
+        emailDelivery = {
+          sent: true,
+          clientEmail: clientMeta.clientEmail,
+          clientName: clientMeta.clientName,
+          reason: null,
+          messageId: delivery.messageId,
+        };
+      } catch (error) {
+        emailDelivery.reason = error?.response?.data?.error || error.message || 'Envoi email impossible';
+      }
+    }
+
+    res.json({ success: true, data: facture, emailDelivery });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -329,24 +448,30 @@ exports.getStats = async (req, res) => {
 
     const factures = await prisma.facture.findMany({ where });
 
-    const stats = {
-      total: factures.length,
-      brouillon: factures.filter((f) => f.status === 'BROUILLON').length,
-      emises: factures.filter((f) => f.status === 'EMISE').length,
-      payees: factures.filter((f) => f.status === 'PAYEE').length,
-      enRetard: factures.filter((f) => f.status === 'EN_RETARD').length,
-      annulees: factures.filter((f) => f.status === 'ANNULEE').length,
-      montantTotalHT: factures.reduce((sum, f) => sum + f.montantHT, 0),
-      montantTotalTTC: factures.reduce((sum, f) => sum + f.montantTTC, 0),
-      montantPaye: factures
-        .filter((f) => f.status === 'PAYEE')
-        .reduce((sum, f) => sum + f.montantTTC, 0),
-      montantEnAttente: factures
-        .filter((f) => f.status === 'EMISE' || f.status === 'EN_RETARD')
-        .reduce((sum, f) => sum + f.montantTTC, 0),
-    };
+    const chiffreAffaires = factures
+      .filter((f) => !['ANNULEE'].includes(f.status))
+      .reduce((sum, f) => sum + f.montantTTC, 0);
+    const montantEnAttente = factures
+      .filter((f) => ['BROUILLON', 'EMISE', 'EN_RETARD', 'PARTIELLEMENT_PAYEE'].includes(f.status))
+      .reduce((sum, f) => sum + f.montantTTC, 0);
+    const montantEnRetard = factures
+      .filter((f) => f.status === 'EN_RETARD')
+      .reduce((sum, f) => sum + f.montantTTC, 0);
 
-    res.json(stats);
+    res.json({
+      success: true,
+      data: {
+        totalFactures: factures.length,
+        chiffreAffaires,
+        montantEnAttente,
+        montantEnRetard,
+        facturesPayees: factures.filter((f) => f.status === 'PAYEE').length,
+        facturesEnRetard: factures.filter((f) => f.status === 'EN_RETARD').length,
+        brouillon: factures.filter((f) => f.status === 'BROUILLON').length,
+        emises: factures.filter((f) => f.status === 'EMISE').length,
+        annulees: factures.filter((f) => f.status === 'ANNULEE').length,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -400,6 +525,7 @@ exports.generatePDF = async (req, res) => {
       include: {
         lignes: true,
         paiements: true,
+        avoirs: true,
       },
     });
 
@@ -407,8 +533,17 @@ exports.generatePDF = async (req, res) => {
       return res.status(404).json({ error: 'Facture non trouvee' });
     }
 
-    const outputPath = path.join(__dirname, '..', 'temp', `${facture.numeroFacture}.pdf`);
-    await generateFacturePDF(facture, outputPath);
+    const tempDir = ensureTempDir();
+    const clientMeta = await fetchClientMeta(req, facture.clientId);
+    const outputPath = path.join(tempDir, `${facture.numeroFacture}.pdf`);
+    const payload = {
+      ...facture,
+      client: {
+        nom: clientMeta.clientName,
+        email: clientMeta.clientEmail,
+      },
+    };
+    await generateFacturePDF(payload, outputPath);
 
     res.download(outputPath);
   } catch (error) {

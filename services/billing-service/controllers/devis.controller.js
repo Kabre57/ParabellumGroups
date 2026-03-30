@@ -38,6 +38,7 @@ const buildBillingLine = (ligne = {}) => {
       ligne.label ||
       ''
   ).trim();
+  const imageUrl = normalizeText(ligne.imageUrl || ligne.image || ligne.image_url || null);
   const quantite = normalizeNumber(
     ligne.quantite ?? ligne.quantity ?? ligne.qty ?? 1,
     1
@@ -52,6 +53,7 @@ const buildBillingLine = (ligne = {}) => {
 
   return {
     description,
+    imageUrl,
     quantite,
     prixUnitaire,
     tauxTVA,
@@ -165,11 +167,91 @@ const fetchServiceMeta = async (req, serviceId) => {
   }
 };
 
+const fetchClientMeta = async (req, clientId) => {
+  if (!clientId) {
+    return {
+      clientName: null,
+      clientEmail: null,
+    };
+  }
+
+  try {
+    const customerBase = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+    const resp = await axios.get(`${customerBase}/api/clients/${clientId}`, {
+      headers: { authorization: req.headers.authorization || '' },
+    });
+    return {
+      clientName: resp.data?.data?.nom || null,
+      clientEmail: resp.data?.data?.email || null,
+    };
+  } catch (error) {
+    console.warn('Meta client non recuperee', error?.response?.status || error.message);
+    return {
+      clientName: null,
+      clientEmail: null,
+    };
+  }
+};
+
 const buildApprovalUrl = (req, token) => {
   const baseUrl =
     process.env.APP_PUBLIC_URL ||
     `${req.headers['x-forwarded-proto'] || req.protocol || 'http'}://${req.get('host')}`;
   return `${baseUrl.replace(/\/$/, '')}/quotes/respond/${token}`;
+};
+
+const sendQuoteEmail = async (req, payload) => {
+  const communicationBase = process.env.COMMUNICATION_SERVICE_URL || 'http://communication-service:4002';
+  const createResp = await axios.post(
+    `${communicationBase}/api/messages`,
+    payload,
+    {
+      headers: { authorization: req.headers.authorization || '' },
+    }
+  );
+
+  const messageId = createResp.data?.id;
+  if (!messageId) {
+    throw new Error('Message email non cree');
+  }
+
+  await axios.post(
+    `${communicationBase}/api/messages/${messageId}/send`,
+    {},
+    {
+      headers: { authorization: req.headers.authorization || '' },
+    }
+  );
+
+  return { messageId };
+};
+
+const getQuoteByClientTokenOrThrow = async (token, include = { include: QUOTE_READ_INCLUDE }) => {
+  const accessToken = normalizeText(token);
+  if (!accessToken) {
+    const error = new Error('Lien client invalide');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const devis = await prisma.devis.findFirst({
+    where: { clientAccessToken: accessToken },
+    ...include,
+  });
+
+  if (!devis) {
+    const error = new Error('Devis introuvable ou lien invalide');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (devis.clientAccessTokenExpiresAt && devis.clientAccessTokenExpiresAt < new Date()) {
+    const error = new Error('Le lien client a expiré');
+    error.statusCode = 410;
+    throw error;
+  }
+
+  return devis;
 };
 
 const createInvoiceFromQuote = async (tx, devis, options = {}) => {
@@ -193,6 +275,7 @@ const createInvoiceFromQuote = async (tx, devis, options = {}) => {
       lignes: {
         create: devis.lignes.map((ligne) => ({
           description: ligne.description,
+          imageUrl: ligne.imageUrl || null,
           quantite: ligne.quantite,
           prixUnitaire: ligne.prixUnitaire,
           tauxTVA: ligne.tauxTVA,
@@ -315,7 +398,7 @@ exports.createDevis = async (req, res) => {
     }
 
     const totaux = buildTotals(lignesData);
-    const serviceId = req.user?.serviceId || null;
+    const serviceId = normalizeText(req.body.serviceId) || normalizeText(req.user?.serviceId) || null;
     const serviceMeta = await fetchServiceMeta(req, serviceId);
 
     const devis = await prisma.$transaction(async (tx) => {
@@ -332,7 +415,7 @@ exports.createDevis = async (req, res) => {
           montantTVA: totaux.totalTVA,
           montantTTC: totaux.totalTTC,
           serviceId,
-          serviceName: serviceMeta.serviceName,
+          serviceName: normalizeText(req.body.serviceName) || serviceMeta.serviceName,
           serviceLogoUrl: serviceMeta.serviceLogoUrl,
           lignes: {
             create: lignesData,
@@ -493,12 +576,64 @@ exports.sendDevis = async (req, res) => {
       return updated;
     });
 
+    const approvalUrl = buildApprovalUrl(req, clientAccessToken);
+    const clientMeta = await fetchClientMeta(req, devis.clientId);
+    let emailDelivery = {
+      sent: false,
+      clientEmail: clientMeta.clientEmail,
+      clientName: clientMeta.clientName,
+      reason: null,
+      messageId: null,
+    };
+
+    if (!clientMeta.clientEmail) {
+      emailDelivery.reason = 'Email client absent dans le CRM';
+    } else {
+      try {
+        const emailPayload = {
+          expediteurId: req.user?.email || String(req.user?.id || 'commercial'),
+          destinataireId: clientMeta.clientEmail,
+          sujet: `Devis ${devis.numeroDevis} - ${devis.objet || 'Proposition commerciale'}`,
+          contenu: [
+            `Bonjour${clientMeta.clientName ? ` ${clientMeta.clientName}` : ''},`,
+            '',
+            'Votre devis est disponible pour consultation et validation.',
+            `Numero du devis : ${devis.numeroDevis}`,
+            `Objet : ${devis.objet || '-'}`,
+            `Montant TTC : ${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(devis.montantTTC || 0)} F CFA`,
+            `Date de validite : ${moment(devis.dateValidite).format('DD/MM/YYYY')}`,
+            '',
+            `Lien de consultation : ${approvalUrl}`,
+            '',
+            req.body?.message ? `Message commercial : ${req.body.message}` : '',
+            '',
+            'Merci.',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          type: 'EMAIL',
+        };
+
+        const delivery = await sendQuoteEmail(req, emailPayload);
+        emailDelivery = {
+          sent: true,
+          clientEmail: clientMeta.clientEmail,
+          clientName: clientMeta.clientName,
+          reason: null,
+          messageId: delivery.messageId,
+        };
+      } catch (error) {
+        emailDelivery.reason = error?.response?.data?.error || error.message || 'Envoi email impossible';
+      }
+    }
+
     res.json({
       success: true,
       message: 'Devis envoye au client',
       data: {
         ...devis,
-        approvalUrl: buildApprovalUrl(req, clientAccessToken),
+        approvalUrl,
+        emailDelivery,
       },
     });
   } catch (error) {
@@ -516,13 +651,16 @@ exports.acceptDevis = async (req, res) => {
     }
 
     const devis = await prisma.$transaction(async (tx) => {
+      const now = new Date();
       const updated = await tx.devis.update({
         where: { id },
         data: {
-          status: 'ACCEPTE',
-          acceptedAt: new Date(),
-          clientRespondedAt: new Date(),
+          status: 'TRANSMIS_FACTURATION',
+          acceptedAt: now,
+          clientRespondedAt: now,
           clientComment: normalizeText(req.body?.comment),
+          forwardedToBillingAt: now,
+          forwardedToBillingBy: req.user?.email || req.user?.id || 'Validation client',
         },
         include: QUOTE_READ_INCLUDE,
       });
@@ -535,12 +673,20 @@ exports.acceptDevis = async (req, res) => {
         req.body?.comment || 'Devis valide par le client'
       );
 
+      await createQuoteEvent(
+        tx,
+        id,
+        'AUTO_FORWARDED_TO_BILLING',
+        req,
+        'Transmission automatique a la facturation apres validation client'
+      );
+
       return updated;
     });
 
     res.json({
       success: true,
-      message: 'Devis valide par le client. Il peut maintenant etre transmis a la facturation.',
+      message: 'Devis valide par le client et transmis automatiquement a la facturation.',
       data: devis,
     });
   } catch (error) {
@@ -614,6 +760,120 @@ exports.refuseDevis = async (req, res) => {
     });
 
     res.json({ success: true, data: devis });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+exports.getDevisForClientResponse = async (req, res) => {
+  try {
+    const devis = await getQuoteByClientTokenOrThrow(req.params.token, {
+      include: {
+        lignes: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: devis,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+exports.submitClientResponse = async (req, res) => {
+  try {
+    const current = await getQuoteByClientTokenOrThrow(req.params.token, {
+      include: {
+        lignes: true,
+      },
+    });
+
+    const action = String(req.body?.action || '').toUpperCase();
+    const comment = normalizeText(req.body?.comment);
+
+    if (!['ACCEPT', 'REQUEST_MODIFICATION', 'REFUSE'].includes(action)) {
+      return res.status(400).json({ error: 'Action client invalide' });
+    }
+
+    const devis = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+
+      if (action === 'ACCEPT') {
+        const updated = await tx.devis.update({
+          where: { id: current.id },
+          data: {
+            status: 'TRANSMIS_FACTURATION',
+            acceptedAt: now,
+            clientRespondedAt: now,
+            clientComment: comment,
+            forwardedToBillingAt: now,
+            forwardedToBillingBy: 'Validation client via lien public',
+          },
+          include: QUOTE_READ_INCLUDE,
+        });
+
+        await createQuoteEvent(tx, current.id, 'CLIENT_APPROVED', req, comment || 'Validation client via lien public');
+        await createQuoteEvent(
+          tx,
+          current.id,
+          'AUTO_FORWARDED_TO_BILLING',
+          req,
+          'Transmission automatique a la facturation apres validation client via lien public'
+        );
+
+        return updated;
+      }
+
+      if (action === 'REQUEST_MODIFICATION') {
+        const updated = await tx.devis.update({
+          where: { id: current.id },
+          data: {
+            status: 'MODIFICATION_DEMANDEE',
+            clientRespondedAt: now,
+            clientComment: comment,
+          },
+          include: QUOTE_READ_INCLUDE,
+        });
+
+        await createQuoteEvent(
+          tx,
+          current.id,
+          'CLIENT_REQUESTED_CHANGES',
+          req,
+          comment || 'Modification demandee via lien public'
+        );
+
+        return updated;
+      }
+
+      const updated = await tx.devis.update({
+        where: { id: current.id },
+        data: {
+          status: 'REFUSE',
+          refusedAt: now,
+          clientRespondedAt: now,
+          clientComment: comment,
+        },
+        include: QUOTE_READ_INCLUDE,
+      });
+
+      await createQuoteEvent(tx, current.id, 'CLIENT_REJECTED', req, comment || 'Refus via lien public');
+
+      return updated;
+    });
+
+    res.json({
+      success: true,
+      message:
+        action === 'ACCEPT'
+          ? 'Le devis a ete valide et transmis a la facturation.'
+          : action === 'REQUEST_MODIFICATION'
+            ? 'La demande de modification a ete enregistree.'
+            : 'Le refus du devis a ete enregistre.',
+      data: devis,
+    });
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message });
   }

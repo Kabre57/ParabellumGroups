@@ -283,18 +283,25 @@ exports.getById = async (req, res) => {
       });
     }
 
-    // Log view for analytics
-    await prisma.historiqueClient.create({
-      data: {
+    // Log view for analytics (ne pas bloquer la lecture si l'historique échoue)
+    try {
+      await prisma.historiqueClient.create({
+        data: {
+          clientId: id,
+          typeChangement: 'CONSULTATION',
+          entite: 'CLIENT',
+          modifieParId: req.user.id,
+          modifieLe: new Date(),
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent')
+        }
+      });
+    } catch (historyError) {
+      logger.warn('Historique client non enregistré', {
         clientId: id,
-        typeChangement: 'CONSULTATION',
-        entite: 'CLIENT',
-        modifieParId: req.user.id,
-        modifieLe: new Date(),
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent')
-      }
-    });
+        error: historyError?.message
+      });
+    }
 
     logger.info('Client récupéré', { clientId: id, userId: req.user.id });
 

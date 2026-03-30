@@ -172,8 +172,8 @@ const normalizeTimeline = (
   const items: TimelineItem[] = [
     {
       id: `created-${request.id}`,
-      title: 'DPA créée',
-      description: `Creation de la DPA ${request.number} pour le service ${request.serviceName || 'Non attribue'}.`,
+      title: 'Devis interne créé',
+      description: `Creation du devis interne ${request.number} pour le service ${request.serviceName || 'Non attribue'}.`,
       createdAt: request.date,
       tone: 'neutral',
     },
@@ -258,7 +258,7 @@ const normalizeTimeline = (
     items.push({
       id: `bc-${request.bonCommandeId}`,
       title: 'Bon de commande généré',
-      description: `La DPA a ete convertie en bon de commande ${request.numeroBon || request.bonCommandeId}.`,
+      description: `Le devis interne a ete converti en bon de commande ${request.numeroBon || request.bonCommandeId}.`,
       createdAt: request.approvedAt || request.date,
       tone: 'success',
     });
@@ -577,21 +577,21 @@ export default function PurchaseQuoteDetailPage() {
           })),
       }),
     onSuccess: () => {
-      toast.success('La DPA a été mise à jour.');
+      toast.success('Le devis interne a été mis à jour.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour de la DPA.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour du devis interne.');
     },
   });
 
   const submitMutation = useMutation({
     mutationFn: () => procurementService.submitRequest(id, 'Soumis depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('La DPA a été soumise au DG pour validation.');
+      toast.success('Le devis interne a été soumis au DG pour validation.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
@@ -599,14 +599,14 @@ export default function PurchaseQuoteDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['procurement-dashboard-requests'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la soumission de la DPA.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la soumission du devis interne.');
     },
   });
 
   const approveMutation = useMutation({
     mutationFn: () => procurementService.approveRequest(id, 'Approuve depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('La DPA a été validée. Le service achat peut maintenant enregistrer les proformas.');
+      toast.success('Le devis interne a été validé. Le service achat peut maintenant enregistrer les proformas.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -624,7 +624,7 @@ export default function PurchaseQuoteDetailPage() {
   const rejectMutation = useMutation({
     mutationFn: (commentaire: string) => procurementService.rejectRequest(id, commentaire),
     onSuccess: () => {
-      toast.success('La DPA a été rejetée.');
+      toast.success('Le devis interne a été rejeté.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
@@ -796,7 +796,7 @@ export default function PurchaseQuoteDetailPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/achats/devis">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux DPA
+              Retour aux devis
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-3">
@@ -809,7 +809,7 @@ export default function PurchaseQuoteDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Gérez cette DPA et ses informations avant décision achat, validation DG et conversion en bon de commande.
+            Gérez ce devis interne et ses informations avant décision achat, validation DG et conversion en bon de commande.
           </p>
         </div>
 
@@ -852,7 +852,7 @@ export default function PurchaseQuoteDetailPage() {
               {canApprove && (
                 <Button onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Valider DPA
+                  Valider le devis
                 </Button>
               )}
               {canReject && (
@@ -882,8 +882,8 @@ export default function PurchaseQuoteDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Service</div><div className="text-lg font-semibold">{request.serviceName || 'Non attribue'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur DPA</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || request.manualSupplierName || 'A définir'}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC DPA</div><div className="text-lg font-semibold">{(request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : '0 F CFA'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur du devis</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || request.manualSupplierName || 'A définir'}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC du devis</div><div className="text-lg font-semibold">{(request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : '0 F CFA'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
       </div>
 
@@ -898,9 +898,9 @@ export default function PurchaseQuoteDetailPage() {
         <TabsContent value="informations" className="space-y-6">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Informations DPA</CardTitle>
+              <CardTitle>Informations du devis interne</CardTitle>
               <CardDescription>
-                Gérez la DPA, son service, son fournisseur, ses lignes et ses montants.
+                Gérez le devis interne, son service, son fournisseur, ses lignes et ses montants.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1030,7 +1030,7 @@ export default function PurchaseQuoteDetailPage() {
             <CardHeader>
               <CardTitle>Timeline métier</CardTitle>
               <CardDescription>
-                Chronologie de la DPA depuis sa création jusqu&apos;au bon de commande.
+                Chronologie du devis interne depuis sa création jusqu&apos;au bon de commande.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1064,8 +1064,8 @@ export default function PurchaseQuoteDetailPage() {
 
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Historique DPA</CardTitle>
-              <CardDescription>Journal détaillé des actions et transitions sur cette DPA.</CardDescription>
+              <CardTitle>Historique du devis interne</CardTitle>
+              <CardDescription>Journal détaillé des actions et transitions sur ce devis interne.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1089,7 +1089,7 @@ export default function PurchaseQuoteDetailPage() {
                   {approvalHistory.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                        Aucun évènement DPA enregistré.
+                        Aucun évènement de devis interne enregistré.
                       </TableCell>
                     </TableRow>
                   )}

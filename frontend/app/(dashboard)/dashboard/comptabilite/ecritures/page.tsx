@@ -202,8 +202,8 @@ export default function EcrituresPage() {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{entry.reference}</td>
                     <td className="py-3 px-4">
-                      <Button size="sm" variant="outline">
-                        <Eye className="h-3 w-3" />
+                      <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg">
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </td>
                   </tr>

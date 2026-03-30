@@ -364,7 +364,7 @@ class PayrollController {
       },
       {
         key: 'capacite',
-        label: 'Capacité cible HFHCI',
+        label: 'Capacité cible PBL',
         status: totalEmployees <= 100 ? 'ok' : 'warning',
         value: `${totalEmployees} salariés suivis / cible 100`,
         description: 'Le périmètre demandé est 25-30 salariés au départ, extensible à 100.',

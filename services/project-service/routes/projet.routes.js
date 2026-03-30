@@ -6,7 +6,8 @@ const {
   getProjetById,
   updateProjet,
   deleteProjet,
-  getProjetStats
+  getProjetStats,
+  getGlobalProjetStats
 } = require('../controllers/projet.controller');
 const { authenticate } = require('../middleware/auth');
 
@@ -26,6 +27,7 @@ const validateCreateProjet = [
 // Routes
 router.post('/', authenticate, validateCreateProjet, createProjet);
 router.get('/', authenticate, getAllProjets);
+router.get('/stats', authenticate, getGlobalProjetStats);
 router.get('/:id', authenticate, getProjetById);
 router.put('/:id', authenticate, updateProjet);
 router.delete('/:id', authenticate, deleteProjet);

@@ -158,10 +158,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
+    return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
   };
 
   return (

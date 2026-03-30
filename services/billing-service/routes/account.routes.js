@@ -5,5 +5,6 @@ const router = express.Router();
 
 router.get('/', accountController.getAllAccounts);
 router.post('/', accountController.createAccount);
+router.patch('/:id', accountController.updateAccount);
 
 module.exports = router;

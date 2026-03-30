@@ -264,7 +264,7 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-emerald-100',
       },
       {
-        title: 'DPA en attente',
+        title: 'Devis internes en attente',
         value: snapshot?.procurementStats?.pendingApproval ?? 0,
         format: 'number' as const,
         icon: ClipboardList,
@@ -332,7 +332,7 @@ export function EnterpriseRealtimeDashboard({
     const requestActivities = (snapshot?.recentRequests ?? []).map((request, index) => ({
       id: Number(request.id?.replace(/\D/g, '').slice(-6) || index + 1),
       type: buildActivityType(request.status),
-      message: `DPA ${request.numeroDemande || request.number || request.title} - ${request.serviceName || 'Service'}`,
+      message: `Devis interne ${request.numeroDemande || request.number || request.title} - ${request.serviceName || 'Service'}`,
       time: new Date(request.date || request.submittedAt || request.approvedAt || new Date().toISOString()).toLocaleString('fr-FR'),
       user: request.requesterEmail || request.serviceName || 'Service',
       amount: request.montantTTC || request.estimatedAmount,
@@ -363,7 +363,7 @@ export function EnterpriseRealtimeDashboard({
         icon: ClipboardList,
         accent: 'text-amber-600',
         metrics: [
-          { label: 'DPA en attente', value: String(snapshot?.procurementStats?.pendingApproval ?? 0) },
+          { label: 'Devis internes en attente', value: String(snapshot?.procurementStats?.pendingApproval ?? 0) },
           { label: 'BC du mois', value: String(snapshot?.procurementStats?.ordersThisMonth ?? 0) },
           { label: 'Budget restant', value: formatCurrency(snapshot?.procurementStats?.budgetRemaining ?? 0) },
         ],
@@ -602,7 +602,7 @@ export function EnterpriseRealtimeDashboard({
               <div className="rounded-lg border bg-slate-50 p-4">
                 <div className="font-semibold text-slate-900">Achats</div>
                 <div className="mt-2">Budget restant : {formatCurrency(snapshot?.procurementStats?.budgetRemaining ?? 0)}</div>
-                <div>DPA approuvées ce mois : {snapshot?.procurementStats?.approvedThisMonth ?? 0}</div>
+                <div>Devis internes approuvés ce mois : {snapshot?.procurementStats?.approvedThisMonth ?? 0}</div>
               </div>
             </CardContent>
           </Card>

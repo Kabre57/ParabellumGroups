@@ -3,6 +3,50 @@ const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
 
+const taskStatusMap = {
+  A_FAIRE: 'TODO',
+  EN_COURS: 'IN_PROGRESS',
+  TERMINEE: 'DONE',
+  BLOQUEE: 'BLOCKED',
+};
+
+const priorityMap = {
+  BASSE: 'LOW',
+  MOYENNE: 'MEDIUM',
+  HAUTE: 'HIGH',
+  CRITIQUE: 'URGENT',
+};
+
+const serializeTache = (tache) => ({
+  id: tache.id,
+  projectId: tache.projetId,
+  projetId: tache.projetId,
+  title: tache.titre,
+  titre: tache.titre,
+  description: tache.description,
+  status: taskStatusMap[tache.status] || tache.status,
+  rawStatus: tache.status,
+  priority: priorityMap[tache.priorite] || tache.priorite,
+  rawPriority: tache.priorite,
+  dueDate: tache.dateEcheance,
+  dateEcheance: tache.dateEcheance,
+  startDate: tache.dateDebut,
+  dateDebut: tache.dateDebut,
+  estimatedHours: tache.dureeEstimee,
+  actualHours: tache.dureeReelle,
+  assignedToId: tache.assignations?.[0]?.userId || null,
+  assignations: tache.assignations || [],
+  project: tache.projet
+    ? {
+        id: tache.projet.id,
+        projectNumber: tache.projet.numeroProjet,
+        name: tache.projet.nom,
+      }
+    : null,
+  createdAt: tache.createdAt,
+  updatedAt: tache.updatedAt,
+});
+
 /**
  * Créer une nouvelle tâche
  */
@@ -47,7 +91,11 @@ const createTache = async (req, res) => {
       }
     });
 
-    res.status(201).json(tache);
+    res.status(201).json({
+      success: true,
+      data: serializeTache(tache),
+      message: 'Tâche créée avec succès',
+    });
   } catch (error) {
     console.error('Erreur création tâche:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création de la tâche' });
@@ -59,21 +107,37 @@ const createTache = async (req, res) => {
  */
 const getAllTaches = async (req, res) => {
   try {
-    const { projetId, status, priorite, userId, page = 1, limit = 10 } = req.query;
+    const { projetId, projectId, status, priority, priorite, userId, assignedToId, page = 1, limit = 10, sortBy = 'updatedAt', sortOrder = 'desc' } = req.query;
 
     const where = {};
-    if (projetId) where.projetId = projetId;
-    if (status) where.status = status;
-    if (priorite) where.priorite = priorite;
-    if (userId) {
+    if (projetId || projectId) where.projetId = projetId || projectId;
+    if (status) {
+      const requestedStatus = Object.entries(taskStatusMap).find(([, frontendStatus]) => frontendStatus === status);
+      where.status = requestedStatus?.[0] || status;
+    }
+    if (priorite || priority) {
+      const requestedPriority = Object.entries(priorityMap).find(([, frontendPriority]) => frontendPriority === (priority || priorite));
+      where.priorite = requestedPriority?.[0] || priority || priorite;
+    }
+    if (userId || assignedToId) {
       where.assignations = {
         some: {
-          userId
+          userId: userId || assignedToId
         }
       };
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortableFields = {
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
+      dueDate: 'dateEcheance',
+      dateEcheance: 'dateEcheance',
+      startDate: 'dateDebut',
+      dateDebut: 'dateDebut',
+    };
+    const orderField = sortableFields[String(sortBy)] || 'updatedAt';
+    const direction = String(sortOrder).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     const [taches, total] = await Promise.all([
       prisma.tache.findMany({
@@ -90,18 +154,21 @@ const getAllTaches = async (req, res) => {
         },
         skip,
         take: parseInt(limit),
-        orderBy: { createdAt: 'desc' }
+        orderBy: { [orderField]: direction }
       }),
       prisma.tache.count({ where })
     ]);
 
     res.json({
-      taches,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+      success: true,
+      data: taches.map(serializeTache),
+      meta: {
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit))
+        }
       }
     });
   } catch (error) {
@@ -129,7 +196,10 @@ const getTacheById = async (req, res) => {
       return res.status(404).json({ error: 'Tâche non trouvée' });
     }
 
-    res.json(tache);
+    res.json({
+      success: true,
+      data: serializeTache(tache),
+    });
   } catch (error) {
     console.error('Erreur récupération tâche:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération de la tâche' });
@@ -172,7 +242,11 @@ const updateTache = async (req, res) => {
       }
     });
 
-    res.json(tache);
+    res.json({
+      success: true,
+      data: serializeTache(tache),
+      message: 'Tâche mise à jour avec succès',
+    });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tâche non trouvée' });
@@ -193,7 +267,7 @@ const deleteTache = async (req, res) => {
       where: { id }
     });
 
-    res.status(204).send();
+    res.json({ success: true, message: 'Tâche supprimée avec succès' });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tâche non trouvée' });

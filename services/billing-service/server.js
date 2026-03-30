@@ -16,6 +16,7 @@ app.use(authenticateToken);
 const factureRoutes = require('./routes/facture.routes');
 const paiementRoutes = require('./routes/paiement.routes');
 const devisRoutes = require('./routes/devis.routes');
+const avoirRoutes = require('./routes/avoir.routes');
 const purchaseCommitmentRoutes = require('./routes/purchaseCommitment.routes');
 const internalProcurementEventRoutes = require('./routes/internalProcurementEvent.routes');
 const cashVoucherRoutes = require('./routes/cashVoucher.routes');
@@ -24,6 +25,7 @@ const accountingRoutes = require('./routes/accounting.routes');
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
 app.use('/api/devis', devisRoutes);
+app.use('/api/avoirs', avoirRoutes);
 app.use('/api/purchase-commitments', purchaseCommitmentRoutes);
 app.use('/api/cash-vouchers', cashVoucherRoutes);
 app.use('/api/accounting', accountingRoutes);
@@ -48,6 +50,7 @@ app.get('/', (req, res) => {
       factures: '/api/factures',
       paiements: '/api/paiements',
       devis: '/api/devis',
+      avoirs: '/api/avoirs',
       purchaseCommitments: '/api/purchase-commitments',
       cashVouchers: '/api/cash-vouchers',
       accounting: '/api/accounting/overview',

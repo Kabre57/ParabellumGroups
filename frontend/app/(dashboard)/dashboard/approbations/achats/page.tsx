@@ -132,15 +132,15 @@ export default function PurchaseApprovalsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Validation Achats</h1>
         <p className="text-sm text-muted-foreground">
-          Espace DG pour valider d’abord les DPA, puis les proformas retenues par le service achat.
+          Espace DG pour valider d’abord les devis internes, puis les proformas retenues par le service achat.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>DPA en attente de validation</CardTitle>
+          <CardTitle>Devis internes en attente de validation</CardTitle>
           <CardDescription>
-            Les DPA soumises apparaissent ici avant la phase proformas.
+            Les devis internes soumis apparaissent ici avant la phase proformas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -196,7 +196,7 @@ export default function PurchaseApprovalsPage() {
                 {requests.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                      Aucune DPA en attente de validation.
+                      Aucun devis interne en attente de validation.
                     </TableCell>
                   </TableRow>
                 )}
@@ -222,7 +222,7 @@ export default function PurchaseApprovalsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>DPA</TableHead>
+                  <TableHead>Devis source</TableHead>
                   <TableHead>Proforma</TableHead>
                   <TableHead>Fournisseur</TableHead>
                   <TableHead>Montant</TableHead>

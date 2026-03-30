@@ -4,12 +4,21 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, FileDown, FileText, Search, Send, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { billingService, type Quote } from '@/shared/api/billing';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
@@ -37,6 +46,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
 
   const { canCreate, canDelete, canUpdate, canExport, canApprove } = getCrudVisibility(user, {
     read: ['quotes.read', 'quotes.read_all', 'quotes.read_own'],
@@ -99,14 +109,13 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
 
   const totalValue = filteredQuotes.reduce((sum, quote) => sum + (quote.montantTTC || 0), 0);
   const sentCount = filteredQuotes.filter((quote) => quote.status === 'ENVOYE').length;
-  const approvedCount = filteredQuotes.filter((quote) => quote.status === 'ACCEPTE').length;
+  const approvedCount = filteredQuotes.filter((quote) =>
+    ['ACCEPTE', 'TRANSMIS_FACTURATION', 'FACTURE'].includes(quote.status)
+  ).length;
   const invoicedCount = filteredQuotes.filter((quote) => quote.status === 'FACTURE').length;
 
   const handleDelete = (quote: Quote) => {
-    if (!window.confirm(`Supprimer le devis ${quote.numeroDevis} ?`)) {
-      return;
-    }
-    deleteMutation.mutate(quote.id);
+    setQuoteToDelete(quote);
   };
 
   const handleSend = async (quote: Quote) => {
@@ -114,9 +123,20 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
     const link = response.data?.approvalUrl;
     if (link && navigator?.clipboard) {
       await navigator.clipboard.writeText(link);
-      alert(`Devis envoyé. Lien client copié: ${link}`);
+      toast.success('Devis envoyé au client. Le lien de validation a été copié.');
     } else {
-      alert('Devis envoyé au client.');
+      toast.success('Devis envoyé au client.');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!quoteToDelete) return;
+    try {
+      await deleteMutation.mutateAsync(quoteToDelete.id);
+      toast.success(`Devis ${quoteToDelete.numeroDevis} supprimé.`);
+      setQuoteToDelete(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || error?.message || 'Suppression impossible.');
     }
   };
 
@@ -277,6 +297,27 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
       </Card>
 
       <CreateClientQuoteDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <Dialog open={Boolean(quoteToDelete)} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Supprimer le devis</DialogTitle>
+            <DialogDescription>
+              {quoteToDelete
+                ? `Le devis ${quoteToDelete.numeroDevis} sera supprimé définitivement.`
+                : 'Confirmez la suppression du devis.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuoteToDelete(null)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Suppression...' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
