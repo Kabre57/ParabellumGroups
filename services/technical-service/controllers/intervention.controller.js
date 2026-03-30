@@ -1200,6 +1200,29 @@ exports.update = async (req, res) => {
       message: 'Intervention mise à jour avec succès',
       data: intervention
     });
+
+    if (status === 'TERMINEE' && intervention?.mission?.id) {
+      try {
+        const remaining = await prisma.intervention.count({
+          where: {
+            missionId: intervention.mission.id,
+            status: { not: 'TERMINEE' }
+          }
+        });
+
+        if (remaining === 0) {
+          await prisma.mission.update({
+            where: { id: intervention.mission.id },
+            data: {
+              status: 'TERMINEE',
+              dateFin: new Date()
+            }
+          });
+        }
+      } catch (autoError) {
+        console.error('Auto close mission failed:', autoError);
+      }
+    }
   } catch (error) {
     console.error('Error in update intervention:', error);
     res.status(500).json({
