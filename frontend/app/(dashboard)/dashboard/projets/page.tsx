@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bar,
@@ -82,6 +82,9 @@ const isOverdue = (date?: string | null) => {
 };
 
 export default function ProjectsDashboardPage() {
+  const [period, setPeriod] = useState<'7j' | '30j' | '90j' | '12m'>('30j');
+  const [managerFilter, setManagerFilter] = useState('');
+
   const { data: projectsResponse, isLoading: loadingProjects } = useQuery({
     queryKey: ['projects-dashboard-list'],
     queryFn: () => projectsService.getProjects({ limit: 200, sortBy: 'updatedAt', sortOrder: 'desc' }),
@@ -116,30 +119,89 @@ export default function ProjectsDashboardPage() {
   const milestones = jalonsResponse?.data ?? [];
   const projectStats = statsResponse?.data;
 
+  const periodStart = useMemo(() => {
+    const now = new Date();
+    const days = period === '7j' ? 7 : period === '30j' ? 30 : period === '90j' ? 90 : 365;
+    const copy = new Date(now);
+    copy.setDate(copy.getDate() - (days - 1));
+    return new Date(copy.getFullYear(), copy.getMonth(), copy.getDate());
+  }, [period]);
+
+  const managerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach((project) => {
+      const id = project.manager?.id || project.managerId;
+      const label =
+        project.manager
+          ? `${project.manager.firstName || ''} ${project.manager.lastName || ''}`.trim()
+          : project.managerId || '';
+      if (id && label) {
+        map.set(id, label);
+      }
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [projects]);
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const managerId = project.manager?.id || project.managerId || '';
+      const managerName = project.manager
+        ? `${project.manager.firstName || ''} ${project.manager.lastName || ''}`.trim()
+        : '';
+      const matchesManager =
+        !managerFilter || managerFilter === managerId || managerFilter === managerName;
+      const projectDate = project.updatedAt || project.createdAt || project.startDate || project.dateDebut;
+      if (!projectDate) return matchesManager;
+      const parsed = new Date(projectDate);
+      if (Number.isNaN(parsed.getTime())) return matchesManager;
+      return matchesManager && parsed >= periodStart;
+    });
+  }, [projects, managerFilter, periodStart]);
+
+  const filteredProjectIds = useMemo(
+    () => new Set(filteredProjects.map((project) => project.id)),
+    [filteredProjects],
+  );
+
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => !task.projectId || filteredProjectIds.has(task.projectId)),
+    [tasks, filteredProjectIds],
+  );
+
+  const filteredMilestones = useMemo(
+    () => milestones.filter((milestone) => !milestone.projetId || filteredProjectIds.has(milestone.projetId)),
+    [milestones, filteredProjectIds],
+  );
+
+  const filteredTimesheets = useMemo(
+    () => timesheets.filter((entry) => !entry.projectId || filteredProjectIds.has(entry.projectId)),
+    [timesheets, filteredProjectIds],
+  );
+
   const kpis = useMemo(() => {
-    const activeProjects = projects.filter((project) => project.status === ProjectStatus.ACTIVE).length;
-    const onHoldProjects = projects.filter((project) => project.status === ProjectStatus.ON_HOLD).length;
-    const completedProjects = projects.filter((project) => project.status === ProjectStatus.COMPLETED).length;
-    const overdueTasks = tasks.filter((task) => task.status !== 'DONE' && isOverdue(task.dueDate)).length;
-    const totalTrackedHours = timesheets.reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
-    const approvedHours = timesheets
+    const activeProjects = filteredProjects.filter((project) => project.status === ProjectStatus.ACTIVE).length;
+    const onHoldProjects = filteredProjects.filter((project) => project.status === ProjectStatus.ON_HOLD).length;
+    const completedProjects = filteredProjects.filter((project) => project.status === ProjectStatus.COMPLETED).length;
+    const overdueTasks = filteredTasks.filter((task) => task.status !== 'DONE' && isOverdue(task.dueDate)).length;
+    const totalTrackedHours = filteredTimesheets.reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
+    const approvedHours = filteredTimesheets
       .filter((entry) => entry.isApproved)
       .reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
 
     return [
       {
         label: 'Portefeuille projets',
-        value: String(projectStats?.totalProjects ?? projects.length),
+        value: String(filteredProjects.length),
         helper: `${activeProjects} actifs / ${completedProjects} terminés`,
       },
       {
         label: 'Budget portefeuille',
-        value: formatCurrency(projectStats?.budgetTotal ?? projects.reduce((sum, project) => sum + Number(project.budget || 0), 0)),
-        helper: `${formatCurrency(projectStats?.budgetConsomme ?? projects.reduce((sum, project) => sum + Number(project.spent || 0), 0))} consommés`,
+        value: formatCurrency(filteredProjects.reduce((sum, project) => sum + Number(project.budget || 0), 0)),
+        helper: `${formatCurrency(filteredProjects.reduce((sum, project) => sum + Number(project.spent || 0), 0))} consommés`,
       },
       {
         label: 'Tâches & planning',
-        value: String(tasks.length),
+        value: String(filteredTasks.length),
         helper: `${overdueTasks} échéances dépassées / ${onHoldProjects} projets suspendus`,
       },
       {
@@ -148,18 +210,18 @@ export default function ProjectsDashboardPage() {
         helper: `${approvedHours.toFixed(1)} h validées`,
       },
     ];
-  }, [projectStats, projects, tasks, timesheets]);
+  }, [filteredProjects, filteredTasks, filteredTimesheets]);
 
   const statusChartData = useMemo(
     () =>
       (Object.keys(STATUS_LABELS) as ProjectStatus[])
         .map((status) => ({
           name: STATUS_LABELS[status],
-          value: projects.filter((project) => project.status === status).length,
+          value: filteredProjects.filter((project) => project.status === status).length,
           color: STATUS_COLORS[status],
         }))
         .filter((item) => item.value > 0),
-    [projects]
+    [filteredProjects]
   );
 
   const tasksChartData = useMemo(
@@ -167,14 +229,14 @@ export default function ProjectsDashboardPage() {
       (Object.keys(TASK_LABELS) as Task['status'][])
         .map((status) => ({
           name: TASK_LABELS[status],
-          value: tasks.filter((task) => task.status === status).length,
+          value: filteredTasks.filter((task) => task.status === status).length,
         }))
         .filter((item) => item.value > 0),
-    [tasks]
+    [filteredTasks]
   );
 
   const workloadChartData = useMemo(() => {
-    const byProject = timesheets.reduce<Record<string, number>>((accumulator, entry) => {
+    const byProject = filteredTimesheets.reduce<Record<string, number>>((accumulator, entry) => {
       const key = entry.projectId || 'Autres';
       accumulator[key] = (accumulator[key] || 0) + Number(entry.hours || 0);
       return accumulator;
@@ -183,34 +245,34 @@ export default function ProjectsDashboardPage() {
     return Object.entries(byProject)
       .map(([projectId, hours]) => ({
         name:
-          projects.find((project) => project.id === projectId)?.name ||
+          filteredProjects.find((project) => project.id === projectId)?.name ||
           projectId ||
           'Autres',
         hours: Number(hours.toFixed(1)),
       }))
       .sort((left, right) => right.hours - left.hours)
       .slice(0, 6);
-  }, [projects, timesheets]);
+  }, [filteredProjects, filteredTimesheets]);
 
   const upcomingMilestones = useMemo(
     () =>
-      [...milestones]
+      [...filteredMilestones]
         .filter((milestone) => milestone.status !== 'ATTEINT')
         .sort((left, right) => new Date(left.dateEcheance).getTime() - new Date(right.dateEcheance).getTime())
         .slice(0, 6),
-    [milestones]
+    [filteredMilestones]
   );
 
   const portfolioRows = useMemo(
     () =>
-      [...projects]
+      [...filteredProjects]
         .sort((left, right) => {
           const leftDate = left.updatedAt ? new Date(left.updatedAt).getTime() : 0;
           const rightDate = right.updatedAt ? new Date(right.updatedAt).getTime() : 0;
           return rightDate - leftDate;
         })
         .slice(0, 8),
-    [projects]
+    [filteredProjects]
   );
 
   const quickModules = [
@@ -266,7 +328,29 @@ export default function ProjectsDashboardPage() {
             et des feuilles de temps.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value as typeof period)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="7j">7 jours</option>
+            <option value="30j">30 jours</option>
+            <option value="90j">90 jours</option>
+            <option value="12m">12 mois</option>
+          </select>
+          <select
+            value={managerFilter}
+            onChange={(event) => setManagerFilter(event.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Tous les managers</option>
+            {managerOptions.map((manager) => (
+              <option key={manager.id} value={manager.id}>
+                {manager.label}
+              </option>
+            ))}
+          </select>
           <Button variant="outline" asChild>
             <Link href="/dashboard/projets/taches">Ouvrir les tâches</Link>
           </Button>

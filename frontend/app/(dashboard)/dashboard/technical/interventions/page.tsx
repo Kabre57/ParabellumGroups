@@ -17,6 +17,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { isAdminRole } from '@/shared/permissions';
 import { toast } from 'sonner';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 
 const statusColors: Record<string, string> = {
   PLANIFIEE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
@@ -38,6 +39,13 @@ export default function InterventionsPage() {
   const [printingOrder, setPrintingOrder] = useState<{ mission: any; technicien: any; missionOrder?: any; interventionTitle?: string } | null>(null);
   const [orderGenerationTarget, setOrderGenerationTarget] = useState<any | null>(null);
   const [isFetching, setIsFetching] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+    variant?: 'default' | 'destructive';
+  }>({ open: false, title: '', description: '', action: null });
 
   const { data: interventions = [], isLoading } = useInterventions({ pageSize: 100 });
   const deleteMutation = useDeleteIntervention();
@@ -60,9 +68,13 @@ export default function InterventionsPage() {
   });
 
   const handleDelete = (id: string, force = false) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette intervention ?')) {
-      deleteMutation.mutate({ id, force });
-    }
+    setConfirmState({
+      open: true,
+      title: 'Supprimer cette intervention ?',
+      description: 'Cette action est definitive et supprimera la fiche intervention.',
+      variant: 'destructive',
+      action: () => deleteMutation.mutate({ id, force }),
+    });
   };
 
   const handleCreate = () => {
@@ -161,15 +173,19 @@ export default function InterventionsPage() {
   };
 
   const handleComplete = (id: string) => {
-    if (confirm('Marquer cette intervention comme terminée ?')) {
-      completeMutation.mutate({
-        id,
-        data: {
-          dureeReelle: 0,
-          resultats: 'Intervention terminée',
-        },
-      });
-    }
+    setConfirmState({
+      open: true,
+      title: 'Marquer comme terminée ?',
+      description: 'Cette intervention sera cloturee et sa mission pourra etre mise a jour.',
+      action: () =>
+        completeMutation.mutate({
+          id,
+          data: {
+            dureeReelle: 0,
+            resultats: 'Intervention terminée',
+          },
+        }),
+    });
   };
 
   const formatDate = (date?: string) => {
@@ -221,6 +237,19 @@ export default function InterventionsPage() {
           onClose={() => setPrintingOrder(null)}
         />
       )}
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel="Confirmer"
+        cancelLabel="Annuler"
+        confirmVariant={confirmState.variant === 'destructive' ? 'destructive' : 'default'}
+        onConfirm={() => {
+          confirmState.action?.();
+          setConfirmState((prev) => ({ ...prev, open: false, action: null }));
+        }}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+      />
       {orderGenerationTarget && (
         <GenerateMissionOrderDialog
           isOpen={!!orderGenerationTarget}

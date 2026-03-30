@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, Moon, Sun } from 'lucide-react';
 import { procurementService } from '@/services/procurement';
 import { inventoryReceptionsService } from '@/shared/api/inventory/receptions.service';
+import { technicalService } from '@/shared/api/technical';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { UserMenu } from './UserMenu';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -70,6 +71,18 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           nextLabels[pathname] = response.data?.numero || receptionMatch[1];
         } catch (_error) {
           nextLabels[pathname] = receptionMatch[1];
+        }
+      }
+
+      const missionMatch = pathname.match(/^\/dashboard\/technical\/missions\/([^/]+)$/);
+      if (missionMatch && isUuidLike(missionMatch[1])) {
+        try {
+          const response = await technicalService.getMission(missionMatch[1]);
+          const payload = (response as any)?.data ?? response;
+          const mission = payload?.data ?? payload;
+          nextLabels[pathname] = mission?.numeroMission || mission?.titre || missionMatch[1];
+        } catch (_error) {
+          nextLabels[pathname] = missionMatch[1];
         }
       }
 
