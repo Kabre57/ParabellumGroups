@@ -40,7 +40,6 @@ export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
     '-';
 
   return (
-  return (
     <PrintLayout
       title="Facture"
       subtitle={`N° ${invoice.numeroFacture}`}

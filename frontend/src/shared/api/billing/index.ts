@@ -26,6 +26,9 @@ export interface Invoice {
   serviceId?: string;
   serviceName?: string;
   serviceLogoUrl?: string;
+  commercialId?: string | null;
+  commercialName?: string | null;
+  commercialEmail?: string | null;
   client?: {
     nom: string;
     email?: string;
@@ -539,6 +542,9 @@ export const billingService = {
     clientId: string;
     serviceId?: string;
     serviceName?: string;
+    commercialId?: string;
+    commercialName?: string;
+    commercialEmail?: string;
     objet?: string;
     dateDevis?: string;
     dateValidite?: string;

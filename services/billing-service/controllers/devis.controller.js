@@ -401,6 +401,13 @@ exports.createDevis = async (req, res) => {
     const serviceId = normalizeText(req.body.serviceId) || normalizeText(req.user?.serviceId) || null;
     const serviceMeta = await fetchServiceMeta(req, serviceId);
 
+    const commercialId = normalizeText(req.body.commercialId) || normalizeText(req.user?.id) || null;
+    const commercialName =
+      normalizeText(req.body.commercialName) ||
+      [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' ') ||
+      null;
+    const commercialEmail = normalizeText(req.body.commercialEmail) || normalizeText(req.user?.email) || null;
+
     const devis = await prisma.$transaction(async (tx) => {
       const numeroDevis = await getNextDevisNumber(tx);
 
@@ -417,6 +424,9 @@ exports.createDevis = async (req, res) => {
           serviceId,
           serviceName: normalizeText(req.body.serviceName) || serviceMeta.serviceName,
           serviceLogoUrl: serviceMeta.serviceLogoUrl,
+          commercialId,
+          commercialName,
+          commercialEmail,
           lignes: {
             create: lignesData,
           },
@@ -470,6 +480,11 @@ exports.updateDevis = async (req, res) => {
           montantHT: totaux.totalHT,
           montantTVA: totaux.totalTVA,
           montantTTC: totaux.totalTTC,
+          serviceId: normalizeText(req.body.serviceId) ?? undefined,
+          serviceName: normalizeText(req.body.serviceName) ?? undefined,
+          commercialId: normalizeText(req.body.commercialId) ?? undefined,
+          commercialName: normalizeText(req.body.commercialName) ?? undefined,
+          commercialEmail: normalizeText(req.body.commercialEmail) ?? undefined,
         },
         include: QUOTE_READ_INCLUDE,
       });

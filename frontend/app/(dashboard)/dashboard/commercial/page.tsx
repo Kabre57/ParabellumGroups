@@ -78,6 +78,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function CommercialDashboardPage() {
   const [period, setPeriod] = useState<PeriodFilter>('30j');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [commercialFilter, setCommercialFilter] = useState<string>('all');
 
   const { data: prospects = [], isLoading: prospectsLoading } = useQuery({
     queryKey: ['commercial-dashboard-prospects'],
@@ -127,9 +128,12 @@ export default function CommercialDashboardPage() {
         if (!quote.effectiveDate || Number.isNaN(quote.effectiveDate.getTime())) return false;
         if (quote.effectiveDate < filterStartDate) return false;
         if (serviceFilter !== 'all' && quote.serviceName !== serviceFilter) return false;
+        const commercialName =
+          quote.commercialName || quote.commercial?.name || quote.createdByEmail || quote.createdById || 'Non attribué';
+        if (commercialFilter !== 'all' && commercialName !== commercialFilter) return false;
         return true;
       }),
-    [normalizedQuotes, filterStartDate, serviceFilter]
+    [normalizedQuotes, filterStartDate, serviceFilter, commercialFilter]
   );
 
   const filteredProspects = useMemo(
@@ -186,6 +190,16 @@ export default function CommercialDashboardPage() {
     return Array.from(services).sort();
   }, [quotes]);
 
+  const commercialOptions = useMemo(() => {
+    const commercials = new Set<string>();
+    quotes.forEach((quote: any) => {
+      const label =
+        quote.commercialName || quote.commercial?.name || quote.createdByEmail || quote.createdById;
+      if (label) commercials.add(label);
+    });
+    return Array.from(commercials).sort();
+  }, [quotes]);
+
   const pipelineChartData = useMemo(() => {
     const stageMap = filteredProspects.reduce<Record<string, number>>((acc, prospect: any) => {
       const key = prospect.stage || 'preparation';
@@ -220,6 +234,7 @@ export default function CommercialDashboardPage() {
           quote.commercialName ||
           quote.commercial?.name ||
           quote.createdByEmail ||
+          quote.createdById ||
           quote.serviceName ||
           'Non attribué';
         if (!acc[key]) acc[key] = { count: 0, amount: 0 };
@@ -261,6 +276,54 @@ export default function CommercialDashboardPage() {
       .map(([label, data]) => ({ label, amount: data.amount, count: data.count }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [filteredQuotes, period]);
+
+  const commercialKpiRows = useMemo(() => {
+    const rows = filteredQuotes.reduce<
+      Record<string, { count: number; amount: number; won: number; lost: number; responseDays: number[] }>
+    >((acc, quote: any) => {
+      const key =
+        quote.commercialName ||
+        quote.commercial?.name ||
+        quote.createdByEmail ||
+        quote.createdById ||
+        'Non attribué';
+      if (!acc[key]) acc[key] = { count: 0, amount: 0, won: 0, lost: 0, responseDays: [] };
+      acc[key].count += 1;
+      acc[key].amount += Number(quote.montantTTC || 0);
+      if (quote.status === 'ACCEPTE' || quote.status === 'FACTURE' || quote.status === 'TRANSMIS_FACTURATION') {
+        acc[key].won += 1;
+      }
+      if (quote.status === 'REFUSE') {
+        acc[key].lost += 1;
+      }
+      const start = new Date(quote.sentAt || quote.createdAt || quote.dateDevis || Date.now());
+      const end = new Date(
+        quote.clientRespondedAt || quote.acceptedAt || quote.refusedAt || quote.updatedAt || Date.now()
+      );
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        acc[key].responseDays.push(Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+      return acc;
+    }, {});
+
+    return Object.entries(rows)
+      .map(([name, data]) => {
+        const winRate = data.won + data.lost > 0 ? (data.won / (data.won + data.lost)) * 100 : 0;
+        const avgDelay =
+          data.responseDays.length > 0
+            ? data.responseDays.reduce((sum, value) => sum + value, 0) / data.responseDays.length
+            : 0;
+        return {
+          name,
+          count: data.count,
+          amount: data.amount,
+          winRate,
+          avgDelay,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [filteredQuotes]);
 
   const formatCurrency = (amount: number) =>
     `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
@@ -316,24 +379,39 @@ export default function CommercialDashboardPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Service</span>
-              <select
-                value={serviceFilter}
-                onChange={(event) => setServiceFilter(event.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="all">Tous les services</option>
-                {serviceOptions.map((service) => (
-                  <option key={service} value={service}>
-                    {service}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Service</span>
+            <select
+              value={serviceFilter}
+              onChange={(event) => setServiceFilter(event.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Tous les services</option>
+              {serviceOptions.map((service) => (
+                <option key={service} value={service}>
+                  {service}
+                </option>
+              ))}
+            </select>
           </div>
-        </CardHeader>
-      </Card>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Commercial</span>
+            <select
+              value={commercialFilter}
+              onChange={(event) => setCommercialFilter(event.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Tous les commerciaux</option>
+              {commercialOptions.map((commercial) => (
+                <option key={commercial} value={commercial}>
+                  {commercial}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </CardHeader>
+    </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -522,16 +600,23 @@ export default function CommercialDashboardPage() {
             <p className="text-xs text-muted-foreground">Montants cumulés par commercial/service.</p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {serviceChartData.length === 0 && (
+            {commercialKpiRows.length === 0 && (
               <div className="text-sm text-muted-foreground">Aucun devis disponible.</div>
             )}
-            {serviceChartData.slice(0, 6).map((service) => (
-              <div key={service.service} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                <div>
-                  <div className="text-sm font-semibold">{service.service}</div>
-                  <div className="text-xs text-muted-foreground">{service.count} devis</div>
+            {commercialKpiRows.map((row, index) => (
+              <div key={row.name} className="rounded-lg border px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      {row.name}
+                      {index === 0 && <Badge>Top</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.count} devis · Win {row.winRate.toFixed(1)}% · Délai {row.avgDelay.toFixed(1)} j
+                    </div>
+                  </div>
+                  <Badge variant="outline">{formatCurrency(row.amount)}</Badge>
                 </div>
-                <Badge variant="outline">{formatCurrency(service.amount)}</Badge>
               </div>
             ))}
           </CardContent>
