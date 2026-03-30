@@ -110,7 +110,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Rapports Intervention', href: '/dashboard/technical/rapports', icon: FileText, permission: 'interventions.create_report', categoryId: 'technical' },
 
   { name: 'Dashboard Projets', href: '/dashboard/projets', icon: Home, permission: 'projects.read', categoryId: 'projects', isServiceDashboard: true },
-  { name: 'Projets', href: '/dashboard/projets', icon: FolderKanban, permission: 'projects.read', categoryId: 'projects' },
+  { name: 'Projets', href: '/dashboard/projets/liste', icon: FolderKanban, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Tâches & Planning', href: '/dashboard/projets/taches', icon: ClipboardList, permission: 'tasks.read', categoryId: 'projects' },
   { name: 'Jalons', href: '/dashboard/projets/jalons', icon: Award, permission: 'projects.read', categoryId: 'projects' },
   { name: 'Planning Gantt', href: '/dashboard/projets/planning', icon: CalendarDays, permission: 'projects.read', categoryId: 'projects' },

@@ -129,7 +129,7 @@ export function GenerateMissionOrderDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto rounded-2xl">
+      <DialogContent className="max-w-5xl w-[96vw] max-h-[85vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle>Generer des ordres de mission</DialogTitle>
           <DialogDescription>
@@ -138,7 +138,7 @@ export function GenerateMissionOrderDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-sm font-medium text-gray-900 dark:text-white">Mode de generation</span>
               <select
@@ -212,54 +212,56 @@ export function GenerateMissionOrderDialog({
             </div>
           )}
 
-          <label className="space-y-2 block">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">En Qualité de</span>
-            <input
-              value={qualite}
-              onChange={(e) => setQualite(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2 block">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">En Qualité de</span>
+              <input
+                value={qualite}
+                onChange={(e) => setQualite(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
 
-          <label className="space-y-2 block">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Libelle vehicule</span>
-            <input
-              value={vehiculeLabel}
-              onChange={(e) => setVehiculeLabel(e.target.value)}
-              placeholder="Ex: Vehicule de service / Mini-bus / Taxi"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </label>
+            <label className="space-y-2 block">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">Libelle vehicule</span>
+              <input
+                value={vehiculeLabel}
+                onChange={(e) => setVehiculeLabel(e.target.value)}
+                placeholder="Ex: Vehicule de service / Mini-bus / Taxi"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
 
-          <label className="space-y-2 block">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">De se rendre en mission à</span>
-            <input
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </label>
+            <label className="space-y-2 block md:col-span-2">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">De se rendre en mission à</span>
+              <input
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
 
-          <label className="space-y-2 block">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Objet de la mission</span>
-            <textarea
-              value={objetMission}
-              onChange={(e) => setObjetMission(e.target.value)}
-              rows={3}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </label>
+            <label className="space-y-2 block md:col-span-2">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">Objet de la mission</span>
+              <textarea
+                value={objetMission}
+                onChange={(e) => setObjetMission(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
 
-          <label className="space-y-2 block">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Notes</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Informations complementaires pour l'ordre de mission"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </label>
+            <label className="space-y-2 block md:col-span-2">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Informations complementaires pour l'ordre de mission"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
+          </div>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
             <div className="font-medium text-gray-900 dark:text-white">{mission?.numeroMission} - {mission?.titre}</div>

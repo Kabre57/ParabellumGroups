@@ -279,7 +279,7 @@ export default function ProjectsDashboardPage() {
     {
       title: 'Projets',
       description: 'Portefeuille, budgets et responsables.',
-      href: '/dashboard/projets',
+      href: '/dashboard/projets/liste',
       icon: FolderKanban,
     },
     {
@@ -351,6 +351,9 @@ export default function ProjectsDashboardPage() {
               </option>
             ))}
           </select>
+          <Button asChild>
+            <Link href="/dashboard/projets/liste">Créer un projet</Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/dashboard/projets/taches">Ouvrir les tâches</Link>
           </Button>
