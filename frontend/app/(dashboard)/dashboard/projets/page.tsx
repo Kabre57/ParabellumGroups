@@ -150,7 +150,7 @@ export default function ProjectsDashboardPage() {
         : '';
       const matchesManager =
         !managerFilter || managerFilter === managerId || managerFilter === managerName;
-      const projectDate = project.updatedAt || project.createdAt || project.startDate || project.dateDebut;
+      const projectDate = project.updatedAt || project.createdAt || project.startDate;
       if (!projectDate) return matchesManager;
       const parsed = new Date(projectDate);
       if (Number.isNaN(parsed.getTime())) return matchesManager;

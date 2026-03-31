@@ -149,7 +149,7 @@ export default function ProjectsListPage() {
           </div>
           <select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) => setStatusFilter(event.target.value as ProjectStatus | '')}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">Tous les statuts</option>

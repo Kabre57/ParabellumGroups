@@ -41,11 +41,8 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
     phone: '',
     website: '',
     sector: '',
-    employees: undefined,
-    revenue: undefined,
     address: '',
     city: '',
-    postalCode: '',
     country: "Côte d'Ivoire",
     stage: 'preparation',
     priority: 'C',
@@ -72,8 +69,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
       toast.error(
         error?.response?.data?.message ||
         error?.response?.data?.error ||
-        error?.message ||
-        'Erreur lors de la création du prospect'
+        "Une erreur est survenue lors de la création du prospect. Veuillez réessayer."
       );
     }
   });
@@ -87,11 +83,8 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
       phone: '',
       website: '',
       sector: '',
-      employees: undefined,
-      revenue: undefined,
       address: '',
       city: '',
-      postalCode: '',
       country: "Côte d'Ivoire",
       stage: 'preparation',
       priority: 'C',
@@ -124,7 +117,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
     e.preventDefault();
     
     if (!formData.companyName.trim() || !formData.contactName.trim()) {
-      toast.error('Le nom de l\'entreprise et le nom du contact sont obligatoires');
+      toast.error('Veuillez renseigner les champs obligatoires avant d’enregistrer.');
       return;
     }
 
@@ -191,27 +184,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nombre d'employés</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.employees || ''}
-                      onChange={(e) => handleChange('employees', e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Chiffre d'affaires (F CFA)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.revenue || ''}
-                      onChange={(e) => handleChange('revenue', e.target.value ? parseFloat(e.target.value) : undefined)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
+                  {/* Champs supprimés: Nombre d'employés, Chiffre d'affaires */}
                 </div>
               </div>
 
@@ -221,7 +194,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Nom du contact <span className="text-red-500">*</span>
+                      Nom du prospect <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -288,15 +261,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Code postal</label>
-                    <input
-                      type="text"
-                      value={formData.postalCode}
-                      onChange={(e) => handleChange('postalCode', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
+                  {/* Champ supprimé: Code postal */}
 
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Pays</label>
@@ -374,15 +339,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Date de closing estimée</label>
-                    <input
-                      type="date"
-                      value={formData.estimatedCloseDate}
-                      onChange={(e) => handleChange('estimatedCloseDate', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
+                  {/* Champ supprimé: Date de closing estimée */}
                 </div>
               </div>
 
@@ -455,7 +412,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || !formData.companyName.trim() || !formData.contactName.trim()}
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
                   {createMutation.isPending ? 'Création...' : 'Créer le prospect'}

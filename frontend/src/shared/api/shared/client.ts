@@ -169,7 +169,7 @@ class ApiClient {
         throw this.formatError(422, 'Données invalides', data);
 
       case 500:
-        throw this.formatError(500, 'Erreur serveur interne');
+        throw this.formatError(500, 'Une erreur interne est survenue. Veuillez réessayer ou contacter le support.');
 
       case 503:
         throw this.formatError(503, 'Service temporairement indisponible');
