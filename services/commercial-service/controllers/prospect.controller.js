@@ -81,7 +81,10 @@ const normalizeSource = (value) => {
   return 'AUTRE';
 };
 
+const getUserId = (req) => String(req.user.id);
+
 const buildProspectPayload = (body, userId, oldProspect = null) => {
+  const normalizedUserId = userId ? String(userId) : undefined;
   const nextAssignedToId = toNullableString(body.assignedToId);
   const oldAssignedToId = oldProspect?.assignedToId || null;
   const assignedChanged = nextAssignedToId && nextAssignedToId !== oldAssignedToId;
@@ -105,7 +108,7 @@ const buildProspectPayload = (body, userId, oldProspect = null) => {
     source: normalizeSource(body.source),
     assignedToId: nextAssignedToId,
     assignedAt: assignedChanged ? new Date() : undefined,
-    assignedBy: assignedChanged ? userId : undefined,
+    assignedBy: assignedChanged ? normalizedUserId : undefined,
     potentialValue: toNullableNumber(body.potentialValue),
     closingProbability: toNullableNumber(body.closingProbability),
     estimatedCloseDate: toNullableDate(body.estimatedCloseDate),
@@ -294,15 +297,16 @@ exports.create = async (req, res) => {
     // Générer une référence unique
     const reference = `PROS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    const mappedFields = buildProspectPayload(req.body, req.user.id);
+    const userId = getUserId(req);
+    const mappedFields = buildProspectPayload(req.body, userId);
 
     const prospectData = {
       ...mappedFields,
       reference,
-      assignedToId: mappedFields.assignedToId || req.user.id,
+      assignedToId: mappedFields.assignedToId || userId,
       assignedAt: mappedFields.assignedToId ? new Date() : null,
-      assignedBy: mappedFields.assignedToId ? req.user.id : null,
-      createdBy: req.user.id,
+      assignedBy: mappedFields.assignedToId ? userId : null,
+      createdBy: userId,
       documents: [],
     };
     
@@ -323,7 +327,7 @@ exports.create = async (req, res) => {
         changeType: 'CREATE',
         oldValue: null,
         newValue: JSON.stringify(prospect),
-        changedById: req.user.id,
+        changedById: userId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       }
@@ -347,6 +351,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getUserId(req);
 
     // Récupérer les anciennes valeurs pour l'historique
     const oldProspect = await prisma.prospect.findUnique({ where: { id } });
@@ -359,8 +364,8 @@ exports.update = async (req, res) => {
     }
 
     const updateData = {
-      ...buildProspectPayload(req.body, req.user.id, oldProspect),
-      updatedBy: req.user.id,
+      ...buildProspectPayload(req.body, userId, oldProspect),
+      updatedBy: userId,
       version: oldProspect.version + 1,
     };
     
@@ -392,7 +397,7 @@ exports.update = async (req, res) => {
           changeType: 'UPDATE',
           oldValue: oldValue ? JSON.stringify(oldValue) : null,
           newValue: newValue ? JSON.stringify(newValue) : null,
-          changedById: req.user.id,
+          changedById: userId,
           ipAddress: req.ip,
           userAgent: req.headers['user-agent']
         });
@@ -446,6 +451,7 @@ exports.moveStage = async (req, res) => {
   try {
     const { id } = req.params;
     const { stage, notes } = req.body;
+    const userId = getUserId(req);
     
     // Récupérer l'ancien prospect
     const oldProspect = await prisma.prospect.findUnique({ where: { id } });
@@ -455,7 +461,7 @@ exports.moveStage = async (req, res) => {
       data: { 
         stage: stage.toUpperCase(),
         updatedAt: new Date(),
-        updatedBy: req.user.id,
+        updatedBy: userId,
         version: oldProspect.version + 1
       },
       include: {
@@ -472,7 +478,7 @@ exports.moveStage = async (req, res) => {
           title: `Changement d'étape: ${oldProspect.stage} → ${stage}`,
           content: notes,
           type: 'STATUS_CHANGE',
-          createdById: req.user.id
+          createdById: userId
         }
       });
     }
@@ -485,7 +491,7 @@ exports.moveStage = async (req, res) => {
         changeType: 'STATUS_CHANGE',
         oldValue: oldProspect.stage,
         newValue: stage,
-        changedById: req.user.id,
+        changedById: userId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       }
@@ -510,17 +516,18 @@ exports.convert = async (req, res) => {
   try {
     const { id } = req.params;
     const { customerId, conversionReason } = req.body;
+    const userId = getUserId(req);
     
     const prospect = await prisma.prospect.update({
       where: { id },
       data: {
         isConverted: true,
         convertedAt: new Date(),
-        convertedBy: req.user.id,
+        convertedBy: userId,
         customerId,
         conversionReason,
         stage: 'GAGNE',
-        updatedBy: req.user.id
+        updatedBy: userId
       }
     });
     
@@ -533,7 +540,7 @@ exports.convert = async (req, res) => {
         outcome: 'POSITIF',
         completedAt: new Date(),
         duration: 0,
-        createdById: req.user.id,
+        createdById: userId,
         isCompleted: true,
         tags: ['conversion']
       }
@@ -600,10 +607,11 @@ exports.getActivities = async (req, res) => {
 exports.addActivity = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getUserId(req);
     const activityData = {
       prospectId: id,
       ...req.body,
-      createdById: req.user.id
+      createdById: userId
     };
     
     // Si une date de planification est fournie, marquer comme non complété
@@ -861,9 +869,10 @@ exports.getCampaigns = async (req, res) => {
 
 exports.createCampaign = async (req, res) => {
   try {
+    const userId = getUserId(req);
     const campaignData = {
       ...req.body,
-      createdById: req.user.id
+      createdById: userId
     };
     
     const campaign = await prisma.prospectionCampaign.create({
@@ -928,12 +937,13 @@ exports.assignToSequence = async (req, res) => {
   try {
     const { id } = req.params;
     const { sequenceId } = req.body;
+    const userId = getUserId(req);
     
     const assignment = await prisma.sequenceAssignment.create({
       data: {
         sequenceId,
         prospectId: id,
-        assignedById: req.user.id,
+        assignedById: userId,
         status: 'ACTIVE',
         startedAt: new Date()
       }
@@ -986,10 +996,11 @@ exports.getDocuments = async (req, res) => {
 exports.uploadDocument = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getUserId(req);
     const documentData = {
       prospectId: id,
       ...req.body,
-      uploadedById: req.user.id,
+      uploadedById: userId,
       uploadedAt: new Date()
     };
     
@@ -1180,12 +1191,13 @@ exports.getNotes = async (req, res) => {
 exports.addNote = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getUserId(req);
     
     const note = await prisma.noteProspect.create({
       data: {
         prospectId: id,
         ...req.body,
-        createdById: req.user.id
+        createdById: userId
       }
     });
     
@@ -1233,10 +1245,11 @@ exports.getTemplates = async (req, res) => {
 
 exports.createTemplate = async (req, res) => {
   try {
+    const userId = getUserId(req);
     const template = await prisma.emailTemplate.create({
       data: {
         ...req.body,
-        createdById: req.user.id
+        createdById: userId
       }
     });
     
