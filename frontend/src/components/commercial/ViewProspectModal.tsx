@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Building2, User, Mail, Phone, Globe, MapPin, Calendar, TrendingUp } from 'lucide-react';
+import { X, Building2, User, Mail, Phone, Globe, MapPin, TrendingUp } from 'lucide-react';
 import type { Prospect } from '@/shared/api/commercial';
 
 interface ViewProspectModalProps {
@@ -84,18 +84,6 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                       <p className="text-sm text-gray-400">Non spécifié</p>
                     )}
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Effectif</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {prospect.employees ? `${prospect.employees} employés` : 'Non spécifié'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Chiffre d'affaires</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatCurrency(prospect.revenue)}
-                    </p>
-                  </div>
                 </div>
               </div>
 
@@ -140,7 +128,7 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
               </div>
 
               {/* Adresse */}
-              {(prospect.address || prospect.city || prospect.postalCode) && (
+              {(prospect.address || prospect.city) && (
                 <div>
                   <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
                     <MapPin className="h-5 w-5 mr-2 text-green-600" />
@@ -149,7 +137,7 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm text-gray-900">
                       {prospect.address && <span>{prospect.address}<br /></span>}
-                      {prospect.postalCode} {prospect.city}<br />
+                      {prospect.city}<br />
                       {prospect.country}
                     </p>
                   </div>
@@ -194,13 +182,6 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                     <p className="text-xs text-gray-500 mb-1">Probabilité de closing</p>
                     <p className="text-sm font-medium text-gray-900">
                       {prospect.closingProbability ? `${prospect.closingProbability}%` : 'Non définie'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Date de closing estimée</p>
-                    <p className="text-sm font-medium text-gray-900 flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {formatDate(prospect.estimatedCloseDate)}
                     </p>
                   </div>
                   <div>

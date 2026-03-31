@@ -209,7 +209,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                 <option value="">Sélectionner un client</option>
                 {clientsArray.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.nom}
+                    {client.nom || client.raisonSociale || client.reference || 'Client'}
                   </option>
                 ))}
               </select>

@@ -98,7 +98,7 @@ export function CreateOpportunityDialog({ isOpen, onClose }: Props) {
                 <option value="">Selectionner un client</option>
                 {clientsArray.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.nom}
+                    {client.nom || client.raisonSociale || client.reference || 'Client'}
                   </option>
                 ))}
               </select>

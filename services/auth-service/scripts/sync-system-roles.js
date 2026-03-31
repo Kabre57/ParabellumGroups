@@ -30,6 +30,11 @@ const systemRoles = [
     code: 'PURCHASING_MANAGER',
     description: 'Préparation des demandes, consultation fournisseurs, commandes et réceptions',
   },
+  {
+    name: 'Commercial',
+    code: 'COMMERCIAL',
+    description: 'Prospection, pipeline, devis clients et suivi commercial',
+  },
 ];
 
 const procurementApprovalPermissions = [

@@ -28,9 +28,11 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
     }
 
+    const normalizedUserId = decoded.userId || decoded.id;
+
     req.user = {
-      id: decoded.userId || decoded.id,
-      userId: decoded.userId || decoded.id,
+      id: normalizedUserId ? String(normalizedUserId) : undefined,
+      userId: normalizedUserId ? String(normalizedUserId) : undefined,
       email: decoded.email || decoded.userEmail || null,
       role: decoded.role || decoded.roleCode || null,
       serviceId: decoded.serviceId || decoded.service_id || null,

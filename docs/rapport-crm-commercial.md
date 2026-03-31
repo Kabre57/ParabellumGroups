@@ -8,6 +8,21 @@ Flux principal :
 
 PROSPECTION → OPPORTUNITÉS → PIPELINE → DEVIS → CLIENTS → HISTORIQUE/DOCUMENTS → RAPPORTS
 
+Structure recommandée :
+
+Commercial (avant signature)
+- Prospection
+- Campagnes Email (nurturing/relances)
+- Pipeline Commercial
+- Devis & Propositions
+
+CRM (après signature)
+- Clients, Contacts, Adresses
+- Historique Interactions, Documents
+- Rapports & Dashboards
+
+
+
 Objectif :
 - Le Commercial alimente le CRM.
 - Le CRM conserve l'historique, les documents et l'analyse.

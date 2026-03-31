@@ -287,10 +287,10 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    if (!toNullableString(req.body.companyName) || !toNullableString(req.body.contactName)) {
+    if (!toNullableString(req.body.companyName) || !toNullableString(req.body.contactName) || !toNullableString(req.body.source)) {
       return res.status(400).json({
         success: false,
-        error: 'Le nom de l entreprise et le nom du contact sont obligatoires',
+        error: "Le nom de l entreprise, le nom du prospect et la source sont obligatoires",
       });
     }
 

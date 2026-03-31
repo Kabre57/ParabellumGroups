@@ -51,18 +51,14 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
         phone: prospect.phone,
         website: prospect.website,
         sector: prospect.sector,
-        employees: prospect.employees,
-        revenue: prospect.revenue,
         address: prospect.address,
         city: prospect.city,
-        postalCode: prospect.postalCode,
         country: prospect.country,
         stage: prospect.stage,
         priority: prospect.priority,
         source: prospect.source,
         potentialValue: prospect.potentialValue,
         closingProbability: prospect.closingProbability,
-        estimatedCloseDate: prospect.estimatedCloseDate?.split('T')[0],
         notes: prospect.notes,
         tags: prospect.tags
       });
@@ -81,7 +77,11 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
       onClose();
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Erreur lors de la mise à jour du prospect');
+      toast.error(
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Nous n’avons pas pu mettre à jour ce prospect. Vérifiez les champs obligatoires puis réessayez.'
+      );
     }
   });
 
@@ -91,6 +91,10 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.companyName?.trim() || !formData.contactName?.trim() || !formData.source?.trim()) {
+      toast.error('Veuillez renseigner tous les champs obligatoires avant d’enregistrer.');
+      return;
+    }
     updateMutation.mutate(formData);
   };
 
@@ -115,22 +119,28 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nom de l'entreprise</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nom de l'entreprise <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.companyName}
                     onChange={(e) => handleChange('companyName', e.target.value)}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nom du contact</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nom du prospect <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.contactName}
                     onChange={(e) => handleChange('contactName', e.target.value)}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
                   />
                 </div>
 
@@ -211,6 +221,19 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Source <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.source || ''}
+                    onChange={(e) => handleChange('source', e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Valeur potentielle (F CFA)</label>
                   <input
                     type="number"
@@ -241,7 +264,12 @@ export default function EditProspectModal({ isOpen, onClose, prospect }: EditPro
                 </button>
                 <button
                   type="submit"
-                  disabled={updateMutation.isPending}
+                  disabled={
+                    updateMutation.isPending ||
+                    !formData.companyName?.trim() ||
+                    !formData.contactName?.trim() ||
+                    !formData.source?.trim()
+                  }
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                 >
                   {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}

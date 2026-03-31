@@ -86,10 +86,13 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
   }, [clients]);
 
   const quotes = useMemo(() => {
-    return (quotesQuery.data?.data || []).map((quote) => ({
-      ...quote,
-      clientDisplayName: clientMap.get(quote.clientId)?.nom || quote.clientId,
-    }));
+    return (quotesQuery.data?.data || []).map((quote) => {
+      const client = clientMap.get(quote.clientId);
+      return {
+        ...quote,
+        clientDisplayName: client?.nom || client?.raisonSociale || client?.reference || quote.clientId,
+      };
+    });
   }, [quotesQuery.data, clientMap]);
 
   const filteredQuotes = useMemo(() => {
