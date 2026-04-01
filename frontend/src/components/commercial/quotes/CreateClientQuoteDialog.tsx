@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, UploadCloud } from 'lucide-react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { billingService } from '@/shared/api/billing';
+import { billingService, type Quote } from '@/shared/api/billing';
+import { commercialService } from '@/shared/api/commercial';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { adminServicesService, type Service } from '@/shared/api/admin/admin.service';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
 import type { Client } from '@/shared/api/crm/types';
+import type { Prospect } from '@/shared/api/commercial';
 
 interface QuoteLineForm {
   description: string;
@@ -25,6 +28,7 @@ interface QuoteLineForm {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  initialQuote?: Quote | null;
 }
 
 const EMPTY_LINE: QuoteLineForm = {
@@ -42,20 +46,30 @@ const buildDefaultValidityDate = () => {
   return date.toISOString().split('T')[0];
 };
 
-export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
+export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
   const canChooseService =
     isAdminRole(user) || hasAnyPermission(user, ['services.read_all', 'services.read']);
   const [clientId, setClientId] = useState('');
+  const [prospectId, setProspectId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState(userServiceId);
   const [objet, setObjet] = useState('');
   const [dateValidite, setDateValidite] = useState(buildDefaultValidityDate());
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<QuoteLineForm[]>([{ ...EMPTY_LINE }]);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+
+  const isEdit = Boolean(initialQuote?.id);
 
   const { data: clients = [] } = useClients({ pageSize: 200 }, { enabled: isOpen });
+  const { data: prospects = [] } = useQuery({
+    queryKey: ['commercial-quote-prospects'],
+    queryFn: () => commercialService.getProspects({ limit: 200 }),
+    enabled: isOpen,
+    staleTime: 3 * 60 * 1000,
+  });
   const { data: servicesResponse } = useQuery({
     queryKey: ['commercial-quote-service-options'],
     queryFn: () => adminServicesService.getServices(),
@@ -64,6 +78,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
   });
 
   const clientsArray: Client[] = Array.isArray(clients) ? clients : [];
+  const prospectsArray: Prospect[] = Array.isArray(prospects) ? prospects : [];
   const services = servicesResponse?.data ?? [];
   const selectedService = services.find((service: Service) => String(service.id) === String(selectedServiceId));
   const serviceLabel =
@@ -83,6 +98,18 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commercial-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof billingService.updateQuote>[1]) =>
+      billingService.updateQuote(initialQuote?.id || '', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['commercial-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      if (initialQuote?.id) {
+        queryClient.invalidateQueries({ queryKey: ['commercial-quote', initialQuote.id] });
+      }
     },
   });
 
@@ -114,6 +141,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
 
   const resetForm = () => {
     setClientId('');
+    setProspectId('');
     setSelectedServiceId(userServiceId);
     setObjet('');
     setDateValidite(buildDefaultValidityDate());
@@ -122,10 +150,34 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
   };
 
   const handleClose = () => {
-    if (createMutation.isPending) return;
+    if (createMutation.isPending || updateMutation.isPending) return;
     resetForm();
     onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!initialQuote) {
+      resetForm();
+      return;
+    }
+
+    setClientId(initialQuote.clientId || '');
+    setProspectId(initialQuote.prospectId || '');
+    setSelectedServiceId(String(initialQuote.serviceId || userServiceId || ''));
+    setObjet(initialQuote.objet || '');
+    setDateValidite(initialQuote.dateValidite?.split('T')[0] || buildDefaultValidityDate());
+    setNotes(initialQuote.notes || '');
+    const mappedLines = (initialQuote.lignes || []).map((line) => ({
+      description: line.description || '',
+      categorie: '',
+      quantite: String(line.quantity ?? line.quantite ?? 1),
+      prixUnitaire: String(line.unitPrice ?? line.prixUnitaire ?? 0),
+      tauxTVA: String(line.vatRate ?? line.tauxTVA ?? 0),
+      imageUrl: line.imageUrl || '',
+    }));
+    setLines(mappedLines.length ? mappedLines : [{ ...EMPTY_LINE }]);
+  }, [isOpen, initialQuote, userServiceId]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -141,12 +193,19 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
       }))
       .filter((line) => line.description && line.quantity > 0);
 
-    if (!clientId || !objet.trim() || !dateValidite || lignes.length === 0 || !(selectedServiceId || userServiceId)) {
+    const selectedProspect = prospectsArray.find((item) => item.id === prospectId);
+    if (prospectId && !selectedProspect?.email) {
+      toast.error('Le prospect doit avoir un email pour créer un devis.');
       return;
     }
 
-    await createMutation.mutateAsync({
-      clientId,
+    if ((!clientId && !prospectId) || !objet.trim() || !dateValidite || lignes.length === 0 || !(selectedServiceId || userServiceId)) {
+      return;
+    }
+
+    const payload = {
+      clientId: clientId || undefined,
+      prospectId: prospectId || undefined,
       serviceId: selectedServiceId || userServiceId || undefined,
       serviceName: serviceLabel,
       commercialId: user?.id || undefined,
@@ -156,18 +215,45 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
       dateValidite,
       notes: notes.trim() || undefined,
       lignes,
-    });
+    };
+
+    if (isEdit && initialQuote?.id) {
+      await updateMutation.mutateAsync(payload);
+    } else {
+      await createMutation.mutateAsync(payload);
+    }
 
     handleClose();
   };
+
+  const handlePartyChange = (value: string) => {
+    if (!value) {
+      setClientId('');
+      setProspectId('');
+      return;
+    }
+    if (value.startsWith('client:')) {
+      setClientId(value.replace('client:', ''));
+      setProspectId('');
+      return;
+    }
+    if (value.startsWith('prospect:')) {
+      setProspectId(value.replace('prospect:', ''));
+      setClientId('');
+    }
+  };
+
+  const selectedPartyValue = clientId ? `client:${clientId}` : prospectId ? `prospect:${prospectId}` : '';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-h-[92vh] max-w-7xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nouveau devis client</DialogTitle>
+          <DialogTitle>{isEdit ? 'Modifier le devis client' : 'Nouveau devis client'}</DialogTitle>
           <DialogDescription>
-            Le devis est créé par le service commercial, envoyé au client, puis transmis à la facturation après validation.
+            {isEdit
+              ? 'Révisez le devis suite aux échanges client puis enregistrez la nouvelle version.'
+              : 'Le devis est créé par le service commercial, envoyé au client, puis transmis à la facturation après validation.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -200,18 +286,27 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Client</label>
+              <label className="text-sm font-medium">Client / prospect</label>
               <select
-                value={clientId}
-                onChange={(event) => setClientId(event.target.value)}
+                value={selectedPartyValue}
+                onChange={(event) => handlePartyChange(event.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Sélectionner un client</option>
-                {clientsArray.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.nom || client.raisonSociale || client.reference || 'Client'}
-                  </option>
-                ))}
+                <option value="">Sélectionner un client ou prospect</option>
+                <optgroup label="Clients">
+                  {clientsArray.map((client) => (
+                    <option key={client.id} value={`client:${client.id}`}>
+                      {client.nom || client.raisonSociale || client.reference || 'Client'}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Prospects">
+                  {prospectsArray.map((prospect) => (
+                    <option key={prospect.id} value={`prospect:${prospect.id}`}>
+                      {prospect.companyName || prospect.contactName || 'Prospect'}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -288,12 +383,42 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
                                 Sans image
                               </div>
                             )}
-                            <Input
-                              value={line.imageUrl}
-                              onChange={(event) => updateLine(index, { imageUrl: event.target.value })}
-                              placeholder="URL image"
-                              className="h-12 text-sm"
-                            />
+                            <div className="flex flex-col gap-2">
+                              <Input
+                                value={line.imageUrl}
+                                onChange={(event) => updateLine(index, { imageUrl: event.target.value })}
+                                placeholder="URL image"
+                                className="h-11 text-sm"
+                              />
+                              <label className="inline-flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">
+                                <UploadCloud className="h-3 w-3" />
+                                {uploadingIndex === index ? 'Upload...' : 'Importer'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingIndex !== null}
+                                  onChange={async (event) => {
+                                    const file = event.target.files?.[0];
+                                    if (!file) return;
+                                    setUploadingIndex(index);
+                                    try {
+                                      const response = await billingService.uploadQuoteLineImage(file);
+                                      if (!response?.url) {
+                                        throw new Error('URL manquante');
+                                      }
+                                      updateLine(index, { imageUrl: response.url });
+                                      toast.success('Image uploadée');
+                                    } catch (error: any) {
+                                      toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
+                                    } finally {
+                                      setUploadingIndex(null);
+                                      event.target.value = '';
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -385,9 +510,19 @@ export function CreateClientQuoteDialog({ isOpen, onClose }: Props) {
               </Button>
               <Button
                 type="submit"
-                disabled={!clientId || !objet.trim() || !(selectedServiceId || userServiceId) || createMutation.isPending}
+                disabled={
+                  (!clientId && !prospectId) ||
+                  !objet.trim() ||
+                  !(selectedServiceId || userServiceId) ||
+                  createMutation.isPending ||
+                  updateMutation.isPending
+                }
               >
-                {createMutation.isPending ? 'Enregistrement...' : 'Créer le devis'}
+                {createMutation.isPending || updateMutation.isPending
+                  ? 'Enregistrement...'
+                  : isEdit
+                    ? 'Mettre à jour'
+                    : 'Créer le devis'}
               </Button>
             </div>
           </div>

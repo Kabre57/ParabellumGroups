@@ -39,6 +39,15 @@ const permissionCategories = {
       { name: 'prospects.convert', description: 'Convertir en client' }
     ]
   },
+  emails: {
+    label: 'Campagnes Email',
+    permissions: [
+      { name: 'emails.read', description: 'Consulter les campagnes email' },
+      { name: 'emails.send', description: 'Envoyer des emails' },
+      { name: 'emails.send_bulk', description: 'Envoyer des emails en masse' },
+      { name: 'emails.manage_templates', description: 'Gérer les modèles email' }
+    ]
+  },
   customers: {
     label: 'Clients',
     permissions: [

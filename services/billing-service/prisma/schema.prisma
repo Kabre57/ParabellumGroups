@@ -131,6 +131,8 @@ model Devis {
   commercialId  String?
   commercialName String?
   commercialEmail String?
+  prospectId    String?
+  opportuniteId String?
   dateEmission  DateTime     @default(now())
   dateValidite  DateTime
   montantHT     Float
@@ -156,6 +158,8 @@ model Devis {
   evenements    DevisEvent[]
 
   @@index([clientId])
+  @@index([prospectId])
+  @@index([opportuniteId])
   @@index([status])
   @@index([dateEmission])
   @@map("devis")

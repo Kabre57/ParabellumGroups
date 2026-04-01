@@ -170,3 +170,9 @@ docker compose config
 docker compose up -d nginx
 docker compose up -d --build --no-deps frontend nginx
 docker compose ps frontend nginx
+
+
+Pour rappel, la commande de mise à jour conteneur (par service) reste la même :
+
+docker compose up -d --build frontend
+(ou technical-service, project-service, etc.).

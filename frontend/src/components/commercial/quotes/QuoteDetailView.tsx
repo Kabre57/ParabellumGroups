@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, FileDown, FileText, RefreshCcw, Send, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { billingService } from '@/shared/api/billing';
+import { commercialService } from '@/shared/api/commercial';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
@@ -28,6 +29,7 @@ import {
   getQuoteStatusMeta,
   isQuoteReadyForClientApproval,
 } from './quote-status';
+import { CreateClientQuoteDialog } from './CreateClientQuoteDialog';
 
 interface Props {
   quoteId: string;
@@ -93,12 +95,24 @@ const ACTION_COPY: Record<
   },
 };
 
+const EVENT_LABELS: Record<string, string> = {
+  CREATED: 'Devis créé',
+  UPDATED: 'Devis mis à jour',
+  SENT_TO_CLIENT: 'Devis envoyé au client',
+  CLIENT_APPROVED: 'Devis validé par le client',
+  CLIENT_REFUSED: 'Refus client',
+  MODIFICATION_REQUESTED: 'Modification demandée par le client',
+  FORWARDED_TO_BILLING: 'Devis transmis à la facturation',
+  CONVERTED_TO_INVOICE: 'Devis converti en facture',
+};
+
 export function QuoteDetailView({ quoteId }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('informations');
   const [actionType, setActionType] = useState<QuoteActionType>(null);
   const [actionComment, setActionComment] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
   const { canUpdate, canExport, canApprove } = getCrudVisibility(user, {
     read: ['quotes.read', 'quotes.read_all', 'quotes.read_own'],
     update: ['quotes.update', 'quotes.approve'],
@@ -112,14 +126,34 @@ export function QuoteDetailView({ quoteId }: Props) {
   });
 
   const { data: clients = [] } = useClients({ pageSize: 200 }, { enabled: !!quoteQuery.data?.data?.clientId });
+  const { data: prospects = [] } = useQuery({
+    queryKey: ['commercial-quote-prospects'],
+    queryFn: () => commercialService.getProspects({ limit: 300 }),
+    enabled: true,
+    staleTime: 3 * 60 * 1000,
+  });
 
   const clientMap = useMemo(() => {
     const entries = Array.isArray(clients) ? clients : [];
     return new Map(entries.map((client: any) => [client.id, client]));
   }, [clients]);
 
+  const prospectMap = useMemo(() => {
+    const list = Array.isArray(prospects) ? prospects : [];
+    return new Map(list.map((prospect: any) => [prospect.id, prospect]));
+  }, [prospects]);
+
   const quote = quoteQuery.data?.data;
   const client = quote?.clientId ? clientMap.get(quote.clientId) : null;
+  const prospect = quote?.prospectId ? prospectMap.get(quote.prospectId) : null;
+  const clientDisplayName =
+    client?.nom ||
+    client?.raisonSociale ||
+    client?.reference ||
+    prospect?.companyName ||
+    prospect?.contactName ||
+    quote?.clientId ||
+    quote?.prospectId;
   const statusMeta = getQuoteStatusMeta(quote?.status);
   const actionConfig = actionType ? ACTION_COPY[actionType] : null;
 
@@ -290,6 +324,12 @@ export function QuoteDetailView({ quoteId }: Props) {
               </Button>
             )}
             {canUpdate && isQuoteReadyForClientApproval(quote.status) && (
+              <Button variant="outline" onClick={() => setEditOpen(true)} disabled={actionPending}>
+                <FileText className="mr-2 h-4 w-4" />
+                Modifier le devis
+              </Button>
+            )}
+            {canUpdate && isQuoteReadyForClientApproval(quote.status) && (
               <Button onClick={() => setActionType('send')} disabled={actionPending}>
                 <Send className="mr-2 h-4 w-4" />
                 Envoyer au client
@@ -345,7 +385,7 @@ export function QuoteDetailView({ quoteId }: Props) {
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground">Client</div>
-              <div className="mt-2 text-xl font-semibold">{client?.nom || quote.clientId}</div>
+              <div className="mt-2 text-xl font-semibold">{clientDisplayName}</div>
             </CardContent>
           </Card>
           <Card>
@@ -393,7 +433,7 @@ export function QuoteDetailView({ quoteId }: Props) {
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Client</div>
-                    <div className="mt-1 font-medium">{client?.nom || quote.clientId}</div>
+                    <div className="mt-1 font-medium">{clientDisplayName}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Date de validité</div>
@@ -492,7 +532,7 @@ export function QuoteDetailView({ quoteId }: Props) {
                   quote.evenements.map((event) => (
                     <div key={event.id} className="rounded-lg border border-border p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="font-medium">{event.type}</div>
+                        <div className="font-medium">{EVENT_LABELS[event.type] || event.type}</div>
                         <div className="text-sm text-muted-foreground">{formatDate(event.createdAt)}</div>
                       </div>
                       <div className="mt-1 text-sm text-muted-foreground">
@@ -537,6 +577,12 @@ export function QuoteDetailView({ quoteId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateClientQuoteDialog
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        initialQuote={quote}
+      />
     </>
   );
 }

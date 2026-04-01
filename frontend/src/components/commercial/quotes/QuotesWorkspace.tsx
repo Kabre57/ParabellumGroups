@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, FileDown, FileText, Search, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { billingService, type Quote } from '@/shared/api/billing';
+import { commercialService } from '@/shared/api/commercial';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
@@ -46,6 +47,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editQuote, setEditQuote] = useState<Quote | null>(null);
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
 
   const { canCreate, canDelete, canUpdate, canExport, canApprove } = getCrudVisibility(user, {
@@ -63,6 +65,11 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
   });
 
   const { data: clients = [] } = useClients({ pageSize: 300 }, { enabled: true });
+  const { data: prospects = [] } = useQuery({
+    queryKey: ['commercial-quote-prospects'],
+    queryFn: () => commercialService.getProspects({ limit: 300 }),
+    staleTime: 3 * 60 * 1000,
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (quoteId: string) => billingService.deleteQuote(quoteId),
@@ -85,15 +92,28 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
     return new Map(list.map((client: any) => [client.id, client]));
   }, [clients]);
 
+  const prospectMap = useMemo(() => {
+    const list = Array.isArray(prospects) ? prospects : [];
+    return new Map(list.map((prospect: any) => [prospect.id, prospect]));
+  }, [prospects]);
+
   const quotes = useMemo(() => {
     return (quotesQuery.data?.data || []).map((quote) => {
-      const client = clientMap.get(quote.clientId);
+      const client = quote.clientId ? clientMap.get(quote.clientId) : null;
+      const prospect = quote.prospectId ? prospectMap.get(quote.prospectId) : null;
       return {
         ...quote,
-        clientDisplayName: client?.nom || client?.raisonSociale || client?.reference || quote.clientId,
+        clientDisplayName:
+          client?.nom ||
+          client?.raisonSociale ||
+          client?.reference ||
+          prospect?.companyName ||
+          prospect?.contactName ||
+          quote.clientId ||
+          quote.prospectId,
       };
     });
-  }, [quotesQuery.data, clientMap]);
+  }, [quotesQuery.data, clientMap, prospectMap]);
 
   const filteredQuotes = useMemo(() => {
     return quotes.filter((quote) => {
@@ -270,10 +290,15 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
                             </Link>
                           </Button>
                           {canUpdate && ['BROUILLON', 'MODIFICATION_DEMANDEE', 'REFUSE'].includes(quote.status) && (
-                            <Button variant="outline" size="sm" onClick={() => void handleSend(quote)} disabled={sendMutation.isPending}>
-                              <Send className="mr-1 h-4 w-4" />
-                              Envoyer
-                            </Button>
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => setEditQuote(quote)}>
+                                Modifier
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => void handleSend(quote)} disabled={sendMutation.isPending}>
+                                <Send className="mr-1 h-4 w-4" />
+                                Envoyer
+                              </Button>
+                            </>
                           )}
                           {canExport && (
                             <Button asChild variant="outline" size="sm">
@@ -300,6 +325,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
       </Card>
 
       <CreateClientQuoteDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateClientQuoteDialog isOpen={Boolean(editQuote)} onClose={() => setEditQuote(null)} initialQuote={editQuote} />
 
       <Dialog open={Boolean(quoteToDelete)} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
         <DialogContent className="sm:max-w-xl">

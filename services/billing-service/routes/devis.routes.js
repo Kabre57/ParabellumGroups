@@ -1,7 +1,10 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const devisController = require('../controllers/devis.controller');
 const { authenticateToken } = require('../middleware/auth');
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/respond/:token', devisController.getDevisForClientResponse);
 router.post('/respond/:token', devisController.submitClientResponse);
@@ -15,6 +18,7 @@ router.get('/:id', devisController.getDevisById);
 router.post('/', devisController.createDevis);
 router.put('/:id', devisController.updateDevis);
 router.delete('/:id', devisController.deleteDevis);
+router.post('/uploads', upload.single('image'), devisController.uploadQuoteLineImage);
 
 // Routes spécifiques
 router.post('/:id/lignes', devisController.addLigne);

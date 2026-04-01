@@ -2,10 +2,12 @@ const crypto = require('crypto');
 const path = require('path');
 const moment = require('moment');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { generateDevisNumber, generateFactureNumber } = require('../utils/billingNumberGenerator');
 const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateDevisPDF } = require('../utils/pdfGenerator');
+const { uploadToS3, isS3Configured } = require('../utils/s3');
 
 const prisma = new PrismaClient();
 
@@ -78,6 +80,248 @@ const getDefaultDate = (value, daysToAdd = 30) => {
   const date = new Date();
   date.setDate(date.getDate() + daysToAdd);
   return date;
+};
+
+const buildServiceAuthHeader = (req) => {
+  const secret = process.env.JWT_SECRET;
+  if (secret) {
+    const token = jwt.sign(
+      {
+        userId: req.user?.id || 'system',
+        email: req.user?.email || 'system@parabellum.local',
+        role: 'admin',
+      },
+      secret,
+      { expiresIn: '10m' }
+    );
+    return `Bearer ${token}`;
+  }
+
+  return req.headers?.authorization || null;
+};
+
+const fetchProspect = async (req, prospectId) => {
+  if (!prospectId) return null;
+  const baseUrl = process.env.COMMERCIAL_SERVICE_URL || 'http://commercial-service:4004';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+  const response = await axios.get(`${baseUrl}/api/prospects/${prospectId}`, {
+    headers: { Authorization: authHeader },
+  });
+  return response.data?.data || null;
+};
+
+const fetchDefaultTypeClientId = async (req) => {
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+  const response = await axios.get(`${baseUrl}/api/type-clients`, {
+    params: { isActive: true },
+    headers: { Authorization: authHeader },
+  });
+  const types = response.data?.data || [];
+  if (!types.length) return null;
+  const preferred = types.find((type) => String(type.code || '').toUpperCase() === 'ENTREPRISE');
+  return (preferred || types[0]).id || null;
+};
+
+const findExistingClient = async (req, prospect) => {
+  if (!prospect?.email) return null;
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+
+  try {
+    const response = await axios.get(`${baseUrl}/api/clients/search`, {
+      params: { q: prospect.email, limit: 1 },
+      headers: { Authorization: authHeader },
+    });
+    const items = response.data?.data || [];
+    return items.length ? items[0] : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const splitContactName = (fullName) => {
+  if (!fullName) {
+    return { prenom: 'Contact', nom: 'Principal' };
+  }
+
+  const clean = String(fullName).trim().replace(/\s+/g, ' ');
+  if (!clean) {
+    return { prenom: 'Contact', nom: 'Principal' };
+  }
+
+  const parts = clean.split(' ');
+  if (parts.length === 1) {
+    return { prenom: clean, nom: clean };
+  }
+
+  const nom = parts.pop();
+  return { prenom: parts.join(' '), nom };
+};
+
+const createContactFromProspect = async (req, clientId, prospect) => {
+  if (!clientId || !prospect) return null;
+  const contactName = prospect.contactName || prospect.nomContact || prospect.contact || '';
+  if (!contactName && !prospect.email && !prospect.phone) return null;
+
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+
+  const { prenom, nom } = splitContactName(contactName);
+
+  const payload = {
+    clientId,
+    nom,
+    prenom,
+    email: prospect.email || null,
+    telephone: prospect.phone || null,
+    poste: prospect.position || null,
+    principal: true,
+    type: 'COMMERCIAL',
+  };
+
+  try {
+    const response = await axios.post(`${baseUrl}/api/contacts`, payload, {
+      headers: { Authorization: authHeader },
+    });
+    return response.data?.data || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const createClientFromProspect = async (req, prospect, devis) => {
+  if (!prospect) return null;
+  if (!prospect.email) return null;
+
+  const existingClient = await findExistingClient(req, prospect);
+  if (existingClient?.id) return existingClient;
+
+  const typeClientId = await fetchDefaultTypeClientId(req);
+  if (!typeClientId) return null;
+
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+
+  const payload = {
+    nom: prospect.companyName || prospect.contactName || 'Prospect',
+    raisonSociale: prospect.companyName || prospect.contactName || null,
+    email: prospect.email,
+    telephone: prospect.phone || null,
+    siteWeb: prospect.website || null,
+    typeClientId,
+    source: prospect.source || null,
+    prospectId: devis.prospectId || prospect.id,
+    commercialId: devis.commercialId || null,
+  };
+
+  const response = await axios.post(`${baseUrl}/api/clients`, payload, {
+    headers: { Authorization: authHeader },
+  });
+
+  return response.data?.data || null;
+};
+
+const fetchOpenOpportunity = async (req, clientId) => {
+  if (!clientId) return null;
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+  const response = await axios.get(`${baseUrl}/api/opportunites`, {
+    params: {
+      clientId,
+      statut: 'OUVERTE',
+      limit: 1,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    },
+    headers: { Authorization: authHeader },
+  });
+  const items = response.data?.data || [];
+  if (items.length !== 1) return null;
+  return items[0];
+};
+
+const closeOpportunityAsWon = async (req, opportuniteId, montantFinal) => {
+  if (!opportuniteId) return null;
+  const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+  const response = await axios.patch(
+    `${baseUrl}/api/opportunites/${opportuniteId}/close`,
+    {
+      statut: 'GAGNEE',
+      montantFinal,
+    },
+    { headers: { Authorization: authHeader } }
+  );
+  return response.data?.data || null;
+};
+
+const sendCommercialNotification = async (req, devis, clientLabel) => {
+  const recipientId = devis.commercialId || req.user?.id;
+  if (!recipientId) return;
+
+  const baseUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:4012';
+  const montant = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(devis.montantTTC || 0);
+  await axios.post(`${baseUrl}/api/notifications/send`, {
+    userId: recipientId,
+    type: 'COMMERCIAL',
+    title: `Devis ${devis.numeroDevis} signe`,
+    message: `Le devis ${devis.numeroDevis} (${clientLabel || 'client'}) est valide. Montant TTC: ${montant} F CFA.`,
+    email: devis.commercialEmail || undefined,
+  });
+};
+
+const runQuoteSignedWorkflow = async (req, devis) => {
+  if (!devis) return;
+
+  let currentClientId = devis.clientId;
+  let clientLabel = devis.clientId || null;
+
+  try {
+    if (devis.prospectId) {
+      const prospect = await fetchProspect(req, devis.prospectId);
+      if (prospect) {
+        clientLabel = prospect.companyName || prospect.contactName || clientLabel;
+        const createdClient = await createClientFromProspect(req, prospect, devis);
+        if (createdClient?.id) {
+          currentClientId = createdClient.id;
+          await prisma.devis.update({
+            where: { id: devis.id },
+            data: { clientId: createdClient.id },
+          });
+          await createContactFromProspect(req, createdClient.id, prospect);
+        }
+      }
+    }
+
+    let opportuniteId = devis.opportuniteId;
+    if (!opportuniteId && currentClientId) {
+      const openOpp = await fetchOpenOpportunity(req, currentClientId);
+      opportuniteId = openOpp?.id || null;
+    }
+
+    if (opportuniteId) {
+      await closeOpportunityAsWon(req, opportuniteId, devis.montantTTC);
+    }
+
+    await sendCommercialNotification(req, devis, clientLabel);
+
+    await createQuoteEvent(prisma, devis.id, 'SIGNED_WORKFLOW', req, 'Workflow devis signe execute', {
+      opportuniteId: opportuniteId || null,
+      clientId: currentClientId || null,
+    });
+  } catch (error) {
+    await createQuoteEvent(prisma, devis.id, 'SIGNED_WORKFLOW_FAILED', req, 'Echec du workflow devis signe', {
+      error: error?.message || 'unknown',
+    });
+  }
 };
 
 const buildActorContext = (req) => ({
@@ -387,10 +631,11 @@ exports.getDevisById = async (req, res) => {
 exports.createDevis = async (req, res) => {
   try {
     const clientId = normalizeText(req.body.clientId);
+    const prospectId = normalizeText(req.body.prospectId);
     const lignesData = normalizeLines(req.body.lignes);
 
-    if (!clientId) {
-      return res.status(400).json({ error: 'clientId est requis' });
+    if (!clientId && !prospectId) {
+      return res.status(400).json({ error: 'clientId ou prospectId est requis' });
     }
 
     if (lignesData.length === 0) {
@@ -407,6 +652,28 @@ exports.createDevis = async (req, res) => {
       [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' ') ||
       null;
     const commercialEmail = normalizeText(req.body.commercialEmail) || normalizeText(req.user?.email) || null;
+    const opportuniteId = normalizeText(req.body.opportuniteId);
+
+    let resolvedClientId = clientId;
+    let resolvedProspectId = prospectId;
+
+    if (!resolvedClientId && resolvedProspectId) {
+      const prospect = await fetchProspect(req, resolvedProspectId);
+      if (!prospect) {
+        return res.status(404).json({ error: 'Prospect introuvable' });
+      }
+      if (!prospect.email) {
+        return res.status(400).json({ error: 'Un email est requis pour convertir le prospect en client' });
+      }
+      const createdClient = await createClientFromProspect(req, prospect, {
+        prospectId: resolvedProspectId,
+        commercialId,
+      });
+      if (!createdClient?.id) {
+        return res.status(400).json({ error: 'Impossible de créer le client à partir du prospect' });
+      }
+      resolvedClientId = createdClient.id;
+    }
 
     const devis = await prisma.$transaction(async (tx) => {
       const numeroDevis = await getNextDevisNumber(tx);
@@ -414,7 +681,7 @@ exports.createDevis = async (req, res) => {
       const created = await tx.devis.create({
         data: {
           numeroDevis,
-          clientId,
+          clientId: resolvedClientId,
           objet: normalizeText(req.body.objet),
           notes: normalizeText(req.body.notes),
           dateValidite: getDefaultDate(req.body.dateValidite),
@@ -427,6 +694,8 @@ exports.createDevis = async (req, res) => {
           commercialId,
           commercialName,
           commercialEmail,
+          prospectId: resolvedProspectId,
+          opportuniteId,
           lignes: {
             create: lignesData,
           },
@@ -485,6 +754,8 @@ exports.updateDevis = async (req, res) => {
           commercialId: normalizeText(req.body.commercialId) ?? undefined,
           commercialName: normalizeText(req.body.commercialName) ?? undefined,
           commercialEmail: normalizeText(req.body.commercialEmail) ?? undefined,
+          prospectId: normalizeText(req.body.prospectId) ?? undefined,
+          opportuniteId: normalizeText(req.body.opportuniteId) ?? undefined,
         },
         include: QUOTE_READ_INCLUDE,
       });
@@ -699,6 +970,8 @@ exports.acceptDevis = async (req, res) => {
       return updated;
     });
 
+    await runQuoteSignedWorkflow(req, devis);
+
     res.json({
       success: true,
       message: 'Devis valide par le client et transmis automatiquement a la facturation.',
@@ -879,6 +1152,10 @@ exports.submitClientResponse = async (req, res) => {
       return updated;
     });
 
+    if (action === 'ACCEPT') {
+      await runQuoteSignedWorkflow(req, devis);
+    }
+
     res.json({
       success: true,
       message:
@@ -983,10 +1260,44 @@ exports.convertToFacture = async (req, res) => {
   }
 };
 
+exports.uploadQuoteLineImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier fourni' });
+    }
+    if (!isS3Configured()) {
+      return res.status(400).json({ error: 'Stockage S3 non configure' });
+    }
+    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'quote-lines');
+    if (!url) {
+      return res.status(500).json({ error: 'Upload impossible pour le moment' });
+    }
+    res.status(201).json({ success: true, data: { url } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.generatePDF = async (req, res) => {
   try {
     const { id } = req.params;
     const devis = await getQuoteOrThrow(id, { include: { lignes: true } });
+
+    if (devis.clientId) {
+      const clientMeta = await fetchClientMeta(req, devis.clientId);
+      devis.client = {
+        nom: clientMeta.clientName || devis.client?.nom || devis.clientId,
+        email: clientMeta.clientEmail || devis.client?.email || null,
+      };
+    } else if (devis.prospectId) {
+      const prospect = await fetchProspect(req, devis.prospectId);
+      if (prospect) {
+        devis.client = {
+          nom: prospect.companyName || prospect.contactName || devis.prospectId,
+          email: prospect.email || null,
+        };
+      }
+    }
 
     const outputPath = path.join(__dirname, '..', 'temp', `${devis.numeroDevis}.pdf`);
     await generateDevisPDF(devis, outputPath);

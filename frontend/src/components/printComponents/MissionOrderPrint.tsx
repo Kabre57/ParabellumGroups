@@ -155,7 +155,7 @@ export default function MissionOrderPrint({
 
         <div style={{ marginTop: 'auto', paddingTop: 56, textAlign: 'right' }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 52 }}>LE DIRECTEUR</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>M. AMOAKON ADADE</div>
+          <div style={{ fontSize: 14, fontStyle: 'italic' }}>Signature et cachet</div>
         </div>
       </div>
     </PrintLayout>

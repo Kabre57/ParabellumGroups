@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const winston = require('winston');
+const { generateContratNumber } = require('../utils/contratNumberGenerator');
 
 const prisma = new PrismaClient();
 const logger = winston.createLogger({

@@ -449,12 +449,15 @@ export default function EmailCampaignsPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Template ID *</label>
+                <label className="block text-sm font-medium mb-1">Modele d email *</label>
                 <select
                   className="w-full px-3 py-2 border rounded-md"
                   {...form.register('templateId', { required: true })}
+                  disabled={templatesData.length === 0}
                 >
-                  <option value="">Selectionner un modele</option>
+                  <option value="">
+                    {templatesData.length === 0 ? 'Aucun modele disponible' : 'Selectionner un modele'}
+                  </option>
                   {templatesData.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.nom}
@@ -466,8 +469,19 @@ export default function EmailCampaignsPage() {
                     Sujet: {selectedTemplate.sujet}
                   </p>
                 )}
+                {selectedTemplate?.variables && (
+                  <div className="mt-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    Variables disponibles: {
+                      Array.isArray(selectedTemplate.variables)
+                        ? selectedTemplate.variables.join(', ')
+                        : typeof selectedTemplate.variables === 'object'
+                          ? Object.keys(selectedTemplate.variables).join(', ')
+                          : String(selectedTemplate.variables)
+                    }
+                  </div>
+                )}
                 {form.formState.errors.templateId && (
-                  <p className="text-xs text-red-600">Template requis</p>
+                  <p className="text-xs text-red-600">Modele requis</p>
                 )}
               </div>
 

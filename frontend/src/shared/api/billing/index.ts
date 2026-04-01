@@ -52,7 +52,8 @@ export interface Invoice {
 export interface Quote {
   id: string;
   numeroDevis: string;
-  clientId: string;
+  clientId?: string | null;
+  prospectId?: string | null;
   objet?: string | null;
   notes?: string | null;
   serviceId?: string;
@@ -539,7 +540,8 @@ export const billingService = {
   },
 
   async createQuote(data: {
-    clientId: string;
+    clientId?: string;
+    prospectId?: string;
     serviceId?: string;
     serviceName?: string;
     commercialId?: string;
@@ -605,6 +607,15 @@ export const billingService = {
       responseType: 'blob',
     });
     return response.data;
+  },
+
+  async uploadQuoteLineImage(file: File): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/billing/quotes/uploads', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data?.data || response.data;
   },
 
   async getPublicQuoteResponse(token: string): Promise<DetailResponse<Quote>> {
