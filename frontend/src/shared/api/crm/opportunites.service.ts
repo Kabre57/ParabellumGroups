@@ -54,6 +54,7 @@ export const opportunitesService = {
     page?: number;
     limit?: number;
     clientId?: string;
+    clientStatus?: string;
     etape?: string;
     statut?: string;
     commercialId?: string;
