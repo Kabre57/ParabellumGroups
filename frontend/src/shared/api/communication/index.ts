@@ -111,6 +111,22 @@ export const communicationService = {
     return response.data || [];
   },
 
+  async createTemplate(data: {
+    nom: string;
+    sujet: string;
+    contenu: string;
+    type?: string;
+    variables?: any;
+    actif?: boolean;
+  }): Promise<CampagneTemplate> {
+    const response = await apiClient.post('/communication/templates', {
+      ...data,
+      type: data.type || 'EMAIL',
+      actif: data.actif ?? true,
+    });
+    return response.data;
+  },
+
   async getCampaigns(params?: { status?: CampagneStatus }): Promise<CampagneMail[]> {
     const response = await apiClient.get('/communication/campagnes', { params });
     return response.data || [];
