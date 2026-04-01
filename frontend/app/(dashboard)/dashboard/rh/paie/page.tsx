@@ -47,6 +47,18 @@ const downloadBlob = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+const openBlob = (blob: Blob) => {
+  const url = window.URL.createObjectURL(blob);
+  const tab = window.open(url, '_blank');
+  if (!tab) {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'document.pdf';
+    anchor.click();
+  }
+  window.URL.revokeObjectURL(url);
+};
+
 export default function PaiePage() {
   const { user } = useAuth();
   const periodOptions = useMemo(buildPeriodOptions, []);
@@ -101,7 +113,7 @@ export default function PaiePage() {
 
   const downloadMutation = useMutation({
     mutationFn: (payroll: Payroll) => hrService.downloadPayrollPdf(payroll.id),
-    onSuccess: (blob) => downloadBlob(blob, `bulletin-${Date.now()}.pdf`),
+    onSuccess: (blob) => openBlob(blob),
     onError: () => toast.error('PDF indisponible'),
   });
 
@@ -119,7 +131,7 @@ export default function PaiePage() {
 
   const groupedPdfMutation = useMutation({
     mutationFn: (employeeIds?: string[]) => hrService.downloadGroupedPayrollPdf({ month, year, employeeIds }),
-    onSuccess: (blob) => downloadBlob(blob, `bulletins-groupes-${periodFilter}.pdf`),
+    onSuccess: (blob) => openBlob(blob),
     onError: () => toast.error('Impression groupée indisponible'),
   });
 

@@ -104,6 +104,32 @@ const buildPayrollPdfContext = async (payroll) => {
   };
 };
 
+const renderPdfFromHtml = async (html) => {
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
+  let page;
+  try {
+    page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    await page.emulateMediaType('screen');
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+    });
+    if (!pdf || pdf.length < 1000) {
+      throw new Error('PDF genere vide');
+    }
+    return pdf;
+  } finally {
+    if (page) {
+      await page.close();
+    }
+    await browser.close();
+  }
+};
+
 class PayrollController {
   constructor() {
     this.paramsPromise = null;
@@ -541,16 +567,11 @@ class PayrollController {
       if (!payroll) return res.status(404).json({ success: false, message: 'Bulletin non trouvé' });
 
       const html = buildPayrollPdfHtml(await buildPayrollPdfContext(payroll));
-
-      const puppeteer = require('puppeteer');
-      const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const pdf = await page.pdf({ format: 'A4' });
-      await browser.close();
-
+      const pdf = await renderPdfFromHtml(html);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="bulletin-${payroll.id}.pdf"`);
+      res.setHeader('Content-Disposition', `inline; filename="bulletin-${payroll.id}.pdf"`);
+      res.setHeader('Content-Length', pdf.length);
+      res.setHeader('Cache-Control', 'no-store');
       return res.send(pdf);
     } catch (error) {
       console.error('Error generating payroll PDF:', error);
@@ -603,15 +624,11 @@ class PayrollController {
         documents,
       });
 
-      const puppeteer = require('puppeteer');
-      const browser = await puppeteer.launch(buildPuppeteerLaunchOptions());
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const pdf = await page.pdf({ format: 'A4' });
-      await browser.close();
-
+      const pdf = await renderPdfFromHtml(html);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="bulletins-groupes-${year}-${String(month).padStart(2, '0')}.pdf"`);
+      res.setHeader('Content-Disposition', `inline; filename="bulletins-groupes-${year}-${String(month).padStart(2, '0')}.pdf"`);
+      res.setHeader('Content-Length', pdf.length);
+      res.setHeader('Cache-Control', 'no-store');
       return res.send(pdf);
     } catch (error) {
       console.error('Error generating grouped payroll PDF:', error);
