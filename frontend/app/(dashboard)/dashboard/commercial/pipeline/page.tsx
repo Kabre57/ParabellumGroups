@@ -32,7 +32,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { CreateOpportunityDialog } from '@/components/commercial/CreateOpportunityDialog';
 
-type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'won' | 'lost';
+type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'finalisation' | 'won' | 'lost';
 
 type Etape = 'PROSPECTION' | 'QUALIFICATION' | 'PROPOSITION' | 'NEGOCIATION' | 'FINALISATION';
 
@@ -64,10 +64,11 @@ interface OpportunityFormValues {
 }
 
 const STAGES: { value: PipelineStage; label: string; className: string }[] = [
-  { value: 'prospect', label: 'Prospect', className: 'bg-gray-500' },
+  { value: 'prospect', label: 'Prospection', className: 'bg-gray-500' },
   { value: 'qualification', label: 'Qualification', className: 'bg-blue-500' },
   { value: 'proposal', label: 'Proposition', className: 'bg-amber-500' },
-  { value: 'negotiation', label: 'Negotiation', className: 'bg-orange-500' },
+  { value: 'negotiation', label: 'Negociation', className: 'bg-orange-500' },
+  { value: 'finalisation', label: 'Finalisation', className: 'bg-indigo-500' },
   { value: 'won', label: 'Gagne', className: 'bg-green-600' },
   { value: 'lost', label: 'Perdu', className: 'bg-red-500' },
 ];
@@ -114,8 +115,8 @@ export default function PipelinePage() {
   });
 
   const { data: opportunitiesResponse, isLoading } = useQuery({
-    queryKey: ['opportunites'],
-    queryFn: () => opportunitesService.getOpportunites({ limit: 200 }),
+    queryKey: ['opportunites', 'prospects-only'],
+    queryFn: () => opportunitesService.getOpportunites({ limit: 200, clientStatus: 'PROSPECT' }),
   });
 
   const updateMutation = useMutation({
@@ -149,7 +150,7 @@ export default function PipelinePage() {
         QUALIFICATION: 'qualification',
         PROPOSITION: 'proposal',
         NEGOCIATION: 'negotiation',
-        FINALISATION: 'negotiation',
+        FINALISATION: 'finalisation',
       };
       const statusStage: Record<string, PipelineStage> = {
         GAGNEE: 'won',
@@ -161,7 +162,7 @@ export default function PipelinePage() {
       return {
         id: opp.id,
         title: opp.nom,
-        company: opp.client?.nom || 'Client',
+        company: opp.client?.nom || opp.client?.raisonSociale || 'Prospect',
         contact: (opp as any).contact || '-',
         value: opp.montantEstime,
         probability: opp.probabilite || 0,
@@ -199,9 +200,11 @@ export default function PipelinePage() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'XOF',
       minimumFractionDigits: 0,
-    }).format(value);
+    })
+      .format(value)
+      .replace('XOF', 'F CFA');
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('fr-FR', {

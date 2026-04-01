@@ -23,6 +23,7 @@ exports.getAll = async (req, res) => {
       etape,
       statut,
       commercialId,
+      clientStatus,
       startDate,
       endDate,
       page = 1,
@@ -41,6 +42,9 @@ exports.getAll = async (req, res) => {
     if (etape) where.etape = etape;
     if (statut) where.statut = statut;
     if (commercialId) where.commercialId = commercialId;
+    if (clientStatus) {
+      where.client = { status: clientStatus };
+    }
     
     // Date filters
     if (startDate || endDate) {

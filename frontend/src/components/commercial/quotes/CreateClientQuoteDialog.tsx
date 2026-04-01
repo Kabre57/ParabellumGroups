@@ -371,7 +371,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                           {index + 1}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             {line.imageUrl ? (
                               <img
                                 src={line.imageUrl}
@@ -383,42 +383,34 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                                 Sans image
                               </div>
                             )}
-                            <div className="flex flex-col gap-2">
-                              <Input
-                                value={line.imageUrl}
-                                onChange={(event) => updateLine(index, { imageUrl: event.target.value })}
-                                placeholder="URL image"
-                                className="h-11 text-sm"
-                              />
-                              <label className="inline-flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">
-                                <UploadCloud className="h-3 w-3" />
-                                {uploadingIndex === index ? 'Upload...' : 'Importer'}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  disabled={uploadingIndex !== null}
-                                  onChange={async (event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) return;
-                                    setUploadingIndex(index);
-                                    try {
-                                      const response = await billingService.uploadQuoteLineImage(file);
-                                      if (!response?.url) {
-                                        throw new Error('URL manquante');
-                                      }
-                                      updateLine(index, { imageUrl: response.url });
-                                      toast.success('Image uploadée');
-                                    } catch (error: any) {
-                                      toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
-                                    } finally {
-                                      setUploadingIndex(null);
-                                      event.target.value = '';
+                            <label className="inline-flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">
+                              <UploadCloud className="h-3 w-3" />
+                              {uploadingIndex === index ? 'Upload...' : 'Importer'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingIndex !== null}
+                                onChange={async (event) => {
+                                  const file = event.target.files?.[0];
+                                  if (!file) return;
+                                  setUploadingIndex(index);
+                                  try {
+                                    const response = await billingService.uploadQuoteLineImage(file);
+                                    if (!response?.url) {
+                                      throw new Error('URL manquante');
                                     }
-                                  }}
-                                />
-                              </label>
-                            </div>
+                                    updateLine(index, { imageUrl: response.url });
+                                    toast.success('Image uploadée');
+                                  } catch (error: any) {
+                                    toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
+                                  } finally {
+                                    setUploadingIndex(null);
+                                    event.target.value = '';
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
                         </td>
                         <td className="px-4 py-3">

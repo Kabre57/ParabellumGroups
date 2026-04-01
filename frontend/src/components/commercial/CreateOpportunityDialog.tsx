@@ -39,7 +39,7 @@ const defaultValues: OpportunityFormValues = {
 
 export function CreateOpportunityDialog({ isOpen, onClose }: Props) {
   const queryClient = useQueryClient();
-  const { data: clients = [] } = useClients({ pageSize: 200 }, { enabled: isOpen });
+  const { data: clients = [] } = useClients({ pageSize: 200, status: 'PROSPECT' }, { enabled: isOpen });
 
   const form = useForm<OpportunityFormValues>({
     defaultValues,
@@ -83,22 +83,22 @@ export function CreateOpportunityDialog({ isOpen, onClose }: Props) {
         <DialogHeader>
           <DialogTitle>Nouvelle opportunite</DialogTitle>
           <DialogDescription>
-            Cree un nouveau dossier dans le pipeline commercial.
+            Cree un nouveau dossier dans le pipeline commercial a partir d un prospect.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Client</label>
+              <label className="mb-1 block text-sm font-medium">Prospect</label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 {...form.register('clientId', { required: true })}
               >
-                <option value="">Selectionner un client</option>
+                <option value="">Selectionner un prospect</option>
                 {clientsArray.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.nom || client.raisonSociale || client.reference || 'Client'}
+                    {client.nom || client.raisonSociale || client.reference || 'Prospect'}
                   </option>
                 ))}
               </select>
