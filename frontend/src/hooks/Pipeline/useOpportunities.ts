@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { opportunitesService } from '@/shared/api/crm/opportunites.service';
 import type { Opportunite } from '@/shared/api/crm/types';
-import type { OpportunityFormValues, PipelineColumnId } from '@/components/Pipeline/types';
+import type { OpportunityFormValues, PipelineStage } from '@/components/Pipeline/types';
 
 interface UseOpportunitiesOptions {
   clientStatus?: string;
@@ -45,9 +45,9 @@ export const useOpportunities = (options: UseOpportunitiesOptions = {}) => {
   });
 
   const updateStageMutation = useMutation({
-    mutationFn: ({ id, etape }: { id: string; etape: PipelineColumnId }) =>
+    mutationFn: ({ id, etape }: { id: string; etape: PipelineStage }) =>
       opportunitesService.updateStage(id, {
-        etape: etape as OpportunityFormValues['etape'],
+        etape,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['opportunites'] });
