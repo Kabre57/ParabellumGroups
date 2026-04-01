@@ -1,111 +1,35 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import {
   BarChart3,
   Calendar,
   DollarSign,
-  Edit,
-  Eye,
   Search,
-  Trash2,
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { opportunitesService } from '@/shared/api/crm/opportunites.service';
-import { Opportunite } from '@/shared/api/crm/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { useForm } from 'react-hook-form';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { CreateOpportunityDialog } from '@/components/commercial/CreateOpportunityDialog';
-
-type PipelineStage = 'prospect' | 'qualification' | 'proposal' | 'negotiation' | 'finalisation' | 'won' | 'lost';
-
-type Etape = 'PROSPECTION' | 'QUALIFICATION' | 'PROPOSITION' | 'NEGOCIATION' | 'FINALISATION';
-
-type Statut = 'OUVERTE' | 'GAGNEE' | 'PERDUE' | 'MISE_EN_ATTENTE';
-
-interface PipelineOpportunity {
-  id: string;
-  title: string;
-  company: string;
-  contact: string;
-  value: number;
-  probability: number;
-  stage: PipelineStage;
-  expectedCloseDate: string;
-  lastActivity: string;
-  etape?: Etape;
-  statut?: Statut;
-  description?: string;
-}
-
-interface OpportunityFormValues {
-  nom: string;
-  description?: string;
-  montantEstime: number;
-  probabilite: number;
-  dateFermetureEstimee?: string;
-  etape?: Etape;
-  statut?: Statut;
-}
-
-const STAGES: { value: PipelineStage; label: string; className: string }[] = [
-  { value: 'prospect', label: 'Prospection', className: 'bg-gray-500' },
-  { value: 'qualification', label: 'Qualification', className: 'bg-blue-500' },
-  { value: 'proposal', label: 'Proposition', className: 'bg-amber-500' },
-  { value: 'negotiation', label: 'Negociation', className: 'bg-orange-500' },
-  { value: 'finalisation', label: 'Finalisation', className: 'bg-indigo-500' },
-  { value: 'won', label: 'Gagne', className: 'bg-green-600' },
-  { value: 'lost', label: 'Perdu', className: 'bg-red-500' },
-];
-
-const ETAPE_OPTIONS: { value: Etape; label: string }[] = [
-  { value: 'PROSPECTION', label: 'Prospection' },
-  { value: 'QUALIFICATION', label: 'Qualification' },
-  { value: 'PROPOSITION', label: 'Proposition' },
-  { value: 'NEGOCIATION', label: 'Negotiation' },
-  { value: 'FINALISATION', label: 'Finalisation' },
-];
-
-const STATUT_OPTIONS: { value: Statut; label: string }[] = [
-  { value: 'OUVERTE', label: 'Ouverte' },
-  { value: 'GAGNEE', label: 'Gagnee' },
-  { value: 'PERDUE', label: 'Perdue' },
-  { value: 'MISE_EN_ATTENTE', label: 'Mise en attente' },
-];
-
-const toInputDate = (value?: string) => {
-  if (!value) return '';
-  return value.length >= 16 ? value.slice(0, 16) : value;
-};
-
-const normalizeDate = (value?: string) => {
-  if (!value) return undefined;
-  return value.length === 16 ? `${value}:00` : value;
-};
+import { PipelineKanban } from '@/components/Pipeline/PipelineKanban';
+import { OpportunityModal } from '@/components/Pipeline/OpportunityModal';
+import { useOpportunities } from '@/hooks/Pipeline/useOpportunities';
+import type { PipelineOpportunity } from '@/components/Pipeline/types';
+import { PIPELINE_COLUMNS } from '@/components/Pipeline/types';
 
 export default function PipelinePage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [stageFilter, setStageFilter] = useState<PipelineStage | 'all'>('all');
+  const [stageFilter, setStageFilter] = useState<string>('all');
   const [selectedOpportunity, setSelectedOpportunity] = useState<PipelineOpportunity | null>(null);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [viewOpen, setViewOpen] = useState<'view' | 'edit' | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['opportunities.read', 'opportunities.read_all', 'opportunities.read_own'],
@@ -114,49 +38,17 @@ export default function PipelinePage() {
     remove: ['opportunities.delete'],
   });
 
-  const { data: opportunitiesResponse, isLoading } = useQuery({
-    queryKey: ['opportunites', 'prospects-only'],
-    queryFn: () => opportunitesService.getOpportunites({ limit: 200, clientStatus: 'PROSPECT' }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: OpportunityFormValues }) =>
-      opportunitesService.updateOpportunite(id, {
-        nom: data.nom,
-        description: data.description || undefined,
-        montantEstime: Number(data.montantEstime) || 0,
-        probabilite: Number(data.probabilite) || 0,
-        dateFermetureEstimee: normalizeDate(data.dateFermetureEstimee),
-        etape: data.etape,
-        statut: data.statut,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunites'] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => opportunitesService.deleteOpportunite(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunites'] });
-    },
-  });
+  const {
+    opportunities: rawOpportunities,
+    isLoading,
+    updateMutation,
+    deleteMutation,
+    updateStageMutation,
+    closeMutation,
+  } = useOpportunities({ clientStatus: 'PROSPECT' });
 
   const opportunities: PipelineOpportunity[] = useMemo(() => {
-    const list = opportunitiesResponse?.data || (opportunitiesResponse as any)?.data?.data || [];
-    return list.map((opp: Opportunite) => {
-      const stageMap: Record<string, PipelineStage> = {
-        PROSPECTION: 'prospect',
-        QUALIFICATION: 'qualification',
-        PROPOSITION: 'proposal',
-        NEGOCIATION: 'negotiation',
-        FINALISATION: 'finalisation',
-      };
-      const statusStage: Record<string, PipelineStage> = {
-        GAGNEE: 'won',
-        PERDUE: 'lost',
-      };
-      const stage = statusStage[opp.statut] || stageMap[opp.etape] || 'prospect';
+    return rawOpportunities.map((opp) => {
       const updatedAt = (opp as any).updatedAt;
       const createdAt = (opp as any).createdAt;
       return {
@@ -166,15 +58,14 @@ export default function PipelinePage() {
         contact: (opp as any).contact || '-',
         value: opp.montantEstime,
         probability: opp.probabilite || 0,
-        stage,
         expectedCloseDate: opp.dateFermetureEstimee || updatedAt || createdAt || new Date().toISOString(),
         lastActivity: updatedAt || createdAt || '',
-        etape: opp.etape,
-        statut: opp.statut,
+        etape: opp.etape as any,
+        statut: opp.statut as any,
         description: opp.description,
       };
     });
-  }, [opportunitiesResponse]);
+  }, [rawOpportunities]);
 
   const filteredOpportunities = opportunities.filter((opp) => {
     const matchesSearch =
@@ -182,7 +73,10 @@ export default function PipelinePage() {
       opp.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.contact.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStage = stageFilter === 'all' || opp.stage === stageFilter;
+    const matchesStage =
+      stageFilter === 'all' ||
+      opp.etape === stageFilter ||
+      opp.statut === stageFilter;
     return matchesSearch && matchesStage;
   });
 
@@ -213,39 +107,14 @@ export default function PipelinePage() {
       year: 'numeric',
     });
 
-  const form = useForm<OpportunityFormValues>({
-    defaultValues: {
-      nom: '',
-      description: '',
-      montantEstime: 0,
-      probabilite: 0,
-      dateFermetureEstimee: '',
-      etape: 'PROSPECTION',
-      statut: 'OUVERTE',
-    },
-  });
-
-  useEffect(() => {
-    if (!editOpen || !selectedOpportunity) return;
-    form.reset({
-      nom: selectedOpportunity.title,
-      description: selectedOpportunity.description || '',
-      montantEstime: selectedOpportunity.value,
-      probabilite: selectedOpportunity.probability,
-      dateFermetureEstimee: toInputDate(selectedOpportunity.expectedCloseDate),
-      etape: selectedOpportunity.etape || 'PROSPECTION',
-      statut: selectedOpportunity.statut || 'OUVERTE',
-    });
-  }, [editOpen, selectedOpportunity, form]);
-
   const openView = (opp: PipelineOpportunity) => {
     setSelectedOpportunity(opp);
-    setViewOpen(true);
+    setViewOpen('view');
   };
 
   const openEdit = (opp: PipelineOpportunity) => {
     setSelectedOpportunity(opp);
-    setEditOpen(true);
+    setViewOpen('edit');
   };
 
   const handleDelete = (opp: PipelineOpportunity) => {
@@ -254,10 +123,18 @@ export default function PipelinePage() {
     }
   };
 
-  const onSubmit = async (values: OpportunityFormValues) => {
+  const handleStageChange = async (opportunityId: string, target: string) => {
+    if (target === 'GAGNEE' || target === 'PERDUE') {
+      closeMutation.mutate({ id: opportunityId, statut: target });
+      return;
+    }
+    updateStageMutation.mutate({ id: opportunityId, etape: target as any });
+  };
+
+  const onSubmit = async (values: any) => {
     if (!selectedOpportunity) return;
     await updateMutation.mutateAsync({ id: selectedOpportunity.id, data: values });
-    setEditOpen(false);
+    setViewOpen(null);
     setSelectedOpportunity(null);
   };
 
@@ -268,12 +145,30 @@ export default function PipelinePage() {
           <h1 className="text-3xl font-bold">Pipeline Commercial</h1>
           <p className="text-muted-foreground">Suivi des opportunites et previsions de vente</p>
         </div>
-        {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Users className="mr-2 h-4 w-4" />
-            Nouvelle opportunite
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border bg-white">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              className="rounded-none"
+              onClick={() => setViewMode('table')}
+            >
+              Tableau
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              className="rounded-none"
+              onClick={() => setViewMode('kanban')}
+            >
+              Kanban
+            </Button>
+          </div>
+          {canCreate && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Users className="mr-2 h-4 w-4" />
+              Nouvelle opportunite
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -342,87 +237,102 @@ export default function PipelinePage() {
             <div className="flex items-center gap-2">
               <select
                 value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value as PipelineStage | 'all')}
+                onChange={(e) => setStageFilter(e.target.value)}
                 className="border rounded-md px-3 py-2 text-sm"
               >
                 <option value="all">Toutes les etapes</option>
-                {STAGES.map((stage) => (
-                  <option key={stage.value} value={stage.value}>{stage.label}</option>
+                {PIPELINE_COLUMNS.map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.label}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div className="border rounded-lg overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <Spinner />
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Opportunite</th>
-                    <th className="text-left p-4 font-medium">Client</th>
-                    <th className="text-left p-4 font-medium">Montant</th>
-                    <th className="text-left p-4 font-medium">Etape</th>
-                    <th className="text-left p-4 font-medium">Probabilite</th>
-                    <th className="text-left p-4 font-medium">Fermeture estimee</th>
-                    {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOpportunities.map((opp) => {
-                    const stageBadge = STAGES.find((s) => s.value === opp.stage);
-                    return (
-                      <tr key={opp.id} className="border-t hover:bg-muted/50">
-                        <td className="p-4 font-medium">{opp.title}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{opp.company}</td>
-                        <td className="p-4 text-sm">{formatCurrency(opp.value)}</td>
-                        <td className="p-4">
-                          <Badge className={stageBadge?.className || 'bg-gray-500'}>
-                            {stageBadge?.label || opp.stage}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-sm">{opp.probability}%</td>
-                        <td className="p-4 text-sm text-muted-foreground">
-                          <Calendar className="inline h-4 w-4 mr-1" />
-                          {formatDate(opp.expectedCloseDate)}
-                        </td>
-                        {(canUpdate || canDelete) && (
+          {viewMode === 'table' ? (
+            <div className="border rounded-lg overflow-hidden">
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Spinner />
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-4 font-medium">Opportunite</th>
+                      <th className="text-left p-4 font-medium">Client</th>
+                      <th className="text-left p-4 font-medium">Montant</th>
+                      <th className="text-left p-4 font-medium">Etape</th>
+                      <th className="text-left p-4 font-medium">Probabilite</th>
+                      <th className="text-left p-4 font-medium">Fermeture estimee</th>
+                      {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOpportunities.map((opp) => {
+                      const stageBadge = PIPELINE_COLUMNS.find((s) => s.id === (opp.statut || opp.etape));
+                      return (
+                        <tr key={opp.id} className="border-t hover:bg-muted/50">
+                          <td className="p-4 font-medium">{opp.title}</td>
+                          <td className="p-4 text-sm text-muted-foreground">{opp.company}</td>
+                          <td className="p-4 text-sm">{formatCurrency(opp.value)}</td>
                           <td className="p-4">
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => openView(opp)}>
-                                <Eye className="h-4 w-4 mr-1" />
-                                Voir
-                              </Button>
-                              {canUpdate && (
-                                <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
-                                  <Edit className="h-4 w-4 mr-1" />
-                                  Modifier
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-600"
-                                  onClick={() => handleDelete(opp)}
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
+                            <Badge className="bg-gray-500">
+                              {stageBadge?.label || opp.etape || opp.statut}
+                            </Badge>
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                          <td className="p-4 text-sm">{opp.probability}%</td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            <Calendar className="inline h-4 w-4 mr-1" />
+                            {formatDate(opp.expectedCloseDate)}
+                          </td>
+                          {(canUpdate || canDelete) && (
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => openView(opp)}>
+                                  Voir
+                                </Button>
+                                {canUpdate && (
+                                  <Button variant="outline" size="sm" onClick={() => openEdit(opp)}>
+                                    Modifier
+                                  </Button>
+                                )}
+                                {canDelete && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600"
+                                    onClick={() => handleDelete(opp)}
+                                    disabled={deleteMutation.isPending}
+                                  >
+                                    Supprimer
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-white p-4">
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Spinner />
+                </div>
+              ) : (
+                <PipelineKanban
+                  opportunities={filteredOpportunities}
+                  onStageChange={handleStageChange}
+                  onView={openView}
+                  onEdit={canUpdate ? openEdit : undefined}
+                />
+              )}
+            </div>
+          )}
 
           {!isLoading && filteredOpportunities.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
@@ -432,92 +342,14 @@ export default function PipelinePage() {
         </CardContent>
       </Card>
 
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Detail opportunite</DialogTitle>
-            <DialogDescription>Informations principales</DialogDescription>
-          </DialogHeader>
-          {selectedOpportunity && (
-            <div className="space-y-2 text-sm">
-              <div><strong>Nom:</strong> {selectedOpportunity.title}</div>
-              <div><strong>Client:</strong> {selectedOpportunity.company}</div>
-              <div><strong>Montant:</strong> {formatCurrency(selectedOpportunity.value)}</div>
-              <div><strong>Probabilite:</strong> {selectedOpportunity.probability}%</div>
-              <div><strong>Etape:</strong> {selectedOpportunity.etape || '-'}</div>
-              <div><strong>Statut:</strong> {selectedOpportunity.statut || '-'}</div>
-              <div><strong>Fermeture estimee:</strong> {formatDate(selectedOpportunity.expectedCloseDate)}</div>
-              <div><strong>Description:</strong> {selectedOpportunity.description || '-'}</div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {canUpdate && (
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Modifier opportunite</DialogTitle>
-            <DialogDescription>Mettez a jour les informations commerciales.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Nom *</label>
-                <Input {...form.register('nom', { required: true })} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Montant estime</label>
-                <Input type="number" min={0} {...form.register('montantEstime', { valueAsNumber: true })} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Probabilite</label>
-                <Input type="number" min={0} max={100} {...form.register('probabilite', { valueAsNumber: true })} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Etape</label>
-                <select className="w-full px-3 py-2 border rounded-md" {...form.register('etape')}>
-                  {ETAPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Statut</label>
-                <select className="w-full px-3 py-2 border rounded-md" {...form.register('statut')}>
-                  {STATUT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Fermeture estimee</label>
-                <Input type="datetime-local" {...form.register('dateFermetureEstimee')} />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea className="w-full px-3 py-2 border rounded-md" {...form.register('description')} />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                Mettre a jour
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {viewOpen && (
+        <OpportunityModal
+          open={!!viewOpen}
+          mode={viewOpen === 'edit' ? 'edit' : 'view'}
+          opportunity={selectedOpportunity}
+          onClose={() => setViewOpen(null)}
+          onSubmit={onSubmit}
+        />
       )}
 
       <CreateOpportunityDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} />
