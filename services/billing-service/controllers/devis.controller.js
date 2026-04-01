@@ -278,6 +278,72 @@ const sendCommercialNotification = async (req, devis, clientLabel) => {
   });
 };
 
+const addDays = (date, days) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const createProjectForQuote = async (req, devis, clientId) => {
+  if (!clientId || !devis?.id) return null;
+
+  const existingEvent = await prisma.devisEvent.findFirst({
+    where: { devisId: devis.id, type: 'PROJECT_CREATED' },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existingEvent?.payload?.projectId) return existingEvent.payload.projectId;
+
+  const baseUrl = process.env.PROJECTS_SERVICE_URL || 'http://project-service:4006';
+  const authHeader = buildServiceAuthHeader(req);
+  if (!authHeader) return null;
+
+  const startDate = new Date();
+  const validDate = devis.dateValidite ? new Date(devis.dateValidite) : null;
+  const deliveryDate =
+    validDate && validDate > startDate ? validDate : addDays(startDate, 30);
+  const closingDate = addDays(deliveryDate, 7);
+
+  const projectPayload = {
+    nom: `${devis.objet || 'Projet'} - ${devis.numeroDevis}`,
+    clientId,
+    dateDebut: startDate.toISOString(),
+    dateFin: closingDate.toISOString(),
+    budget: devis.montantTTC || 0,
+    status: 'PLANIFIE',
+    priorite: 'MOYENNE',
+  };
+
+  const projectResp = await axios.post(`${baseUrl}/api/projets`, projectPayload, {
+    headers: { Authorization: authHeader },
+  });
+
+  const project = projectResp.data?.data || null;
+  if (!project?.id) return null;
+
+  const milestones = [
+    { nom: 'Demarrage', dateEcheance: startDate },
+    { nom: 'Livraison', dateEcheance: deliveryDate },
+    { nom: 'Cloture', dateEcheance: closingDate },
+  ];
+
+  await Promise.all(
+    milestones.map((milestone) =>
+      axios.post(
+        `${baseUrl}/api/jalons`,
+        {
+          projetId: project.id,
+          nom: milestone.nom,
+          dateEcheance: milestone.dateEcheance.toISOString(),
+          status: 'PLANIFIE',
+        },
+        { headers: { Authorization: authHeader } }
+      )
+    )
+  );
+
+  return project.id;
+};
+
 const runQuoteSignedWorkflow = async (req, devis) => {
   if (!devis) return;
 
@@ -311,11 +377,29 @@ const runQuoteSignedWorkflow = async (req, devis) => {
       await closeOpportunityAsWon(req, opportuniteId, devis.montantTTC);
     }
 
+    let projectId = null;
+    if (currentClientId) {
+      try {
+        projectId = await createProjectForQuote(req, devis, currentClientId);
+        if (projectId) {
+          await createQuoteEvent(prisma, devis.id, 'PROJECT_CREATED', req, 'Projet cree apres devis signe', {
+            projectId,
+            clientId: currentClientId,
+          });
+        }
+      } catch (error) {
+        await createQuoteEvent(prisma, devis.id, 'PROJECT_CREATE_FAILED', req, 'Echec creation projet', {
+          error: error?.message || 'unknown',
+        });
+      }
+    }
+
     await sendCommercialNotification(req, devis, clientLabel);
 
     await createQuoteEvent(prisma, devis.id, 'SIGNED_WORKFLOW', req, 'Workflow devis signe execute', {
       opportuniteId: opportuniteId || null,
       clientId: currentClientId || null,
+      projectId: projectId || null,
     });
   } catch (error) {
     await createQuoteEvent(prisma, devis.id, 'SIGNED_WORKFLOW_FAILED', req, 'Echec du workflow devis signe', {

@@ -11,6 +11,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-replace-with-a-strong-database-password}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-replace-with-a-strong-database-password}@db:5432/parabellum_billing?schema=public
       - REDIS_URL=redis://redis:6379
+      - PROJECTS_SERVICE_URL=http://project-service:4006
     depends_on:
       db:
         condition: service_healthy
