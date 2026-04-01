@@ -58,6 +58,10 @@ model CampagneMail {
   nom             String
   templateId      String
   destinataires   Json
+  objectif        String?
+  segment         String?
+  sequence        Json?
+  conditionsArret Json?
   dateEnvoi       DateTime?
   status          StatusCampagne @default(BROUILLON)
   nbEnvoyes       Int      @default(0)

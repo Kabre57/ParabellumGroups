@@ -25,6 +25,10 @@ export interface CampagneMail {
   templateId: string;
   template?: CampagneTemplate;
   destinataires: CampagneDestinataire[];
+  objectif?: string;
+  segment?: string;
+  sequence?: any;
+  conditionsArret?: any;
   dateEnvoi?: string;
   status: CampagneStatus;
   nbEnvoyes: number;
@@ -123,6 +127,10 @@ export const communicationService = {
     destinataires: CampagneDestinataire[];
     dateEnvoi?: string;
     status?: CampagneStatus;
+    objectif?: string;
+    segment?: string;
+    sequence?: any;
+    conditionsArret?: any;
   }): Promise<CampagneMail> {
     const response = await apiClient.post('/communication/campagnes', data);
     return response.data;

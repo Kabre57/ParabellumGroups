@@ -3,12 +3,40 @@ const emailSender = require('../utils/emailSender');
 const templateParser = require('../utils/templateParser');
 const prisma = new PrismaClient();
 
+const normalizeDate = (value) => {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 const campagneController = {
   // Créer une campagne
   async create(req, res) {
     try {
+      const {
+        nom,
+        templateId,
+        destinataires,
+        dateEnvoi,
+        status,
+        objectif,
+        segment,
+        sequence,
+        conditionsArret,
+      } = req.body;
+
       const campagne = await prisma.campagneMail.create({
-        data: req.body,
+        data: {
+          nom,
+          templateId,
+          destinataires,
+          dateEnvoi: normalizeDate(dateEnvoi),
+          status,
+          objectif,
+          segment,
+          sequence,
+          conditionsArret,
+        },
         include: { template: true }
       });
       res.status(201).json(campagne);
@@ -55,9 +83,31 @@ const campagneController = {
   // Mettre à jour une campagne
   async update(req, res) {
     try {
+      const {
+        nom,
+        templateId,
+        destinataires,
+        dateEnvoi,
+        status,
+        objectif,
+        segment,
+        sequence,
+        conditionsArret,
+      } = req.body;
+
       const campagne = await prisma.campagneMail.update({
         where: { id: req.params.id },
-        data: req.body,
+        data: {
+          nom,
+          templateId,
+          destinataires,
+          dateEnvoi: normalizeDate(dateEnvoi),
+          status,
+          objectif,
+          segment,
+          sequence,
+          conditionsArret,
+        },
         include: { template: true }
       });
       res.json(campagne);

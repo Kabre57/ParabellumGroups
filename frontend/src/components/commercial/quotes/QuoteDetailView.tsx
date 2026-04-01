@@ -106,6 +106,16 @@ const EVENT_LABELS: Record<string, string> = {
   CONVERTED_TO_INVOICE: 'Devis converti en facture',
 };
 
+const formatEventLabel = (type?: string) => {
+  if (!type) return 'Événement';
+  const label = EVENT_LABELS[type];
+  if (label) return label;
+  return type
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 export function QuoteDetailView({ quoteId }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -532,7 +542,7 @@ export function QuoteDetailView({ quoteId }: Props) {
                   quote.evenements.map((event) => (
                     <div key={event.id} className="rounded-lg border border-border p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="font-medium">{EVENT_LABELS[event.type] || event.type}</div>
+                        <div className="font-medium">{formatEventLabel(event.type)}</div>
                         <div className="text-sm text-muted-foreground">{formatDate(event.createdAt)}</div>
                       </div>
                       <div className="mt-1 text-sm text-muted-foreground">

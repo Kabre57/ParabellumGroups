@@ -371,47 +371,43 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                           {index + 1}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            {line.imageUrl ? (
-                              <img
-                                src={line.imageUrl}
-                                alt={line.description || `Ligne ${index + 1}`}
-                                className="h-12 w-12 rounded-md border object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
-                                Sans image
-                              </div>
-                            )}
-                            <label className="inline-flex items-center gap-2 rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">
-                              <UploadCloud className="h-3 w-3" />
-                              {uploadingIndex === index ? 'Upload...' : 'Importer'}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                disabled={uploadingIndex !== null}
-                                onChange={async (event) => {
-                                  const file = event.target.files?.[0];
-                                  if (!file) return;
-                                  setUploadingIndex(index);
-                                  try {
-                                    const response = await billingService.uploadQuoteLineImage(file);
-                                    if (!response?.url) {
-                                      throw new Error('URL manquante');
-                                    }
-                                    updateLine(index, { imageUrl: response.url });
-                                    toast.success('Image uploadée');
-                                  } catch (error: any) {
-                                    toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
-                                  } finally {
-                                    setUploadingIndex(null);
-                                    event.target.value = '';
-                                  }
-                                }}
-                              />
-                            </label>
-                          </div>
+            <label className="inline-flex items-center gap-3">
+              {line.imageUrl ? (
+                <img
+                  src={line.imageUrl}
+                  alt={line.description || `Ligne ${index + 1}`}
+                  className="h-12 w-12 rounded-md border object-cover"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">
+                  <UploadCloud className="h-4 w-4" />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingIndex !== null}
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  setUploadingIndex(index);
+                  try {
+                    const response = await billingService.uploadQuoteLineImage(file);
+                    if (!response?.url) {
+                      throw new Error('URL manquante');
+                    }
+                    updateLine(index, { imageUrl: response.url });
+                    toast.success('Image uploadée');
+                  } catch (error: any) {
+                    toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
+                  } finally {
+                    setUploadingIndex(null);
+                    event.target.value = '';
+                  }
+                }}
+              />
+            </label>
                         </td>
                         <td className="px-4 py-3">
                           <Input

@@ -28,9 +28,18 @@ import { getCrudVisibility } from '@/shared/action-visibility';
 interface CampaignFormValues {
   nom: string;
   templateId: string;
+  objectif: string;
+  segment: string;
   status: CampagneStatus;
   dateEnvoi?: string;
   destinatairesText: string;
+}
+
+interface SequenceStepForm {
+  step: number;
+  label: string;
+  delayDays: string;
+  templateId: string;
 }
 
 const STATUS_OPTIONS: { value: CampagneStatus; label: string }[] = [
@@ -39,6 +48,21 @@ const STATUS_OPTIONS: { value: CampagneStatus; label: string }[] = [
   { value: 'EN_COURS', label: 'En cours' },
   { value: 'TERMINEE', label: 'Terminee' },
   { value: 'ANNULEE', label: 'Annulee' },
+];
+
+const OBJECTIF_OPTIONS = [
+  { value: 'RELANCE_PROSPECT', label: 'Relance prospect' },
+  { value: 'RELANCE_DEVIS', label: 'Relance devis' },
+  { value: 'RELANCE_CLIENT', label: 'Relance client' },
+  { value: 'NEWSLETTER', label: 'Newsletter' },
+  { value: 'FIDELISATION', label: 'Fidelisation' },
+];
+
+const SEGMENT_OPTIONS = [
+  { value: 'PROSPECTS', label: 'Prospects a relancer' },
+  { value: 'DEVIS_ENVOYES', label: 'Devis envoyes' },
+  { value: 'CLIENTS', label: 'Clients existants' },
+  { value: 'PERSONNALISE', label: 'Liste manuelle' },
 ];
 
 const toInputDateTime = (value?: string) => {
@@ -75,6 +99,13 @@ export default function EmailCampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | CampagneStatus>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<CampagneMail | null>(null);
+  const [sequenceSteps, setSequenceSteps] = useState<SequenceStepForm[]>([
+    { step: 2, label: 'Email 2', delayDays: '3', templateId: '' },
+    { step: 3, label: 'Email 3', delayDays: '7', templateId: '' },
+    { step: 4, label: 'Email 4', delayDays: '15', templateId: '' },
+  ]);
+  const [stopOnReply, setStopOnReply] = useState(true);
+  const [stopOnSigned, setStopOnSigned] = useState(true);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['emails.read'],
     create: ['emails.send', 'emails.manage_templates'],
@@ -102,6 +133,22 @@ export default function EmailCampaignsPage() {
         destinataires: parseDestinataires(payload.destinatairesText),
         status: payload.status,
         dateEnvoi: normalizeDate(payload.dateEnvoi),
+        objectif: payload.objectif || undefined,
+        segment: payload.segment || undefined,
+        sequence: [
+          { step: 1, templateId: payload.templateId.trim(), delayDays: 0 },
+          ...sequenceSteps
+            .filter((step) => step.templateId)
+            .map((step) => ({
+              step: step.step,
+              templateId: step.templateId,
+              delayDays: Number(step.delayDays) || 0,
+            })),
+        ],
+        conditionsArret: {
+          stopOnReply,
+          stopOnSigned,
+        },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-campaigns'] });
@@ -116,6 +163,22 @@ export default function EmailCampaignsPage() {
         destinataires: parseDestinataires(payload.destinatairesText),
         status: payload.status,
         dateEnvoi: normalizeDate(payload.dateEnvoi),
+        objectif: payload.objectif || undefined,
+        segment: payload.segment || undefined,
+        sequence: [
+          { step: 1, templateId: payload.templateId.trim(), delayDays: 0 },
+          ...sequenceSteps
+            .filter((step) => step.templateId)
+            .map((step) => ({
+              step: step.step,
+              templateId: step.templateId,
+              delayDays: Number(step.delayDays) || 0,
+            })),
+        ],
+        conditionsArret: {
+          stopOnReply,
+          stopOnSigned,
+        },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-campaigns'] });
@@ -133,6 +196,8 @@ export default function EmailCampaignsPage() {
     defaultValues: {
       nom: '',
       templateId: '',
+      objectif: 'RELANCE_PROSPECT',
+      segment: 'PROSPECTS',
       status: 'BROUILLON',
       dateEnvoi: '',
       destinatairesText: '',
@@ -147,18 +212,44 @@ export default function EmailCampaignsPage() {
       form.reset({
         nom: editingCampaign.nom,
         templateId: editingCampaign.templateId,
+        objectif: editingCampaign.objectif || 'RELANCE_PROSPECT',
+        segment: editingCampaign.segment || 'PROSPECTS',
         status: editingCampaign.status,
         dateEnvoi: toInputDateTime(editingCampaign.dateEnvoi),
         destinatairesText: formatDestinataires(editingCampaign.destinataires),
       });
+      const savedSequence = Array.isArray(editingCampaign.sequence) ? editingCampaign.sequence : [];
+      setSequenceSteps([
+        { step: 2, label: 'Email 2', delayDays: '3', templateId: '' },
+        { step: 3, label: 'Email 3', delayDays: '7', templateId: '' },
+        { step: 4, label: 'Email 4', delayDays: '15', templateId: '' },
+      ].map((step) => {
+        const match = savedSequence.find((item: any) => item.step === step.step);
+        return {
+          ...step,
+          delayDays: match?.delayDays?.toString?.() || step.delayDays,
+          templateId: match?.templateId || '',
+        };
+      }));
+      setStopOnReply(Boolean(editingCampaign.conditionsArret?.stopOnReply));
+      setStopOnSigned(Boolean(editingCampaign.conditionsArret?.stopOnSigned));
     } else {
       form.reset({
         nom: '',
         templateId: '',
+        objectif: 'RELANCE_PROSPECT',
+        segment: 'PROSPECTS',
         status: 'BROUILLON',
         dateEnvoi: '',
         destinatairesText: '',
       });
+      setSequenceSteps([
+        { step: 2, label: 'Email 2', delayDays: '3', templateId: '' },
+        { step: 3, label: 'Email 3', delayDays: '7', templateId: '' },
+        { step: 4, label: 'Email 4', delayDays: '15', templateId: '' },
+      ]);
+      setStopOnReply(true);
+      setStopOnSigned(true);
     }
   }, [dialogOpen, editingCampaign, form]);
 
@@ -448,6 +539,34 @@ export default function EmailCampaignsPage() {
                 )}
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1">Objectif *</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-md"
+                  {...form.register('objectif', { required: true })}
+                >
+                  {OBJECTIF_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Segment cible *</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-md"
+                  {...form.register('segment', { required: true })}
+                >
+                  {SEGMENT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">Modele d email *</label>
                 <select
@@ -483,6 +602,79 @@ export default function EmailCampaignsPage() {
                 {form.formState.errors.templateId && (
                   <p className="text-xs text-red-600">Modele requis</p>
                 )}
+              </div>
+
+              <div className="md:col-span-2 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
+                <div className="text-sm font-medium">Sequence de relance</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Email 1 part du modele principal. Ajustez les delais et ajoutez des emails si besoin.
+                </div>
+                <div className="mt-3 grid gap-3">
+                  {sequenceSteps.map((step) => (
+                    <div key={step.step} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_140px_140px]">
+                      <div>
+                        <label className="block text-xs font-medium mb-1">{step.label} - Modele</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          value={step.templateId}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setSequenceSteps((current) =>
+                              current.map((item) =>
+                                item.step === step.step ? { ...item, templateId: value } : item
+                              )
+                            );
+                          }}
+                        >
+                          <option value="">Aucun</option>
+                          {templatesData.map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.nom}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Delai (jours)</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={step.delayDays}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setSequenceSteps((current) =>
+                              current.map((item) =>
+                                item.step === step.step ? { ...item, delayDays: value } : item
+                              )
+                            );
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-end text-xs text-muted-foreground">
+                        J+{step.delayDays || '0'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={stopOnReply}
+                    onChange={(event) => setStopOnReply(event.target.checked)}
+                  />
+                  Arreter si le prospect repond
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={stopOnSigned}
+                    onChange={(event) => setStopOnSigned(event.target.checked)}
+                  />
+                  Arreter si le devis est signe
+                </label>
               </div>
 
               <div>
