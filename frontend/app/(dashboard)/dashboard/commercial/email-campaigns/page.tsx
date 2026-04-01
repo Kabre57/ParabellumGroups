@@ -32,6 +32,7 @@ import { CampaignStats } from '@/components/commercial/campaigns/CampaignStats';
 import { CampaignFilters } from '@/components/commercial/campaigns/CampaignFilters';
 import { CampaignTable } from '@/components/commercial/campaigns/CampaignTable';
 import { CampaignForm } from '@/components/commercial/campaigns/CampaignForm';
+import { RelanceTasks } from '@/components/commercial/campaigns/RelanceTasks';
 
 export default function EmailCampaignsPage() {
   const { user } = useAuth();
@@ -201,142 +202,152 @@ export default function EmailCampaignsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Campagnes Email</h1>
-        <p className="text-muted-foreground">Créez, planifiez et suivez vos relances commerciales.</p>
-      </div>
+    // ✅ FIX: Ajout de la classe overflow-y-auto et structure scrollable
+    <div className="h-full overflow-y-auto">
+      <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">Campagnes Email</h1>
+          <p className="text-muted-foreground">Créez, planifiez et suivez vos relances commerciales.</p>
+        </div>
 
-      <CampaignStats stats={stats} />
+        {/* Stats */}
+        <CampaignStats stats={stats} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Liste des campagnes</CardTitle>
-          <CardDescription>Gérez vos campagnes et suivez les performances.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">
-            <CampaignFilters
-              searchTerm={searchTerm}
-              statusFilter={statusFilter}
-              onSearchChange={setSearchTerm}
-              onStatusChange={setStatusFilter}
-              onCreate={openCreate}
-              canCreate={canCreate}
+        <RelanceTasks campaigns={campaigns} />
+
+        {/* Liste des campagnes */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Liste des campagnes</CardTitle>
+            <CardDescription>Gérez vos campagnes et suivez les performances.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6">
+              <CampaignFilters
+                searchTerm={searchTerm}
+                statusFilter={statusFilter}
+                onSearchChange={setSearchTerm}
+                onStatusChange={setStatusFilter}
+                onCreate={openCreate}
+                canCreate={canCreate}
+              />
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Impossible de charger les campagnes pour le moment. Réessayez dans quelques instants.
+              </div>
+            )}
+
+            {templatesError && (
+              <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+                Les modèles d'email ne sont pas disponibles pour le moment.
+              </div>
+            )}
+
+            <CampaignTable
+              campaigns={filteredCampaigns}
+              isLoading={isLoading}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              deletePending={deleteMutation.isPending}
             />
-          </div>
+          </CardContent>
+        </Card>
 
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Impossible de charger les campagnes pour le moment. Réessayez dans quelques instants.
-            </div>
-          )}
+        {/* Dialogue de création/édition de campagne */}
+        {(canCreate || canUpdate) && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingCampaign ? 'Modifier la campagne' : 'Nouvelle campagne'}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingCampaign
+                    ? 'Mettez à jour la campagne.'
+                    : 'Créez une nouvelle campagne email.'}
+                </DialogDescription>
+              </DialogHeader>
 
-          {templatesError && (
-            <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
-              Les modèles d'email ne sont pas disponibles pour le moment.
-            </div>
-          )}
+              <CampaignForm
+                form={form}
+                templates={templates}
+                selectedTemplate={selectedTemplate}
+                sequenceSteps={sequenceSteps}
+                onSequenceChange={setSequenceSteps}
+                stopConditions={stopConditions}
+                onStopConditionsChange={setStopConditions}
+                isSubmitting={createMutation.isPending || updateMutation.isPending}
+                onCancel={() => setDialogOpen(false)}
+                onSubmit={onSubmit}
+                onCreateTemplate={handleCreateTemplate}
+                submitLabel={editingCampaign ? 'Mettre à jour' : 'Créer'}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
 
-          <CampaignTable
-            campaigns={filteredCampaigns}
-            isLoading={isLoading}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
-            onEdit={openEdit}
-            onDelete={handleDelete}
-            deletePending={deleteMutation.isPending}
-          />
-        </CardContent>
-      </Card>
-
-      {(canCreate || canUpdate) && (
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-3xl">
+        {/* Dialogue de création de template */}
+        <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingCampaign ? 'Modifier la campagne' : 'Nouvelle campagne'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingCampaign
-                  ? 'Mettez à jour la campagne.'
-                  : 'Créez une nouvelle campagne email.'}
-              </DialogDescription>
+              <DialogTitle>Nouveau modèle d'email</DialogTitle>
+              <DialogDescription>Créez un modèle réutilisable pour vos campagnes.</DialogDescription>
             </DialogHeader>
 
-            <CampaignForm
-              form={form}
-              templates={templates}
-              selectedTemplate={selectedTemplate}
-              sequenceSteps={sequenceSteps}
-              onSequenceChange={setSequenceSteps}
-              stopConditions={stopConditions}
-              onStopConditionsChange={setStopConditions}
-              isSubmitting={createMutation.isPending || updateMutation.isPending}
-              onCancel={() => setDialogOpen(false)}
-              onSubmit={onSubmit}
-              onCreateTemplate={handleCreateTemplate}
-              submitLabel={editingCampaign ? 'Mettre à jour' : 'Créer'}
-            />
+            <form
+              onSubmit={templateForm.handleSubmit(async (values) => {
+                await createTemplateMutation.mutateAsync(values);
+                templateForm.reset();
+                setTemplateDialogOpen(false);
+              })}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">Nom du modèle *</label>
+                <Input {...templateForm.register('nom', { required: true })} />
+                {templateForm.formState.errors.nom && (
+                  <p className="text-xs text-red-600">Nom requis</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Sujet *</label>
+                <Input {...templateForm.register('sujet', { required: true })} />
+                {templateForm.formState.errors.sujet && (
+                  <p className="text-xs text-red-600">Sujet requis</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Contenu *</label>
+                <textarea
+                  className="w-full px-3 py-2 border rounded-md min-h-[140px]"
+                  {...templateForm.register('contenu', { required: true })}
+                />
+                {templateForm.formState.errors.contenu && (
+                  <p className="text-xs text-red-600">Contenu requis</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Variables (séparées par des virgules)</label>
+                <Input {...templateForm.register('variablesText')} placeholder="prenom, societe, montant" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setTemplateDialogOpen(false)}>
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={createTemplateMutation.isPending}>
+                  Créer le modèle
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
-      )}
-
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Nouveau modèle d'email</DialogTitle>
-            <DialogDescription>Créez un modèle réutilisable pour vos campagnes.</DialogDescription>
-          </DialogHeader>
-
-          <form
-            onSubmit={templateForm.handleSubmit(async (values) => {
-              await createTemplateMutation.mutateAsync(values);
-              templateForm.reset();
-              setTemplateDialogOpen(false);
-            })}
-            className="space-y-4"
-          >
-            <div>
-              <label className="block text-sm font-medium mb-1">Nom du modèle *</label>
-              <Input {...templateForm.register('nom', { required: true })} />
-              {templateForm.formState.errors.nom && (
-                <p className="text-xs text-red-600">Nom requis</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Sujet *</label>
-              <Input {...templateForm.register('sujet', { required: true })} />
-              {templateForm.formState.errors.sujet && (
-                <p className="text-xs text-red-600">Sujet requis</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Contenu *</label>
-              <textarea
-                className="w-full px-3 py-2 border rounded-md min-h-[140px]"
-                {...templateForm.register('contenu', { required: true })}
-              />
-              {templateForm.formState.errors.contenu && (
-                <p className="text-xs text-red-600">Contenu requis</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Variables (séparées par des virgules)</label>
-              <Input {...templateForm.register('variablesText')} placeholder="prenom, societe, montant" />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setTemplateDialogOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={createTemplateMutation.isPending}>
-                Créer le modèle
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      </div>
     </div>
   );
 }

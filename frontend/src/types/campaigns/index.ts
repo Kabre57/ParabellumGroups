@@ -10,11 +10,15 @@ export interface CampaignFormValues {
   destinatairesText: string;
 }
 
+export type SequenceChannel = 'EMAIL' | 'PHONE' | 'VISIT';
+
 export interface SequenceStepForm {
   step: number;
   label: string;
   delayDays: string;
   templateId: string;
+  channel: SequenceChannel;
+  note?: string;
 }
 
 export type CampaignStatusOption = { value: CampagneStatus; label: string };
@@ -30,8 +34,10 @@ export interface CampaignStatsSummary {
 
 export interface SequenceStepPayload {
   step: number;
-  templateId: string;
+  templateId?: string;
   delayDays: number;
+  channel: SequenceChannel;
+  note?: string;
 }
 
 export interface CampaignStopConditions {
@@ -69,7 +75,7 @@ export const SEGMENT_OPTIONS: CampaignSegmentOption[] = [
 ];
 
 export const DEFAULT_SEQUENCE_STEPS: SequenceStepForm[] = [
-  { step: 2, label: 'Email 2', delayDays: '3', templateId: '' },
-  { step: 3, label: 'Email 3', delayDays: '7', templateId: '' },
-  { step: 4, label: 'Email 4', delayDays: '15', templateId: '' },
+  { step: 2, label: 'Relance 2', delayDays: '3', templateId: '', channel: 'EMAIL', note: '' },
+  { step: 3, label: 'Relance 3', delayDays: '7', templateId: '', channel: 'EMAIL', note: '' },
+  { step: 4, label: 'Relance 4', delayDays: '15', templateId: '', channel: 'EMAIL', note: '' },
 ];

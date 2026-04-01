@@ -349,6 +349,9 @@ export default function CommercialDashboardPage() {
           <Button asChild variant="outline">
             <Link href="/dashboard/commercial/quotes">Voir les devis</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/commercial/prospection-terrain">Prospection terrain</Link>
+          </Button>
           <Button asChild>
             <Link href="/dashboard/commercial/prospects">Prospection</Link>
           </Button>

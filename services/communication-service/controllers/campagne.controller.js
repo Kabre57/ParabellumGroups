@@ -3,6 +3,15 @@ const emailSender = require('../utils/emailSender');
 const templateParser = require('../utils/templateParser');
 const prisma = new PrismaClient();
 
+const isMissingTableError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.code === 'P2021' ||
+    message.includes('campagnes_mail') ||
+    message.includes('relation') && message.includes('campagnes')
+  );
+};
+
 const normalizeDate = (value) => {
   if (!value) return undefined;
   const date = value instanceof Date ? value : new Date(value);
@@ -60,6 +69,9 @@ const campagneController = {
       });
       res.json(campagnes);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.json([]);
+      }
       res.status(500).json({ error: error.message });
     }
   },

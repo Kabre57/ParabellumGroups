@@ -8,16 +8,22 @@ interface SequenceBuilderProps {
   onChange: (steps: SequenceStepForm[]) => void;
 }
 
+const CHANNEL_OPTIONS: { value: SequenceStepForm['channel']; label: string }[] = [
+  { value: 'EMAIL', label: 'Email' },
+  { value: 'PHONE', label: 'Appel' },
+  { value: 'VISIT', label: 'Visite' },
+];
+
 export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderProps) {
   return (
     <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
       <div className="text-sm font-medium">Séquence de relance</div>
       <div className="mt-1 text-xs text-muted-foreground">
-        Email 1 part du modèle principal. Ajustez les délais et ajoutez des emails si besoin.
+        L&apos;étape 1 utilise le modèle principal. Ajoutez des relances email, appels ou visites terrain.
       </div>
       <div className="mt-3 grid gap-3">
         {steps.map((step) => (
-          <div key={step.step} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_120px_72px]">
+          <div key={step.step} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_120px_72px]">
             <div>
               <label className="block text-xs font-medium mb-1">{step.label} - Modèle</label>
               <select
@@ -31,11 +37,41 @@ export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderP
                     )
                   );
                 }}
+                disabled={step.channel !== 'EMAIL'}
               >
-                <option value="">Aucun</option>
+                <option value="">
+                  {step.channel === 'EMAIL' ? 'Aucun' : 'Non requis'}
+                </option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Canal</label>
+              <select
+                className="w-full px-3 py-2 border rounded-md text-sm"
+                value={step.channel}
+                onChange={(event) => {
+                  const value = event.target.value as SequenceStepForm['channel'];
+                  onChange(
+                    steps.map((item) =>
+                      item.step === step.step
+                        ? {
+                            ...item,
+                            channel: value,
+                            templateId: value === 'EMAIL' ? item.templateId : '',
+                          }
+                        : item
+                    )
+                  );
+                }}
+              >
+                {CHANNEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -57,6 +93,27 @@ export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderP
               />
             </div>
             <div className="flex items-end text-xs text-muted-foreground">J+{step.delayDays || '0'}</div>
+            <div className="md:col-span-4">
+              <label className="block text-xs font-medium mb-1">Instruction</label>
+              <Input
+                value={step.note || ''}
+                placeholder={
+                  step.channel === 'PHONE'
+                    ? 'Ex: Appeler le décideur et confirmer le besoin'
+                    : step.channel === 'VISIT'
+                    ? 'Ex: Visite terrain pour démonstration'
+                    : 'Ex: Ajouter un rappel personnalisé'
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  onChange(
+                    steps.map((item) =>
+                      item.step === step.step ? { ...item, note: value } : item
+                    )
+                  );
+                }}
+              />
+            </div>
           </div>
         ))}
       </div>

@@ -71,13 +71,20 @@ export const buildSequencePayload = (
   const mainId = templateId.trim();
   if (!mainId) return [];
   return [
-    { step: 1, templateId: mainId, delayDays: 0 },
+    { step: 1, templateId: mainId, delayDays: 0, channel: 'EMAIL' },
     ...steps
-      .filter((step) => step.templateId)
+      .filter((step) => {
+        if (step.channel === 'EMAIL') {
+          return Boolean(step.templateId);
+        }
+        return true;
+      })
       .map((step) => ({
         step: step.step,
-        templateId: step.templateId,
+        templateId: step.templateId || undefined,
         delayDays: Number(step.delayDays) || 0,
+        channel: step.channel || 'EMAIL',
+        note: step.note?.trim() || undefined,
       })),
   ];
 };
@@ -93,6 +100,8 @@ export const mergeSequenceSteps = (savedSequence: any): SequenceStepForm[] => {
       ...step,
       delayDays: match?.delayDays?.toString?.() || step.delayDays,
       templateId: match?.templateId || '',
+      channel: match?.channel || step.channel || 'EMAIL',
+      note: match?.note || step.note || '',
     };
   });
 };
