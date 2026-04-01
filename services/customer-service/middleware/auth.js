@@ -29,12 +29,13 @@ const authenticateToken = (req, res, next) => {
     }
 
     const normalizedUserId = decoded.userId || decoded.id;
+    const normalizedRole = decoded.role || decoded.roleCode || decoded.role_name || null;
 
     req.user = {
       id: normalizedUserId ? String(normalizedUserId) : undefined,
       userId: normalizedUserId ? String(normalizedUserId) : undefined,
       email: decoded.email || decoded.userEmail || null,
-      role: decoded.role || decoded.roleCode || null,
+      role: normalizedRole ? String(normalizedRole).toLowerCase() : null,
       serviceId: decoded.serviceId || decoded.service_id || null,
       serviceName: decoded.serviceName || decoded.service?.name || null,
       permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),
@@ -49,7 +50,9 @@ const requireRoles = (...roles) => (req, res, next) => {
     return res.status(401).json({ success: false, message: 'Authentification requise' });
   }
 
-  if (roles.length > 0 && !roles.includes(req.user.role)) {
+  const userRole = req.user.role ? String(req.user.role).toLowerCase() : null;
+  const allowedRoles = roles.map((role) => String(role).toLowerCase());
+  if (roles.length > 0 && (!userRole || !allowedRoles.includes(userRole))) {
     return res.status(403).json({ success: false, message: 'Accès refusé pour ce rôle' });
   }
 

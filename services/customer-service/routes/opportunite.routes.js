@@ -46,6 +46,10 @@ const productValidation = [
 const queryValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('La page doit être un nombre positif'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('La limite doit être entre 1 et 100'),
+  query('clientStatus')
+    .optional()
+    .isIn(['PROSPECT', 'ACTIF', 'INACTIF', 'SUSPENDU', 'ARCHIVE', 'LEAD_CHAUD', 'LEAD_FROID'])
+    .withMessage('Statut client invalide'),
   query('etape').optional().isIn(['PROSPECTION', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION', 'FINALISATION']).withMessage('Étape invalide'),
   query('statut').optional().isIn(['OUVERTE', 'GAGNEE', 'PERDUE', 'MISE_EN_ATTENTE']).withMessage('Statut invalide'),
   query('sortBy').optional().isIn(['createdAt', 'dateFermetureEstimee', 'montantEstime', 'probabilite']).withMessage('Champ de tri invalide'),

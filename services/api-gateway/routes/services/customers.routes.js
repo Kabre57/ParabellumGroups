@@ -105,7 +105,13 @@ module.exports = {
     {
       path: '/opportunites',
       auth: true,
-      permission: { GET: 'opportunities.read' },
+      permission: {
+        GET: 'opportunities.read',
+        POST: 'opportunities.create',
+        PUT: 'opportunities.update',
+        PATCH: ['opportunities.change_stage', 'opportunities.update'],
+        DELETE: 'opportunities.delete',
+      },
       pathRewrite: { '^/opportunites': '/api/opportunites' },
     },
     {
