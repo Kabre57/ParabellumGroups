@@ -33,6 +33,18 @@ interface PayslipPrintProps {
 }
 
 export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
+  const normalizedDeductions = (() => {
+    if (Array.isArray(salary.deductions)) return salary.deductions;
+    if (typeof salary.deductions === 'string') {
+      try {
+        const parsed = JSON.parse(salary.deductions);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })();
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -72,7 +84,7 @@ export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
   const calculateTotalDeductions = () => {
     const socialContributions = calculateCNPS() + calculateCNAM() + calculateFDFP();
     const otherDeductions =
-      salary.deductions?.reduce((sum, ded) => sum + ded.amount, 0) || 0;
+      normalizedDeductions.reduce((sum, ded) => sum + (ded?.amount || 0), 0) || 0;
     return socialContributions + otherDeductions;
   };
 
@@ -239,8 +251,7 @@ export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
               </td>
             </tr>
 
-            {salary.deductions &&
-              salary.deductions.map((deduction, index) => (
+            {normalizedDeductions.map((deduction, index) => (
                 <tr key={index} className="border-b border-gray-200">
                   <td className="py-2 px-4 text-gray-700">{deduction.label}</td>
                   <td className="text-right py-2 px-4 text-gray-700">-</td>

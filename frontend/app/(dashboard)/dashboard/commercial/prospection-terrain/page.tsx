@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, PhoneCall, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { commercialService } from '@/shared/api/commercial/commercial.service';
 import type { Prospect } from '@/shared/api/commercial/types';
 
@@ -39,10 +42,12 @@ export default function ProspectionTerrainPage() {
       const assignee = index % 2 === 0 ? 'Commercial' : 'Chef de projet';
       const status = index % 3 === 0 ? 'EN_COURS' : 'PLANIFIEE';
       return {
+        id: `auto-${prospect.id}`,
         prospect,
         scheduledAt,
         assignee,
         status,
+        note: '',
       };
     });
   }, [visitsToPlan]);
@@ -65,6 +70,30 @@ export default function ProspectionTerrainPage() {
     return 'outline';
   };
 
+  const [planningRows, setPlanningRows] = useState<typeof planning>([]);
+  const [newVisitOpen, setNewVisitOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
+  const [newVisit, setNewVisit] = useState({
+    prospectId: '',
+    date: '',
+    assignee: 'Commercial',
+    status: 'PLANIFIEE',
+    note: '',
+  });
+
+  useEffect(() => {
+    setPlanningRows(planning);
+  }, [planning]);
+
+  const updateVisit = (id: string, updates: Partial<(typeof planning)[number]>) => {
+    setPlanningRows((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+  };
+
+  const selectedVisit = planningRows.find((row) => row.id === selectedVisitId) || null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -78,7 +107,7 @@ export default function ProspectionTerrainPage() {
           <Button asChild variant="outline">
             <Link href="/dashboard/commercial/prospects">Retour prospection</Link>
           </Button>
-          <Button>Nouveau passage</Button>
+          <Button onClick={() => setNewVisitOpen(true)}>Nouveau passage</Button>
         </div>
       </div>
 
@@ -164,8 +193,8 @@ export default function ProspectionTerrainPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {planning.map(({ prospect, scheduledAt, assignee, status }) => (
-                <div key={prospect.id} className="grid gap-3 rounded-lg border px-4 py-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_auto] md:items-center">
+              {planningRows.map(({ id, prospect, scheduledAt, assignee, status, note }) => (
+                <div key={id} className="grid gap-3 rounded-lg border px-4 py-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_auto] md:items-center">
                   <div>
                     <div className="text-sm font-medium">{prospect.companyName}</div>
                     <div className="text-xs text-muted-foreground">{prospect.city || 'Zone a definir'}</div>
@@ -177,14 +206,22 @@ export default function ProspectionTerrainPage() {
                     Visite: {scheduledAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <select className="w-full rounded-md border px-2 py-1 text-xs md:w-auto" defaultValue={assignee}>
+                    <select
+                      className="w-full rounded-md border px-2 py-1 text-xs md:w-auto"
+                      value={assignee}
+                      onChange={(event) => updateVisit(id, { assignee: event.target.value })}
+                    >
                       {visitAssignments.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
                       ))}
                     </select>
-                    <select className="w-full rounded-md border px-2 py-1 text-xs md:w-auto" defaultValue={status}>
+                    <select
+                      className="w-full rounded-md border px-2 py-1 text-xs md:w-auto"
+                      value={status}
+                      onChange={(event) => updateVisit(id, { status: event.target.value })}
+                    >
                       {visitStatuses.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -197,14 +234,158 @@ export default function ProspectionTerrainPage() {
                     <Button size="sm" variant="outline">
                       Planifier
                     </Button>
-                    <Button size="sm">Compte-rendu</Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedVisitId(id);
+                        setReportOpen(true);
+                      }}
+                    >
+                      Compte-rendu
+                    </Button>
                   </div>
+                  {note ? (
+                    <div className="text-xs text-muted-foreground md:col-span-5">
+                      Dernier compte-rendu: {note}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={newVisitOpen} onOpenChange={setNewVisitOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nouveau passage terrain</DialogTitle>
+            <DialogDescription>Planifiez une nouvelle visite terrain.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium mb-1">Prospect</label>
+              <select
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                value={newVisit.prospectId}
+                onChange={(event) => setNewVisit((prev) => ({ ...prev, prospectId: event.target.value }))}
+              >
+                <option value="">Selectionner un prospect</option>
+                {terrainProspects.map((prospect) => (
+                  <option key={prospect.id} value={prospect.id}>
+                    {prospect.companyName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium mb-1">Date</label>
+                <Input
+                  type="date"
+                  value={newVisit.date}
+                  onChange={(event) => setNewVisit((prev) => ({ ...prev, date: event.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Assignation</label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={newVisit.assignee}
+                  onChange={(event) => setNewVisit((prev) => ({ ...prev, assignee: event.target.value }))}
+                >
+                  {visitAssignments.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Statut</label>
+              <select
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                value={newVisit.status}
+                onChange={(event) => setNewVisit((prev) => ({ ...prev, status: event.target.value }))}
+              >
+                {visitStatuses.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Note</label>
+              <Textarea
+                value={newVisit.note}
+                onChange={(event) => setNewVisit((prev) => ({ ...prev, note: event.target.value }))}
+                placeholder="Ajouter un contexte terrain..."
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setNewVisitOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  const prospect = terrainProspects.find((item) => item.id === newVisit.prospectId);
+                  if (!prospect) return;
+                  const scheduledAt = newVisit.date ? new Date(newVisit.date) : new Date();
+                  setPlanningRows((prev) => [
+                    ...prev,
+                    {
+                      id: `manual-${Date.now()}`,
+                      prospect,
+                      scheduledAt,
+                      assignee: newVisit.assignee,
+                      status: newVisit.status,
+                      note: newVisit.note,
+                    },
+                  ]);
+                  setNewVisitOpen(false);
+                  setNewVisit({
+                    prospectId: '',
+                    date: '',
+                    assignee: 'Commercial',
+                    status: 'PLANIFIEE',
+                    note: '',
+                  });
+                }}
+              >
+                Ajouter
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Compte-rendu visite</DialogTitle>
+            <DialogDescription>Renseignez le compte-rendu de la visite.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm font-medium">{selectedVisit?.prospect.companyName}</div>
+            <Textarea
+              value={selectedVisit?.note || ''}
+              onChange={(event) => {
+                if (!selectedVisit) return;
+                updateVisit(selectedVisit.id, { note: event.target.value });
+              }}
+              placeholder="Notes de visite, besoins, prochaine action..."
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setReportOpen(false)}>
+                Fermer
+              </Button>
+              <Button onClick={() => setReportOpen(false)}>Enregistrer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
