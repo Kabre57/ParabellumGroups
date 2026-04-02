@@ -14,6 +14,7 @@
   Calendar,
   Wrench,
   Target,
+  MapPin,
   MessageSquare,
   FolderKanban,
   ShoppingCart,
@@ -71,6 +72,7 @@ export const sidebarItems: SidebarItem[] = [
 
   { name: 'Dashboard Commercial', href: '/dashboard/commercial', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
   { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },
+  { name: 'Prospection terrain', href: '/dashboard/commercial/prospection-terrain', icon: MapPin, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Campagnes Email', href: '/dashboard/commercial/email-campaigns', icon: Mail, permission: 'emails.read', categoryId: 'commercial' },
   { name: 'Pipeline Commercial', href: '/dashboard/commercial/pipeline', icon: Workflow, permission: 'prospects.read', categoryId: 'commercial' },
   { name: 'Devis & Propositions', href: '/dashboard/commercial/quotes', icon: FileText, permission: 'quotes.read', categoryId: 'commercial' },

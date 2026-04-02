@@ -33,6 +33,7 @@ import { CampaignFilters } from '@/components/commercial/campaigns/CampaignFilte
 import { CampaignTable } from '@/components/commercial/campaigns/CampaignTable';
 import { CampaignForm } from '@/components/commercial/campaigns/CampaignForm';
 import { RelanceTasks } from '@/components/commercial/campaigns/RelanceTasks';
+import { CampaignDetailDialog } from '@/components/commercial/campaigns/CampaignDetailDialog';
 
 export default function EmailCampaignsPage() {
   const { user } = useAuth();
@@ -45,6 +46,8 @@ export default function EmailCampaignsPage() {
     stopOnReply: true,
     stopOnSigned: true,
   });
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<CampagneMail | null>(null);
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['emails.read'],
     create: ['emails.send', 'emails.manage_templates'],
@@ -157,6 +160,11 @@ export default function EmailCampaignsPage() {
     setDialogOpen(true);
   };
 
+  const openDetail = (campaign: CampagneMail) => {
+    setSelectedCampaign(campaign);
+    setDetailOpen(true);
+  };
+
   const handleUpdateStep = (
     campaignId: string,
     step: number,
@@ -265,12 +273,20 @@ export default function EmailCampaignsPage() {
               isLoading={isLoading}
               canUpdate={canUpdate}
               canDelete={canDelete}
+              onView={openDetail}
               onEdit={openEdit}
               onDelete={handleDelete}
               deletePending={deleteMutation.isPending}
             />
           </CardContent>
         </Card>
+
+        <CampaignDetailDialog
+          open={detailOpen}
+          campaign={selectedCampaign}
+          onClose={() => setDetailOpen(false)}
+          onUpdateStep={handleUpdateStep}
+        />
 
         {/* Dialogue de création/édition de campagne */}
         {(canCreate || canUpdate) && (

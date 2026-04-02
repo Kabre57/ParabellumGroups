@@ -9,6 +9,7 @@ interface CampaignTableProps {
   isLoading: boolean;
   canUpdate?: boolean;
   canDelete?: boolean;
+  onView?: (campaign: CampagneMail) => void;
   onEdit?: (campaign: CampagneMail) => void;
   onDelete?: (campaign: CampagneMail) => void;
   deletePending?: boolean;
@@ -19,6 +20,7 @@ export function CampaignTable({
   isLoading,
   canUpdate,
   canDelete,
+  onView,
   onEdit,
   onDelete,
   deletePending,
@@ -88,7 +90,12 @@ export function CampaignTable({
                 {(canUpdate || canDelete) && (
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" title="Voir">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Voir"
+                        onClick={() => onView && onView(campaign)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canUpdate && onEdit && (

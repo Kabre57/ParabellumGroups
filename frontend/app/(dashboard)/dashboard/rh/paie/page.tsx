@@ -18,6 +18,7 @@ import {
   PayrollExportsPanel,
   PayrollOverviewCards,
 } from '@/components/hr/payroll';
+import PayslipPrint from '@/components/printComponents/PayslipPrint';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('fr-FR', {
@@ -44,17 +45,23 @@ const downloadBlob = (blob: Blob, filename: string) => {
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  window.URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 15000);
 };
 
-const openBlob = (blob: Blob) => {
+const openBlob = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
-  const tab = window.open(url, '_blank');
-  if (!tab) {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'document.pdf';
-    anchor.click();
+  const tab = window.open('', '_blank');
+  if (tab) {
+    tab.location.href = url;
+    if (window.location.protocol === 'https:') {
+      window.setTimeout(() => {
+        downloadBlob(blob, filename);
+      }, 1200);
+    }
+  } else {
+    downloadBlob(blob, filename);
   }
   window.setTimeout(() => {
     window.URL.revokeObjectURL(url);
@@ -73,6 +80,8 @@ export default function PaiePage() {
   const [formIndemnite, setFormIndemnite] = useState('');
   const [formRetenues, setFormRetenues] = useState('');
   const [formHeuresSup, setFormHeuresSup] = useState('');
+  const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
+  const [showPrint, setShowPrint] = useState(false);
   const queryClient = useQueryClient();
   const [year, month] = periodFilter.split('-').map((value) => parseInt(value, 10));
 
@@ -113,11 +122,33 @@ export default function PaiePage() {
     onError: () => toast.error('Mise à jour impossible'),
   });
 
-  const downloadMutation = useMutation({
-    mutationFn: (payroll: Payroll) => hrService.downloadPayrollPdf(payroll.id),
-    onSuccess: (blob) => openBlob(blob),
-    onError: () => toast.error('PDF indisponible'),
-  });
+  const handlePrint = (payroll: Payroll) => {
+    const employeeAny = payroll.employee as any;
+    const printData = {
+      id: payroll.id,
+      employee: payroll.employee
+        ? {
+            firstName: payroll.employee.firstName || '',
+            lastName: payroll.employee.lastName || '',
+            matricule: payroll.employee.matricule || '',
+            cnpsNumber: payroll.employee.cnpsNumber || employeeAny?.cnps_number || '',
+            cnamNumber: payroll.employee.cnamNumber || employeeAny?.cnam_number || '',
+            position: payroll.employee.position || '',
+          }
+        : undefined,
+      period: payroll.period,
+      baseSalary: payroll.grossSalary || 0,
+      overtime: payroll.heuresSup || 0,
+      bonuses: payroll.bonuses || 0,
+      allowances: payroll.indemnite || 0,
+      deductions: payroll.deductions || [],
+      netSalary: payroll.netSalary || 0,
+      createdAt: payroll.createdAt || new Date().toISOString(),
+    };
+
+    setSelectedPayslip(printData);
+    setShowPrint(true);
+  };
 
   const exportDisaMutation = useMutation({
     mutationFn: () => hrService.exportPayrollDisa({ year, month }),
@@ -133,7 +164,7 @@ export default function PaiePage() {
 
   const groupedPdfMutation = useMutation({
     mutationFn: (employeeIds?: string[]) => hrService.downloadGroupedPayrollPdf({ month, year, employeeIds }),
-    onSuccess: (blob) => openBlob(blob),
+    onSuccess: (blob) => openBlob(blob, `bulletins-${periodFilter}.pdf`),
     onError: () => toast.error('Impression groupée indisponible'),
   });
 
@@ -395,8 +426,7 @@ export default function PaiePage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => downloadMutation.mutate(payroll)}
-                                  disabled={downloadMutation.isPending}
+                                  onClick={() => handlePrint(payroll)}
                                 >
                                   <Download className="mr-1 h-3.5 w-3.5" />
                                   Imprimer
@@ -453,6 +483,15 @@ export default function PaiePage() {
                 </div>
               )}
             </Card>
+            {showPrint && selectedPayslip ? (
+              <PayslipPrint
+                salary={selectedPayslip}
+                onClose={() => {
+                  setShowPrint(false);
+                  setSelectedPayslip(null);
+                }}
+              />
+            ) : null}
           </TabsContent>
 
           <TabsContent value="compliance" className="space-y-4">
