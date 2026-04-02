@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { authenticateUser } = require('./middleware/auth');
+const { ensureProspectDatabase } = require('./utils/ensureDatabase');
 
 const prospectRoutes = require('./routes/prospect.routes');
 
@@ -32,11 +33,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Commercial Service démarré sur le port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-});
+const startServer = async () => {
+  await ensureProspectDatabase();
+  app.listen(PORT, () => {
+    console.log(`🚀 Commercial Service démarré sur le port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  });
+};
+
+startServer();
 
 process.on('SIGTERM', () => {
   console.log('SIGTERM reçu, arrêt du serveur...');

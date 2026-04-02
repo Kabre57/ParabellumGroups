@@ -1,6 +1,21 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const isMissingTableError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.code === 'P2021' ||
+    message.includes('prospects') ||
+    (message.includes('relation') && message.includes('prospect'))
+  );
+};
+
+const respondMissingTable = (res) =>
+  res.status(503).json({
+    success: false,
+    error: 'Base prospects non initialisee',
+  });
+
 const STAGE_MAP = {
   preparation: 'PREPARATION',
   recherche: 'RECHERCHE',
@@ -227,6 +242,13 @@ exports.getAll = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des prospects:', error);
+    if (isMissingTableError(error)) {
+      return res.json({
+        success: true,
+        data: [],
+        pagination: { total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0 },
+      });
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la récupération des prospects',
@@ -340,6 +362,9 @@ exports.create = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la création du prospect:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la création du prospect',
@@ -417,6 +442,9 @@ exports.update = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la mise à jour du prospect:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la mise à jour du prospect',
@@ -439,6 +467,9 @@ exports.delete = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la suppression du prospect:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la suppression du prospect',
@@ -504,6 +535,9 @@ exports.moveStage = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors du déplacement du prospect:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors du déplacement du prospect',
@@ -553,6 +587,9 @@ exports.convert = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la conversion du prospect:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la conversion du prospect',
@@ -596,6 +633,9 @@ exports.getActivities = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des activités:', error);
+    if (isMissingTableError(error)) {
+      return res.json({ success: true, data: [] });
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la récupération des activités',
@@ -642,6 +682,9 @@ exports.addActivity = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de l\'ajout de l\'activité:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de l\'ajout de l\'activité',
@@ -679,6 +722,9 @@ exports.updateActivity = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la mise à jour de l\'activité:', error);
+    if (isMissingTableError(error)) {
+      return respondMissingTable(res);
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la mise à jour de l\'activité',
@@ -827,6 +873,19 @@ exports.getStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des statistiques:', error);
+    if (isMissingTableError(error)) {
+      return res.json({
+        success: true,
+        data: {
+          totalProspects: 0,
+          convertedProspects: 0,
+          conversionRate: 0,
+          recentActivities: 0,
+          byStage: {},
+          byPriority: {},
+        },
+      });
+    }
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la récupération des statistiques',

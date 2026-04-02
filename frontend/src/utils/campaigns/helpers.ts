@@ -85,6 +85,9 @@ export const buildSequencePayload = (
         delayDays: Number(step.delayDays) || 0,
         channel: step.channel || 'EMAIL',
         note: step.note?.trim() || undefined,
+        status: step.status || 'A_FAIRE',
+        report: step.report?.trim() || undefined,
+        outcome: step.outcome || undefined,
       })),
   ];
 };
@@ -102,6 +105,9 @@ export const mergeSequenceSteps = (savedSequence: any): SequenceStepForm[] => {
       templateId: match?.templateId || '',
       channel: match?.channel || step.channel || 'EMAIL',
       note: match?.note || step.note || '',
+      status: match?.status || step.status || 'A_FAIRE',
+      report: match?.report || step.report || '',
+      outcome: match?.outcome || step.outcome || undefined,
     };
   });
 };

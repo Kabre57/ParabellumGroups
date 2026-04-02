@@ -54,11 +54,11 @@ export interface SidebarItem {
 export const sidebarCategories: SidebarCategory[] = [
   { id: 'dashboard', name: 'Tableau de Bord', icon: Home, permission: 'dashboard.read' },
   { id: 'commercial', name: 'Commercial', icon: Target, permission: 'prospects.read' },
+  { id: 'projects', name: 'Gestion de Projets', icon: FolderKanban, permission: 'projects.read' },
   { id: 'crm', name: 'CRM', icon: Users, permission: 'customers.read' },
   { id: 'billing', name: 'Facturation', icon: Receipt, permission: 'invoices.read' },
   { id: 'accounting', name: 'Comptabilité', icon: DollarSign, permission: 'expenses.read' },
   { id: 'technical', name: 'Services Techniques', icon: Wrench, permission: 'missions.read' },
-  { id: 'projects', name: 'Gestion de Projets', icon: FolderKanban, permission: 'projects.read' },
   { id: 'procurement', name: 'Achats & Logistique', icon: ShoppingCart, permission: 'purchases.read' },
   { id: 'hr', name: 'Ressources Humaines', icon: UserCheck, permission: 'employees.read' },
   { id: 'communication', name: 'Communication', icon: MessageSquare, permission: 'messages.read' },

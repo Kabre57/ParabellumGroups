@@ -56,7 +56,9 @@ const openBlob = (blob: Blob) => {
     anchor.download = 'document.pdf';
     anchor.click();
   }
-  window.URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 15000);
 };
 
 export default function PaiePage() {

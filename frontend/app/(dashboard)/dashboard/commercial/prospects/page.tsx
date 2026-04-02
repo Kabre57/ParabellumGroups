@@ -281,7 +281,7 @@ export default function ProspectionWorkflowPage() {
                     <th className="text-left p-4 font-medium">Contact</th>
                     <th className="text-left p-4 font-medium">Etape</th>
                     <th className="text-left p-4 font-medium">Priorite</th>
-                    <th className="text-left p-4 font-medium">Valeur potentielle</th>
+                    {/* Colonne supprimée: Valeur potentielle */}
                     <th className="text-left p-4 font-medium">Derniere mise a jour</th>
                     {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
@@ -305,9 +305,7 @@ export default function ProspectionWorkflowPage() {
                         <td className="p-4">
                           <Badge className={priorityBadge.className}>{priorityBadge.label}</Badge>
                         </td>
-                        <td className="p-4 text-sm">
-                          {prospect.potentialValue ? prospect.potentialValue.toLocaleString('fr-FR') : '-'}
-                        </td>
+                        {/* Valeur potentielle supprimée */}
                         <td className="p-4 text-sm text-muted-foreground">
                           {new Date(prospect.updatedAt).toLocaleDateString('fr-FR')}
                         </td>

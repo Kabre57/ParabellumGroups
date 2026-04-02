@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const winston = require('winston');
 const { authMiddleware } = require('./middleware/auth');
+const { ensureCustomerDatabase } = require('./utils/ensureDatabase');
 
 // Import routes
 const clientRoutes = require('./routes/client.routes');
@@ -123,6 +124,14 @@ app.use((err, req, res, next) => {
     userId: req.headers['x-user-id']
   });
 
+  if (err?.code === 'P2021') {
+    return res.status(503).json({
+      error: 'Base CRM non initialisee',
+      message: 'Les tables CRM sont indisponibles. Initialisez la base puis reessayez.',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   const isProduction = process.env.NODE_ENV === 'production';
   
   res.status(err.status || 500).json({
@@ -133,19 +142,32 @@ app.use((err, req, res, next) => {
 });
 
 // Graceful shutdown handler
+let server;
+
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    logger.info('HTTP server closed');
-  });
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP server closed');
+    });
+  }
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  logger.info(`CRM Service started on port ${PORT}`);
-  logger.info(`Health check: http://localhost:${PORT}/health`);
-  logger.info(`API Docs: http://localhost:${PORT}/api-docs`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+const startServer = async () => {
+  await ensureCustomerDatabase();
+  const server = app.listen(PORT, () => {
+    logger.info(`CRM Service started on port ${PORT}`);
+    logger.info(`Health check: http://localhost:${PORT}/health`);
+    logger.info(`API Docs: http://localhost:${PORT}/api-docs`);
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  return server;
+};
+
+startServer().then((srv) => {
+  server = srv;
+  module.exports.server = server;
 });
 
 module.exports = { app, server };

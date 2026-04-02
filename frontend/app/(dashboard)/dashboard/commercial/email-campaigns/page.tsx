@@ -157,6 +157,20 @@ export default function EmailCampaignsPage() {
     setDialogOpen(true);
   };
 
+  const handleUpdateStep = (
+    campaignId: string,
+    step: number,
+    updates: { status?: string; report?: string; outcome?: string }
+  ) => {
+    const campaign = campaigns.find((item) => item.id === campaignId);
+    if (!campaign) return;
+    const currentSequence = Array.isArray(campaign.sequence) ? campaign.sequence : [];
+    const updatedSequence = currentSequence.map((item) =>
+      item?.step === step ? { ...item, ...updates } : item
+    );
+    updateMutation.mutate({ id: campaignId, payload: { sequence: updatedSequence } });
+  };
+
   const handleDelete = (campaign: CampagneMail) => {
     if (confirm(`Supprimer la campagne "${campaign.nom}" ?`)) {
       deleteMutation.mutate(campaign.id);
@@ -214,7 +228,7 @@ export default function EmailCampaignsPage() {
         {/* Stats */}
         <CampaignStats stats={stats} />
 
-        <RelanceTasks campaigns={campaigns} />
+        <RelanceTasks campaigns={campaigns} onUpdateStep={handleUpdateStep} />
 
         {/* Liste des campagnes */}
         <Card>

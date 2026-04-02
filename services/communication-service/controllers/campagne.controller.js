@@ -50,6 +50,9 @@ const campagneController = {
       });
       res.status(201).json(campagne);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base campagnes non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -124,6 +127,9 @@ const campagneController = {
       });
       res.json(campagne);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base campagnes non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },

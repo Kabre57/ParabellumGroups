@@ -1,11 +1,70 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { MapPin, PhoneCall, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { commercialService } from '@/shared/api/commercial/commercial.service';
+import type { Prospect } from '@/shared/api/commercial/types';
 
 export default function ProspectionTerrainPage() {
+  const { data: prospects = [], isLoading } = useQuery<Prospect[]>({
+    queryKey: ['prospects-terrain'],
+    queryFn: () => commercialService.getProspects({ limit: 50 }),
+  });
+
+  const terrainProspects = useMemo(
+    () => prospects.filter((prospect) => !prospect.isConverted),
+    [prospects]
+  );
+  const visitsToPlan = terrainProspects.slice(0, 6);
+  const zoneStats = useMemo(() => {
+    const stats = terrainProspects.reduce((acc, prospect) => {
+      const zone = (prospect.city || prospect.country || 'Non defini').trim();
+      acc[zone] = (acc[zone] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(stats)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+  }, [terrainProspects]);
+  const planning = useMemo(() => {
+    return visitsToPlan.map((prospect, index) => {
+      const base = new Date(prospect.createdAt || Date.now());
+      const scheduledAt = new Date(base.getTime() + (index + 1) * 24 * 60 * 60 * 1000);
+      const assignee = index % 2 === 0 ? 'Commercial' : 'Chef de projet';
+      const status = index % 3 === 0 ? 'EN_COURS' : 'PLANIFIEE';
+      return {
+        prospect,
+        scheduledAt,
+        assignee,
+        status,
+      };
+    });
+  }, [visitsToPlan]);
+
+  const visitAssignments = [
+    { value: 'Chef de projet', label: 'Chef de projet' },
+    { value: 'Commercial', label: 'Commercial' },
+    { value: 'Technicien', label: 'Technicien' },
+  ];
+  const visitStatuses = [
+    { value: 'PLANIFIEE', label: 'Planifiee' },
+    { value: 'EN_COURS', label: 'En cours' },
+    { value: 'TERMINEE', label: 'Terminee' },
+    { value: 'ANNULEE', label: 'Annulee' },
+  ];
+  const statusBadgeVariant = (status: string) => {
+    if (status === 'TERMINEE') return 'secondary';
+    if (status === 'EN_COURS') return 'default';
+    if (status === 'ANNULEE') return 'destructive';
+    return 'outline';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -30,7 +89,7 @@ export default function ProspectionTerrainPage() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">0</div>
+            <div className="text-2xl font-semibold">{visitsToPlan.length}</div>
             <p className="text-xs text-muted-foreground">Cette semaine</p>
           </CardContent>
         </Card>
@@ -40,8 +99,8 @@ export default function ProspectionTerrainPage() {
             <PhoneCall className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">0</div>
-            <p className="text-xs text-muted-foreground">A confirmer</p>
+            <div className="text-2xl font-semibold">{Math.max(terrainProspects.length - visitsToPlan.length, 0)}</div>
+            <p className="text-xs text-muted-foreground">Prospects a relancer</p>
           </CardContent>
         </Card>
         <Card>
@@ -50,7 +109,7 @@ export default function ProspectionTerrainPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">0</div>
+            <div className="text-2xl font-semibold">{terrainProspects.length}</div>
             <p className="text-xs text-muted-foreground">Base locale</p>
           </CardContent>
         </Card>
@@ -64,21 +123,86 @@ export default function ProspectionTerrainPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 text-sm text-muted-foreground">
-            Carte OpenStreetMap a integrer.
+          <div className="overflow-hidden rounded-lg border">
+            <iframe
+              title="Carte prospection terrain"
+              src="https://www.openstreetmap.org/export/embed.html?bbox=-4.0641%2C5.3023%2C-3.8708%2C5.4426&layer=mapnik"
+              className="h-[360px] w-full"
+            />
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {zoneStats.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                Aucune zone identifiee pour le moment.
+              </div>
+            ) : (
+              zoneStats.map(([zone, count]) => (
+                <div key={zone} className="rounded-lg border px-4 py-3">
+                  <div className="text-xs text-muted-foreground">Zone</div>
+                  <div className="text-sm font-semibold">{zone}</div>
+                  <div className="text-xs text-muted-foreground">{count} prospects</div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Visites et comptes-rendus</CardTitle>
-          <CardDescription>Centralisez les actions terrain et decisions prises.</CardDescription>
+          <CardTitle>Planning des visites</CardTitle>
+          <CardDescription>Planifiez les passages terrain a venir.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-            Aucune visite enregistree. Lancez une nouvelle prospection terrain pour commencer.
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+              <Spinner className="mr-2 h-4 w-4" /> Chargement des prospects terrain...
+            </div>
+          ) : planning.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+              Aucun prospect a visiter. Ajoutez des prospects pour lancer la prospection terrain.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {planning.map(({ prospect, scheduledAt, assignee, status }) => (
+                <div key={prospect.id} className="grid gap-3 rounded-lg border px-4 py-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_auto] md:items-center">
+                  <div>
+                    <div className="text-sm font-medium">{prospect.companyName}</div>
+                    <div className="text-xs text-muted-foreground">{prospect.city || 'Zone a definir'}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {prospect.address || 'Adresse non renseignee'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Visite: {scheduledAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <select className="w-full rounded-md border px-2 py-1 text-xs md:w-auto" defaultValue={assignee}>
+                      {visitAssignments.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select className="w-full rounded-md border px-2 py-1 text-xs md:w-auto" defaultValue={status}>
+                      {visitStatuses.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Badge variant={statusBadgeVariant(status)}>{visitStatuses.find((item) => item.value === status)?.label || status}</Badge>
+                  </div>
+                  <div className="flex gap-2 md:justify-end">
+                    <Button size="sm" variant="outline">
+                      Planifier
+                    </Button>
+                    <Button size="sm">Compte-rendu</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

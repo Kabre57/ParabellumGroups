@@ -174,10 +174,7 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                     <p className="text-xs text-gray-500 mb-1">Source</p>
                     <p className="text-sm font-medium text-gray-900">{prospect.source || 'Non spécifiée'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Valeur potentielle</p>
-                    <p className="text-sm font-medium text-green-600">{formatCurrency(prospect.potentialValue)}</p>
-                  </div>
+                  {/* Champ supprimé: Valeur potentielle */}
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Probabilité de closing</p>
                     <p className="text-sm font-medium text-gray-900">

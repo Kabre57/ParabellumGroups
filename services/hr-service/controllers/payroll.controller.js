@@ -568,6 +568,7 @@ class PayrollController {
 
       const html = buildPayrollPdfHtml(await buildPayrollPdfContext(payroll));
       const pdf = await renderPdfFromHtml(html);
+      console.log(`[PayrollPDF] Generated bulletin ${payroll.id} (${pdf.length} bytes)`);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="bulletin-${payroll.id}.pdf"`);
       res.setHeader('Content-Length', pdf.length);
@@ -575,6 +576,9 @@ class PayrollController {
       return res.send(pdf);
     } catch (error) {
       console.error('Error generating payroll PDF:', error);
+      if (error?.stack) {
+        console.error(error.stack);
+      }
       return res.status(500).json({ success: false, message: 'Erreur génération PDF' });
     }
   }
@@ -625,6 +629,7 @@ class PayrollController {
       });
 
       const pdf = await renderPdfFromHtml(html);
+      console.log(`[PayrollPDF] Generated grouped PDF ${year}-${month} (${pdf.length} bytes)`);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="bulletins-groupes-${year}-${String(month).padStart(2, '0')}.pdf"`);
       res.setHeader('Content-Length', pdf.length);
@@ -632,6 +637,9 @@ class PayrollController {
       return res.send(pdf);
     } catch (error) {
       console.error('Error generating grouped payroll PDF:', error);
+      if (error?.stack) {
+        console.error(error.stack);
+      }
       return res.status(500).json({ success: false, message: 'Erreur génération PDF groupé' });
     }
   }

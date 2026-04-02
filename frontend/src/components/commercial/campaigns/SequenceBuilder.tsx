@@ -14,6 +14,13 @@ const CHANNEL_OPTIONS: { value: SequenceStepForm['channel']; label: string }[] =
   { value: 'VISIT', label: 'Visite' },
 ];
 
+const STATUS_OPTIONS: { value: NonNullable<SequenceStepForm['status']>; label: string }[] = [
+  { value: 'A_FAIRE', label: 'A faire' },
+  { value: 'EN_COURS', label: 'En cours' },
+  { value: 'TERMINEE', label: 'Terminee' },
+  { value: 'ANNULEE', label: 'Annulee' },
+];
+
 export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderProps) {
   return (
     <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
@@ -23,7 +30,7 @@ export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderP
       </div>
       <div className="mt-3 grid gap-3">
         {steps.map((step) => (
-          <div key={step.step} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_120px_72px]">
+          <div key={step.step} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_120px_140px_72px]">
             <div>
               <label className="block text-xs font-medium mb-1">{step.label} - Modèle</label>
               <select
@@ -92,8 +99,29 @@ export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderP
                 }}
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Statut</label>
+              <select
+                className="w-full px-3 py-2 border rounded-md text-sm"
+                value={step.status || 'A_FAIRE'}
+                onChange={(event) => {
+                  const value = event.target.value as SequenceStepForm['status'];
+                  onChange(
+                    steps.map((item) =>
+                      item.step === step.step ? { ...item, status: value } : item
+                    )
+                  );
+                }}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end text-xs text-muted-foreground">J+{step.delayDays || '0'}</div>
-            <div className="md:col-span-4">
+            <div className="md:col-span-5">
               <label className="block text-xs font-medium mb-1">Instruction</label>
               <Input
                 value={step.note || ''}
@@ -109,6 +137,21 @@ export function SequenceBuilder({ steps, templates, onChange }: SequenceBuilderP
                   onChange(
                     steps.map((item) =>
                       item.step === step.step ? { ...item, note: value } : item
+                    )
+                  );
+                }}
+              />
+            </div>
+            <div className="md:col-span-5">
+              <label className="block text-xs font-medium mb-1">Compte-rendu</label>
+              <Input
+                value={step.report || ''}
+                placeholder="Notes de relance, resultat de l'appel, prochaine action..."
+                onChange={(event) => {
+                  const value = event.target.value;
+                  onChange(
+                    steps.map((item) =>
+                      item.step === step.step ? { ...item, report: value } : item
                     )
                   );
                 }}

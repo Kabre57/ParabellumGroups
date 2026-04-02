@@ -19,6 +19,9 @@ export interface SequenceStepForm {
   templateId: string;
   channel: SequenceChannel;
   note?: string;
+  status?: 'A_FAIRE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE';
+  report?: string;
+  outcome?: 'JOINT' | 'MESSAGE' | 'A_RAPPELER' | 'INJOIGNABLE' | 'RDV_PLANIFIE';
 }
 
 export type CampaignStatusOption = { value: CampagneStatus; label: string };
@@ -38,6 +41,9 @@ export interface SequenceStepPayload {
   delayDays: number;
   channel: SequenceChannel;
   note?: string;
+  status?: 'A_FAIRE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE';
+  report?: string;
+  outcome?: 'JOINT' | 'MESSAGE' | 'A_RAPPELER' | 'INJOIGNABLE' | 'RDV_PLANIFIE';
 }
 
 export interface CampaignStopConditions {
@@ -75,7 +81,7 @@ export const SEGMENT_OPTIONS: CampaignSegmentOption[] = [
 ];
 
 export const DEFAULT_SEQUENCE_STEPS: SequenceStepForm[] = [
-  { step: 2, label: 'Relance 2', delayDays: '3', templateId: '', channel: 'EMAIL', note: '' },
-  { step: 3, label: 'Relance 3', delayDays: '7', templateId: '', channel: 'EMAIL', note: '' },
-  { step: 4, label: 'Relance 4', delayDays: '15', templateId: '', channel: 'EMAIL', note: '' },
+  { step: 2, label: 'Relance 2', delayDays: '3', templateId: '', channel: 'EMAIL', note: '', status: 'A_FAIRE', report: '' },
+  { step: 3, label: 'Relance 3', delayDays: '7', templateId: '', channel: 'EMAIL', note: '', status: 'A_FAIRE', report: '' },
+  { step: 4, label: 'Relance 4', delayDays: '15', templateId: '', channel: 'EMAIL', note: '', status: 'A_FAIRE', report: '' },
 ];
