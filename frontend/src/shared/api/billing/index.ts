@@ -361,6 +361,34 @@ export interface AccountingReports {
   };
 }
 
+export interface TreasuryClosure {
+  id: string;
+  treasuryAccountId?: string | null;
+  treasuryAccountName?: string | null;
+  periodType: 'MONTH' | 'QUARTER' | 'YEAR' | 'CUSTOM';
+  periodLabel?: string | null;
+  periodStart: string;
+  periodEnd: string;
+  expectedCash: number;
+  expectedCheque: number;
+  expectedCard: number;
+  expectedOther: number;
+  expectedTotal: number;
+  countedCash: number;
+  countedCheque: number;
+  countedCard: number;
+  countedOther: number;
+  countedTotal: number;
+  ticketZ: number;
+  variance: number;
+  status: 'DRAFT' | 'CLOSED' | 'VALIDATED';
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+  validatedAt?: string | null;
+}
+
 export interface AccountingOverview {
   period: string;
   startDate?: string | null;
@@ -792,8 +820,8 @@ export const billingService = {
     return normalizeDetailResponse<CashVoucher>(response.data);
   },
 
-  async getSpendingOverview(): Promise<{ success: boolean; data: SpendingOverview }> {
-    const response = await apiClient.get('/billing/cash-vouchers/spending-overview');
+  async getSpendingOverview(params?: { startDate?: string; endDate?: string }): Promise<{ success: boolean; data: SpendingOverview }> {
+    const response = await apiClient.get('/billing/cash-vouchers/spending-overview', { params });
     return normalizeStatsResponse<SpendingOverview>(response.data);
   },
 
@@ -818,6 +846,51 @@ export const billingService = {
   async getTreasuryAccounts(): Promise<ListResponse<TreasuryAccount>> {
     const response = await apiClient.get('/billing/treasury-accounts');
     return normalizeListResponse<TreasuryAccount>(response.data);
+  },
+
+  async getTreasuryClosures(params?: {
+    startDate?: string;
+    endDate?: string;
+    treasuryAccountId?: string;
+  }): Promise<ListResponse<TreasuryClosure>> {
+    const response = await apiClient.get('/billing/treasury-closures', { params });
+    return normalizeListResponse<TreasuryClosure>(response.data);
+  },
+
+  async createTreasuryClosure(data: {
+    treasuryAccountId?: string | null;
+    periodType: 'MONTH' | 'QUARTER' | 'YEAR' | 'CUSTOM';
+    periodLabel?: string;
+    periodStart: string;
+    periodEnd: string;
+    countedCash?: number;
+    countedCheque?: number;
+    countedCard?: number;
+    countedOther?: number;
+    ticketZ?: number;
+    notes?: string;
+    status?: 'DRAFT' | 'CLOSED';
+  }): Promise<DetailResponse<TreasuryClosure>> {
+    const response = await apiClient.post('/billing/treasury-closures', data);
+    return normalizeDetailResponse<TreasuryClosure>(response.data);
+  },
+
+  async updateTreasuryClosure(id: string, data: {
+    countedCash?: number;
+    countedCheque?: number;
+    countedCard?: number;
+    countedOther?: number;
+    ticketZ?: number;
+    notes?: string;
+    status?: 'DRAFT' | 'CLOSED';
+  }): Promise<DetailResponse<TreasuryClosure>> {
+    const response = await apiClient.patch(`/billing/treasury-closures/${id}`, data);
+    return normalizeDetailResponse<TreasuryClosure>(response.data);
+  },
+
+  async validateTreasuryClosure(id: string): Promise<DetailResponse<TreasuryClosure>> {
+    const response = await apiClient.post(`/billing/treasury-closures/${id}/validate`);
+    return normalizeDetailResponse<TreasuryClosure>(response.data);
   },
 
   async createTreasuryAccount(data: {

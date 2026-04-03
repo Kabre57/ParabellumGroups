@@ -56,15 +56,35 @@ export default function DepensesPage() {
     isAdminRole(user) || permissionSet.has('expenses.approve') || permissionSet.has('payments.validate');
 
   const [search, setSearch] = useState('');
+  const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [activeTab, setActiveTab] = useState('overview');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCommitment, setSelectedCommitment] = useState<PurchaseCommitment | null>(null);
   const [printVoucher, setPrintVoucher] = useState<CashVoucher | null>(null);
   const [printListOpen, setPrintListOpen] = useState(false);
 
+  const range = useMemo(() => {
+    if (period === 'all') return {};
+    const now = new Date();
+    if (period === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    if (period === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), quarterStartMonth, 1);
+      const end = new Date(now.getFullYear(), quarterStartMonth + 3, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  }, [period]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['billing-spending-overview'],
-    queryFn: () => billingService.getSpendingOverview(),
+    queryKey: ['billing-spending-overview', period],
+    queryFn: () => billingService.getSpendingOverview(range),
     enabled: canRead,
   });
 
@@ -184,6 +204,16 @@ export default function DepensesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value as typeof period)}
+            className="px-4 py-2 border rounded-md"
+          >
+            <option value="month">Ce mois</option>
+            <option value="quarter">Ce trimestre</option>
+            <option value="year">Cette année</option>
+            <option value="all">Toutes les périodes</option>
+          </select>
           <Button variant="outline" onClick={() => setPrintListOpen(true)}>
             <Printer className="mr-2 h-4 w-4" />
             Imprimer la liste
@@ -314,6 +344,7 @@ export default function DepensesPage() {
                     <th className="px-4 py-3">Origine</th>
                     <th className="px-4 py-3">Bénéficiaire</th>
                     <th className="px-4 py-3">Mode</th>
+                    <th className="px-4 py-3">Compte</th>
                     <th className="px-4 py-3">Référence</th>
                     <th className="px-4 py-3 text-right">Montant TTC</th>
                     <th className="px-4 py-3">Statut</th>
@@ -323,13 +354,13 @@ export default function DepensesPage() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={9}>
                         Chargement...
                       </td>
                     </tr>
                   ) : filteredVouchers.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={8}>
+                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={9}>
                         Aucun bon de caisse enregistré.
                       </td>
                     </tr>
@@ -349,8 +380,15 @@ export default function DepensesPage() {
                           <div className="text-xs text-gray-500">{voucher.serviceName || voucher.supplierName || '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          {voucher.paymentMethod === 'CHEQUE' ? 'Chèque' : 'Espèces'}
+                          {voucher.paymentMethod === 'CHEQUE'
+                            ? 'Chèque'
+                            : voucher.paymentMethod === 'CARTE'
+                            ? 'Carte'
+                            : voucher.paymentMethod === 'VIREMENT'
+                            ? 'Virement'
+                            : 'Espèces'}
                         </td>
+                        <td className="px-4 py-3 text-sm">{voucher.treasuryAccountName || '-'}</td>
                         <td className="px-4 py-3 text-sm">{voucher.reference || '-'}</td>
                         <td className="px-4 py-3 text-right font-semibold">{formatCurrency(voucher.amountTTC)}</td>
                         <td className="px-4 py-3">
@@ -481,6 +519,7 @@ export default function DepensesPage() {
             { key: 'date', label: 'Date' },
             { key: 'beneficiary', label: 'Bénéficiaire' },
             { key: 'service', label: 'Service' },
+            { key: 'account', label: 'Compte' },
             { key: 'reference', label: 'Référence' },
             { key: 'amount', label: 'Montant TTC', align: 'right' },
             { key: 'status', label: 'Statut' },
@@ -490,6 +529,7 @@ export default function DepensesPage() {
             date: formatDate(voucher.issueDate),
             beneficiary: textOrDash(voucher.beneficiaryName),
             service: textOrDash(voucher.serviceName),
+            account: textOrDash(voucher.treasuryAccountName),
             reference: textOrDash(voucher.reference),
             amount: formatFCFA(voucher.amountTTC),
             status: voucher.status,

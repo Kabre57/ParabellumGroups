@@ -289,10 +289,49 @@ model TreasuryAccount {
 
   payments        Paiement[]
   cashVouchers    CashVoucher[]
+  closures        TreasuryClosure[]
 
   @@index([type])
   @@index([isActive])
   @@map("treasury_accounts")
+}
+
+model TreasuryClosure {
+  id                 String                @id @default(uuid())
+  treasuryAccountId  String?
+  periodType         TreasuryClosurePeriod
+  periodLabel        String?
+  periodStart        DateTime
+  periodEnd          DateTime
+  expectedCash       Float                 @default(0)
+  expectedCheque     Float                 @default(0)
+  expectedCard       Float                 @default(0)
+  expectedOther      Float                 @default(0)
+  expectedTotal      Float                 @default(0)
+  countedCash        Float                 @default(0)
+  countedCheque      Float                 @default(0)
+  countedCard        Float                 @default(0)
+  countedOther       Float                 @default(0)
+  countedTotal       Float                 @default(0)
+  ticketZ            Float                 @default(0)
+  variance           Float                 @default(0)
+  status             TreasuryClosureStatus @default(DRAFT)
+  notes              String?
+  createdByUserId    String?
+  createdByEmail     String?
+  validatedByUserId  String?
+  validatedByEmail   String?
+  closedAt           DateTime?
+  validatedAt        DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  treasuryAccount TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
+  @@index([periodStart])
+  @@index([periodEnd])
+  @@index([treasuryAccountId])
+  @@map("treasury_closures")
 }
 
 model BillingProcessedEvent {
@@ -406,6 +445,19 @@ enum CashVoucherStatus {
 enum CashVoucherFlowType {
   ENCAISSEMENT
   DECAISSEMENT
+}
+
+enum TreasuryClosureStatus {
+  DRAFT
+  CLOSED
+  VALIDATED
+}
+
+enum TreasuryClosurePeriod {
+  MONTH
+  QUARTER
+  YEAR
+  CUSTOM
 }
 
 enum TreasuryAccountType {

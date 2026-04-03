@@ -32,6 +32,7 @@ export default function PaiementsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const { canCreate } = getCrudVisibility(user, {
@@ -39,10 +40,29 @@ export default function PaiementsPage() {
     create: ['payments.create'],
   });
 
+  const range = React.useMemo(() => {
+    if (period === 'all') return {};
+    const now = new Date();
+    if (period === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    if (period === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), quarterStartMonth, 1);
+      const end = new Date(now.getFullYear(), quarterStartMonth + 3, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  }, [period]);
+
   const { data: paymentsResponse, isLoading } = useQuery({
-    queryKey: ['payments', searchQuery, methodFilter],
+    queryKey: ['payments', searchQuery, methodFilter, period],
     queryFn: async () => {
-      const params: Record<string, any> = {};
+      const params: Record<string, any> = { ...range };
       if (searchQuery) params.query = searchQuery;
       if (methodFilter !== 'all') params.modePaiement = methodFilter;
       return billingService.getPayments(params);
@@ -92,6 +112,16 @@ export default function PaiementsPage() {
           />
           <select
             className="w-full h-10 px-3 rounded-md border border-input bg-background"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as typeof period)}
+          >
+            <option value="month">Ce mois</option>
+            <option value="quarter">Ce trimestre</option>
+            <option value="year">Cette année</option>
+            <option value="all">Toutes les périodes</option>
+          </select>
+          <select
+            className="w-full h-10 px-3 rounded-md border border-input bg-background"
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
           >
@@ -115,6 +145,7 @@ export default function PaiementsPage() {
                 <TableHead>Facture</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Methode</TableHead>
+                <TableHead>Compte</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -139,6 +170,7 @@ export default function PaiementsPage() {
                   </TableCell>
                   <TableCell>{formatDate(payment.datePaiement)}</TableCell>
                   <TableCell>{getMethodBadge(payment.modePaiement)}</TableCell>
+                  <TableCell>{payment.treasuryAccountName || '-'}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(payment.montant)}</TableCell>
                   <TableCell className="text-right">

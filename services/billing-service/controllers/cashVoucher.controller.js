@@ -155,6 +155,14 @@ exports.getAllCashVouchers = async (req, res) => {
       where.createdByUserId = String(req.user?.userId || req.user?.id || '');
     }
 
+    const startDate = parseDate(req.query.startDate);
+    const endDate = parseDate(req.query.endDate);
+    if (startDate || endDate) {
+      where.issueDate = {};
+      if (startDate) where.issueDate.gte = startDate;
+      if (endDate) where.issueDate.lte = endDate;
+    }
+
     if (req.query.search) {
       where.OR = [
         { voucherNumber: { contains: String(req.query.search), mode: 'insensitive' } },
@@ -356,11 +364,30 @@ exports.getSpendingOverview = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    const startDate = parseDate(req.query.startDate);
+    const endDate = parseDate(req.query.endDate);
+    const commitmentWhere = {};
+    const voucherWhere = {};
+    if (startDate || endDate) {
+      commitmentWhere.createdAt = {};
+      voucherWhere.issueDate = {};
+      if (startDate) {
+        commitmentWhere.createdAt.gte = startDate;
+        voucherWhere.issueDate.gte = startDate;
+      }
+      if (endDate) {
+        commitmentWhere.createdAt.lte = endDate;
+        voucherWhere.issueDate.lte = endDate;
+      }
+    }
+
     const [commitments, vouchers] = await Promise.all([
       prisma.purchaseCommitment.findMany({
+        where: commitmentWhere,
         orderBy: { createdAt: 'desc' },
       }),
       prisma.cashVoucher.findMany({
+        where: voucherWhere,
         include: { treasuryAccount: true },
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
       }),

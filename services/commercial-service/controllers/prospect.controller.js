@@ -758,7 +758,7 @@ exports.updateActivity = async (req, res) => {
 
 exports.getTerrainVisits = async (req, res) => {
   try {
-    const { status, assignee, startDate, endDate } = req.query;
+    const { status, assignee, startDate, endDate, due } = req.query;
     const where = { type: 'VISITE' };
 
     if (startDate || endDate) {
@@ -778,6 +778,13 @@ exports.getTerrainVisits = async (req, res) => {
       } else if (normalized === 'ANNULEE') {
         where.outcome = 'ANNULE';
       }
+    }
+
+    if (due) {
+      where.scheduledAt = where.scheduledAt || {};
+      where.scheduledAt.lte = new Date();
+      where.isCompleted = false;
+      where.NOT = { outcome: 'ANNULE' };
     }
 
     const visits = await prisma.prospectActivity.findMany({

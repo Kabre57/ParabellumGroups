@@ -12,6 +12,9 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { AccountingDateRangeDialog } from '@/components/accounting/AccountingDateRangeDialog';
 import { exportTreasuryCsv } from '@/components/accounting/accountingExport';
 import { CreateTreasuryAccountDialog } from '@/components/accounting/CreateTreasuryAccountDialog';
+import { TreasuryClosureDialog } from '@/components/accounting/TreasuryClosureDialog';
+import TabularListPrint from '@/components/printComponents/TabularListPrint';
+import { formatFCFA } from '@/components/printComponents/printUtils';
 import { toast } from 'sonner';
 
 export default function TresoreriePage() {
@@ -21,6 +24,8 @@ export default function TresoreriePage() {
   const [customRange, setCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [printJournalOpen, setPrintJournalOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -31,6 +36,43 @@ export default function TresoreriePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['cash-flows', period, customRange?.startDate || null, customRange?.endDate || null],
     queryFn: () => billingService.getAccountingOverview(period, customRange || undefined),
+    enabled: canRead,
+  });
+
+  const periodRange = useMemo(() => {
+    if (customRange) return customRange;
+    if (period === 'all') return null;
+    const now = new Date();
+    if (period === 'week') {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    if (period === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    if (period === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), quarterStartMonth, 1);
+      const end = new Date(now.getFullYear(), quarterStartMonth + 3, 0, 23, 59, 59);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  }, [customRange, period]);
+
+  const { data: closuresResponse } = useQuery({
+    queryKey: ['treasury-closures', periodRange?.startDate || null, periodRange?.endDate || null],
+    queryFn: () =>
+      billingService.getTreasuryClosures({
+        startDate: periodRange?.startDate,
+        endDate: periodRange?.endDate,
+      }),
     enabled: canRead,
   });
 
@@ -50,6 +92,18 @@ export default function TresoreriePage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Impossible de créer le compte.');
+    },
+  });
+
+  const createClosureMutation = useMutation({
+    mutationFn: billingService.createTreasuryClosure,
+    onSuccess: () => {
+      toast.success('Clôture enregistrée.');
+      setClosureDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['treasury-closures'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Impossible de créer la clôture.');
     },
   });
 
@@ -75,6 +129,9 @@ export default function TresoreriePage() {
             <PlusCircle className="mr-2 h-4 w-4" />
             Nouveau compte
           </Button>
+          <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>
+            Clôturer la caisse
+          </Button>
           <select
             value={period}
             onChange={(e) => {
@@ -88,6 +145,9 @@ export default function TresoreriePage() {
             <option value="quarter">Ce trimestre</option>
             <option value="year">Cette année</option>
           </select>
+          <Button variant="outline" onClick={() => setPrintJournalOpen(true)}>
+            Imprimer le journal
+          </Button>
           <Button variant="outline" onClick={() => exportTreasuryCsv(cashFlows)}>
             Exporter Excel
           </Button>
@@ -206,6 +266,7 @@ export default function TresoreriePage() {
                   <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Type</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Catégorie</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Compte</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Description</th>
                   <th className="text-right py-3 px-4 font-semibold text-sm">Montant</th>
                   <th className="text-right py-3 px-4 font-semibold text-sm">Solde</th>
@@ -229,6 +290,7 @@ export default function TresoreriePage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-sm">{flow.category}</td>
+                    <td className="py-3 px-4 text-sm">{flow.treasuryAccountName || '-'}</td>
                     <td className="py-3 px-4 text-sm">{flow.description}</td>
                     <td className={`py-3 px-4 text-right font-semibold ${flow.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                       {flow.type === 'income' ? '+' : '-'}
@@ -239,7 +301,7 @@ export default function TresoreriePage() {
                 ))}
                 {!cashFlows.length && (
                   <tr>
-                    <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={6}>
+                    <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={7}>
                       Aucun mouvement de trésorerie sur cette période.
                     </td>
                   </tr>
@@ -248,6 +310,46 @@ export default function TresoreriePage() {
             </table>
           </div>
         )}
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4">Clôtures de caisse</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b dark:border-gray-700">
+                <th className="text-left py-3 px-4 font-semibold text-sm">Période</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Compte</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">Compté</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">Théorique</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">Écart</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(closuresResponse?.data ?? []).map((closure) => (
+                <tr key={closure.id} className="border-b dark:border-gray-800">
+                  <td className="py-3 px-4 text-sm">
+                    {new Date(closure.periodStart).toLocaleDateString('fr-FR')} -{' '}
+                    {new Date(closure.periodEnd).toLocaleDateString('fr-FR')}
+                  </td>
+                  <td className="py-3 px-4 text-sm">{closure.treasuryAccountName || 'Toutes caisses'}</td>
+                  <td className="py-3 px-4 text-right text-sm">{formatAccountingCurrency(closure.countedTotal || 0)}</td>
+                  <td className="py-3 px-4 text-right text-sm">{formatAccountingCurrency(closure.expectedTotal || 0)}</td>
+                  <td className="py-3 px-4 text-right text-sm">{formatAccountingCurrency(closure.variance || 0)}</td>
+                  <td className="py-3 px-4 text-sm">{closure.status}</td>
+                </tr>
+              ))}
+              {!closuresResponse?.data?.length && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                    Aucune clôture enregistrée sur la période.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <AccountingDateRangeDialog
@@ -265,6 +367,44 @@ export default function TresoreriePage() {
         isSubmitting={createAccountMutation.isPending}
         onSubmit={(payload) => createAccountMutation.mutateAsync(payload)}
       />
+
+      <TreasuryClosureDialog
+        open={closureDialogOpen}
+        onOpenChange={setClosureDialogOpen}
+        accounts={treasuryAccounts}
+        isSubmitting={createClosureMutation.isPending}
+        onSubmit={(payload) => createClosureMutation.mutateAsync(payload)}
+      />
+
+      {printJournalOpen && (
+        <TabularListPrint
+          title="Journal de trésorerie"
+          subtitle="Mouvements de trésorerie sur la période"
+          columns={[
+            { key: 'date', label: 'Date' },
+            { key: 'type', label: 'Type' },
+            { key: 'category', label: 'Catégorie' },
+            { key: 'account', label: 'Compte' },
+            { key: 'description', label: 'Description' },
+            { key: 'amount', label: 'Montant', align: 'right' },
+            { key: 'balance', label: 'Solde', align: 'right' },
+          ]}
+          rows={cashFlows.map((flow: AccountingMovement) => ({
+            date: formatAccountingDate(flow.date),
+            type: flow.type === 'income' ? 'Encaissement' : 'Décaissement',
+            category: flow.category,
+            account: flow.treasuryAccountName || '-',
+            description: flow.description,
+            amount: `${flow.type === 'income' ? '+' : '-'}${formatFCFA(flow.amount)}`,
+            balance: formatFCFA(flow.balance),
+          }))}
+          summary={[
+            { label: 'Total encaissements', value: formatFCFA(totalIncome) },
+            { label: 'Total décaissements', value: formatFCFA(totalExpense) },
+          ]}
+          onClose={() => setPrintJournalOpen(false)}
+        />
+      )}
     </div>
   );
 }

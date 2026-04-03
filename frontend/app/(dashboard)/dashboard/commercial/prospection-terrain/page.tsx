@@ -34,6 +34,10 @@ export default function ProspectionTerrainPage() {
     queryKey: ['terrain-visits'],
     queryFn: () => commercialService.getTerrainVisits(),
   });
+  const { data: dueVisitsData } = useQuery<TerrainVisit[]>({
+    queryKey: ['terrain-visits-due'],
+    queryFn: () => commercialService.getTerrainVisits({ due: true }),
+  });
   const prospects = Array.isArray(data) ? data : [];
 
   const terrainProspects = useMemo(
@@ -70,6 +74,8 @@ export default function ProspectionTerrainPage() {
       outcome: visit.outcome || '',
     }));
   }, [visitData]);
+
+  const dueVisitsCount = Array.isArray(dueVisitsData) ? dueVisitsData.length : 0;
 
   const visitAssignments = [
     { value: 'Chef de projet', label: 'Chef de projet' },
@@ -169,8 +175,8 @@ export default function ProspectionTerrainPage() {
             <PhoneCall className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{Math.max(terrainProspects.length - visitsToPlan.length, 0)}</div>
-            <p className="text-xs text-muted-foreground">Prospects a relancer</p>
+            <div className="text-2xl font-semibold">{dueVisitsCount}</div>
+            <p className="text-xs text-muted-foreground">Relances a faire</p>
           </CardContent>
         </Card>
         <Card>

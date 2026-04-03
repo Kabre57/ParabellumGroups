@@ -32,6 +32,21 @@ const buildQuery = (prospect: Prospect) => {
   return parts.join(', ');
 };
 
+const resolveZoneLabel = (prospect: Prospect, address?: Record<string, string>) => {
+  return (
+    prospect.city ||
+    address?.city_district ||
+    address?.suburb ||
+    address?.neighbourhood ||
+    address?.town ||
+    address?.city ||
+    address?.county ||
+    (prospect.address ? prospect.address.split(',')[0].trim() : null) ||
+    prospect.country ||
+    'Zone inconnue'
+  );
+};
+
 const loadCache = () => {
   if (typeof window === 'undefined') return {};
   try {
@@ -96,16 +111,17 @@ const useProspectLocations = (prospects: Prospect[]) => {
           // polite delay for Nominatim
           await new Promise((resolve) => setTimeout(resolve, 600));
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(query)}`,
             { headers: { 'Accept-Language': 'fr' } }
           );
           const payload = await response.json();
           const match = Array.isArray(payload) && payload[0] ? payload[0] : null;
           if (match) {
+            const zoneLabel = resolveZoneLabel(prospect, match.address || {});
             cache[prospect.id] = {
               lat: Number(match.lat),
               lng: Number(match.lon),
-              zone: prospect.city || prospect.country || 'Zone inconnue',
+              zone: zoneLabel,
               address: query,
             };
             cacheRef.current = cache;
