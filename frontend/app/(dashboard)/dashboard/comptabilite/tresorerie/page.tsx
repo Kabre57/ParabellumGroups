@@ -445,7 +445,9 @@ export default function TresoreriePage() {
         onOpenChange={setClosureDialogOpen}
         accounts={treasuryAccounts}
         isSubmitting={createClosureMutation.isPending}
-        onSubmit={(payload) => createClosureMutation.mutateAsync(payload)}
+        onSubmit={(payload) => {
+          createClosureMutation.mutate(payload);
+        }}
       />
 
       {printJournalOpen && (
