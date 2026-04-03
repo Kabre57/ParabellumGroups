@@ -61,6 +61,30 @@ export interface ProspectActivity {
   creator?: any;
 }
 
+export type TerrainVisitStatus = 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE';
+
+export interface TerrainVisit {
+  id: string;
+  prospect: Prospect;
+  scheduledAt: string;
+  assignee: string | null;
+  status: TerrainVisitStatus;
+  note?: string;
+  outcome?: string | null;
+}
+
+export interface CreateTerrainVisitRequest {
+  prospectId: string;
+  scheduledAt?: string;
+  assignee?: string;
+  status?: TerrainVisitStatus;
+  note?: string;
+  subject?: string;
+  location?: string;
+}
+
+export interface UpdateTerrainVisitRequest extends Partial<CreateTerrainVisitRequest> {}
+
 export interface ProspectionStats {
   totalProspects: number;
   convertedProspects: number;

@@ -32,5 +32,14 @@ module.exports = {
         DELETE: 'prospects.delete'
       },
     },
+    {
+      path: '/commercial/terrain/visits',
+      auth: true,
+      permission: {
+        GET: 'prospects.read',
+        POST: 'prospects.update',
+        PATCH: 'prospects.update'
+      },
+    },
   ],
 };

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useMemo, useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, PhoneCall, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { commercialService } from '@/shared/api/commercial/commercial.service';
-import type { Prospect } from '@/shared/api/commercial/types';
+import type { Prospect, TerrainVisit } from '@/shared/api/commercial/types';
 
 const ProspectionTerrainMap = dynamic(
   () => import('@/components/commercial/terrain/ProspectionTerrainMap'),
@@ -21,9 +21,18 @@ const ProspectionTerrainMap = dynamic(
 );
 
 export default function ProspectionTerrainPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error: queryError } = useQuery<Prospect[]>({
     queryKey: ['prospects-terrain'],
     queryFn: () => commercialService.getProspects({ limit: 50 }),
+  });
+  const {
+    data: visitData,
+    isLoading: visitsLoading,
+    error: visitsError,
+  } = useQuery<TerrainVisit[]>({
+    queryKey: ['terrain-visits'],
+    queryFn: () => commercialService.getTerrainVisits(),
   });
   const prospects = Array.isArray(data) ? data : [];
 
@@ -33,8 +42,15 @@ export default function ProspectionTerrainPage() {
   );
   const visitsToPlan = terrainProspects.slice(0, 6);
   const zoneStats = useMemo(() => {
+    const resolveZone = (prospect: Prospect) => {
+      const city = (prospect.city || '').trim();
+      if (city) return city;
+      const address = (prospect.address || '').trim();
+      if (address) return address.split(',')[0].trim();
+      return (prospect.country || 'Non defini').trim();
+    };
     const stats = terrainProspects.reduce((acc, prospect) => {
-      const zone = (prospect.city || prospect.country || 'Non defini').trim();
+      const zone = resolveZone(prospect);
       acc[zone] = (acc[zone] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -43,21 +59,17 @@ export default function ProspectionTerrainPage() {
       .slice(0, 5);
   }, [terrainProspects]);
   const planning = useMemo(() => {
-    return visitsToPlan.map((prospect, index) => {
-      const base = new Date(prospect.createdAt || Date.now());
-      const scheduledAt = new Date(base.getTime() + (index + 1) * 24 * 60 * 60 * 1000);
-      const assignee = index % 2 === 0 ? 'Commercial' : 'Chef de projet';
-      const status = index % 3 === 0 ? 'EN_COURS' : 'PLANIFIEE';
-      return {
-        id: `auto-${prospect.id}`,
-        prospect,
-        scheduledAt,
-        assignee,
-        status,
-        note: '',
-      };
-    });
-  }, [visitsToPlan]);
+    const rows = Array.isArray(visitData) ? visitData : [];
+    return rows.map((visit) => ({
+      id: visit.id,
+      prospect: visit.prospect,
+      scheduledAt: new Date(visit.scheduledAt),
+      assignee: visit.assignee || 'Commercial',
+      status: visit.status || 'PLANIFIEE',
+      note: visit.note || '',
+      outcome: visit.outcome || '',
+    }));
+  }, [visitData]);
 
   const visitAssignments = [
     { value: 'Chef de projet', label: 'Chef de projet' },
@@ -90,45 +102,25 @@ export default function ProspectionTerrainPage() {
   });
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('terrain-visits') : null;
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setPlanningRows(
-            parsed.map((item) => ({
-              ...item,
-              scheduledAt: new Date(item.scheduledAt),
-              prospect: terrainProspects.find((prospect) => prospect.id === item.prospect.id) || item.prospect,
-            }))
-          );
-          return;
-        }
-      } catch {
-        // ignore
-      }
-    }
     setPlanningRows(planning);
-  }, [planning, terrainProspects]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      'terrain-visits',
-      JSON.stringify(
-        planningRows.map((row) => ({
-          ...row,
-          scheduledAt: row.scheduledAt.toISOString(),
-        }))
-      )
-    );
-  }, [planningRows]);
+  }, [planning]);
 
   const updateVisit = (id: string, updates: Partial<(typeof planning)[number]>) => {
     setPlanningRows((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
   };
+
+  const createVisitMutation = useMutation({
+    mutationFn: commercialService.createTerrainVisit,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['terrain-visits'] }),
+  });
+
+  const updateVisitMutation = useMutation({
+    mutationFn: ({ visitId, payload }: { visitId: string; payload: any }) =>
+      commercialService.updateTerrainVisit(visitId, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['terrain-visits'] }),
+  });
 
   const selectedVisit = planningRows.find((row) => row.id === selectedVisitId) || null;
 
@@ -152,6 +144,11 @@ export default function ProspectionTerrainPage() {
       {queryError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           Impossible de charger la prospection terrain pour le moment.
+        </div>
+      ) : null}
+      {visitsError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Impossible de charger le planning terrain pour le moment.
         </div>
       ) : null}
 
@@ -223,13 +220,13 @@ export default function ProspectionTerrainPage() {
           <CardDescription>Planifiez les passages terrain a venir.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || visitsLoading ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
               <Spinner className="mr-2 h-4 w-4" /> Chargement des prospects terrain...
             </div>
           ) : planning.length === 0 ? (
             <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-              Aucun prospect a visiter. Ajoutez des prospects pour lancer la prospection terrain.
+              Aucune visite planifiee. Utilisez "Nouveau passage" pour creer votre planning terrain.
             </div>
           ) : (
             <div className="space-y-3">
@@ -249,7 +246,14 @@ export default function ProspectionTerrainPage() {
                     <select
                       className="w-full rounded-md border px-2 py-1 text-xs md:w-auto"
                       value={assignee}
-                      onChange={(event) => updateVisit(id, { assignee: event.target.value })}
+                      onChange={(event) => {
+                        const nextAssignee = event.target.value;
+                        updateVisit(id, { assignee: nextAssignee });
+                        updateVisitMutation.mutate({
+                          visitId: id,
+                          payload: { assignee: nextAssignee },
+                        });
+                      }}
                     >
                       {visitAssignments.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -260,7 +264,14 @@ export default function ProspectionTerrainPage() {
                     <select
                       className="w-full rounded-md border px-2 py-1 text-xs md:w-auto"
                       value={status}
-                      onChange={(event) => updateVisit(id, { status: event.target.value })}
+                      onChange={(event) => {
+                        const nextStatus = event.target.value;
+                        updateVisit(id, { status: nextStatus });
+                        updateVisitMutation.mutate({
+                          visitId: id,
+                          payload: { status: nextStatus },
+                        });
+                      }}
                     >
                       {visitStatuses.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -385,30 +396,27 @@ export default function ProspectionTerrainPage() {
                 onClick={() => {
                   const prospect = terrainProspects.find((item) => item.id === newVisit.prospectId);
                   if (!prospect) return;
-                  const scheduledAt = newVisit.date ? new Date(newVisit.date) : new Date();
-                  setPlanningRows((prev) => {
-                    const existingIndex = prev.findIndex((row) => row.prospect.id === prospect.id);
-                    const nextRow = {
-                      id: existingIndex >= 0 ? prev[existingIndex].id : `manual-${Date.now()}`,
-                      prospect,
-                      scheduledAt,
+                  createVisitMutation.mutate(
+                    {
+                      prospectId: prospect.id,
+                      scheduledAt: newVisit.date ? new Date(newVisit.date).toISOString() : new Date().toISOString(),
                       assignee: newVisit.assignee,
                       status: newVisit.status,
                       note: newVisit.note,
-                    };
-                    if (existingIndex >= 0) {
-                      return prev.map((row, idx) => (idx === existingIndex ? nextRow : row));
+                    },
+                    {
+                      onSuccess: () => {
+                        setNewVisitOpen(false);
+                        setNewVisit({
+                          prospectId: '',
+                          date: '',
+                          assignee: 'Commercial',
+                          status: 'PLANIFIEE',
+                          note: '',
+                        });
+                      },
                     }
-                    return [...prev, nextRow];
-                  });
-                  setNewVisitOpen(false);
-                  setNewVisit({
-                    prospectId: '',
-                    date: '',
-                    assignee: 'Commercial',
-                    status: 'PLANIFIEE',
-                    note: '',
-                  });
+                  );
                 }}
               >
                 Ajouter
@@ -441,7 +449,13 @@ export default function ProspectionTerrainPage() {
               <Button
                 onClick={() => {
                   if (selectedVisit) {
-                    updateVisit(selectedVisit.id, { status: selectedVisit.note ? 'TERMINEE' : selectedVisit.status });
+                    updateVisitMutation.mutate({
+                      visitId: selectedVisit.id,
+                      payload: {
+                        note: selectedVisit.note,
+                        status: selectedVisit.note ? 'TERMINEE' : selectedVisit.status,
+                      },
+                    });
                   }
                   setReportOpen(false);
                 }}

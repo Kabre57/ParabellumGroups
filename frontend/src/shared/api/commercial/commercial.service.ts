@@ -1,5 +1,13 @@
 import { apiClient } from '../shared/client';
-import { Prospect, ProspectionStats, CreateProspectRequest, UpdateProspectRequest } from './types';
+import {
+  Prospect,
+  ProspectionStats,
+  CreateProspectRequest,
+  UpdateProspectRequest,
+  TerrainVisit,
+  CreateTerrainVisitRequest,
+  UpdateTerrainVisitRequest,
+} from './types';
 
 const normalizeStage = (value?: string): Prospect['stage'] => {
   switch (String(value || '').toUpperCase()) {
@@ -72,5 +80,21 @@ export const commercialService = {
   async getStats(): Promise<ProspectionStats> {
     const response = await apiClient.get('/commercial/stats');
     return response.data?.data || response.data;
-  }
+  },
+
+  async getTerrainVisits(params?: Record<string, any>): Promise<TerrainVisit[]> {
+    const response = await apiClient.get('/commercial/terrain/visits', { params });
+    const data = response.data?.data || response.data || [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  async createTerrainVisit(payload: CreateTerrainVisitRequest): Promise<TerrainVisit> {
+    const response = await apiClient.post('/commercial/terrain/visits', payload);
+    return response.data?.data || response.data;
+  },
+
+  async updateTerrainVisit(visitId: string, payload: UpdateTerrainVisitRequest): Promise<TerrainVisit> {
+    const response = await apiClient.patch(`/commercial/terrain/visits/${visitId}`, payload);
+    return response.data?.data || response.data;
+  },
 };
