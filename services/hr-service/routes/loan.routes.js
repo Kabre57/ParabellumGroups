@@ -4,11 +4,11 @@ const authMiddleware = require('../middleware/auth');
 
 const loanController = require('../controllers/loan.controller');
 
-router.get('/', authMiddleware, loanController.list.bind(loanController));
-router.get('/:id', authMiddleware, loanController.get.bind(loanController));
-router.post('/', authMiddleware, loanController.create.bind(loanController));
-router.patch('/:id', authMiddleware, loanController.update.bind(loanController));
-router.delete('/:id', authMiddleware, loanController.delete.bind(loanController));
-router.patch('/:id/terminate', authMiddleware, loanController.terminate.bind(loanController));
+router.get('/', authMiddleware, loanController.list);
+router.get('/:id', authMiddleware, loanController.get);
+router.post('/', authMiddleware, loanController.create);
+router.patch('/:id', authMiddleware, loanController.update);
+router.delete('/:id', authMiddleware, loanController.remove);
+router.patch('/:id/terminate', authMiddleware, loanController.terminate);
 
 module.exports = router;

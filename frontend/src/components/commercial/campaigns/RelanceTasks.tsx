@@ -272,6 +272,11 @@ export function RelanceTasks({ campaigns, onUpdateStep }: RelanceTasksProps) {
               {task.note ? (
                 <div className="w-full text-xs text-muted-foreground">{task.note}</div>
               ) : null}
+              {task.report ? (
+                <div className="w-full rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Compte-rendu: {task.report}
+                </div>
+              ) : null}
             </div>
           );
         })}

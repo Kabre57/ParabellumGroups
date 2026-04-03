@@ -8,6 +8,7 @@ const isMissingTableError = (error) => {
   return (
     error?.code === 'P2021' ||
     message.includes('campagnes_mail') ||
+    message.includes('templates') ||
     (message.includes('relation') && message.includes('campagnes'))
   );
 };
@@ -22,9 +23,10 @@ const runCommand = (command, cwd) =>
     });
   });
 
-const ensureCampaignDatabase = async () => {
+const ensureCommunicationDatabase = async () => {
   try {
     await prisma.campagneMail.count();
+    await prisma.template.count();
     return true;
   } catch (error) {
     if (!isMissingTableError(error)) {
@@ -33,13 +35,13 @@ const ensureCampaignDatabase = async () => {
     }
 
     if (process.env.AUTO_DB_PUSH !== 'true') {
-      console.warn('[communication-service] Table campagnes_mail absente. AUTO_DB_PUSH=false, ignore.');
+      console.warn('[communication-service] Tables communication absentes. AUTO_DB_PUSH=false, ignore.');
       return false;
     }
 
     try {
       await runCommand('npx prisma db push --accept-data-loss', `${__dirname}/..`);
-      console.log('[communication-service] Prisma db push executed to create campagnes_mail.');
+      console.log('[communication-service] Prisma db push executed to create communication tables.');
       return true;
     } catch (pushError) {
       console.error('[communication-service] Prisma db push failed:', pushError);
@@ -48,4 +50,4 @@ const ensureCampaignDatabase = async () => {
   }
 };
 
-module.exports = { ensureCampaignDatabase };
+module.exports = { ensureCommunicationDatabase };

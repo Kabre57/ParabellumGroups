@@ -23,6 +23,28 @@ export default function PayrollPage() {
   const { data, isLoading, error } = usePayslips({ pageSize: 100, query: searchTerm });
   const deleteMutation = useDeletePayslip();
 
+  const normalizeDeductions = (value: any) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    if (value && typeof value === 'object') {
+      return Object.entries(value).map(([label, amount]) => ({
+        label,
+        amount: Number(amount || 0),
+      }));
+    }
+    if (typeof value === 'number') {
+      return [{ label: 'Retenues', amount: value }];
+    }
+    return [];
+  };
+
   const handlePrint = (payslip: any) => {
     const printData = {
       id: payslip.id,
@@ -39,7 +61,7 @@ export default function PayrollPage() {
       overtime: payslip.overtime || 0,
       bonuses: payslip.bonuses || 0,
       allowances: payslip.allowances || 0,
-      deductions: payslip.deductions ? (typeof payslip.deductions === 'string' ? JSON.parse(payslip.deductions) : payslip.deductions) : [],
+      deductions: normalizeDeductions(payslip.deductions),
       netSalary: payslip.netSalary || payslip.net_salary,
       createdAt: payslip.createdAt || payslip.created_at || new Date().toISOString(),
     };

@@ -14,6 +14,7 @@ const contractRoutes = require('./routes/contract.routes');
 const payrollRoutes = require('./routes/payroll.routes');
 const loanRoutes = require('./routes/loan.routes');
 const timesheetRoutes = require('./routes/timesheet.routes');
+const logipaieRoutes = require('./routes/logipaie.routes');
 
 // Initialize Express app
 const app = express();
@@ -64,13 +65,24 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/employes', employeRoutes);
+app.use('/employees', employeRoutes);
+app.use('/hr/employees', employeRoutes);
 app.use('/api/conges', congeRoutes);
+app.use('/hr/leave-requests', congeRoutes);
 app.use('/api/presences', presenceRoutes);
+app.use('/hr/presences', presenceRoutes);
 app.use('/api/evaluations', evaluationRoutes);
+app.use('/hr/evaluations', evaluationRoutes);
 app.use('/contracts', contractRoutes);
+app.use('/hr/contracts', contractRoutes);
 app.use('/payroll', payrollRoutes);
+app.use('/payrolls', payrollRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/payrolls', payrollRoutes);
 app.use('/api/loans', loanRoutes);
+app.use('/hr/loans', loanRoutes);
 app.use('/api/timesheets', timesheetRoutes);
+app.use('/api/logipaie', logipaieRoutes);
 
 // 404 handler
 app.use((req, res) => {

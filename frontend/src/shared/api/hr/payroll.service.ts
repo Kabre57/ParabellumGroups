@@ -19,26 +19,26 @@ type PayrollListParams = {
 
 const mapPayrollFromApi = (p: any): Payroll => ({
   id: p.id,
-  employeeId: p.employeId ?? p.employeeId,
-  period: p.periode ?? `${p.annee}-${String(p.mois).padStart(2, '0')}`,
+  employeeId: p.matricule ?? p.employeId ?? p.employeeId,
+  period: p.periode ?? p.period ?? `${p.annee ?? p.year}-${String(p.mois ?? p.month).padStart(2, '0')}`,
   month: p.mois ?? p.month,
   year: p.annee ?? p.year,
-  grossSalary: Number(p.brut ?? p.baseSalaire ?? p.grossSalary ?? 0),
-  netSalary: Number(p.netAPayer ?? p.netSalary ?? 0),
-  totalPaid: Number(p.totalPaid ?? p.netAPayer ?? p.netSalary ?? 0),
-  deductions: Number(p.cotisationsSalariales ?? p.deductions ?? 0),
-  bonuses: Number(p.primes ?? p.bonuses ?? 0),
+  grossSalary: Number(p.salaireBrut ?? p.brut ?? p.baseSalaire ?? p.grossSalary ?? 0),
+  netSalary: Number(p.salaireNet ?? p.netAPayer ?? p.netSalary ?? 0),
+  totalPaid: Number(p.totalPaid ?? p.salaireNet ?? p.netAPayer ?? p.netSalary ?? 0),
+  deductions: Number(p.totalRetenues ?? p.cotisationsSalariales ?? p.deductions ?? 0),
+  bonuses: Number(p.primesTotal ?? p.primes ?? p.bonuses ?? 0),
   currency: p.devise ?? p.currency ?? 'XOF',
   paymentDate: p.datePaiement ?? p.paymentDate,
-  status: (p.statut ?? p.status ?? 'GENERE').toLowerCase(),
-  socialContributions: Number(p.cnpsPatronal ?? p.socialCharges ?? 0),
-  taxAmount: Number(p.igr ?? p.taxAmount ?? 0),
-  createdAt: p.createdAt ?? '',
+  status: (p.statutPaiement ?? p.statut ?? p.status ?? 'GENERE').toLowerCase(),
+  socialContributions: Number(p.cotisationCnpsPatronale ?? p.cnpsPatronal ?? p.socialCharges ?? 0),
+  taxAmount: Number(p.impotIgr ?? p.igr ?? p.taxAmount ?? 0),
+  createdAt: p.dateGeneration ?? p.createdAt ?? '',
   updatedAt: p.updatedAt ?? '',
   employee: p.employe
     ? {
         ...p.employe,
-        firstName: p.employe.prenom ?? p.employe.firstName,
+        firstName: p.employe.prenoms ?? p.employe.prenom ?? p.employe.firstName,
         lastName: p.employe.nom ?? p.employe.lastName,
       }
     : p.employee

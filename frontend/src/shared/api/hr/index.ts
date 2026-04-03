@@ -5,6 +5,7 @@ import { presencesService } from './presences.service';
 import { evaluationsService } from './evaluations.service';
 import { contractsService } from './contracts.service';
 import { loansService } from './loans.service';
+import { logipaieService } from './logipaie.service';
 
 export * from './types';
 
@@ -16,6 +17,9 @@ export const hrService = {
   ...evaluationsService,
   ...contractsService,
   ...loansService,
+  ...logipaieService,
 };
+
+export { logipaieService };
 
 export default hrService;

@@ -36,24 +36,24 @@ export interface UpdateContractRequest {
 
 const mapContractFromApi = (c: any): Contract => ({
   id: c.id,
-  employeeId: c.employeId ?? c.employeeId,
-  contractType: c.type ?? c.contractType,
+  employeeId: c.matricule ?? c.employeId ?? c.employeeId,
+  contractType: c.typeContrat ?? c.type ?? c.contractType,
   startDate: c.dateDebut ?? c.startDate,
-  endDate: c.dateFin ?? c.endDate,
-  salary: Number(c.salaireBase ?? c.salary ?? 0),
+  endDate: c.dateFinReelle ?? c.dateFinPrevue ?? c.dateFin ?? c.endDate,
+  salary: Number(c.salaireBaseMensuel ?? c.salaireBase ?? c.salary ?? 0),
   currency: c.devise ?? c.currency ?? 'XOF',
   workHoursPerWeek: c.heuresHebdo ?? c.workHoursPerWeek ?? 40,
-  position: c.poste ?? c.position ?? '',
-  department: c.departement ?? c.department ?? '',
+  position: c.posteOccupe ?? c.poste ?? c.position ?? '',
+  department: c.service ?? c.direction ?? c.departement ?? c.department ?? '',
   benefits: c.autresAvantages ?? c.benefits ?? '',
   clauses: c.clauses ?? '',
-  status: c.statut ?? c.status ?? 'ACTIF',
-  signedDate: c.dateDebut,
-  createdAt: c.createdAt,
+  status: c.statutContrat ?? c.statut ?? c.status ?? 'ACTIF',
+  signedDate: c.dateSignature ?? c.dateDebut,
+  createdAt: c.dateCreation ?? c.createdAt,
   updatedAt: c.updatedAt,
   employee: c.employe
     ? {
-        firstName: c.employe.prenom,
+        firstName: c.employe.prenoms ?? c.employe.prenom,
         lastName: c.employe.nom,
         matricule: c.employe.matricule,
       }
@@ -61,18 +61,14 @@ const mapContractFromApi = (c: any): Contract => ({
 });
 
 const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) => ({
-  employeId: 'employeeId' in c ? c.employeeId : undefined,
-  type: c.contractType,
+  matricule: 'employeeId' in c ? c.employeeId : undefined,
+  typeContrat: c.contractType,
   dateDebut: c.startDate,
-  dateFin: c.endDate ?? null,
-  salaireBase: c.salary,
-  devise: c.currency ?? 'XOF',
-  heuresHebdo: c.workHoursPerWeek ?? 40,
-  poste: c.position,
-  departement: c.department,
-  autresAvantages: c.benefits,
-  clauses: c.clauses,
-  statut: 'status' in c ? (c.status ?? 'ACTIF') : 'ACTIF',
+  dateFinPrevue: c.endDate ?? null,
+  salaireBaseMensuel: c.salary,
+  posteOccupe: c.position,
+  service: c.department,
+  statutContrat: 'status' in c ? (c.status ?? 'ACTIF') : 'ACTIF',
 });
 
 export const contractsService = {

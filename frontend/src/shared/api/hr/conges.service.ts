@@ -104,7 +104,7 @@ const mapStatus = (s?: string): StatutConge => {
 
 const mapCongeFromApi = (c: any): Conge => ({
   id: c.id,
-  employeId: c.employeId ?? c.employeeId,
+  employeId: c.matricule ?? c.employeId ?? c.employeeId,
   employe: c.employe
     ? {
         id: c.employeId,
@@ -116,7 +116,7 @@ const mapCongeFromApi = (c: any): Conge => ({
   typeConge: c.typeConge,
   dateDebut: c.dateDebut,
   dateFin: c.dateFin,
-  nbJours: c.nbJours,
+  nbJours: c.nbJours ?? c.nombreJours,
   motif: c.motif,
   statut: mapStatus(c.status ?? c.statut),
   approuveParId: c.approbateurId,
@@ -205,12 +205,19 @@ export const congesService = {
       const diff = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
       payload = { ...payload, nbJours: diff };
     }
-    const response = await apiClient.post('/hr/leave-requests', payload);
+    const response = await apiClient.post('/hr/leave-requests', {
+      ...payload,
+      matricule: payload.employeId,
+      nombreJours: payload.nbJours,
+    });
     return { success: true, data: mapCongeFromApi(response.data?.data || response.data) };
   },
 
   async updateConge(id: string, data: UpdateCongeRequest): Promise<DetailResponse<Conge>> {
-    const response = await apiClient.put(`/hr/leave-requests/${id}`, data);
+    const response = await apiClient.put(`/hr/leave-requests/${id}`, {
+      ...data,
+      nombreJours: data.nbJours,
+    });
     return { success: true, data: mapCongeFromApi(response.data?.data || response.data) };
   },
 

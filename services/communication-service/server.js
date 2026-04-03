@@ -8,7 +8,7 @@ const notificationRoutes = require('./routes/notification.routes');
 const campagneRoutes = require('./routes/campagne.routes');
 const emailSender = require('./utils/emailSender');
 const { startCampaignScheduler } = require('./services/scheduler.service');
-const { ensureCampaignDatabase } = require('./utils/ensureDatabase');
+const { ensureCommunicationDatabase } = require('./utils/ensureDatabase');
 
 const app = express();
 const PORT = process.env.PORT || 4002;
@@ -31,7 +31,7 @@ app.get('/health', (req, res) => {
 
 // Démarrage du serveur
 const startServer = async () => {
-  await ensureCampaignDatabase();
+  await ensureCommunicationDatabase();
   app.listen(PORT, () => {
     console.log(`Communication Service démarré sur le port ${PORT}`);
     emailSender.verifyConnection();

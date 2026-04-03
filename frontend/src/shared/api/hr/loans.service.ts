@@ -21,14 +21,14 @@ export interface LoanPayload {
 
 const mapLoan = (l: any): LoanPayload => ({
   id: l.id,
-  employeId: l.employeId,
-  type: l.type,
-  motif: l.motif,
-  montantInitial: Number(l.montantInitial || 0),
-  restantDu: Number(l.restantDu || 0),
-  deductionMensuelle: Number(l.deductionMensuelle || 0),
-  dateDebut: l.dateDebut,
-  dateFin: l.dateFin,
+  employeId: l.employeId ?? l.matricule,
+  type: l.type ?? 'PRET',
+  motif: l.motif ?? l.motifPret,
+  montantInitial: Number(l.montantInitial ?? l.montantTotalPrete ?? 0),
+  restantDu: Number(l.restantDu ?? l.montantRestantDu ?? 0),
+  deductionMensuelle: Number(l.deductionMensuelle ?? l.mensualiteRetenue ?? 0),
+  dateDebut: l.dateDebut ?? l.dateDebutRemboursement,
+  dateFin: l.dateFin ?? l.dateFinRemboursement,
   statut: l.statut,
   employe: l.employe,
 });
@@ -43,6 +43,9 @@ const buildPagination = (page: number, pageSize: number, totalItems: number, tot
 });
 
 export const loansService = {
+  async getLoans(params?: any): Promise<PaginatedResponse<LoanPayload>> {
+    return this.list(params);
+  },
   async list(params?: any): Promise<PaginatedResponse<LoanPayload>> {
     const response = await apiClient.get('/hr/loans', { params });
     const payload = response.data?.data || response.data;

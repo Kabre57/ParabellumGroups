@@ -174,7 +174,7 @@ export default function EmailCampaignsPage() {
     if (!campaign) return;
     const currentSequence = Array.isArray(campaign.sequence) ? campaign.sequence : [];
     const updatedSequence = currentSequence.map((item) =>
-      item?.step === step ? { ...item, ...updates } : item
+      String(item?.step) === String(step) ? { ...item, ...updates } : item
     );
     updateMutation.mutate({ id: campaignId, payload: { sequence: updatedSequence } });
   };

@@ -1,256 +1,127 @@
 const { PrismaClient } = require('@prisma/client');
-const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
 
-// Get all evaluations with pagination and filters
+const mapEvaluationPayload = (payload) => ({
+  matricule: payload.employeId ?? payload.matricule,
+  dateEvenement: payload.dateEvaluation ? new Date(payload.dateEvaluation) : new Date(),
+  typeMouvement: payload.typeMouvement || 'EVALUATION',
+  ancienPoste: payload.ancienPoste,
+  nouveauPoste: payload.nouveauPoste,
+  ancienSalaire: payload.ancienSalaire,
+  nouveauSalaire: payload.nouveauSalaire,
+  motif: payload.commentaires || payload.motif,
+  observations: payload.observations || payload.commentaireEvaluateur || payload.commentaireEmploye,
+});
+
+const mapToEvaluation = (row) => ({
+  id: row.id,
+  employeId: row.matricule,
+  dateEvaluation: row.dateEvenement,
+  periode: row.dateEvenement ? new Date(row.dateEvenement).toISOString().slice(0, 7) : '',
+  noteGlobale: 0,
+  competences: {},
+  objectifs: {},
+  pointsForts: '',
+  pointsAmeliorer: '',
+  planAction: '',
+  commentaireEmploye: '',
+  commentaireEvaluateur: row.observations,
+  status: 'TERMINE',
+  employe: row.employe,
+});
+
 exports.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 10, employeId, evaluateurId, periode } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
-
+    const { page = 1, limit = 10, employeId } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
     const where = {};
-    
-    if (employeId) {
-      where.employeId = employeId;
-    }
-    
-    if (evaluateurId) {
-      where.evaluateurId = evaluateurId;
-    }
-    
-    if (periode) {
-      where.periode = periode;
-    }
-
-    const [evaluations, total] = await Promise.all([
-      prisma.evaluation.findMany({
+    if (employeId) where.matricule = employeId;
+    const [items, total] = await Promise.all([
+      prisma.historiqueEmploye.findMany({
         where,
+        include: { employe: true },
+        orderBy: { dateEvenement: 'desc' },
         skip,
-        take,
-        include: {
-          employe: {
-            select: {
-              matricule: true,
-              nom: true,
-              prenom: true,
-              departement: true,
-              poste: true
-            }
-          },
-          evaluateur: {
-            select: {
-              nom: true,
-              prenom: true,
-              poste: true
-            }
-          }
-        },
-        orderBy: { dateEvaluation: 'desc' }
+        take: Number(limit),
       }),
-      prisma.evaluation.count({ where })
+      prisma.historiqueEmploye.count({ where }),
     ]);
-
     res.json({
       success: true,
-      data: evaluations,
+      data: items.map(mapToEvaluation),
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching evaluations:', error);
-    res.status(500).json({ success: false, error: 'Erreur lors de la récupération des évaluations' });
-  }
-};
-
-// Create evaluation
-exports.create = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { employeId, evaluateurId, dateEvaluation, periode, noteGlobale, competences, commentaires, objectifs } = req.body;
-
-    const evaluation = await prisma.evaluation.create({
-      data: {
-        employeId,
-        evaluateurId,
-        dateEvaluation: new Date(dateEvaluation),
-        periode,
-        noteGlobale,
-        competences,
-        commentaires,
-        objectifs
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.max(1, Math.ceil(total / Math.max(1, Number(limit)))),
       },
-      include: {
-        employe: {
-          select: {
-            matricule: true,
-            nom: true,
-            prenom: true,
-            departement: true
-          }
-        },
-        evaluateur: {
-          select: {
-            nom: true,
-            prenom: true
-          }
-        }
-      }
     });
-
-    res.status(201).json({ success: true, data: evaluation });
   } catch (error) {
-    console.error('Error creating evaluation:', error);
-    res.status(500).json({ success: false, error: 'Erreur lors de la création de l\'évaluation' });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// Get evaluation by ID
-exports.getById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const evaluation = await prisma.evaluation.findUnique({
-      where: { id },
-      include: {
-        employe: {
-          select: {
-            matricule: true,
-            nom: true,
-            prenom: true,
-            departement: true,
-            poste: true,
-            email: true
-          }
-        },
-        evaluateur: {
-          select: {
-            nom: true,
-            prenom: true,
-            poste: true,
-            email: true
-          }
-        }
-      }
-    });
-
-    if (!evaluation) {
-      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
-    }
-
-    res.json({ success: true, data: evaluation });
-  } catch (error) {
-    console.error('Error fetching evaluation:', error);
-    res.status(500).json({ success: false, error: 'Erreur lors de la récupération de l\'évaluation' });
-  }
-};
-
-// Update evaluation
-exports.update = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { id } = req.params;
-    const { dateEvaluation, periode, noteGlobale, competences, commentaires, objectifs } = req.body;
-
-    const evaluation = await prisma.evaluation.update({
-      where: { id },
-      data: {
-        dateEvaluation: dateEvaluation ? new Date(dateEvaluation) : undefined,
-        periode,
-        noteGlobale,
-        competences,
-        commentaires,
-        objectifs
-      },
-      include: {
-        employe: {
-          select: {
-            nom: true,
-            prenom: true
-          }
-        },
-        evaluateur: {
-          select: {
-            nom: true,
-            prenom: true
-          }
-        }
-      }
-    });
-
-    res.json({ success: true, data: evaluation });
-  } catch (error) {
-    console.error('Error updating evaluation:', error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
-    }
-    res.status(500).json({ success: false, error: 'Erreur lors de la mise à jour de l\'évaluation' });
-  }
-};
-
-// Delete evaluation
-exports.delete = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.evaluation.delete({
-      where: { id }
-    });
-
-    res.json({ success: true, message: 'Évaluation supprimée avec succès' });
-  } catch (error) {
-    console.error('Error deleting evaluation:', error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({ success: false, error: 'Évaluation non trouvée' });
-    }
-    res.status(500).json({ success: false, error: 'Erreur lors de la suppression de l\'évaluation' });
-  }
-};
-
-// Get evaluations by employee
 exports.getByEmploye = async (req, res) => {
   try {
     const { employeId } = req.params;
-
-    const evaluations = await prisma.evaluation.findMany({
-      where: { employeId },
-      include: {
-        evaluateur: {
-          select: {
-            nom: true,
-            prenom: true,
-            poste: true
-          }
-        }
-      },
-      orderBy: { dateEvaluation: 'desc' }
+    const items = await prisma.historiqueEmploye.findMany({
+      where: { matricule: employeId },
+      include: { employe: true },
+      orderBy: { dateEvenement: 'desc' },
     });
-
-    // Calculate average note
-    const averageNote = evaluations.length > 0
-      ? evaluations.reduce((sum, e) => sum + parseFloat(e.noteGlobale), 0) / evaluations.length
-      : 0;
-
-    res.json({
-      data: evaluations,
-      total: evaluations.length,
-      averageNote: Math.round(averageNote * 100) / 100
-    });
+    res.json({ success: true, data: items.map(mapToEvaluation) });
   } catch (error) {
-    console.error('Error fetching employee evaluations:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des évaluations de l\'employé' });
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getById = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const item = await prisma.historiqueEmploye.findUnique({
+      where: { id },
+      include: { employe: true },
+    });
+    if (!item) return res.status(404).json({ success: false, error: 'Evaluation introuvable' });
+    res.json({ success: true, data: mapToEvaluation(item) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.create = async (req, res) => {
+  try {
+    const created = await prisma.historiqueEmploye.create({
+      data: mapEvaluationPayload(req.body),
+      include: { employe: true },
+    });
+    res.status(201).json({ success: true, data: mapToEvaluation(created) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.update = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const updated = await prisma.historiqueEmploye.update({
+      where: { id },
+      data: mapEvaluationPayload(req.body),
+      include: { employe: true },
+    });
+    res.json({ success: true, data: mapToEvaluation(updated) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.remove = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await prisma.historiqueEmploye.delete({ where: { id } });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };

@@ -15,10 +15,11 @@ import { commercialService } from '@/shared/api/commercial/commercial.service';
 import type { Prospect } from '@/shared/api/commercial/types';
 
 export default function ProspectionTerrainPage() {
-  const { data: prospects = [], isLoading } = useQuery<Prospect[]>({
+  const { data, isLoading, error: queryError } = useQuery<Prospect[]>({
     queryKey: ['prospects-terrain'],
     queryFn: () => commercialService.getProspects({ limit: 50 }),
   });
+  const prospects = Array.isArray(data) ? data : [];
 
   const terrainProspects = useMemo(
     () => prospects.filter((prospect) => !prospect.isConverted),
@@ -110,6 +111,12 @@ export default function ProspectionTerrainPage() {
           <Button onClick={() => setNewVisitOpen(true)}>Nouveau passage</Button>
         </div>
       </div>
+
+      {queryError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Impossible de charger la prospection terrain pour le moment.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

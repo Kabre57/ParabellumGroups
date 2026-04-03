@@ -98,7 +98,7 @@ docker compose logs -f
 Un service précis:
 
 ```bash
-docker compose logs -f auth-service
+docker compose logs -f hr-service
 ```
 
 ## 8. Commandes utiles
@@ -176,3 +176,17 @@ Pour rappel, la commande de mise à jour conteneur (par service) reste la même 
 
 docker compose up -d --build frontend
 (ou technical-service, project-service, etc.).
+
+Je comprends, et c’est normal si le frontend que tu vois tourne encore sur l’image précédente. On a bien poussé le commit, mais il faut rebuild + relancer le container frontend (et aussi appliquer la migration communication-service pour les relances).
+
+Fais ceci sur le VPS :
+cd /home/theo_pbl/apps/ParabellumGroups
+
+# 1) Mettre le code à jour
+git pull
+
+# 2) Rebuilder et relancer le frontend
+docker compose up -d --build frontend nginx
+
+# 3) Appliquer la migration des campagnes (communication-service)
+docker compose exec communication-service npx prisma migrate deploy

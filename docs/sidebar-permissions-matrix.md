@@ -76,10 +76,10 @@ Visible categories:
 
 - Tableau de Bord
 - Commercial
+- Gestion de Projets
 - CRM
 - Facturation
 - Services Techniques
-- Gestion de Projets
 - Achats & Logistique
 - Ressources Humaines
 - Communication

@@ -2,6 +2,15 @@ const { PrismaClient } = require('@prisma/client');
 const templateParser = require('../utils/templateParser');
 const prisma = new PrismaClient();
 
+const isMissingTableError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.code === 'P2021' ||
+    message.includes('templates') ||
+    (message.includes('relation') && message.includes('template'))
+  );
+};
+
 const templateController = {
   // Créer un template
   async create(req, res) {
@@ -11,6 +20,9 @@ const templateController = {
       });
       res.status(201).json(template);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -30,6 +42,9 @@ const templateController = {
       });
       res.json(templates);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.json([]);
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -45,6 +60,9 @@ const templateController = {
       }
       res.json(template);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -58,6 +76,9 @@ const templateController = {
       });
       res.json(template);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -70,6 +91,9 @@ const templateController = {
       });
       res.status(204).send();
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -95,6 +119,9 @@ const templateController = {
 
       res.json(preview);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -121,6 +148,9 @@ const templateController = {
 
       res.status(201).json(duplicate);
     } catch (error) {
+      if (isMissingTableError(error)) {
+        return res.status(503).json({ error: 'Base templates non initialisee' });
+      }
       res.status(500).json({ error: error.message });
     }
   }

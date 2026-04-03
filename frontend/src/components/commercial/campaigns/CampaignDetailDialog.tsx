@@ -15,6 +15,7 @@ type RelanceTask = {
   label: string;
   status?: string;
   outcome?: string;
+  report?: string;
   step: number;
 };
 
@@ -54,7 +55,11 @@ type CampaignDetailDialogProps = {
   open: boolean;
   campaign: CampagneMail | null;
   onClose: () => void;
-  onUpdateStep?: (campaignId: string, step: number, updates: { status?: string }) => void;
+  onUpdateStep?: (
+    campaignId: string,
+    step: number,
+    updates: { status?: string; report?: string; outcome?: string }
+  ) => void;
 };
 
 export function CampaignDetailDialog({ open, campaign, onClose, onUpdateStep }: CampaignDetailDialogProps) {
@@ -78,6 +83,7 @@ export function CampaignDetailDialog({ open, campaign, onClose, onUpdateStep }: 
           label: `${CHANNEL_LABELS[channel]} ${stepNumber || ''}`.trim(),
           status: step?.status,
           outcome: step?.outcome,
+          report: step?.report,
           step: stepNumber,
         };
       })
@@ -196,14 +202,19 @@ export function CampaignDetailDialog({ open, campaign, onClose, onUpdateStep }: 
                           {task.label}
                         </div>
                         <div className="text-xs text-muted-foreground">{formatDate(task.dueAt)}</div>
-                        <Badge variant={getStatusBadge(task.status).variant}>
-                          {getStatusBadge(task.status).label}
-                        </Badge>
-                        {onUpdateStep ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="ml-auto"
+                      <Badge variant={getStatusBadge(task.status).variant}>
+                        {getStatusBadge(task.status).label}
+                      </Badge>
+                      {task.report ? (
+                        <div className="w-full text-xs text-muted-foreground">
+                          Compte-rendu: {task.report}
+                        </div>
+                      ) : null}
+                      {onUpdateStep ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto"
                             onClick={() => onUpdateStep(campaign.id, task.step, { status: 'TERMINEE' })}
                           >
                             Marquer terminee
@@ -259,8 +270,15 @@ export function CampaignDetailDialog({ open, campaign, onClose, onUpdateStep }: 
                       </tr>
                     ) : (
                       filteredCalls.map((task) => (
-                        <tr key={task.id} className="border-t">
-                          <td className="px-4 py-3 font-medium">{task.label}</td>
+                        <tr key={task.id} className="border-t align-top">
+                          <td className="px-4 py-3 font-medium">
+                            <div>{task.label}</div>
+                            {task.report ? (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Compte-rendu: {task.report}
+                              </div>
+                            ) : null}
+                          </td>
                           <td className="px-4 py-3">{formatDate(task.dueAt)}</td>
                           <td className="px-4 py-3">
                             <Badge variant={getStatusBadge(task.status).variant}>

@@ -84,7 +84,17 @@ export function CampaignForm({
         </div>
 
         <div className="md:col-span-2 space-y-2">
-          <label className="block text-sm font-medium">Modèle d'email *</label>
+          <div className="flex items-center justify-between gap-3">
+            <label className="block text-sm font-medium">Modèle d'email *</label>
+            {onCreateTemplate ? (
+              <Button type="button" variant="outline" size="sm" onClick={onCreateTemplate}>
+                Créer un modèle
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Obligatoire : l&apos;email J+0 utilise ce modèle principal.
+          </p>
           {templates.length === 0 && <EmptyTemplatesAlert onAction={onCreateTemplate} />}
           <select
             className="w-full px-3 py-2 border rounded-md"

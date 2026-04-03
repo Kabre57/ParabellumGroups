@@ -31,13 +31,20 @@ export default function PayslipForm({ payslip, employees = [], onSuccess, onCanc
     currency: payslip?.currency || 'XOF',
   });
 
-  const [deductions, setDeductions] = useState<Deduction[]>(
-    payslip?.deductions
-      ? typeof payslip.deductions === 'string'
-        ? JSON.parse(payslip.deductions)
-        : payslip.deductions
-      : []
-  );
+  const normalizeDeductions = (value: unknown): Deduction[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value as Deduction[];
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? (parsed as Deduction[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+  const [deductions, setDeductions] = useState<Deduction[]>(normalizeDeductions(payslip?.deductions));
 
   const [calculations, setCalculations] = useState({
     cnps: 0,

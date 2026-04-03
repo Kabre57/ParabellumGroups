@@ -7,308 +7,475 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Configuration {
+  id                Int       @id @default(autoincrement())
+  nomEntreprise     String?
+  sigle             String?
+  numeroCc          String?
+  numeroCnps        String?
+  adresseSiege      String?
+  telephone         String?
+  email             String?
+  tauxCnpsSalarial  Decimal?  @db.Decimal(12, 4)
+  tauxCnpsPatronal  Decimal?  @db.Decimal(12, 4)
+  tauxIs            Decimal?  @db.Decimal(12, 4)
+  tauxCn            Decimal?  @db.Decimal(12, 4)
+  tauxFdfpApprentis Decimal?  @db.Decimal(12, 4)
+  tauxFdfpContinu   Decimal?  @db.Decimal(12, 4)
+  smig              Decimal?  @db.Decimal(12, 2)
+  plafondCnps       Decimal?  @db.Decimal(12, 2)
+  baremesIgr        Json?
+  dateMiseAJour     DateTime? @default(now())
+}
+
 model Employe {
-  id            String      @id @default(uuid())
-  matricule     String      @unique
-  nom           String
-  prenom        String
-  email         String      @unique
-  telephone     String?
-  dateNaissance DateTime?
-  lieuNaissance String?
-  adresse       String?
-  nationalite   String?
-  cnpsNumber    String?
-  cnamNumber    String?
+  matricule             String   @id
+  civilite              String?
+  nom                   String?
+  prenoms               String?
+  nomComplet            String?
+  sexe                  String?
+  dateNaissance         DateTime?
+  lieuNaissance         String?
+  nationalite           String?
+  codeNationalite       String?
   situationMatrimoniale String?
-  nombreEnfants Int?       @default(0)
-  partsFiscales Int        @default(1)
-  dateEmbauche  DateTime
-  poste         String
-  departement   String
-  categorie     String?
-  niveau        String?
-  salaire       Decimal     @db.Decimal(12, 2)
-  deviseSalaire String      @default("XOF")
-  status        StatusEmploye @default(ACTIF)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  nombreEnfants         Int?
+  nombrePartsIgr        Decimal? @db.Decimal(5, 2)
+  adressePersonnelle    String?
+  telephonePersonnel    String?
+  emailPersonnel        String?
+  lieuHabitation        String?
+  naturePieceIdentite   String?
+  numeroPieceIdentite   String?
+  numeroCnps            String?
+  nonSoumisCnps         Boolean?
+  modePaiement          String?
+  rib                   String?
+  banque                String?
+  statut                String?
+  dateCreation          DateTime? @default(now())
+  dateModification      DateTime? @updatedAt
 
-  conges        Conge[]     @relation("EmployeConges")
-  congesApprouves Conge[]   @relation("ApprobateurConges")
-  presences     Presence[]
-  evaluations   Evaluation[] @relation("EmployeEvaluations")
-  evaluationsRealisees Evaluation[] @relation("EvaluateurEvaluations")
-  contrats      Contrat[]
-  bulletins     Payroll[]
-  loans         Loan[]
-
-  @@map("employes")
-}
-
-enum StatusEmploye {
-  ACTIF
-  CONGE
-  MALADIE
-  DEMISSION
-}
-
-model Conge {
-  id              String      @id @default(uuid())
-  employeId       String
-  typeConge       TypeConge
-  dateDebut       DateTime
-  dateFin         DateTime
-  nbJours         Int
-  motif           String?
-  status          StatusConge @default(DEMANDE)
-  approbateurId   String?
-  dateApprobation DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  employe         Employe     @relation("EmployeConges", fields: [employeId], references: [id], onDelete: Cascade)
-  approbateur     Employe?    @relation("ApprobateurConges", fields: [approbateurId], references: [id])
-
-  @@map("conges")
-}
-
-enum TypeConge {
-  ANNUEL
-  MALADIE
-  SANS_SOLDE
-  PARENTAL
-}
-
-enum StatusConge {
-  DEMANDE
-  APPROUVE
-  REJETE
-  ANNULE
-}
-
-model Presence {
-  id            String      @id @default(uuid())
-  employeId     String
-  date          DateTime
-  heureArrivee  DateTime?
-  heureDepart   DateTime?
-  duree         Decimal?    @db.Decimal(5, 2)
-  type          TypePresence @default(BUREAU)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  employe       Employe     @relation(fields: [employeId], references: [id], onDelete: Cascade)
-
-  @@unique([employeId, date])
-  @@map("presences")
-}
-
-enum TypePresence {
-  BUREAU
-  TELETRAVAIL
-  DEPLACEMENT
-  ABSENCE
-}
-
-model Evaluation {
-  id              String      @id @default(uuid())
-  employeId       String
-  evaluateurId    String
-  dateEvaluation  DateTime
-  periode         String
-  noteGlobale     Decimal     @db.Decimal(3, 2)
-  competences     Json
-  commentaires    String?
-  objectifs       Json?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  employe         Employe     @relation("EmployeEvaluations", fields: [employeId], references: [id], onDelete: Cascade)
-  evaluateur      Employe     @relation("EvaluateurEvaluations", fields: [evaluateurId], references: [id])
-
-  @@map("evaluations")
-}
-
-enum ContractType {
-  CDI
-  CDD
-  STAGE
-  INTERIM
-  PRESTATION
-}
-
-enum ContractStatus {
-  ACTIF
-  TERMINE
-  SUSPENDU
-  RUPTURE
+  contrats             Contrat[]
+  historiques          HistoriqueEmploye[]
+  variablesMensuelles  VariablesMensuelle[]
+  bulletins            BulletinPaie[]
+  cumuls               CumulAnnuel[]
+  conges               GestionConge[]
+  provisionsConges     ProvisionCongeCalc[]
+  absences             Absence[]
+  prets                PretAvance[]
+  ruptures             RuptureContrat[]
+  gratifications       Gratification[]
+  indemnitesRupture    IndemniteRupture[]
+  declarationsCnps     DeclarationCnps[]
+  declarationsFiscales DeclarationFiscale[]
+  disas                Disa[]
+  dascs                Dasc[]
+  etat301s             Etat301[]
+  provisionsRetraite   ProvisionRetraiteCalc[]
+  detailsVirements     DetailVirement[]
+  certificatsTravail   CertificatTravail[]
 }
 
 model Contrat {
-  id              String         @id @default(uuid())
-  employeId       String
-  type            ContractType
-  statut          ContractStatus @default(ACTIF)
-  dateDebut       DateTime
-  dateFin         DateTime?
-  poste           String
-  departement     String
-  salaireBase     Decimal        @db.Decimal(12, 2)
-  devise          String         @default("XOF")
-  heuresHebdo     Int?
-  cnpsTauxSalarie Decimal?       @db.Decimal(5, 4)
-  cnpsTauxEmployeur Decimal?     @db.Decimal(5, 4)
-  cnamTauxEmployeur Decimal?     @db.Decimal(5, 4)
-  cnpsAT          Decimal?       @db.Decimal(5, 4)
-  riskBandId      String?
-  autresAvantages Json?
-  clauses         Json?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                        Int      @id @default(autoincrement())
+  matricule                 String
+  typeContrat               String?
+  dateSignature             DateTime?
+  dateDebut                 DateTime?
+  dateFinPrevue             DateTime?
+  dateFinReelle             DateTime?
+  posteOccupe               String?
+  direction                 String?
+  service                   String?
+  categorieProfessionnelle  String?
+  echelon                   Int?
+  regime                    String?
+  typeEmploi                String?
+  salaireBaseMensuel        Decimal? @db.Decimal(12, 2)
+  periodeEssaiMois           Int?
+  dureeCddMois              Int?
+  motifRecrutement          String?
+  lieuTravail               String?
+  statutContrat             String?
+  dateCreation              DateTime? @default(now())
 
-  employe         Employe        @relation(fields: [employeId], references: [id], onDelete: Cascade)
-  riskBand        RiskBand?      @relation(fields: [riskBandId], references: [id], onDelete: SetNull)
-
-  @@index([employeId])
-  @@index([riskBandId])
-  @@map("contrats")
+  employe  Employe @relation(fields: [matricule], references: [matricule])
+  ruptures RuptureContrat[]
 }
 
-enum PayrollStatus {
-  BROUILLON
-  GENERE
-  VALIDE
-  PAYE
+model HistoriqueEmploye {
+  id             Int      @id @default(autoincrement())
+  matricule      String
+  dateEvenement  DateTime?
+  typeMouvement  String?
+  ancienPoste    String?
+  nouveauPoste   String?
+  ancienSalaire  Decimal? @db.Decimal(12, 2)
+  nouveauSalaire Decimal? @db.Decimal(12, 2)
+  motif          String?
+  observations   String?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-model Payroll {
-  id                  String       @id @default(uuid())
-  employeId           String
-  mois                Int
-  annee               Int
+model VariablesMensuelle {
+  id                      Int      @id @default(autoincrement())
+  matricule               String
+  periode                 String?
+  heuresSupp15            Decimal? @db.Decimal(8, 2)
+  heuresSupp50            Decimal? @db.Decimal(8, 2)
+  heuresSupp75            Decimal? @db.Decimal(8, 2)
+  heuresSupp100           Decimal? @db.Decimal(8, 2)
+  primeRendement          Decimal? @db.Decimal(12, 2)
+  primeTransport          Decimal? @db.Decimal(12, 2)
+  primeSalissure          Decimal? @db.Decimal(12, 2)
+  primeAnciennete         Decimal? @db.Decimal(12, 2)
+  primesDiverses          Decimal? @db.Decimal(12, 2)
+  gratificationMensuelle  Decimal? @db.Decimal(12, 2)
+  indemniteLogement       Decimal? @db.Decimal(12, 2)
+  indemniteRepas          Decimal? @db.Decimal(12, 2)
+  joursAbsenceInjustifiee Int?
+  joursCongesPris         Int?
+  joursMaladie            Int?
+  joursMaternite          Int?
+  retenuePret             Decimal? @db.Decimal(12, 2)
+  retenueAutre            Decimal? @db.Decimal(12, 2)
+  dateSaisie              DateTime? @default(now())
+  statut                  String?
+
+  employe  Employe @relation(fields: [matricule], references: [matricule])
+  bulletins BulletinPaie[]
+}
+
+model BulletinPaie {
+  id                      Int      @id @default(autoincrement())
+  matricule               String
+  periode                 String?
+  salaireBase             Decimal? @db.Decimal(12, 2)
+  heuresSuppMontant       Decimal? @db.Decimal(12, 2)
+  primesTotal             Decimal? @db.Decimal(12, 2)
+  salaireBrut             Decimal? @db.Decimal(12, 2)
+  cotisationCnpsSalariale Decimal? @db.Decimal(12, 2)
+  cotisationCnpsPatronale Decimal? @db.Decimal(12, 2)
+  impotIs                 Decimal? @db.Decimal(12, 2)
+  impotCn                 Decimal? @db.Decimal(12, 2)
+  impotIgr                Decimal? @db.Decimal(12, 2)
+  totalRetenues           Decimal? @db.Decimal(12, 2)
+  salaireNet              Decimal? @db.Decimal(12, 2)
+  coutTotalEmployeur      Decimal? @db.Decimal(12, 2)
+  statutPaiement          String?
+  datePaiement            DateTime?
+  referenceVirement       String?
+  dateGeneration          DateTime? @default(now())
+
+  employe              Employe             @relation(fields: [matricule], references: [matricule])
+  variablesMensuelleId Int?
+  variablesMensuelle   VariablesMensuelle? @relation(fields: [variablesMensuelleId], references: [id])
+  ecritures            EcritureComptable[]
+}
+
+model CumulAnnuel {
+  id                   Int      @id @default(autoincrement())
+  matricule            String
+  annee                Int?
+  cumulBrut            Decimal? @db.Decimal(12, 2)
+  cumulNet             Decimal? @db.Decimal(12, 2)
+  cumulCnps            Decimal? @db.Decimal(12, 2)
+  cumulImpots          Decimal? @db.Decimal(12, 2)
+  cumulCongesAcquis    Int?
+  cumulCongesConsommes Int?
+  cumulHeuresSupp      Decimal? @db.Decimal(12, 2)
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model GestionConge {
+  id                   Int      @id @default(autoincrement())
+  matricule            String
+  dateDebut            DateTime?
+  dateFin              DateTime?
+  typeConge            String?
+  nombreJours          Int?
+  allocationCongePayee Decimal? @db.Decimal(12, 2)
+  statut               String?
+  dateDemande          DateTime?
+  dateApprobation      DateTime?
+  observations         String?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model ProvisionCongeCalc {
+  id                  Int      @id @default(autoincrement())
+  matricule           String
   periode             String?
-  devise              String       @default("XOF")
-  baseSalaire         Decimal      @db.Decimal(12, 2)
-  heuresSup           Decimal      @db.Decimal(12, 2) @default(0)
-  primes              Decimal      @db.Decimal(12, 2) @default(0)
-  indemnite           Decimal      @db.Decimal(12, 2) @default(0)
-  autresRetenues      Decimal      @db.Decimal(12, 2) @default(0)
-  deductions          Json?
-  partsFiscales       Int          @default(1)
-  brut                Decimal      @db.Decimal(12, 2)
-  cnpsSalarial        Decimal      @db.Decimal(12, 2)
-  cnpsPatronal        Decimal      @db.Decimal(12, 2)
-  cnpsATUtilise       Decimal      @db.Decimal(12, 2)
-  cnam                Decimal      @db.Decimal(12, 2)
-  fdfp                Decimal      @db.Decimal(12, 2)
-  igr                 Decimal      @db.Decimal(12, 2)
-  cotisationsSalariales Decimal    @db.Decimal(12, 2)
-  cotisationsPatronales Decimal    @db.Decimal(12, 2)
-  netImposable        Decimal      @db.Decimal(12, 2)
-  netAPayer           Decimal      @db.Decimal(12, 2)
-  statut              PayrollStatus @default(GENERE)
-  details             Json?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  droitCongeAcquisMois Decimal? @db.Decimal(6, 2)
+  droitCongeCumule    Decimal? @db.Decimal(6, 2)
+  droitCongeConsomme  Decimal? @db.Decimal(6, 2)
+  droitCongeRestant   Decimal? @db.Decimal(6, 2)
+  montantProvision    Decimal? @db.Decimal(12, 2)
+  tauxJournalier      Decimal? @db.Decimal(12, 2)
 
-  employe             Employe      @relation(fields: [employeId], references: [id], onDelete: Cascade)
-
-  @@index([employeId, annee, mois], name: "payroll_periode")
-  @@map("payroll")
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-enum LoanType {
-  AVANCE
-  PRET
+model Absence {
+  id             Int      @id @default(autoincrement())
+  matricule      String
+  dateAbsence    DateTime?
+  typeAbsence    String?
+  nombreJours    Int?
+  justification  String?
+  retenueSalaire Decimal? @db.Decimal(12, 2)
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-enum LoanStatus {
-  EN_COURS
-  TERMINE
-  ANNULE
+model PretAvance {
+  id                     Int      @id @default(autoincrement())
+  matricule              String
+  datePret               DateTime?
+  montantTotalPrete      Decimal? @db.Decimal(12, 2)
+  montantRestantDu       Decimal? @db.Decimal(12, 2)
+  nombreMoisRemboursement Int?
+  mensualiteRetenue      Decimal? @db.Decimal(12, 2)
+  dateDebutRemboursement DateTime?
+  dateFinRemboursement   DateTime?
+  nombreMoisPayes        Int?
+  statut                 String?
+  motifPret              String?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-model Loan {
-  id                 String      @id @default(uuid())
-  employeId          String
-  type               LoanType
-  motif              String?
-  montantInitial     Decimal     @db.Decimal(12, 2)
-  restantDu          Decimal     @db.Decimal(12, 2)
-  deductionMensuelle Decimal     @db.Decimal(12, 2)
-  dateDebut          DateTime
-  dateFin            DateTime?
-  statut             LoanStatus  @default(EN_COURS)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+model RuptureContrat {
+  id                    Int      @id @default(autoincrement())
+  contratId             Int
+  matricule             String
+  dateRupture           DateTime?
+  motifRupture          String?
+  indemnitePreavis      Decimal? @db.Decimal(12, 2)
+  indemniteLicenciement Decimal? @db.Decimal(12, 2)
+  indemniteCongesPayes  Decimal? @db.Decimal(12, 2)
+  indemniteFinCarriere  Decimal? @db.Decimal(12, 2)
+  montantTotalDu        Decimal? @db.Decimal(12, 2)
+  dateRemiseCertificat  DateTime?
+  observations          String?
 
-  employe            Employe     @relation(fields: [employeId], references: [id], onDelete: Cascade)
-
-  @@index([employeId])
-  @@map("loans")
+  contrat     Contrat        @relation(fields: [contratId], references: [id])
+  employe     Employe        @relation(fields: [matricule], references: [matricule])
+  certificats CertificatTravail[]
+  indemnites  IndemniteRupture[]
 }
 
-// --- Référentiels paie CI (paramétrables) ---
+model CertificatTravail {
+  id                Int      @id @default(autoincrement())
+  ruptureId         Int
+  matricule         String
+  dateEntree        DateTime?
+  dateSortie        DateTime?
+  postesOccupes     String?
+  dateEmission      DateTime?
+  signatureAutorite String?
 
-enum TaxSettingType {
-  CNPS_RET_EMPLOYEE
-  CNPS_RET_EMPLOYER
-  CNPS_FAMILY
-  CNPS_AT
-  CNAM_EMPLOYER
-  FDFP_EMPLOYER
-  IS_EMPLOYER
-  AS_EMPLOYER
+  rupture RuptureContrat @relation(fields: [ruptureId], references: [id])
+  employe Employe       @relation(fields: [matricule], references: [matricule])
 }
 
-model TaxSetting {
-  id          String         @id @default(uuid())
-  code        String         @unique
-  label       String
-  type        TaxSettingType
-  rate        Decimal        @db.Decimal(10, 4)
-  ceiling     Decimal?       @db.Decimal(12, 2)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+model Gratification {
+  id                Int      @id @default(autoincrement())
+  matricule         String
+  periode           String?
+  typeGratification String?
+  baseCalcul        Decimal? @db.Decimal(12, 2)
+  tauxGratification Decimal? @db.Decimal(6, 2)
+  montantBrut       Decimal? @db.Decimal(12, 2)
+  retenues          Decimal? @db.Decimal(12, 2)
+  montantNet        Decimal? @db.Decimal(12, 2)
+  dateVersement     DateTime?
 
-  @@map("tax_settings")
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-model PayrollConstant {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  value       Decimal  @db.Decimal(14, 4)
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model IndemniteRupture {
+  id                           Int      @id @default(autoincrement())
+  ruptureId                    Int
+  matricule                    String
+  indemnitePreavisMontant      Decimal? @db.Decimal(12, 2)
+  indemnitePreavisJours        Int?
+  indemniteLicenciementMontant Decimal? @db.Decimal(12, 2)
+  indemniteLicenciementMois    Int?
+  indemniteCongesJours         Int?
+  indemniteCongesMontant       Decimal? @db.Decimal(12, 2)
+  totalIndemnites              Decimal? @db.Decimal(12, 2)
 
-  @@map("payroll_constants")
+  rupture RuptureContrat @relation(fields: [ruptureId], references: [id])
+  employe Employe       @relation(fields: [matricule], references: [matricule])
 }
 
-model RiskBand {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  label       String
-  rate        Decimal  @db.Decimal(10, 4) // ex: 0.0200 = 2%
-  departement String?
-  secteur     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model DeclarationCnps {
+  id                Int      @id @default(autoincrement())
+  periode           String?
+  typeDeclaration   String?
+  matricule         String
+  salaireSoumisCnps Decimal? @db.Decimal(12, 2)
+  partSalariale     Decimal? @db.Decimal(12, 2)
+  partPatronale     Decimal? @db.Decimal(12, 2)
+  totalCotisation   Decimal? @db.Decimal(12, 2)
+  dateEnvoi         DateTime?
+  statutDeclaration String?
 
-  contrats    Contrat[]
-
-  @@map("risk_bands")
+  employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
-model IgrBracket {
-  id          String   @id @default(uuid())
-  min         Decimal  @db.Decimal(14, 2)
-  max         Decimal? @db.Decimal(14, 2) // null => pas de plafond
-  rate        Decimal  @db.Decimal(10, 4) // 0.35 = 35%
-  deduction   Decimal  @db.Decimal(14, 2) @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model DeclarationFiscale {
+  id               Int      @id @default(autoincrement())
+  periode          String?
+  typeDeclaration  String?
+  matricule        String
+  salaireImposable Decimal? @db.Decimal(12, 2)
+  montantIs        Decimal? @db.Decimal(12, 2)
+  montantCn        Decimal? @db.Decimal(12, 2)
+  montantIgr       Decimal? @db.Decimal(12, 2)
+  totalImpots      Decimal? @db.Decimal(12, 2)
+  dateDeclaration  DateTime?
+  statut           String?
 
-  @@map("igr_brackets")
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model Disa {
+  id                   Int      @id @default(autoincrement())
+  annee                Int?
+  matricule            String
+  nombreMoisPresence   Int?
+  salaireAnnuel        Decimal? @db.Decimal(12, 2)
+  cotisationsAnnuelles Decimal? @db.Decimal(12, 2)
+  impotsAnnuels        Decimal? @db.Decimal(12, 2)
+  dateDeclaration      DateTime?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model Dasc {
+  id                     Int      @id @default(autoincrement())
+  annee                  Int?
+  matricule              String
+  accidentsTravail       Int?
+  prestationsFamiliales  Decimal? @db.Decimal(12, 2)
+  indemnitesJournalieres Decimal? @db.Decimal(12, 2)
+  dateDeclaration        DateTime?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model Etat301 {
+  id              Int      @id @default(autoincrement())
+  annee           Int?
+  matricule       String
+  salaireAnnuel   Decimal? @db.Decimal(12, 2)
+  impotAnnuel     Decimal? @db.Decimal(12, 2)
+  regularisation  Decimal? @db.Decimal(12, 2)
+  dateDeclaration DateTime?
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model EcritureComptable {
+  id               Int      @id @default(autoincrement())
+  dateEcriture     DateTime?
+  periode          String?
+  compteDebit      String?
+  compteCredit     String?
+  libelleOperation String?
+  montant          Decimal? @db.Decimal(12, 2)
+  journal          String?
+  referencePiece   String?
+  statut           String?
+
+  bulletinId Int?
+  bulletin   BulletinPaie? @relation(fields: [bulletinId], references: [id])
+}
+
+model ProvisionRetraiteCalc {
+  id                          Int      @id @default(autoincrement())
+  matricule                   String
+  periode                     String?
+  indemniteFinCarriereEstimee Decimal? @db.Decimal(12, 2)
+  provisionCumulee            Decimal? @db.Decimal(12, 2)
+  tauxProvision               Decimal? @db.Decimal(6, 2)
+  dateCalcul                  DateTime? @default(now())
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
+model LivrePaieMensuel {
+  id                           Int      @id @default(autoincrement())
+  periode                      String?
+  nombreEmployes               Int?
+  totalSalaireBrut             Decimal? @db.Decimal(12, 2)
+  totalCotisationCnpsSalariale Decimal? @db.Decimal(12, 2)
+  totalCotisationCnpsPatronale Decimal? @db.Decimal(12, 2)
+  totalImpotsIs                Decimal? @db.Decimal(12, 2)
+  totalImpotsCn                Decimal? @db.Decimal(12, 2)
+  totalImpotsIgr               Decimal? @db.Decimal(12, 2)
+  totalRetenues                Decimal? @db.Decimal(12, 2)
+  totalSalaireNet              Decimal? @db.Decimal(12, 2)
+  totalChargesPatronales       Decimal? @db.Decimal(12, 2)
+  coutTotalEmployeur           Decimal? @db.Decimal(12, 2)
+  dateGeneration               DateTime? @default(now())
+}
+
+model LivrePaieAnnuel {
+  id                             Int      @id @default(autoincrement())
+  annee                          Int?
+  nombreEmployesMoyen            Decimal? @db.Decimal(6, 1)
+  totalGainsAnnuels              Decimal? @db.Decimal(12, 2)
+  totalChargesPatronalesAnnuelles Decimal? @db.Decimal(12, 2)
+  coutTotalAnnuel                Decimal? @db.Decimal(12, 2)
+  masseSalarialeMoyenne          Decimal? @db.Decimal(12, 2)
+}
+
+model OrdreBancaire {
+  id                  Int      @id @default(autoincrement())
+  periode             String?
+  dateVirement        DateTime?
+  banqueEmetteur      String?
+  nombreBeneficiaires Int?
+  montantTotalLot     Decimal? @db.Decimal(12, 2)
+  statut              String?
+  referenceVirement   String?
+
+  details DetailVirement[]
+}
+
+model DetailVirement {
+  id              Int      @id @default(autoincrement())
+  ordreId         Int
+  matricule       String
+  ribBeneficiaire String?
+  montantNet      Decimal? @db.Decimal(12, 2)
+  dateExecution   DateTime?
+
+  ordre   OrdreBancaire @relation(fields: [ordreId], references: [id])
+  employe Employe       @relation(fields: [matricule], references: [matricule])
+}
+
+model StatistiqueRh {
+  id                   Int      @id @default(autoincrement())
+  periode              String?
+  effectifDebutPeriode Int?
+  effectifFinPeriode   Int?
+  effectifMoyen        Decimal? @db.Decimal(6, 1)
+  embauches            Int?
+  departs              Int?
+  tauxAbsenteisme      Decimal? @db.Decimal(6, 2)
+  tauxTurnover         Decimal? @db.Decimal(6, 2)
+  ancienneteMoyenne    Decimal? @db.Decimal(6, 1)
+  masseSalarialeTotale Decimal? @db.Decimal(12, 2)
+  coutMoyenEmploye     Decimal? @db.Decimal(12, 2)
+  coutChargesSociales  Decimal? @db.Decimal(12, 2)
 }
