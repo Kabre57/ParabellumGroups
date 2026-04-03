@@ -1,22 +1,26 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, Calendar, PlusCircle } from 'lucide-react';
 import billingService, { type AccountingMovement } from '@/shared/api/billing';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { AccountingDateRangeDialog } from '@/components/accounting/AccountingDateRangeDialog';
 import { exportTreasuryCsv } from '@/components/accounting/accountingExport';
+import { CreateTreasuryAccountDialog } from '@/components/accounting/CreateTreasuryAccountDialog';
+import { toast } from 'sonner';
 
 export default function TresoreriePage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [customRange, setCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -32,9 +36,22 @@ export default function TresoreriePage() {
 
   const cashFlows = data?.data?.treasuryMovements ?? [];
   const report = data?.data?.reports?.treasury;
+  const treasuryAccounts = report?.accounts ?? [];
   const totalIncome = report?.inflows || 0;
   const totalExpense = report?.outflows || 0;
   const currentBalance = report?.closingBalance || 0;
+
+  const createAccountMutation = useMutation({
+    mutationFn: billingService.createTreasuryAccount,
+    onSuccess: () => {
+      toast.success('Compte de trésorerie créé.');
+      setAccountDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['cash-flows'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Impossible de créer le compte.');
+    },
+  });
 
   if (!canRead) {
     return (
@@ -50,10 +67,14 @@ export default function TresoreriePage() {
         <div>
           <h1 className="text-3xl font-bold">Trésorerie</h1>
           <p className="text-muted-foreground mt-2">
-            Suivi des flux de trésorerie et solde bancaire
+            Suivi des flux de trésorerie, soldes multi-banques et sous-caisses.
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAccountDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Nouveau compte
+          </Button>
           <select
             value={period}
             onChange={(e) => {
@@ -76,6 +97,47 @@ export default function TresoreriePage() {
           </Button>
         </div>
       </div>
+
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Comptes de trésorerie</h2>
+            <p className="text-sm text-muted-foreground">
+              Banque principale, sous-caisses et comptes dédiés.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {treasuryAccounts.map((account) => (
+            <Card key={account.id} className="p-4 border border-slate-100">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">{account.type === 'BANK' ? 'Banque' : 'Caisse'}</p>
+                  <p className="text-lg font-semibold">{account.name}</p>
+                  {account.bankName && <p className="text-xs text-muted-foreground">{account.bankName}</p>}
+                  {account.accountNumber && <p className="text-xs text-muted-foreground">{account.accountNumber}</p>}
+                </div>
+                <span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">
+                  {account.isDefault ? 'Par défaut' : 'Actif'}
+                </span>
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground">Solde</div>
+              <div className="text-xl font-bold">
+                {formatAccountingCurrency(account.balance ?? account.currentBalance ?? 0)}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Encaissements: {formatAccountingCurrency(account.inflows || 0)} · Décaissements:{' '}
+                {formatAccountingCurrency(account.outflows || 0)}
+              </div>
+            </Card>
+          ))}
+          {!treasuryAccounts.length && (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              Aucun compte de trésorerie enregistré.
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -195,6 +257,13 @@ export default function TresoreriePage() {
         onApply={(range) => {
           setCustomRange(range.startDate || range.endDate ? range : null);
         }}
+      />
+
+      <CreateTreasuryAccountDialog
+        open={accountDialogOpen}
+        onOpenChange={setAccountDialogOpen}
+        isSubmitting={createAccountMutation.isPending}
+        onSubmit={(payload) => createAccountMutation.mutateAsync(payload)}
       />
     </div>
   );

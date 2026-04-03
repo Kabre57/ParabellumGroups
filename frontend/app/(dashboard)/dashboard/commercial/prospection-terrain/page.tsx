@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, PhoneCall, Users } from 'lucide-react';
@@ -13,6 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { commercialService } from '@/shared/api/commercial/commercial.service';
 import type { Prospect } from '@/shared/api/commercial/types';
+
+const ProspectionTerrainMap = dynamic(
+  () => import('@/components/commercial/terrain/ProspectionTerrainMap'),
+  { ssr: false }
+);
 
 export default function ProspectionTerrainPage() {
   const { data, isLoading, error: queryError } = useQuery<Prospect[]>({
@@ -84,8 +90,39 @@ export default function ProspectionTerrainPage() {
   });
 
   useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('terrain-visits') : null;
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setPlanningRows(
+            parsed.map((item) => ({
+              ...item,
+              scheduledAt: new Date(item.scheduledAt),
+              prospect: terrainProspects.find((prospect) => prospect.id === item.prospect.id) || item.prospect,
+            }))
+          );
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
     setPlanningRows(planning);
-  }, [planning]);
+  }, [planning, terrainProspects]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'terrain-visits',
+      JSON.stringify(
+        planningRows.map((row) => ({
+          ...row,
+          scheduledAt: row.scheduledAt.toISOString(),
+        }))
+      )
+    );
+  }, [planningRows]);
 
   const updateVisit = (id: string, updates: Partial<(typeof planning)[number]>) => {
     setPlanningRows((prev) =>
@@ -160,11 +197,7 @@ export default function ProspectionTerrainPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-lg border">
-            <iframe
-              title="Carte prospection terrain"
-              src="https://www.openstreetmap.org/export/embed.html?bbox=-4.0641%2C5.3023%2C-3.8708%2C5.4426&layer=mapnik"
-              className="h-[360px] w-full"
-            />
+            <ProspectionTerrainMap prospects={terrainProspects} />
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {zoneStats.length === 0 ? (
@@ -238,7 +271,20 @@ export default function ProspectionTerrainPage() {
                     <Badge variant={statusBadgeVariant(status)}>{visitStatuses.find((item) => item.value === status)?.label || status}</Badge>
                   </div>
                   <div className="flex gap-2 md:justify-end">
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setNewVisit({
+                          prospectId: prospect.id,
+                          date: scheduledAt.toISOString().slice(0, 10),
+                          assignee,
+                          status,
+                          note,
+                        });
+                        setNewVisitOpen(true);
+                      }}
+                    >
                       Planifier
                     </Button>
                     <Button
@@ -340,17 +386,21 @@ export default function ProspectionTerrainPage() {
                   const prospect = terrainProspects.find((item) => item.id === newVisit.prospectId);
                   if (!prospect) return;
                   const scheduledAt = newVisit.date ? new Date(newVisit.date) : new Date();
-                  setPlanningRows((prev) => [
-                    ...prev,
-                    {
-                      id: `manual-${Date.now()}`,
+                  setPlanningRows((prev) => {
+                    const existingIndex = prev.findIndex((row) => row.prospect.id === prospect.id);
+                    const nextRow = {
+                      id: existingIndex >= 0 ? prev[existingIndex].id : `manual-${Date.now()}`,
                       prospect,
                       scheduledAt,
                       assignee: newVisit.assignee,
                       status: newVisit.status,
                       note: newVisit.note,
-                    },
-                  ]);
+                    };
+                    if (existingIndex >= 0) {
+                      return prev.map((row, idx) => (idx === existingIndex ? nextRow : row));
+                    }
+                    return [...prev, nextRow];
+                  });
                   setNewVisitOpen(false);
                   setNewVisit({
                     prospectId: '',
@@ -375,7 +425,7 @@ export default function ProspectionTerrainPage() {
             <DialogDescription>Renseignez le compte-rendu de la visite.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="text-sm font-medium">{selectedVisit?.prospect.companyName}</div>
+            <div className="text-sm font-medium">{selectedVisit?.prospect.companyName || 'Visite'}</div>
             <Textarea
               value={selectedVisit?.note || ''}
               onChange={(event) => {
@@ -388,7 +438,16 @@ export default function ProspectionTerrainPage() {
               <Button variant="outline" onClick={() => setReportOpen(false)}>
                 Fermer
               </Button>
-              <Button onClick={() => setReportOpen(false)}>Enregistrer</Button>
+              <Button
+                onClick={() => {
+                  if (selectedVisit) {
+                    updateVisit(selectedVisit.id, { status: selectedVisit.note ? 'TERMINEE' : selectedVisit.status });
+                  }
+                  setReportOpen(false);
+                }}
+              >
+                Enregistrer
+              </Button>
             </div>
           </div>
         </DialogContent>

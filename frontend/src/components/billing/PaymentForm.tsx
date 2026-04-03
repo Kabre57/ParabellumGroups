@@ -15,6 +15,7 @@ const paymentSchema = z.object({
   montant: z.number().min(0.01, 'Le montant doit etre superieur a 0'),
   datePaiement: z.string().min(1, 'La date de paiement est requise'),
   modePaiement: z.string().min(1, 'La methode de paiement est requise'),
+  treasuryAccountId: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -49,6 +50,11 @@ export default function PaymentForm({
     enabled: !invoiceId,
   });
 
+  const { data: treasuryAccountsResponse } = useQuery({
+    queryKey: ['treasury-accounts'],
+    queryFn: () => billingService.getTreasuryAccounts(),
+  });
+
   const {
     register,
     handleSubmit,
@@ -63,6 +69,7 @@ export default function PaymentForm({
           montant: payment.montant || payment.amount,
           datePaiement: payment.datePaiement || payment.payment_date || payment.date,
           modePaiement: payment.modePaiement || payment.method,
+          treasuryAccountId: payment.treasuryAccountId || '',
           reference: payment.reference || '',
           notes: payment.notes || '',
         }
@@ -71,6 +78,7 @@ export default function PaymentForm({
           montant: remainingAmount || 0,
           datePaiement: new Date().toISOString().split('T')[0],
           modePaiement: 'VIREMENT',
+          treasuryAccountId: '',
           reference: '',
           notes: '',
         },
@@ -83,6 +91,7 @@ export default function PaymentForm({
         montant: data.montant,
         datePaiement: data.datePaiement,
         modePaiement: data.modePaiement as any,
+        treasuryAccountId: data.treasuryAccountId || undefined,
         reference: data.reference,
         notes: data.notes,
       });
@@ -99,7 +108,12 @@ export default function PaymentForm({
   });
 
   const selectedInvoiceId = watch('factureId');
+  const selectedMethod = watch('modePaiement');
   const remainingLimit = typeof remainingAmount === 'number' ? Math.max(remainingAmount, 0) : undefined;
+  const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
+  const filteredTreasuryAccounts = treasuryAccounts.filter((account) =>
+    selectedMethod === 'ESPECES' ? account.type === 'CASH' : account.type === 'BANK'
+  );
 
   useEffect(() => {
     const invoices = invoicesResponse?.data ?? [];
@@ -219,6 +233,25 @@ export default function PaymentForm({
               <option value="CARTE">Carte bancaire</option>
             </select>
             {errors.modePaiement && <p className="text-sm text-red-500">{errors.modePaiement.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="treasuryAccountId">Compte de tresorerie</Label>
+            <select
+              id="treasuryAccountId"
+              {...register('treasuryAccountId')}
+              className="h-11 w-full rounded-md border border-input bg-background px-3"
+            >
+              <option value="">Selectionner un compte</option>
+              {filteredTreasuryAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {selectedMethod === 'ESPECES' ? 'Caisse de decaissement/encaissement' : 'Compte bancaire utilise'}
+            </p>
           </div>
 
           <div className="space-y-2">

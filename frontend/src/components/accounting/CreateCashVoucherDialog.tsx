@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { CashVoucher, PurchaseCommitment } from '@/shared/api/billing';
+import billingService, { type CashVoucher, type PurchaseCommitment } from '@/shared/api/billing';
 
 interface CreateCashVoucherDialogProps {
   open: boolean;
@@ -34,7 +35,9 @@ interface CreateCashVoucherDialogProps {
     amountHT?: number;
     amountTVA?: number;
     amountTTC: number;
-    paymentMethod: 'CHEQUE' | 'ESPECES';
+    paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+    flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT';
+    treasuryAccountId?: string | null;
     issueDate?: string;
     reference?: string;
     notes?: string;
@@ -58,7 +61,9 @@ type FormState = {
   amountHT: string;
   amountTVA: string;
   amountTTC: string;
-  paymentMethod: 'CHEQUE' | 'ESPECES';
+  paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+  flowType: 'ENCAISSEMENT' | 'DECAISSEMENT';
+  treasuryAccountId: string;
   issueDate: string;
   reference: string;
   notes: string;
@@ -89,6 +94,8 @@ const buildInitialState = (commitment?: PurchaseCommitment | null): FormState =>
   amountTVA: String(commitment?.amountTVA ?? 0),
   amountTTC: String(commitment?.amountTTC ?? 0),
   paymentMethod: 'CHEQUE',
+  flowType: 'DECAISSEMENT',
+  treasuryAccountId: '',
   issueDate: new Date().toISOString().slice(0, 10),
   reference: '',
   notes: '',
@@ -103,6 +110,11 @@ export function CreateCashVoucherDialog({
   isSubmitting = false,
 }: CreateCashVoucherDialogProps) {
   const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment));
+
+  const { data: treasuryAccountsResponse } = useQuery({
+    queryKey: ['treasury-accounts'],
+    queryFn: () => billingService.getTreasuryAccounts(),
+  });
 
   useEffect(() => {
     if (open) {
@@ -135,12 +147,19 @@ export function CreateCashVoucherDialog({
       amountTVA: Number(form.amountTVA || 0),
       amountTTC: Number(form.amountTTC || 0),
       paymentMethod: form.paymentMethod,
+      flowType: form.flowType,
+      treasuryAccountId: form.treasuryAccountId || undefined,
       issueDate: form.issueDate || undefined,
       reference: form.reference || undefined,
       notes: form.notes || undefined,
       status: form.status,
     });
   };
+
+  const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
+  const filteredTreasuryAccounts = treasuryAccounts.filter((account) =>
+    form.paymentMethod === 'ESPECES' ? account.type === 'CASH' : account.type === 'BANK'
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -170,7 +189,22 @@ export function CreateCashVoucherDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Mode de décaissement</Label>
+                <Label>Type</Label>
+                <Select
+                  value={form.flowType}
+                  onValueChange={(value) => updateField('flowType', value as FormState['flowType'])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir le type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DECAISSEMENT">Décaissement</SelectItem>
+                    <SelectItem value="ENCAISSEMENT">Encaissement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Mode de paiement</Label>
                 <Select
                   value={form.paymentMethod}
                   onValueChange={(value) => updateField('paymentMethod', value as FormState['paymentMethod'])}
@@ -179,7 +213,9 @@ export function CreateCashVoucherDialog({
                     <SelectValue placeholder="Choisir un mode" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="VIREMENT">Virement</SelectItem>
                     <SelectItem value="CHEQUE">Chèque</SelectItem>
+                    <SelectItem value="CARTE">Carte</SelectItem>
                     <SelectItem value="ESPECES">Espèces</SelectItem>
                   </SelectContent>
                 </Select>
@@ -373,3 +409,21 @@ export function CreateCashVoucherDialog({
     </Dialog>
   );
 }
+              <div className="space-y-2">
+                <Label>Compte de trésorerie</Label>
+                <Select
+                  value={form.treasuryAccountId}
+                  onValueChange={(value) => updateField('treasuryAccountId', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir un compte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredTreasuryAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>

@@ -122,6 +122,8 @@ export interface Payment {
   modePaiement: 'VIREMENT' | 'CHEQUE' | 'ESPECES' | 'CARTE' | 'PRELEVEMENT';
   reference?: string;
   notes?: string;
+  treasuryAccountId?: string | null;
+  treasuryAccountName?: string | null;
   createdAt?: string;
 }
 
@@ -212,6 +214,9 @@ export interface CashVoucher {
   amountTTC: number;
   currency: string;
   paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+  flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT';
+  treasuryAccountId?: string | null;
+  treasuryAccountName?: string | null;
   status: 'BROUILLON' | 'EN_ATTENTE' | 'VALIDE' | 'DECAISSE' | 'ANNULE';
   issueDate: string;
   disbursementDate?: string | null;
@@ -221,6 +226,26 @@ export interface CashVoucher {
   createdByEmail?: string | null;
   approvedByUserId?: string | null;
   approvedByEmail?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TreasuryAccount {
+  id: string;
+  name: string;
+  type: 'BANK' | 'CASH';
+  bankName?: string | null;
+  accountNumber?: string | null;
+  currency: string;
+  openingBalance: number;
+  currentBalance: number;
+  balance?: number;
+  isDefault?: boolean;
+  isActive?: boolean;
+  inflows?: number;
+  outflows?: number;
+  movementCount?: number;
+  lastTransaction?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -274,6 +299,9 @@ export interface AccountingMovement {
   reference?: string | null;
   sourceType?: string | null;
   paymentMethod?: string | null;
+  treasuryAccountId?: string | null;
+  treasuryAccountName?: string | null;
+  treasuryAccountType?: string | null;
 }
 
 export interface AccountingEntry {
@@ -318,6 +346,8 @@ export interface AccountingReports {
     outflows: number;
     closingBalance: number;
     byPaymentMethod: Record<string, number>;
+    accounts?: TreasuryAccount[];
+    otherIncome?: number;
   };
   commitments: {
     totalCommitted: number;
@@ -687,6 +717,7 @@ export const billingService = {
     montant: number;
     datePaiement?: string;
     modePaiement: 'VIREMENT' | 'CHEQUE' | 'ESPECES' | 'CARTE';
+    treasuryAccountId?: string | null;
     reference?: string;
     notes?: string;
   }): Promise<DetailResponse<Payment>> {
@@ -735,7 +766,9 @@ export const billingService = {
     amountHT?: number;
     amountTVA?: number;
     amountTTC: number;
-    paymentMethod: 'CHEQUE' | 'ESPECES';
+    paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+    flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT';
+    treasuryAccountId?: string | null;
     issueDate?: string;
     disbursementDate?: string;
     reference?: string;
@@ -780,6 +813,40 @@ export const billingService = {
   async getAccountingAccounts(): Promise<ListResponse<AccountingAccount>> {
     const response = await apiClient.get('/billing/accounting/accounts');
     return normalizeListResponse<AccountingAccount>(response.data);
+  },
+
+  async getTreasuryAccounts(): Promise<ListResponse<TreasuryAccount>> {
+    const response = await apiClient.get('/billing/treasury-accounts');
+    return normalizeListResponse<TreasuryAccount>(response.data);
+  },
+
+  async createTreasuryAccount(data: {
+    name: string;
+    type: 'BANK' | 'CASH';
+    bankName?: string | null;
+    accountNumber?: string | null;
+    currency?: string;
+    openingBalance?: number;
+    isDefault?: boolean;
+  }): Promise<DetailResponse<TreasuryAccount>> {
+    const response = await apiClient.post('/billing/treasury-accounts', data);
+    return normalizeDetailResponse<TreasuryAccount>(response.data);
+  },
+
+  async updateTreasuryAccount(
+    id: string,
+    data: {
+      name?: string;
+      bankName?: string | null;
+      accountNumber?: string | null;
+      currency?: string;
+      openingBalance?: number;
+      isDefault?: boolean;
+      isActive?: boolean;
+    }
+  ): Promise<DetailResponse<TreasuryAccount>> {
+    const response = await apiClient.patch(`/billing/treasury-accounts/${id}`, data);
+    return normalizeDetailResponse<TreasuryAccount>(response.data);
   },
 
   async createAccountingAccount(data: {

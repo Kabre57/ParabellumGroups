@@ -1,4 +1,5 @@
-const { PrismaClient, CashVoucherStatus, MethodePaiement } = require('@prisma/client');
+const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
+const { resolveTreasuryAccountId } = require('../utils/treasury');
 
 const prisma = new PrismaClient();
 
@@ -114,6 +115,9 @@ const serializeCashVoucher = (voucher) => ({
   amountTTC: voucher.amountTTC,
   currency: voucher.currency,
   paymentMethod: voucher.paymentMethod,
+  flowType: voucher.flowType,
+  treasuryAccountId: voucher.treasuryAccountId,
+  treasuryAccountName: voucher.treasuryAccount?.name || null,
   status: voucher.status,
   issueDate: voucher.issueDate,
   disbursementDate: voucher.disbursementDate,
@@ -163,6 +167,7 @@ exports.getAllCashVouchers = async (req, res) => {
 
     const vouchers = await prisma.cashVoucher.findMany({
       where,
+      include: { treasuryAccount: true },
       orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
     });
 
@@ -202,6 +207,8 @@ exports.createCashVoucher = async (req, res) => {
       amountTVA,
       amountTTC,
       paymentMethod,
+      flowType,
+      treasuryAccountId,
       issueDate,
       disbursementDate,
       reference,
@@ -236,6 +243,12 @@ exports.createCashVoucher = async (req, res) => {
       }
     }
 
+    const resolvedTreasuryAccountId = await resolveTreasuryAccountId(prisma, {
+      treasuryAccountId,
+      paymentMethod,
+      user: req.user,
+    });
+
     const voucher = await prisma.cashVoucher.create({
       data: {
         voucherNumber: await nextVoucherNumber(),
@@ -254,6 +267,10 @@ exports.createCashVoucher = async (req, res) => {
         amountTVA: parseAmount(amountTVA, 0),
         amountTTC: parseAmount(amountTTC, parseAmount(amountHT, 0)),
         paymentMethod,
+        flowType: Object.values(CashVoucherFlowType).includes(String(flowType))
+          ? flowType
+          : 'DECAISSEMENT',
+        treasuryAccountId: resolvedTreasuryAccountId,
         issueDate: parseDate(issueDate) || new Date(),
         disbursementDate: parseDate(disbursementDate),
         reference: reference || null,
@@ -344,6 +361,7 @@ exports.getSpendingOverview = async (req, res) => {
         orderBy: { createdAt: 'desc' },
       }),
       prisma.cashVoucher.findMany({
+        include: { treasuryAccount: true },
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
@@ -351,7 +369,7 @@ exports.getSpendingOverview = async (req, res) => {
     const totalCommitted = commitments.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalVouchered = vouchers.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalDisbursed = vouchers
-      .filter((item) => item.status === 'DECAISSE')
+      .filter((item) => item.status === 'DECAISSE' && item.flowType !== 'ENCAISSEMENT')
       .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
 
     return res.json({

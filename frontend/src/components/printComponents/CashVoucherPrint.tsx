@@ -2,7 +2,7 @@
 
 import React from 'react';
 import PrintLayout from './PrintLayout';
-import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
+import { formatFCFA, formatFCFAInWords, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import type { CashVoucher } from '@/shared/api/billing';
 
 interface CashVoucherPrintProps {
@@ -19,97 +19,88 @@ export default function CashVoucherPrint({
   logoSrc,
 }: CashVoucherPrintProps) {
   const resolvedLogo = resolvePrintLogo(logoSrc);
+  const isEncaissement = voucher.flowType === 'ENCAISSEMENT';
+  const encaissementBox = isEncaissement ? '☑' : '☐';
+  const decaissementBox = !isEncaissement ? '☑' : '☐';
 
   return (
     <PrintLayout title="Bon de caisse" onClose={onClose} hideDefaultHeader>
-      <div>
-        <div className="print-header">
-          <div className="flex items-center" style={{ gap: 12 }}>
-            <img
-              src={resolvedLogo}
-              alt={companyName}
-              className="print-logo"
-              style={{ width: 56, height: 56, objectFit: 'contain' }}
-              onError={(e) => {
-                e.currentTarget.src = '/parabellum.jpg';
-              }}
-            />
-            <div>
-              <div className="print-title">{companyName}</div>
-              <div className="print-subtitle">{textOrDash(voucher.serviceName)}</div>
+      <div className="print-sheet">
+        <div className="print-body">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <img
+                src={resolvedLogo}
+                alt={companyName}
+                className="print-logo"
+                style={{ width: 54, height: 54, objectFit: 'contain' }}
+                onError={(e) => {
+                  e.currentTarget.src = '/parabellum.jpg';
+                }}
+              />
+              <div>
+                <div className="print-title">{companyName}</div>
+                <div className="print-subtitle">{textOrDash(voucher.serviceName)}</div>
+              </div>
+            </div>
+            <div className="print-meta" style={{ minWidth: 180 }}>
+              <div>Bon de caisse N° {textOrDash(voucher.voucherNumber)}</div>
+              <div>Abidjan, le {formatPrintDate(voucher.issueDate)}</div>
             </div>
           </div>
-          <div className="print-meta">
-            <div>Bon de caisse: {textOrDash(voucher.voucherNumber)}</div>
-            <div>Date d&apos;émission: {formatPrintDate(voucher.issueDate)}</div>
-            <div>Statut: {textOrDash(voucher.status)}</div>
+
+          <div className="text-center" style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
+            BON DE CAISSE
           </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 12, fontSize: 12 }}>
+            <div>{encaissementBox} Encaissement</div>
+            <div>{decaissementBox} Décaissement</div>
+          </div>
+
+          <table className="table-print" style={{ marginBottom: 14 }}>
+            <tbody>
+              <tr>
+                <th style={{ width: '24%' }}>Versant / Bénéficiaire</th>
+                <td style={{ width: '26%' }}>{textOrDash(voucher.beneficiaryName)}</td>
+                <th style={{ width: '24%' }}>Motif</th>
+                <td>{textOrDash(voucher.description)}</td>
+              </tr>
+              <tr>
+                <th>Prénom</th>
+                <td>{textOrDash('-')}</td>
+                <th>Montant total</th>
+                <td style={{ fontWeight: 700 }}>{formatFCFA(voucher.amountTTC)}</td>
+              </tr>
+              <tr>
+                <th>Téléphone</th>
+                <td>{textOrDash(voucher.beneficiaryPhone)}</td>
+                <th>Référence</th>
+                <td>{textOrDash(voucher.reference)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style={{ border: '1px solid #000', padding: 8, marginBottom: 14, fontSize: 12 }}>
+            Arrêté le présent Bon de Caisse à la somme de :
+            <div style={{ fontWeight: 700, marginTop: 6 }}>{formatFCFAInWords(voucher.amountTTC)}</div>
+          </div>
+
+          <table className="table-print">
+            <tbody>
+              <tr>
+                <th className="text-center" style={{ width: '33%' }}>Signature du bénéficiaire</th>
+                <th className="text-center" style={{ width: '33%' }}>Signature de la Direction</th>
+                <th className="text-center" style={{ width: '34%' }}>Signature Caisse</th>
+              </tr>
+              <tr>
+                <td style={{ height: 80 }}></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <table className="table-print" style={{ marginBottom: 16 }}>
-          <tbody>
-            <tr>
-              <th>Origine</th>
-              <td>{textOrDash(voucher.sourceType)}</td>
-              <th>Référence source</th>
-              <td>{textOrDash(voucher.sourceNumber)}</td>
-            </tr>
-            <tr>
-              <th>Bénéficiaire</th>
-              <td>{textOrDash(voucher.beneficiaryName)}</td>
-              <th>Fournisseur</th>
-              <td>{textOrDash(voucher.supplierName)}</td>
-            </tr>
-            <tr>
-              <th>Mode</th>
-              <td>{voucher.paymentMethod === 'CHEQUE' ? 'Chèque' : voucher.paymentMethod === 'ESPECES' ? 'Espèces' : voucher.paymentMethod}</td>
-              <th>Référence paiement</th>
-              <td>{textOrDash(voucher.reference)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table className="table-print" style={{ marginBottom: 18 }}>
-          <thead>
-            <tr>
-              <th style={{ width: '8%' }}>Ligne</th>
-              <th style={{ width: '26%' }}>Rubrique</th>
-              <th>Description</th>
-              <th style={{ width: '16%' }}>Montant</th>
-              <th style={{ width: '12%' }}>Mode</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>1</td>
-              <td>{textOrDash(voucher.expenseCategory || 'Décaissement')}</td>
-              <td>{textOrDash(voucher.description)}</td>
-              <td>{formatFCFA(voucher.amountHT)}</td>
-              <td>{voucher.paymentMethod === 'CHEQUE' ? 'Chèque' : voucher.paymentMethod === 'ESPECES' ? 'Espèces' : voucher.paymentMethod}</td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td>TVA</td>
-              <td>Taxe appliquée sur le décaissement</td>
-              <td>{formatFCFA(voucher.amountTVA)}</td>
-              <td>-</td>
-            </tr>
-            <tr>
-              <td>3</td>
-              <td>Total TTC</td>
-              <td>Montant total à décaisser</td>
-              <td>{formatFCFA(voucher.amountTTC)}</td>
-              <td>{voucher.paymentMethod === 'CHEQUE' ? 'Chèque' : voucher.paymentMethod === 'ESPECES' ? 'Espèces' : voucher.paymentMethod}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {voucher.notes && (
-          <div className="print-footer">
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Notes</div>
-            <div>{voucher.notes}</div>
-          </div>
-        )}
       </div>
     </PrintLayout>
   );

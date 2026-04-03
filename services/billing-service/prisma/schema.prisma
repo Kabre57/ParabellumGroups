@@ -60,15 +60,18 @@ model Paiement {
   montant          Float
   datePaiement     DateTime        @default(now())
   methodePaiement  MethodePaiement
+  treasuryAccountId String?
   reference        String?
   notes            String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
   facture          Facture         @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  treasuryAccount  TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
 
   @@index([factureId])
   @@index([datePaiement])
+  @@index([treasuryAccountId])
   @@map("paiements")
 }
 
@@ -245,6 +248,8 @@ model CashVoucher {
   amountTTC         Float
   currency          String   @default("XOF")
   paymentMethod     MethodePaiement
+  flowType          CashVoucherFlowType @default(DECAISSEMENT)
+  treasuryAccountId String?
   status            CashVoucherStatus @default(BROUILLON)
   issueDate         DateTime @default(now())
   disbursementDate  DateTime?
@@ -257,10 +262,37 @@ model CashVoucher {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
   @@index([sourceType, sourceId])
   @@index([status])
   @@index([issueDate])
+  @@index([treasuryAccountId])
   @@map("cash_vouchers")
+}
+
+model TreasuryAccount {
+  id              String               @id @default(uuid())
+  name            String
+  type            TreasuryAccountType
+  bankName        String?
+  accountNumber   String?
+  currency        String               @default("XOF")
+  openingBalance  Float                @default(0)
+  currentBalance  Float                @default(0)
+  isDefault       Boolean              @default(false)
+  isActive        Boolean              @default(true)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  payments        Paiement[]
+  cashVouchers    CashVoucher[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("treasury_accounts")
 }
 
 model BillingProcessedEvent {
@@ -369,6 +401,16 @@ enum CashVoucherStatus {
   VALIDE
   DECAISSE
   ANNULE
+}
+
+enum CashVoucherFlowType {
+  ENCAISSEMENT
+  DECAISSEMENT
+}
+
+enum TreasuryAccountType {
+  BANK
+  CASH
 }
 
 enum AvoirStatus {

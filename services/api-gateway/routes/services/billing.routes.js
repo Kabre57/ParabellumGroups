@@ -113,6 +113,14 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/treasury-accounts$/,
+    permissions: {
+      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
+      POST: ['expenses.create', 'expenses.update', 'payments.create'],
+      PATCH: ['expenses.update', 'payments.update']
+    }
+  },
+  {
     pattern: /^\/cash-vouchers\/[^/]+\/status$/,
     permissions: {
       PATCH: ['expenses.approve', 'payments.validate']

@@ -8,6 +8,11 @@ const {
   serializeAccountingAccount,
   serializeJournalEntry,
 } = require('../utils/accounting');
+const {
+  ensureDefaultTreasuryAccounts,
+  treasuryTypeFromPaymentMethod,
+  serializeTreasuryAccount,
+} = require('../utils/treasury');
 
 const prisma = new PrismaClient();
 
@@ -22,6 +27,9 @@ const pushMovement = (bucket, movement) => {
     reference: movement.reference || null,
     sourceType: movement.sourceType || null,
     paymentMethod: movement.paymentMethod || null,
+    treasuryAccountId: movement.treasuryAccountId || null,
+    treasuryAccountName: movement.treasuryAccountName || null,
+    treasuryAccountType: movement.treasuryAccountType || null,
   });
 };
 
@@ -109,6 +117,7 @@ exports.getAccountingOverview = async (req, res) => {
     }
 
     await ensureDefaultAccounts(prisma, req.user);
+    await ensureDefaultTreasuryAccounts(prisma, req.user);
 
     const { startDate, endDate, periodLabel } = resolveDateRange({
       period: req.query.period,
@@ -130,7 +139,7 @@ exports.getAccountingOverview = async (req, res) => {
           };
     const journalEntryWhere = buildDateWhere('entryDate', startDate, endDate);
 
-    const [factures, paiements, commitments, vouchers, persistedAccounts, manualJournalEntries] = await Promise.all([
+    const [factures, paiements, commitments, vouchers, persistedAccounts, manualJournalEntries, treasuryAccounts] = await Promise.all([
       prisma.facture.findMany({
         where: invoiceWhere,
         include: { paiements: true, lignes: true },
@@ -138,7 +147,7 @@ exports.getAccountingOverview = async (req, res) => {
       }),
       prisma.paiement.findMany({
         where: paymentWhere,
-        include: { facture: true },
+        include: { facture: true, treasuryAccount: true },
         orderBy: { datePaiement: 'desc' },
       }),
       prisma.purchaseCommitment.findMany({
@@ -147,6 +156,7 @@ exports.getAccountingOverview = async (req, res) => {
       }),
       prisma.cashVoucher.findMany({
         where: voucherWhere,
+        include: { treasuryAccount: true },
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.accountingAccount.findMany({
@@ -163,6 +173,10 @@ exports.getAccountingOverview = async (req, res) => {
         },
         orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }],
       }),
+      prisma.treasuryAccount.findMany({
+        where: { isActive: true },
+        orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
+      }),
     ]);
 
     const totalRevenue = factures
@@ -171,23 +185,33 @@ exports.getAccountingOverview = async (req, res) => {
     const totalCollectedVat = factures
       .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
       .reduce((sum, invoice) => sum + amount(invoice.montantTVA), 0);
-    const totalReceived = paiements.reduce((sum, payment) => sum + amount(payment.montant), 0);
+    const totalInvoiceReceived = paiements.reduce((sum, payment) => sum + amount(payment.montant), 0);
 
-    const disbursedVouchers = vouchers.filter((voucher) => voucher.status === 'DECAISSE');
-    const totalExpenseHT = vouchers
-      .filter((voucher) => voucher.status !== 'ANNULE')
-      .reduce((sum, voucher) => sum + amount(voucher.amountHT || voucher.amountTTC), 0);
-    const totalDeductibleVat = vouchers
-      .filter((voucher) => voucher.status !== 'ANNULE')
-      .reduce((sum, voucher) => sum + amount(voucher.amountTVA), 0);
+    const activeVouchers = vouchers.filter((voucher) => voucher.status !== 'ANNULE');
+    const outflowVouchers = activeVouchers.filter((voucher) => voucher.flowType !== 'ENCAISSEMENT');
+    const inflowVouchers = activeVouchers.filter((voucher) => voucher.flowType === 'ENCAISSEMENT');
+    const disbursedVouchers = outflowVouchers.filter((voucher) => voucher.status === 'DECAISSE');
+    const receivedVouchers = inflowVouchers.filter((voucher) => voucher.status === 'DECAISSE');
+    const totalExpenseHT = outflowVouchers.reduce((sum, voucher) => sum + amount(voucher.amountHT || voucher.amountTTC), 0);
+    const totalDeductibleVat = outflowVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTVA), 0);
     const totalDisbursed = disbursedVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+    const totalOtherIncome = receivedVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+    const totalTreasuryIncome = totalInvoiceReceived + totalOtherIncome;
 
-    const bankInflows = paiements
-      .filter((payment) => String(payment.methodePaiement || '').toUpperCase() !== 'ESPECES')
-      .reduce((sum, payment) => sum + amount(payment.montant), 0);
-    const cashInflows = paiements
-      .filter((payment) => String(payment.methodePaiement || '').toUpperCase() === 'ESPECES')
-      .reduce((sum, payment) => sum + amount(payment.montant), 0);
+    const bankInflows =
+      paiements
+        .filter((payment) => String(payment.methodePaiement || '').toUpperCase() !== 'ESPECES')
+        .reduce((sum, payment) => sum + amount(payment.montant), 0) +
+      receivedVouchers
+        .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() !== 'ESPECES')
+        .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+    const cashInflows =
+      paiements
+        .filter((payment) => String(payment.methodePaiement || '').toUpperCase() === 'ESPECES')
+        .reduce((sum, payment) => sum + amount(payment.montant), 0) +
+      receivedVouchers
+        .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() === 'ESPECES')
+        .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
     const bankOutflows = disbursedVouchers
       .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() !== 'ESPECES')
       .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
@@ -210,6 +234,14 @@ exports.getAccountingOverview = async (req, res) => {
     const pendingCommitments = commitments
       .filter((item) => !['ANNULE', 'LIVRE', 'PAYEE'].includes(String(item.status)))
       .reduce((sum, item) => sum + amount(item.amountTTC), 0);
+
+    const serializedTreasuryAccounts = treasuryAccounts.map(serializeTreasuryAccount);
+    const defaultTreasuryByType = serializedTreasuryAccounts.reduce((accumulator, account) => {
+      if (account.isDefault && account.isActive) {
+        accumulator[account.type] = account;
+      }
+      return accumulator;
+    }, {});
 
     const dynamicAccounts = [
       {
@@ -340,6 +372,8 @@ exports.getAccountingOverview = async (req, res) => {
     const movements = [];
 
     paiements.forEach((payment) => {
+      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(payment.methodePaiement)];
+      const treasuryAccount = payment.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
         id: `payment-${payment.id}`,
         date: payment.datePaiement,
@@ -352,10 +386,15 @@ exports.getAccountingOverview = async (req, res) => {
         reference: payment.reference || payment.facture?.numeroFacture || null,
         sourceType: 'PAYMENT',
         paymentMethod: payment.methodePaiement,
+        treasuryAccountId: treasuryAccount?.id,
+        treasuryAccountName: treasuryAccount?.name,
+        treasuryAccountType: treasuryAccount?.type,
       });
     });
 
     disbursedVouchers.forEach((voucher) => {
+      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(voucher.paymentMethod)];
+      const treasuryAccount = voucher.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
         id: `voucher-${voucher.id}`,
         date: voucher.disbursementDate || voucher.issueDate,
@@ -366,6 +405,28 @@ exports.getAccountingOverview = async (req, res) => {
         reference: voucher.reference || voucher.voucherNumber,
         sourceType: voucher.sourceType,
         paymentMethod: voucher.paymentMethod,
+        treasuryAccountId: treasuryAccount?.id,
+        treasuryAccountName: treasuryAccount?.name,
+        treasuryAccountType: treasuryAccount?.type,
+      });
+    });
+
+    receivedVouchers.forEach((voucher) => {
+      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(voucher.paymentMethod)];
+      const treasuryAccount = voucher.treasuryAccount || fallbackAccount || null;
+      pushMovement(movements, {
+        id: `voucher-in-${voucher.id}`,
+        date: voucher.disbursementDate || voucher.issueDate,
+        type: 'income',
+        category: 'Encaissement caisse',
+        description: `${voucher.voucherNumber} - ${voucher.description}`,
+        amount: amount(voucher.amountTTC),
+        reference: voucher.reference || voucher.voucherNumber,
+        sourceType: voucher.sourceType,
+        paymentMethod: voucher.paymentMethod,
+        treasuryAccountId: treasuryAccount?.id,
+        treasuryAccountName: treasuryAccount?.name,
+        treasuryAccountType: treasuryAccount?.type,
       });
     });
 
@@ -373,6 +434,8 @@ exports.getAccountingOverview = async (req, res) => {
       entry.lines
         .filter((line) => ['512', '531'].includes(String(line.account?.code || '')))
         .forEach((line) => {
+          const manualAccountType = String(line.account?.code || '') === '531' ? 'CASH' : 'BANK';
+          const fallbackAccount = defaultTreasuryByType[manualAccountType];
           pushMovement(movements, {
             id: `manual-${entry.id}-${line.id}`,
             date: entry.entryDate,
@@ -383,6 +446,9 @@ exports.getAccountingOverview = async (req, res) => {
             reference: entry.reference || entry.entryNumber,
             sourceType: entry.sourceType || 'MANUAL_ENTRY',
             paymentMethod: line.account.code === '531' ? 'ESPECES' : 'VIREMENT',
+            treasuryAccountId: fallbackAccount?.id,
+            treasuryAccountName: fallbackAccount?.name,
+            treasuryAccountType: fallbackAccount?.type,
           });
         });
     });
@@ -400,6 +466,32 @@ exports.getAccountingOverview = async (req, res) => {
         };
       })
       .reverse();
+
+    const treasuryAccountSummaries = serializedTreasuryAccounts.map((account) => ({
+      ...account,
+      inflows: 0,
+      outflows: 0,
+      movementCount: 0,
+      lastTransaction: account.updatedAt,
+    }));
+    const treasurySummaryMap = new Map(treasuryAccountSummaries.map((account) => [account.id, account]));
+
+    movementsChronological.forEach((movement) => {
+      if (!movement.treasuryAccountId) return;
+      const summary = treasurySummaryMap.get(movement.treasuryAccountId);
+      if (!summary) return;
+      if (movement.type === 'income') {
+        summary.inflows += movement.amount;
+      } else {
+        summary.outflows += movement.amount;
+      }
+      summary.movementCount += 1;
+      summary.lastTransaction = movement.date || summary.lastTransaction;
+    });
+
+    treasuryAccountSummaries.forEach((summary) => {
+      summary.balance = summary.openingBalance + summary.inflows - summary.outflows;
+    });
 
     const entries = [];
 
@@ -446,12 +538,10 @@ exports.getAccountingOverview = async (req, res) => {
       });
     });
 
-    vouchers
-      .filter((voucher) => voucher.status !== 'ANNULE')
-      .forEach((voucher) => {
-        const expenseAccount = expenseAccountCode(voucher);
-        entries.push({
-          id: buildEntryId('voucher-booking', voucher.id),
+    outflowVouchers.forEach((voucher) => {
+      const expenseAccount = expenseAccountCode(voucher);
+      entries.push({
+        id: buildEntryId('voucher-booking', voucher.id),
           date: voucher.issueDate,
           journalCode: 'AC',
           journalLabel: 'Journal des achats',
@@ -505,13 +595,13 @@ exports.getAccountingOverview = async (req, res) => {
     const reportedExpenses = totalExpenseHT + manualDeltasByType.expense;
     const reportedNetResult = reportedRevenue - reportedExpenses;
 
-    const paymentMethodBreakdown = vouchers.reduce((accumulator, voucher) => {
+    const paymentMethodBreakdown = outflowVouchers.reduce((accumulator, voucher) => {
       const key = String(voucher.paymentMethod || 'AUTRE').toUpperCase();
       accumulator[key] = (accumulator[key] || 0) + amount(voucher.amountTTC);
       return accumulator;
     }, {});
 
-    const expenseCategoryBreakdown = vouchers.reduce((accumulator, voucher) => {
+    const expenseCategoryBreakdown = outflowVouchers.reduce((accumulator, voucher) => {
       const key =
         voucher.expenseCategory ||
         (voucher.sourceType === 'PURCHASE_ORDER' ? 'Achats validés' : 'Autres dépenses');
@@ -536,10 +626,12 @@ exports.getAccountingOverview = async (req, res) => {
         netResult: reportedNetResult,
       },
       treasury: {
-        inflows: totalReceived,
+        inflows: totalTreasuryIncome,
         outflows: totalDisbursed,
         closingBalance: runningBalance,
         byPaymentMethod: paymentMethodBreakdown,
+        accounts: treasuryAccountSummaries,
+        otherIncome: totalOtherIncome,
       },
       commitments: {
         totalCommitted,
@@ -548,7 +640,8 @@ exports.getAccountingOverview = async (req, res) => {
       },
       kpis: {
         netMargin: reportedRevenue > 0 ? (reportedNetResult / reportedRevenue) * 100 : 0,
-        collectionRate: reportedRevenue > 0 ? (totalReceived / Math.max(reportedRevenue + totalCollectedVat, 1)) * 100 : 0,
+        collectionRate:
+          reportedRevenue > 0 ? (totalInvoiceReceived / Math.max(reportedRevenue + totalCollectedVat, 1)) * 100 : 0,
         disbursementCoverage: totalCommitted > 0 ? (totalDisbursed / totalCommitted) * 100 : 0,
       },
     };
@@ -562,7 +655,7 @@ exports.getAccountingOverview = async (req, res) => {
         generatedAt: new Date().toISOString(),
         summary: {
           totalRevenue: reportedRevenue,
-          totalReceived,
+          totalReceived: totalTreasuryIncome,
           totalExpenseHT: reportedExpenses,
           totalDisbursed,
           clientReceivables,

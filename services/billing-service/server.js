@@ -21,6 +21,7 @@ const purchaseCommitmentRoutes = require('./routes/purchaseCommitment.routes');
 const internalProcurementEventRoutes = require('./routes/internalProcurementEvent.routes');
 const cashVoucherRoutes = require('./routes/cashVoucher.routes');
 const accountingRoutes = require('./routes/accounting.routes');
+const treasuryAccountRoutes = require('./routes/treasuryAccount.routes');
 
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
@@ -28,6 +29,7 @@ app.use('/api/devis', devisRoutes);
 app.use('/api/avoirs', avoirRoutes);
 app.use('/api/purchase-commitments', purchaseCommitmentRoutes);
 app.use('/api/cash-vouchers', cashVoucherRoutes);
+app.use('/api/treasury-accounts', treasuryAccountRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/internal/procurement-events', internalProcurementEventRoutes);
 
@@ -53,6 +55,7 @@ app.get('/', (req, res) => {
       avoirs: '/api/avoirs',
       purchaseCommitments: '/api/purchase-commitments',
       cashVouchers: '/api/cash-vouchers',
+      treasuryAccounts: '/api/treasury-accounts',
       accounting: '/api/accounting/overview',
       health: '/health'
     }
@@ -78,6 +81,7 @@ app.listen(PORT, () => {
   console.log(`💰 API Paiements: http://localhost:${PORT}/api/paiements`);
   console.log(`📝 API Devis: http://localhost:${PORT}/api/devis`);
   console.log(`🧾 API Bons de caisse: http://localhost:${PORT}/api/cash-vouchers`);
+  console.log(`🏦 API Comptes de trésorerie: http://localhost:${PORT}/api/treasury-accounts`);
   console.log(`📚 API Comptable: http://localhost:${PORT}/api/accounting/overview`);
 });
 

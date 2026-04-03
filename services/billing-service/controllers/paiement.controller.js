@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { resolveTreasuryAccountId } = require('../utils/treasury');
 const prisma = new PrismaClient();
 
 const paymentMethodMap = {
@@ -21,6 +22,8 @@ const serializePaiement = (paiement) => ({
   methodePaiement: paiement.methodePaiement,
   reference: paiement.reference || null,
   notes: paiement.notes || null,
+  treasuryAccountId: paiement.treasuryAccountId || null,
+  treasuryAccountName: paiement.treasuryAccount?.name || null,
   facture: paiement.facture || undefined,
   createdAt: paiement.createdAt,
   updatedAt: paiement.updatedAt,
@@ -31,7 +34,7 @@ const serializePaiement = (paiement) => ({
  */
 exports.createPaiement = async (req, res) => {
   try {
-    const { factureId, montant, datePaiement, methodePaiement, modePaiement, reference, notes } = req.body;
+    const { factureId, montant, datePaiement, methodePaiement, modePaiement, reference, notes, treasuryAccountId } = req.body;
     const normalizedMethod = normalizeMethod(methodePaiement || modePaiement);
 
     if (!factureId || !normalizedMethod || !Number.isFinite(Number(montant))) {
@@ -59,12 +62,19 @@ exports.createPaiement = async (req, res) => {
     }
 
     // Créer le paiement
+    const resolvedTreasuryAccountId = await resolveTreasuryAccountId(prisma, {
+      treasuryAccountId,
+      paymentMethod: normalizedMethod,
+      user: req.user,
+    });
+
     const paiement = await prisma.paiement.create({
       data: {
         factureId,
         montant: montantNumerique,
         datePaiement: datePaiement ? new Date(datePaiement) : new Date(),
         methodePaiement: normalizedMethod,
+        treasuryAccountId: resolvedTreasuryAccountId,
         reference,
         notes
       }
@@ -102,6 +112,7 @@ exports.getByFacture = async (req, res) => {
 
     const paiements = await prisma.paiement.findMany({
       where: { factureId },
+      include: { treasuryAccount: true },
       orderBy: { datePaiement: 'desc' }
     });
 
@@ -192,7 +203,8 @@ exports.getAllPaiements = async (req, res) => {
     const paiements = await prisma.paiement.findMany({
       where,
       include: {
-        facture: true
+        facture: true,
+        treasuryAccount: true
       },
       orderBy: { datePaiement: 'desc' }
     });
