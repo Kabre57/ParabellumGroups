@@ -26,12 +26,15 @@ export default function TresoreriePage() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const [printJournalOpen, setPrintJournalOpen] = useState(false);
+  const [closureFilter, setClosureFilter] = useState<string>('all');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
     ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some(
       (permission) => permissionSet.has(permission)
     );
+  const canValidateClosure =
+    isAdminRole(user) || ['payments.validate', 'expenses.approve', 'expenses.update'].some((permission) => permissionSet.has(permission));
 
   const { data, isLoading } = useQuery({
     queryKey: ['cash-flows', period, customRange?.startDate || null, customRange?.endDate || null],
@@ -79,9 +82,23 @@ export default function TresoreriePage() {
   const cashFlows = data?.data?.treasuryMovements ?? [];
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const filteredCashFlows = useMemo(() => {
-    if (accountFilter === 'all') return cashFlows;
-    return cashFlows.filter((flow: AccountingMovement) => flow.treasuryAccountId === accountFilter);
-  }, [cashFlows, accountFilter]);
+    let flows = cashFlows;
+    if (accountFilter !== 'all') {
+      flows = flows.filter((flow: AccountingMovement) => flow.treasuryAccountId === accountFilter);
+    }
+    if (closureFilter !== 'all') {
+      const closure = closuresResponse?.data?.find((item) => item.id === closureFilter);
+      if (closure) {
+        const start = new Date(closure.periodStart);
+        const end = new Date(closure.periodEnd);
+        flows = flows.filter((flow: AccountingMovement) => {
+          const date = new Date(flow.date);
+          return date >= start && date <= end;
+        });
+      }
+    }
+    return flows;
+  }, [cashFlows, accountFilter, closureFilter, closuresResponse?.data]);
   const report = data?.data?.reports?.treasury;
   const treasuryAccounts = report?.accounts ?? [];
   const totalIncome = report?.inflows || 0;
@@ -109,6 +126,17 @@ export default function TresoreriePage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Impossible de créer la clôture.');
+    },
+  });
+
+  const validateClosureMutation = useMutation({
+    mutationFn: billingService.validateTreasuryClosure,
+    onSuccess: () => {
+      toast.success('Clôture validée.');
+      queryClient.invalidateQueries({ queryKey: ['treasury-closures'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Impossible de valider la clôture.');
     },
   });
 
@@ -162,6 +190,18 @@ export default function TresoreriePage() {
             {treasuryAccounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={closureFilter}
+            onChange={(event) => setClosureFilter(event.target.value)}
+            className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
+          >
+            <option value="all">Toutes clôtures</option>
+            {(closuresResponse?.data ?? []).map((closure) => (
+              <option key={closure.id} value={closure.id}>
+                {new Date(closure.periodStart).toLocaleDateString('fr-FR')} - {new Date(closure.periodEnd).toLocaleDateString('fr-FR')}
               </option>
             ))}
           </select>
@@ -341,6 +381,7 @@ export default function TresoreriePage() {
                 <th className="text-right py-3 px-4 font-semibold text-sm">Théorique</th>
                 <th className="text-right py-3 px-4 font-semibold text-sm">Écart</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Statut</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -355,11 +396,23 @@ export default function TresoreriePage() {
                   <td className="py-3 px-4 text-right text-sm">{formatAccountingCurrency(closure.expectedTotal || 0)}</td>
                   <td className="py-3 px-4 text-right text-sm">{formatAccountingCurrency(closure.variance || 0)}</td>
                   <td className="py-3 px-4 text-sm">{closure.status}</td>
+                  <td className="py-3 px-4 text-right">
+                    {canValidateClosure && closure.status !== 'VALIDATED' ? (
+                      <Button
+                        size="sm"
+                        onClick={() => validateClosureMutation.mutate(closure.id)}
+                      >
+                        Valider clôture
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {!closuresResponse?.data?.length && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
                     Aucune clôture enregistrée sur la période.
                   </td>
                 </tr>
