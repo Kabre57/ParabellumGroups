@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { authenticateUser } = require('./middleware/auth');
 const { ensureProspectDatabase } = require('./utils/ensureDatabase');
+const { startTerrainScheduler } = require('./services/terrainScheduler');
 
 const prospectRoutes = require('./routes/prospect.routes');
 
@@ -39,6 +40,7 @@ const startServer = async () => {
     console.log(`🚀 Commercial Service démarré sur le port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+    startTerrainScheduler();
   });
 };
 

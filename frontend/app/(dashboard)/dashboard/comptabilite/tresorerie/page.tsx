@@ -77,6 +77,11 @@ export default function TresoreriePage() {
   });
 
   const cashFlows = data?.data?.treasuryMovements ?? [];
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const filteredCashFlows = useMemo(() => {
+    if (accountFilter === 'all') return cashFlows;
+    return cashFlows.filter((flow: AccountingMovement) => flow.treasuryAccountId === accountFilter);
+  }, [cashFlows, accountFilter]);
   const report = data?.data?.reports?.treasury;
   const treasuryAccounts = report?.accounts ?? [];
   const totalIncome = report?.inflows || 0;
@@ -148,7 +153,19 @@ export default function TresoreriePage() {
           <Button variant="outline" onClick={() => setPrintJournalOpen(true)}>
             Imprimer le journal
           </Button>
-          <Button variant="outline" onClick={() => exportTreasuryCsv(cashFlows)}>
+          <select
+            value={accountFilter}
+            onChange={(event) => setAccountFilter(event.target.value)}
+            className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
+          >
+            <option value="all">Tous les comptes</option>
+            {treasuryAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+          <Button variant="outline" onClick={() => exportTreasuryCsv(filteredCashFlows)}>
             Exporter Excel
           </Button>
           <Button className="flex items-center gap-2" onClick={() => setDialogOpen(true)}>
@@ -273,7 +290,7 @@ export default function TresoreriePage() {
                 </tr>
               </thead>
               <tbody>
-                {cashFlows.map((flow: AccountingMovement) => (
+                {filteredCashFlows.map((flow: AccountingMovement) => (
                   <tr key={flow.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="py-3 px-4 text-sm">{formatAccountingDate(flow.date)}</td>
                     <td className="py-3 px-4">
@@ -299,7 +316,7 @@ export default function TresoreriePage() {
                     <td className="py-3 px-4 text-right font-semibold">{formatAccountingCurrency(flow.balance)}</td>
                   </tr>
                 ))}
-                {!cashFlows.length && (
+                {!filteredCashFlows.length && (
                   <tr>
                     <td className="py-8 px-4 text-center text-sm text-gray-500" colSpan={7}>
                       Aucun mouvement de trésorerie sur cette période.
@@ -389,7 +406,7 @@ export default function TresoreriePage() {
             { key: 'amount', label: 'Montant', align: 'right' },
             { key: 'balance', label: 'Solde', align: 'right' },
           ]}
-          rows={cashFlows.map((flow: AccountingMovement) => ({
+          rows={filteredCashFlows.map((flow: AccountingMovement) => ({
             date: formatAccountingDate(flow.date),
             type: flow.type === 'income' ? 'Encaissement' : 'Décaissement',
             category: flow.category,
