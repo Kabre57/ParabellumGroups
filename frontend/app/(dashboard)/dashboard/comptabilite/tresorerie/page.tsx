@@ -435,7 +435,9 @@ export default function TresoreriePage() {
         open={accountDialogOpen}
         onOpenChange={setAccountDialogOpen}
         isSubmitting={createAccountMutation.isPending}
-        onSubmit={(payload) => createAccountMutation.mutateAsync(payload)}
+        onSubmit={(payload) => {
+          createAccountMutation.mutate(payload);
+        }}
       />
 
       <TreasuryClosureDialog
