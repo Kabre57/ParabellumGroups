@@ -446,7 +446,11 @@ export default function TresoreriePage() {
         accounts={treasuryAccounts}
         isSubmitting={createClosureMutation.isPending}
         onSubmit={(payload) => {
-          createClosureMutation.mutate(payload);
+           // On ne transmet pas de status "VALIDATED" à la création
+          const { status, ...payloadWithoutStatus } = payload;
+          createClosureMutation.mutate(
+            payloadWithoutStatus as Parameters<typeof billingService.createTreasuryClosure>[0]
+          );
         }}
       />
 

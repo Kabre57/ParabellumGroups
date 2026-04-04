@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import billingService, { type CashVoucher, type PurchaseCommitment } from '@/shared/api/billing';
 
+// Interface pour les propriétés du composant CreateCashVoucherDialog
 interface CreateCashVoucherDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,6 +47,7 @@ interface CreateCashVoucherDialogProps {
   isSubmitting?: boolean;
 }
 
+// Type pour l'état du formulaire
 type FormState = {
   sourceType: string;
   sourceId: string;
@@ -70,6 +72,7 @@ type FormState = {
   status: CashVoucher['status'];
 };
 
+// Fonction pour construire l'état initial du formulaire
 const buildInitialState = (commitment?: PurchaseCommitment | null): FormState => ({
   sourceType: commitment?.sourceType || 'OTHER',
   sourceId: commitment?.sourceId || '',
@@ -78,8 +81,8 @@ const buildInitialState = (commitment?: PurchaseCommitment | null): FormState =>
     commitment?.sourceType === 'PURCHASE_ORDER'
       ? 'Commande fournisseur'
       : commitment?.sourceType === 'PURCHASE_QUOTE'
-      ? 'Demande d achat validée'
-      : 'Dépense diverse',
+        ? 'Demande d achat validée'
+        : 'Dépense diverse',
   serviceId: commitment?.serviceId != null ? String(commitment.serviceId) : '',
   serviceName: commitment?.serviceName || '',
   supplierId: commitment?.supplierId || '',
@@ -102,6 +105,7 @@ const buildInitialState = (commitment?: PurchaseCommitment | null): FormState =>
   status: 'EN_ATTENTE',
 });
 
+// Définition du composant fonctionnel CreateCashVoucherDialog
 export function CreateCashVoucherDialog({
   open,
   onOpenChange,
@@ -109,27 +113,33 @@ export function CreateCashVoucherDialog({
   onSubmit,
   isSubmitting = false,
 }: CreateCashVoucherDialogProps) {
+  // État local du formulaire, initialisé avec buildInitialState
   const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment));
 
+  // Requête pour récupérer les comptes de trésorerie via react-query
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
     queryFn: () => billingService.getTreasuryAccounts(),
   });
 
+  // Effet pour réinitialiser le formulaire lorsque la boîte de dialogue s'ouvre ou que le defaultCommitment change
   useEffect(() => {
     if (open) {
       setForm(buildInitialState(defaultCommitment));
     }
   }, [defaultCommitment, open]);
 
+  // Fonction utilitaire pour mettre à jour un champ spécifique du formulaire
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  // Conversion des montants en nombres pour les calculs ou l'affichage
   const amountHT = Number(form.amountHT || 0);
   const amountTVA = Number(form.amountTVA || 0);
   const amountTTC = Number(form.amountTTC || 0);
 
+  // Gestion de la soumission du formulaire
   const handleSubmit = async () => {
     await onSubmit({
       sourceType: form.sourceType || undefined,
@@ -156,11 +166,13 @@ export function CreateCashVoucherDialog({
     });
   };
 
+  // Filtrage des comptes de trésorerie en fonction du mode de paiement
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
   const filteredTreasuryAccounts = treasuryAccounts.filter((account) =>
     form.paymentMethod === 'ESPECES' ? account.type === 'CASH' : account.type === 'BANK'
   );
 
+  // Rendu du composant (JSX)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[92vh] w-[min(98vw,1600px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
@@ -173,146 +185,178 @@ export function CreateCashVoucherDialog({
 
         <div className="min-h-0 overflow-y-auto pr-2">
           <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-2">
-                <Label>Origine</Label>
-                <Select value={form.sourceType} onValueChange={(value) => updateField('sourceType', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir l'origine" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PURCHASE_ORDER">Bon de commande</SelectItem>
-                    <SelectItem value="PURCHASE_QUOTE">Devis interne validé</SelectItem>
-                    <SelectItem value="SUPPLIER_INVOICE">Facture fournisseur</SelectItem>
-                    <SelectItem value="EXPENSE">Dépense diverse</SelectItem>
-                    <SelectItem value="OTHER">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={form.flowType}
-                  onValueChange={(value) => updateField('flowType', value as FormState['flowType'])}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir le type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DECAISSEMENT">Décaissement</SelectItem>
-                    <SelectItem value="ENCAISSEMENT">Encaissement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Mode de paiement</Label>
-                <Select
-                  value={form.paymentMethod}
-                  onValueChange={(value) => updateField('paymentMethod', value as FormState['paymentMethod'])}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="VIREMENT">Virement</SelectItem>
-                    <SelectItem value="CHEQUE">Chèque</SelectItem>
-                    <SelectItem value="CARTE">Carte</SelectItem>
-                    <SelectItem value="ESPECES">Espèces</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Référence source</Label>
-                <Input
-                  value={form.sourceNumber}
-                  onChange={(event) => updateField('sourceNumber', event.target.value)}
-                  placeholder="BCA-202603-0001 / Facture..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Catégorie comptable</Label>
-                <Input
-                  value={form.expenseCategory}
-                  onChange={(event) => updateField('expenseCategory', event.target.value)}
-                  placeholder="Achats, frais généraux..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Bénéficiaire</Label>
-                <Input
-                  value={form.beneficiaryName}
-                  onChange={(event) => updateField('beneficiaryName', event.target.value)}
-                  placeholder="Fournisseur ou bénéficiaire"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Téléphone bénéficiaire</Label>
-                <Input
-                  value={form.beneficiaryPhone}
-                  onChange={(event) => updateField('beneficiaryPhone', event.target.value)}
-                  placeholder="Numéro de téléphone"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Service imputé</Label>
-                <Input
-                  value={form.serviceName}
-                  onChange={(event) => updateField('serviceName', event.target.value)}
-                  placeholder="Direction Technique, Achat..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fournisseur</Label>
-                <Input
-                  value={form.supplierName}
-                  onChange={(event) => updateField('supplierName', event.target.value)}
-                  placeholder="Nom du fournisseur"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Date d'émission</Label>
-                <Input type="date" value={form.issueDate} onChange={(event) => updateField('issueDate', event.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Statut initial</Label>
-                <Select value={form.status} onValueChange={(value) => updateField('status', value as CashVoucher['status'])}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BROUILLON">Brouillon</SelectItem>
-                    <SelectItem value="EN_ATTENTE">En attente</SelectItem>
-                    <SelectItem value="VALIDE">Validé</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 md:col-span-4">
-                <Label>Description</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(event) => updateField('description', event.target.value)}
-                  placeholder="Objet du décaissement"
-                  className="min-h-[60px]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Référence paiement</Label>
-                <Input
-                  value={form.reference}
-                  onChange={(event) => updateField('reference', event.target.value)}
-                  placeholder="Numéro de chèque, pièce..."
-                />
-              </div>
-              <div className="space-y-2 md:col-span-3">
-                <Label>Notes comptables</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(event) => updateField('notes', event.target.value)}
-                  placeholder="Observations comptables, justification, pièces..."
-                  className="min-h-[60px]"
-                />
-              </div>
+            {/* Champ Origine */}
+            <div className="space-y-2">
+              <Label>Origine</Label>
+              <Select value={form.sourceType} onValueChange={(value) => updateField('sourceType', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir l'origine" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PURCHASE_ORDER">Bon de commande</SelectItem>
+                  <SelectItem value="PURCHASE_QUOTE">Devis interne validé</SelectItem>
+                  <SelectItem value="SUPPLIER_INVOICE">Facture fournisseur</SelectItem>
+                  <SelectItem value="EXPENSE">Dépense diverse</SelectItem>
+                  <SelectItem value="OTHER">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Champ Type de flux */}
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={form.flowType}
+                onValueChange={(value) => updateField('flowType', value as FormState['flowType'])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir le type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DECAISSEMENT">Décaissement</SelectItem>
+                  <SelectItem value="ENCAISSEMENT">Encaissement</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Champ Mode de paiement */}
+            <div className="space-y-2">
+              <Label>Mode de paiement</Label>
+              <Select
+                value={form.paymentMethod}
+                onValueChange={(value) => updateField('paymentMethod', value as FormState['paymentMethod'])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VIREMENT">Virement</SelectItem>
+                  <SelectItem value="CHEQUE">Chèque</SelectItem>
+                  <SelectItem value="CARTE">Carte</SelectItem>
+                  <SelectItem value="ESPECES">Espèces</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Champ Référence source */}
+            <div className="space-y-2">
+              <Label>Référence source</Label>
+              <Input
+                value={form.sourceNumber}
+                onChange={(event) => updateField('sourceNumber', event.target.value)}
+                placeholder="BCA-202603-0001 / Facture..."
+              />
+            </div>
+            {/* Champ Catégorie comptable */}
+            <div className="space-y-2">
+              <Label>Catégorie comptable</Label>
+              <Input
+                value={form.expenseCategory}
+                onChange={(event) => updateField('expenseCategory', event.target.value)}
+                placeholder="Achats, frais généraux..."
+              />
+            </div>
+            {/* Champ Bénéficiaire */}
+            <div className="space-y-2">
+              <Label>Bénéficiaire</Label>
+              <Input
+                value={form.beneficiaryName}
+                onChange={(event) => updateField('beneficiaryName', event.target.value)}
+                placeholder="Fournisseur ou bénéficiaire"
+              />
+            </div>
+            {/* Champ Téléphone bénéficiaire */}
+            <div className="space-y-2">
+              <Label>Téléphone bénéficiaire</Label>
+              <Input
+                value={form.beneficiaryPhone}
+                onChange={(event) => updateField('beneficiaryPhone', event.target.value)}
+                placeholder="Numéro de téléphone"
+              />
+            </div>
+            {/* Champ Service imputé */}
+            <div className="space-y-2">
+              <Label>Service imputé</Label>
+              <Input
+                value={form.serviceName}
+                onChange={(event) => updateField('serviceName', event.target.value)}
+                placeholder="Direction Technique, Achat..."
+              />
+            </div>
+            {/* Champ Fournisseur */}
+            <div className="space-y-2">
+              <Label>Fournisseur</Label>
+              <Input
+                value={form.supplierName}
+                onChange={(event) => updateField('supplierName', event.target.value)}
+                placeholder="Nom du fournisseur"
+              />
+            </div>
+            {/* Champ Date d'émission */}
+            <div className="space-y-2">
+              <Label>Date d'émission</Label>
+              <Input type="date" value={form.issueDate} onChange={(event) => updateField('issueDate', event.target.value)} />
+            </div>
+            {/* Champ Statut initial */}
+            <div className="space-y-2">
+              <Label>Statut initial</Label>
+              <Select value={form.status} onValueChange={(value) => updateField('status', value as CashVoucher['status'])}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BROUILLON">Brouillon</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Bloc Compte de trésorerie - CORRIGÉ : Déplacé à l'intérieur du composant */}
+            <div className="space-y-2">
+              <Label>Compte de trésorerie</Label>
+              <Select
+                value={form.treasuryAccountId}
+                onValueChange={(value) => updateField('treasuryAccountId', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un compte" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTreasuryAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Champ Description */}
+            <div className="space-y-2 md:col-span-4">
+              <Label>Description</Label>
+              <Textarea
+                value={form.description}
+                onChange={(event) => updateField('description', event.target.value)}
+                placeholder="Objet du décaissement"
+                className="min-h-[60px]"
+              />
+            </div>
+            {/* Champ Référence paiement */}
+            <div className="space-y-2">
+              <Label>Référence paiement</Label>
+              <Input
+                value={form.reference}
+                onChange={(event) => updateField('reference', event.target.value)}
+                placeholder="Numéro de chèque, pièce..."
+              />
+            </div>
+            {/* Champ Notes comptables */}
+            <div className="space-y-2 md:col-span-3">
+              <Label>Notes comptables</Label>
+              <Textarea
+                value={form.notes}
+                onChange={(event) => updateField('notes', event.target.value)}
+                placeholder="Observations comptables, justification, pièces..."
+                className="min-h-[60px]"
+              />
+            </div>
           </div>
 
+          {/* Section Lignes du décaissement */}
           <div className="mt-4 flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
             <div className="flex items-center justify-between border-b bg-slate-50 px-4 py-2 text-sm">
               <div className="font-medium">Lignes du décaissement</div>
@@ -376,6 +420,7 @@ export function CreateCashVoucherDialog({
               </table>
             </div>
 
+            {/* Résumé des montants */}
             <div className="grid gap-3 border-t bg-slate-50 px-4 py-3 text-sm md:grid-cols-4">
               <div className="rounded-md border bg-white px-3 py-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">HT</div>
@@ -397,6 +442,7 @@ export function CreateCashVoucherDialog({
           </div>
         </div>
 
+        {/* Pied de page de la boîte de dialogue avec les boutons d'action */}
         <DialogFooter className="border-t bg-background pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Annuler
@@ -409,21 +455,3 @@ export function CreateCashVoucherDialog({
     </Dialog>
   );
 }
-              <div className="space-y-2">
-                <Label>Compte de trésorerie</Label>
-                <Select
-                  value={form.treasuryAccountId}
-                  onValueChange={(value) => updateField('treasuryAccountId', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un compte" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredTreasuryAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>

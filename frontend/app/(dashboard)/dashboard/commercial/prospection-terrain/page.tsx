@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { commercialService } from '@/shared/api/commercial/commercial.service';
-import type { Prospect, TerrainVisit } from '@/shared/api/commercial/types';
+import type { Prospect, TerrainVisit, TerrainVisitStatus } from '@/shared/api/commercial/types';
 
 const ProspectionTerrainMap = dynamic(
   () => import('@/components/commercial/terrain/ProspectionTerrainMap'),
@@ -82,7 +82,7 @@ export default function ProspectionTerrainPage() {
     { value: 'Commercial', label: 'Commercial' },
     { value: 'Technicien', label: 'Technicien' },
   ];
-  const visitStatuses = [
+  const visitStatuses: Array<{ value: 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE'; label: string }> = [
     { value: 'PLANIFIEE', label: 'Planifiee' },
     { value: 'EN_COURS', label: 'En cours' },
     { value: 'TERMINEE', label: 'Terminee' },
@@ -99,7 +99,15 @@ export default function ProspectionTerrainPage() {
   const [newVisitOpen, setNewVisitOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
-  const [newVisit, setNewVisit] = useState({
+  type NewVisitForm = {
+    prospectId: string;
+    date: string;
+    assignee: string;
+    status: TerrainVisitStatus;
+    note: string;
+  };
+
+  const [newVisit, setNewVisit] = useState<NewVisitForm>({
     prospectId: '',
     date: '',
     assignee: 'Commercial',
@@ -271,7 +279,7 @@ export default function ProspectionTerrainPage() {
                       className="w-full rounded-md border px-2 py-1 text-xs md:w-auto"
                       value={status}
                       onChange={(event) => {
-                        const nextStatus = event.target.value;
+                        const nextStatus = event.target.value as 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE';
                         updateVisit(id, { status: nextStatus });
                         updateVisitMutation.mutate({
                           visitId: id,
@@ -377,7 +385,9 @@ export default function ProspectionTerrainPage() {
               <select
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={newVisit.status}
-                onChange={(event) => setNewVisit((prev) => ({ ...prev, status: event.target.value }))}
+                onChange={(event) =>
+                  setNewVisit((prev) => ({ ...prev, status: event.target.value as TerrainVisitStatus }))
+                }
               >
                 {visitStatuses.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -407,7 +417,7 @@ export default function ProspectionTerrainPage() {
                       prospectId: prospect.id,
                       scheduledAt: newVisit.date ? new Date(newVisit.date).toISOString() : new Date().toISOString(),
                       assignee: newVisit.assignee,
-                      status: newVisit.status,
+                      status: newVisit.status as 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE',
                       note: newVisit.note,
                     },
                     {

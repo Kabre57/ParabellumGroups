@@ -190,3 +190,25 @@ docker compose up -d --build frontend nginx
 
 # 3) Appliquer la migration des campagnes (communication-service)
 docker compose exec communication-service npx prisma migrate deploy
+
+
+Voici les commandes pour effectuer un commit et un push propre de vos corrections :
+1. Ajout ciblé des fichiers modifiés
+Ajoutez uniquement les fichiers que nous avons corrigés ainsi que les changements de dépendances (package.json et package-lock.json) :
+Bash
+git add package.json package-lock.json \
+src/components/commercial/terrain/ProspectionTerrainMap.tsx \
+src/components/accounting/CreateCashVoucherDialog.tsx \
+src/components/printComponents/printUtils.ts
+2. Création du commit
+Utilisez un message de commit clair décrivant les corrections :
+Bash
+git commit -m "fix: resolve build errors (leaflet dependencies, JSX scoping, and TS return types)"
+3. Envoi sur le dépôt distant
+Envoyez vos modifications sur votre branche actuelle (remplacez main par le nom de votre branche si nécessaire) :
+Bash
+git push origin main
+Pourquoi ce commit est "propre" ?
+Atomique : Il regroupe uniquement les modifications liées à la résolution des erreurs de build.
+Explicite : Le message de commit suit les conventions standards (fix: ...) pour faciliter le suivi dans l'historique Git.
+Sûr : En ciblant les fichiers individuellement avec git add, vous évitez d'ajouter par erreur des fichiers temporaires ou des fichiers de configuration locale.

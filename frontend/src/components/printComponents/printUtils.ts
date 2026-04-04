@@ -1,4 +1,8 @@
-export const formatPrintDate = (value?: string | Date | null, withTime = false) => {
+/**
+ * Utilitaires pour le formatage des impressions (PDF, Bons de caisse, etc.)
+ */
+
+export const formatPrintDate = (value?: string | Date | null, withTime = false): string => {
   if (!value) {
     return '-';
   }
@@ -21,7 +25,7 @@ export const formatPrintDate = (value?: string | Date | null, withTime = false) 
   });
 };
 
-export const formatFCFA = (amount?: number | null) => {
+export const formatFCFA = (amount?: number | null): string => {
   const value = Number(amount ?? 0);
   return `${new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
@@ -29,7 +33,7 @@ export const formatFCFA = (amount?: number | null) => {
   }).format(Number.isFinite(value) ? value : 0)} F CFA`;
 };
 
-export const resolvePrintLogo = (logoSrc?: string | null) => {
+export const resolvePrintLogo = (logoSrc?: string | null): string => {
   if (!logoSrc || !logoSrc.trim()) {
     return '/parabellum.jpg';
   }
@@ -37,7 +41,7 @@ export const resolvePrintLogo = (logoSrc?: string | null) => {
   return logoSrc;
 };
 
-export const textOrDash = (value?: string | number | null) => {
+export const textOrDash = (value?: string | number | null): string => {
   if (value === undefined || value === null) {
     return '-';
   }
@@ -47,39 +51,20 @@ export const textOrDash = (value?: string | number | null) => {
 };
 
 const UNITS = [
-  'zero',
-  'un',
-  'deux',
-  'trois',
-  'quatre',
-  'cinq',
-  'six',
-  'sept',
-  'huit',
-  'neuf',
-  'dix',
-  'onze',
-  'douze',
-  'treize',
-  'quatorze',
-  'quinze',
-  'seize',
-  'dix-sept',
-  'dix-huit',
-  'dix-neuf',
+  'zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+  'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept',
+  'dix-huit', 'dix-neuf',
 ];
 
 const TENS = [
-  '',
-  'dix',
-  'vingt',
-  'trente',
-  'quarante',
-  'cinquante',
-  'soixante',
+  '', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante',
 ];
 
-const twoDigitsToWords = (number: number) => {
+/**
+ * Convertit un nombre de deux chiffres en lettres (Français)
+ * Correction : Ajout du type de retour explicite : string
+ */
+const twoDigitsToWords = (number: number): string => {
   if (number < 20) return UNITS[number];
   if (number < 70) {
     const tens = Math.floor(number / 10);
@@ -99,7 +84,10 @@ const twoDigitsToWords = (number: number) => {
   return '';
 };
 
-const threeDigitsToWords = (number: number) => {
+/**
+ * Convertit un nombre de trois chiffres en lettres
+ */
+const threeDigitsToWords = (number: number): string => {
   const hundreds = Math.floor(number / 100);
   const remainder = number % 100;
   if (!hundreds) return twoDigitsToWords(remainder);
@@ -108,7 +96,10 @@ const threeDigitsToWords = (number: number) => {
   return `${hundredLabel} ${twoDigitsToWords(remainder)}`;
 };
 
-const numberToFrenchWords = (number: number) => {
+/**
+ * Convertit un nombre complet en lettres
+ */
+const numberToFrenchWords = (number: number): string => {
   if (number === 0) return UNITS[0];
   const parts: string[] = [];
 
@@ -137,7 +128,10 @@ const numberToFrenchWords = (number: number) => {
   return parts.join(' ');
 };
 
-export const formatFCFAInWords = (amount?: number | null) => {
+/**
+ * Formate un montant en FCFA écrit en toutes lettres
+ */
+export const formatFCFAInWords = (amount?: number | null): string => {
   const value = Math.round(Number(amount ?? 0));
   if (!Number.isFinite(value)) {
     return '-';
