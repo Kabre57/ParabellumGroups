@@ -191,43 +191,68 @@ export interface PurchaseCommitment {
   amountTVA: number;
   amountTTC: number;
   currency: string;
-  status: string;
+  status: 'ENGAGE' | 'LIQUIDE' | 'ORDONNANCE' | 'PAYE';
   createdAt?: string | null;
 }
 
-export interface CashVoucher {
+export interface FactureFournisseur {
   id: string;
-  voucherNumber: string;
-  sourceType: 'PURCHASE_ORDER' | 'PURCHASE_QUOTE' | 'SUPPLIER_INVOICE' | 'EXPENSE' | 'OTHER' | string;
-  sourceId?: string | null;
-  sourceNumber?: string | null;
-  expenseCategory?: string | null;
-  serviceId?: number | null;
-  serviceName?: string | null;
-  supplierId?: string | null;
-  supplierName?: string | null;
-  beneficiaryName: string;
-  beneficiaryPhone?: string | null;
+  numeroFacture: string;
+  fournisseurId?: string | null;
+  fournisseurNom?: string | null;
+  dateFacture: string;
+  dateEcheance?: string | null;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  currency: string;
+  status: 'A_PAYER' | 'PARTIELLEMENT_PAYEE' | 'PAYEE' | 'ANNULEE';
+  notes?: string | null;
+  commitmentId?: string | null;
+  createdAt?: string;
+}
+
+export interface Encaissement {
+  id: string;
+  numeroPiece: string;
+  clientId?: string | null;
+  clientName: string;
   description: string;
   amountHT: number;
   amountTVA: number;
   amountTTC: number;
   currency: string;
   paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
-  flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT';
   treasuryAccountId?: string | null;
-  treasuryAccountName?: string | null;
-  status: 'BROUILLON' | 'EN_ATTENTE' | 'VALIDE' | 'DECAISSE' | 'ANNULE';
-  issueDate: string;
-  disbursementDate?: string | null;
+  dateEncaissement: string;
   reference?: string | null;
   notes?: string | null;
-  createdByUserId?: string | null;
-  createdByEmail?: string | null;
-  approvedByUserId?: string | null;
-  approvedByEmail?: string | null;
   createdAt?: string;
-  updatedAt?: string;
+}
+
+export interface Decaissement {
+  id: string;
+  numeroPiece: string;
+  beneficiaryName: string;
+  description: string;
+  amountHT: number;
+  amountTVA: number;
+  amountTTC: number;
+  currency: string;
+  paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+  treasuryAccountId?: string | null;
+  dateDecaissement: string;
+  reference?: string | null;
+  notes?: string | null;
+  status: string;
+  factureFournisseurId?: string | null;
+  commitmentId?: string | null;
+  createdAt?: string;
+}
+
+export interface CashVoucher {
+  id: string;
+  // ... reste obsolète
 }
 
 export interface TreasuryAccount {
@@ -255,10 +280,13 @@ export interface SpendingOverview {
     totalCommitted: number;
     totalVouchered: number;
     totalDisbursed: number;
+    totalReceived: number;
     pendingVouchersAmount: number;
   };
   commitments: PurchaseCommitment[];
-  cashVouchers: CashVoucher[];
+  encaissements: Encaissement[];
+  decaissements: Decaissement[];
+  cashVouchers: any[]; // Reste pour compatibilité temporaire
 }
 
 export interface PurchaseCommitmentStats {
@@ -768,43 +796,34 @@ export const billingService = {
     return normalizeStatsResponse<PurchaseCommitmentStats>(response.data);
   },
 
-  async getCashVouchers(params?: {
-    status?: string;
-    sourceType?: string;
-    paymentMethod?: string;
-    serviceId?: number;
-    search?: string;
-  }): Promise<ListResponse<CashVoucher>> {
-    const response = await apiClient.get('/billing/cash-vouchers', { params });
-    return normalizeListResponse<CashVoucher>(response.data);
+  async getEncaissements(params?: any): Promise<ListResponse<Encaissement>> {
+    const response = await apiClient.get('/billing/encaissements', { params });
+    return normalizeListResponse<Encaissement>(response.data);
   },
 
-  async createCashVoucher(data: {
-    sourceType?: string;
-    sourceId?: string;
-    sourceNumber?: string;
-    expenseCategory?: string;
-    serviceId?: number | null;
-    serviceName?: string | null;
-    supplierId?: string | null;
-    supplierName?: string | null;
-    beneficiaryName: string;
-    beneficiaryPhone?: string;
-    description: string;
-    amountHT?: number;
-    amountTVA?: number;
-    amountTTC: number;
-    paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
-    flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT';
-    treasuryAccountId?: string | null;
-    issueDate?: string;
-    disbursementDate?: string;
-    reference?: string;
-    notes?: string;
-    status?: 'BROUILLON' | 'EN_ATTENTE' | 'VALIDE' | 'DECAISSE' | 'ANNULE';
-  }): Promise<DetailResponse<CashVoucher>> {
-    const response = await apiClient.post('/billing/cash-vouchers', data);
-    return normalizeDetailResponse<CashVoucher>(response.data);
+  async createEncaissement(data: Partial<Encaissement>): Promise<DetailResponse<Encaissement>> {
+    const response = await apiClient.post('/billing/encaissements', data);
+    return normalizeDetailResponse<Encaissement>(response.data);
+  },
+
+  async getDecaissements(params?: any): Promise<ListResponse<Decaissement>> {
+    const response = await apiClient.get('/billing/decaissements', { params });
+    return normalizeListResponse<Decaissement>(response.data);
+  },
+
+  async createDecaissement(data: Partial<Decaissement>): Promise<DetailResponse<Decaissement>> {
+    const response = await apiClient.post('/billing/decaissements', data);
+    return normalizeDetailResponse<Decaissement>(response.data);
+  },
+
+  async getFacturesFournisseurs(params?: any): Promise<ListResponse<FactureFournisseur>> {
+    const response = await apiClient.get('/billing/factures-fournisseurs', { params });
+    return normalizeListResponse<FactureFournisseur>(response.data);
+  },
+
+  async createFactureFournisseur(data: Partial<FactureFournisseur>): Promise<DetailResponse<FactureFournisseur>> {
+    const response = await apiClient.post('/billing/factures-fournisseurs', data);
+    return normalizeDetailResponse<FactureFournisseur>(response.data);
   },
 
   async updateCashVoucherStatus(

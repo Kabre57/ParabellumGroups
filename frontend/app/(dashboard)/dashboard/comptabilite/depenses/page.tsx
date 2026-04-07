@@ -11,9 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
-import billingService, { type CashVoucher, type PurchaseCommitment } from '@/shared/api/billing';
+import billingService, { 
+  type PurchaseCommitment, 
+  type Encaissement, 
+  type Decaissement,
+  type FactureFournisseur 
+} from '@/shared/api/billing';
 import { CashVoucherStatusBadge } from '@/components/accounting/CashVoucherStatusBadge';
-import { CreateCashVoucherDialog } from '@/components/accounting/CreateCashVoucherDialog';
+import { CreateEncaissementDialog } from '@/components/accounting/CreateEncaissementDialog';
+import { CreateDecaissementDialog } from '@/components/accounting/CreateDecaissementDialog';
+import { CreateFactureFournisseurDialog } from '@/components/accounting/CreateFactureFournisseurDialog';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import CashVoucherPrint from '@/components/printComponents/CashVoucherPrint';
 import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
@@ -58,9 +65,11 @@ export default function DepensesPage() {
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [activeTab, setActiveTab] = useState('overview');
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [encaissementOpen, setEncaissementOpen] = useState(false);
+  const [decaissementOpen, setDecaissementOpen] = useState(false);
+  const [liquidationOpen, setLiquidationOpen] = useState(false);
   const [selectedCommitment, setSelectedCommitment] = useState<PurchaseCommitment | null>(null);
-  const [printVoucher, setPrintVoucher] = useState<CashVoucher | null>(null);
+  const [printVoucher, setPrintVoucher] = useState<any | null>(null);
   const [printListOpen, setPrintListOpen] = useState(false);
 
   const range = useMemo(() => {
@@ -88,22 +97,47 @@ export default function DepensesPage() {
     enabled: canRead,
   });
 
-  const createVoucherMutation = useMutation({
-    mutationFn: billingService.createCashVoucher,
+  const createEncaissementMutation = useMutation({
+    mutationFn: billingService.createEncaissement,
     onSuccess: () => {
-      toast.success('Bon de caisse créé avec succès.');
-      setDialogOpen(false);
+      toast.success('Bon d\'encaissement créé avec succès.');
+      setEncaissementOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création de l\'encaissement.');
+    },
+  });
+
+  const createDecaissementMutation = useMutation({
+    mutationFn: billingService.createDecaissement,
+    onSuccess: () => {
+      toast.success('Bon de décaissement créé avec succès.');
+      setDecaissementOpen(false);
       setSelectedCommitment(null);
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la création du bon de caisse.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création du décaissement.');
+    },
+  });
+
+  const createLiquidationMutation = useMutation({
+    mutationFn: billingService.createFactureFournisseur,
+    onSuccess: () => {
+      toast.success('Facture fournisseur (Liquidation) enregistrée.');
+      setLiquidationOpen(false);
+      setSelectedCommitment(null);
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la liquidation.');
     },
   });
 
   const updateVoucherMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: CashVoucher['status'] }) =>
-      billingService.updateCashVoucherStatus(id, { status }),
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      billingService.updateCashVoucherStatus(id, { status } as any),
     onSuccess: (_, variables) => {
       const label =
         variables.status === 'VALIDE'
@@ -120,7 +154,10 @@ export default function DepensesPage() {
   });
 
   const commitments = useMemo(() => data?.data?.commitments ?? [], [data]);
-  const vouchers = useMemo(() => data?.data?.cashVouchers ?? [], [data]);
+  const vouchers = useMemo(() => [
+    ...(data?.data?.encaissements || []).map((e: any) => ({ ...e, flowType: 'ENCAISSEMENT', voucherNumber: e.numeroPiece, issueDate: e.dateEncaissement })),
+    ...(data?.data?.decaissements || []).map((d: any) => ({ ...d, flowType: 'DECAISSEMENT', voucherNumber: d.numeroPiece, issueDate: d.dateDecaissement })),
+  ], [data]);
 
   const filteredCommitments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -219,16 +256,26 @@ export default function DepensesPage() {
             Imprimer la liste
           </Button>
           {canCreateVoucher && (
-            <Button
-              className="flex items-center gap-2"
-              onClick={() => {
-                setSelectedCommitment(null);
-                setDialogOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau bon de caisse
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setEncaissementOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Encaissement
+              </Button>
+              <Button
+                className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700"
+                onClick={() => {
+                  setSelectedCommitment(null);
+                  setDecaissementOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Décaissement
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -320,9 +367,14 @@ export default function DepensesPage() {
                         <td className="px-4 py-3 text-right font-semibold">{formatCurrency(row.amount)}</td>
                         <td className="px-4 py-3">
                           {row.kind === 'voucher' ? (
-                            <CashVoucherStatusBadge status={row.status as CashVoucher['status']} />
+                            <div className="flex flex-col gap-1">
+                              <Badge className={row.kind === 'voucher' && (vouchers.find(v => `voucher-${v.id}` === row.id)?.flowType === 'ENCAISSEMENT') ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}>
+                                {vouchers.find(v => `voucher-${v.id}` === row.id)?.flowType || 'DECAISSEMENT'}
+                              </Badge>
+                              <CashVoucherStatusBadge status={row.status} />
+                            </div>
                           ) : (
-                            <Badge variant="outline">{row.status}</Badge>
+                            <CashVoucherStatusBadge status={row.status} />
                           )}
                         </td>
                       </tr>
@@ -471,17 +523,30 @@ export default function DepensesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
-                            {canCreateVoucher && (
+                            {commitment.status === 'ENGAGE' && (
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="border-blue-200 text-blue-700"
                                 onClick={() => {
                                   setSelectedCommitment(commitment);
-                                  setDialogOpen(true);
+                                  setLiquidationOpen(true);
+                                }}
+                              >
+                                Liquider
+                              </Button>
+                            )}
+                            {(commitment.status === 'LIQUIDE' || commitment.status === 'ORDONNANCE') && (
+                              <Button
+                                size="sm"
+                                className="bg-rose-600 hover:bg-rose-700"
+                                onClick={() => {
+                                  setSelectedCommitment(commitment);
+                                  setDecaissementOpen(true);
                                 }}
                               >
                                 <Wallet className="mr-2 h-4 w-4" />
-                                Bon de caisse
+                                Payer
                               </Button>
                             )}
                           </div>
@@ -496,15 +561,36 @@ export default function DepensesPage() {
         </TabsContent>
       </Tabs>
 
-      <CreateCashVoucherDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        defaultCommitment={selectedCommitment}
-        isSubmitting={createVoucherMutation.isPending}
+      <CreateEncaissementDialog
+        open={encaissementOpen}
+        onOpenChange={setEncaissementOpen}
+        isSubmitting={createEncaissementMutation.isPending}
         onSubmit={async (payload) => {
-          await createVoucherMutation.mutateAsync(payload);
+          await createEncaissementMutation.mutateAsync(payload);
         }}
       />
+
+      <CreateDecaissementDialog
+        open={decaissementOpen}
+        onOpenChange={setDecaissementOpen}
+        defaultCommitment={selectedCommitment}
+        isSubmitting={createDecaissementMutation.isPending}
+        onSubmit={async (payload) => {
+          await createDecaissementMutation.mutateAsync(payload);
+        }}
+      />
+
+      {selectedCommitment && (
+        <CreateFactureFournisseurDialog
+          open={liquidationOpen}
+          onOpenChange={setLiquidationOpen}
+          commitment={selectedCommitment}
+          isSubmitting={createLiquidationMutation.isPending}
+          onSubmit={async (payload) => {
+            await createLiquidationMutation.mutateAsync(payload);
+          }}
+        />
+      )}
 
       {printVoucher && (
         <CashVoucherPrint voucher={printVoucher} onClose={() => setPrintVoucher(null)} />

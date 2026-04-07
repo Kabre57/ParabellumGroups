@@ -128,18 +128,19 @@ exports.getAccountingOverview = async (req, res) => {
     const invoiceWhere = buildDateWhere('dateEmission', startDate, endDate);
     const paymentWhere = buildDateWhere('datePaiement', startDate, endDate);
     const commitmentWhere = buildDateWhere('createdAt', startDate, endDate);
-    const voucherWhere =
+    const encaissementWhere = buildDateWhere('dateEncaissement', startDate, endDate);
+    const decaissementWhere =
       !startDate && !endDate
         ? {}
         : {
             OR: [
-              buildDateWhere('issueDate', startDate, endDate),
-              buildDateWhere('disbursementDate', startDate, endDate),
+              buildDateWhere('dateDecaissement', startDate, endDate),
+              buildDateWhere('createdAt', startDate, endDate),
             ],
           };
     const journalEntryWhere = buildDateWhere('entryDate', startDate, endDate);
 
-    const [factures, paiements, commitments, vouchers, persistedAccounts, manualJournalEntries, treasuryAccounts] = await Promise.all([
+    const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts] = await Promise.all([
       prisma.facture.findMany({
         where: invoiceWhere,
         include: { paiements: true, lignes: true },
@@ -154,10 +155,15 @@ exports.getAccountingOverview = async (req, res) => {
         where: commitmentWhere,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.cashVoucher.findMany({
-        where: voucherWhere,
+      prisma.encaissement.findMany({
+        where: encaissementWhere,
         include: { treasuryAccount: true },
-        orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
+        orderBy: { dateEncaissement: 'desc' },
+      }),
+      prisma.decaissement.findMany({
+        where: decaissementWhere,
+        include: { treasuryAccount: true },
+        orderBy: [{ dateDecaissement: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.accountingAccount.findMany({
         where: { isActive: true },
@@ -187,15 +193,13 @@ exports.getAccountingOverview = async (req, res) => {
       .reduce((sum, invoice) => sum + amount(invoice.montantTVA), 0);
     const totalInvoiceReceived = paiements.reduce((sum, payment) => sum + amount(payment.montant), 0);
 
-    const activeVouchers = vouchers.filter((voucher) => voucher.status !== 'ANNULE');
-    const outflowVouchers = activeVouchers.filter((voucher) => voucher.flowType !== 'ENCAISSEMENT');
-    const inflowVouchers = activeVouchers.filter((voucher) => voucher.flowType === 'ENCAISSEMENT');
-    const disbursedVouchers = outflowVouchers.filter((voucher) => voucher.status === 'DECAISSE');
-    const receivedVouchers = inflowVouchers.filter((voucher) => voucher.status === 'DECAISSE');
-    const totalExpenseHT = outflowVouchers.reduce((sum, voucher) => sum + amount(voucher.amountHT || voucher.amountTTC), 0);
-    const totalDeductibleVat = outflowVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTVA), 0);
-    const totalDisbursed = disbursedVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
-    const totalOtherIncome = receivedVouchers.reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+    const activeDecaissements = decaissements.filter((d) => d.status !== 'ANNULE');
+    const disbursedVouchers = activeDecaissements.filter((d) => d.status === 'DECAISSE');
+    const receivedVouchers = encaissements; // Tous les encaissements sont considérés comme reçus par défaut
+    const totalExpenseHT = activeDecaissements.reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0);
+    const totalDeductibleVat = activeDecaissements.reduce((sum, d) => sum + amount(d.amountTVA), 0);
+    const totalDisbursed = disbursedVouchers.reduce((sum, d) => sum + amount(d.amountTTC), 0);
+    const totalOtherIncome = receivedVouchers.reduce((sum, e) => sum + amount(e.amountTTC), 0);
     const totalTreasuryIncome = totalInvoiceReceived + totalOtherIncome;
 
     const bankInflows =
@@ -203,21 +207,21 @@ exports.getAccountingOverview = async (req, res) => {
         .filter((payment) => String(payment.methodePaiement || '').toUpperCase() !== 'ESPECES')
         .reduce((sum, payment) => sum + amount(payment.montant), 0) +
       receivedVouchers
-        .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() !== 'ESPECES')
-        .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+        .filter((e) => String(e.paymentMethod || '').toUpperCase() !== 'ESPECES')
+        .reduce((sum, e) => sum + amount(e.amountTTC), 0);
     const cashInflows =
       paiements
         .filter((payment) => String(payment.methodePaiement || '').toUpperCase() === 'ESPECES')
         .reduce((sum, payment) => sum + amount(payment.montant), 0) +
       receivedVouchers
-        .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() === 'ESPECES')
-        .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+        .filter((e) => String(e.paymentMethod || '').toUpperCase() === 'ESPECES')
+        .reduce((sum, e) => sum + amount(e.amountTTC), 0);
     const bankOutflows = disbursedVouchers
-      .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() !== 'ESPECES')
-      .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+      .filter((d) => String(d.paymentMethod || '').toUpperCase() !== 'ESPECES')
+      .reduce((sum, d) => sum + amount(d.amountTTC), 0);
     const cashOutflows = disbursedVouchers
-      .filter((voucher) => String(voucher.paymentMethod || '').toUpperCase() === 'ESPECES')
-      .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+      .filter((d) => String(d.paymentMethod || '').toUpperCase() === 'ESPECES')
+      .reduce((sum, d) => sum + amount(d.amountTTC), 0);
 
     const clientReceivables = factures
       .filter((invoice) => !['ANNULEE'].includes(String(invoice.status)))
@@ -226,13 +230,13 @@ exports.getAccountingOverview = async (req, res) => {
         return sum + Math.max(amount(invoice.montantTTC) - paid, 0);
       }, 0);
 
-    const supplierLiabilities = vouchers
-      .filter((voucher) => ['EN_ATTENTE', 'VALIDE'].includes(String(voucher.status)))
-      .reduce((sum, voucher) => sum + amount(voucher.amountTTC), 0);
+    const supplierLiabilities = decaissements
+      .filter((d) => ['VALIDE'].includes(String(d.status)))
+      .reduce((sum, d) => sum + amount(d.amountTTC), 0);
 
     const totalCommitted = commitments.reduce((sum, item) => sum + amount(item.amountTTC), 0);
     const pendingCommitments = commitments
-      .filter((item) => !['ANNULE', 'LIVRE', 'PAYEE'].includes(String(item.status)))
+      .filter((item) => !['PAYE', 'ANNULE'].includes(String(item.status)))
       .reduce((sum, item) => sum + amount(item.amountTTC), 0);
 
     const serializedTreasuryAccounts = treasuryAccounts.map(serializeTreasuryAccount);
@@ -284,8 +288,8 @@ exports.getAccountingOverview = async (req, res) => {
         label: 'Fournisseurs',
         type: 'liability',
         balance: supplierLiabilities,
-        lastTransaction: vouchers[0]?.issueDate || commitments[0]?.createdAt || null,
-        movementCount: vouchers.length + commitments.length,
+        lastTransaction: decaissements[0]?.createdAt || commitments[0]?.createdAt || null,
+        movementCount: decaissements.length + commitments.length,
       },
       {
         id: 'account-4456',
@@ -293,8 +297,8 @@ exports.getAccountingOverview = async (req, res) => {
         label: 'TVA déductible',
         type: 'asset',
         balance: totalDeductibleVat,
-        lastTransaction: vouchers[0]?.issueDate || null,
-        movementCount: vouchers.length,
+        lastTransaction: decaissements[0]?.createdAt || null,
+        movementCount: decaissements.length,
       },
       {
         id: 'account-4457',
@@ -319,26 +323,26 @@ exports.getAccountingOverview = async (req, res) => {
         code: '607',
         label: 'Achats et approvisionnements',
         type: 'expense',
-        balance: vouchers
-          .filter((voucher) =>
-            ['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(voucher.sourceType || '').toUpperCase())
+        balance: decaissements
+          .filter((d) =>
+            ['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase())
           )
-          .reduce((sum, voucher) => sum + amount(voucher.amountHT || voucher.amountTTC), 0),
-        lastTransaction: vouchers[0]?.issueDate || commitments[0]?.createdAt || null,
-        movementCount: vouchers.length,
+          .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
+        lastTransaction: decaissements[0]?.createdAt || commitments[0]?.createdAt || null,
+        movementCount: decaissements.length,
       },
       {
         id: 'account-618',
         code: '618',
         label: 'Autres charges d exploitation',
         type: 'expense',
-        balance: vouchers
-          .filter((voucher) =>
-            !['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(voucher.sourceType || '').toUpperCase())
+        balance: decaissements
+          .filter((d) =>
+            !['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase())
           )
-          .reduce((sum, voucher) => sum + amount(voucher.amountHT || voucher.amountTTC), 0),
-        lastTransaction: vouchers[0]?.issueDate || null,
-        movementCount: vouchers.length,
+          .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
+        lastTransaction: decaissements[0]?.createdAt || null,
+        movementCount: decaissements.length,
       },
       {
         id: 'account-101',
@@ -392,38 +396,38 @@ exports.getAccountingOverview = async (req, res) => {
       });
     });
 
-    disbursedVouchers.forEach((voucher) => {
-      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(voucher.paymentMethod)];
-      const treasuryAccount = voucher.treasuryAccount || fallbackAccount || null;
+    disbursedVouchers.forEach((d) => {
+      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(d.paymentMethod)];
+      const treasuryAccount = d.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
-        id: `voucher-${voucher.id}`,
-        date: voucher.disbursementDate || voucher.issueDate,
+        id: `decaissement-${d.id}`,
+        date: d.dateDecaissement || d.createdAt,
         type: 'expense',
         category: 'Décaissement',
-        description: `${voucher.voucherNumber} - ${voucher.description}`,
-        amount: amount(voucher.amountTTC),
-        reference: voucher.reference || voucher.voucherNumber,
-        sourceType: voucher.sourceType,
-        paymentMethod: voucher.paymentMethod,
+        description: `${d.numeroPiece} - ${d.description}`,
+        amount: amount(d.amountTTC),
+        reference: d.reference || d.numeroPiece,
+        sourceType: 'DECAISSEMENT',
+        paymentMethod: d.paymentMethod,
         treasuryAccountId: treasuryAccount?.id,
         treasuryAccountName: treasuryAccount?.name,
         treasuryAccountType: treasuryAccount?.type,
       });
     });
 
-    receivedVouchers.forEach((voucher) => {
-      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(voucher.paymentMethod)];
-      const treasuryAccount = voucher.treasuryAccount || fallbackAccount || null;
+    receivedVouchers.forEach((e) => {
+      const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(e.paymentMethod)];
+      const treasuryAccount = e.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
-        id: `voucher-in-${voucher.id}`,
-        date: voucher.disbursementDate || voucher.issueDate,
+        id: `encaissement-${e.id}`,
+        date: e.dateEncaissement || e.createdAt,
         type: 'income',
-        category: 'Encaissement caisse',
-        description: `${voucher.voucherNumber} - ${voucher.description}`,
-        amount: amount(voucher.amountTTC),
-        reference: voucher.reference || voucher.voucherNumber,
-        sourceType: voucher.sourceType,
-        paymentMethod: voucher.paymentMethod,
+        category: 'Encaissement',
+        description: `${e.numeroPiece} - ${e.description}`,
+        amount: amount(e.amountTTC),
+        reference: e.reference || e.numeroPiece,
+        sourceType: 'ENCAISSEMENT',
+        paymentMethod: e.paymentMethod,
         treasuryAccountId: treasuryAccount?.id,
         treasuryAccountName: treasuryAccount?.name,
         treasuryAccountType: treasuryAccount?.type,
@@ -538,45 +542,66 @@ exports.getAccountingOverview = async (req, res) => {
       });
     });
 
-    outflowVouchers.forEach((voucher) => {
-      const expenseAccount = expenseAccountCode(voucher);
+    activeDecaissements.forEach((d) => {
+      // Pour les engagements, on considère l'achat comme "ECRITURE D'ACHAT"
+      const expenseAccount = { code: '607', label: 'Achats et approvisionnements' }; // simplifé
       entries.push({
-        id: buildEntryId('voucher-booking', voucher.id),
-          date: voucher.issueDate,
-          journalCode: 'AC',
-          journalLabel: 'Journal des achats',
-          accountDebit: expenseAccount.code,
-          accountDebitLabel: expenseAccount.label,
-          accountCredit: '401',
-          accountCreditLabel: 'Fournisseurs',
-          label: `${voucher.voucherNumber} - ${voucher.description}`,
-          debit: amount(voucher.amountHT || voucher.amountTTC),
-          credit: amount(voucher.amountHT || voucher.amountTTC),
-          reference: voucher.sourceNumber || voucher.voucherNumber,
-          sourceType: 'CASH_VOUCHER',
-          sourceId: voucher.id,
-        });
-
-        if (voucher.status === 'DECAISSE') {
-          const treasuryAccount = treasuryAccountCode(voucher.paymentMethod);
-          entries.push({
-            id: buildEntryId('voucher-disbursement', voucher.id),
-            date: voucher.disbursementDate || voucher.issueDate,
-            journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
-            journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
-            accountDebit: '401',
-            accountDebitLabel: 'Fournisseurs',
-            accountCredit: treasuryAccount.code,
-            accountCreditLabel: treasuryAccount.label,
-            label: `Décaissement ${voucher.voucherNumber}`,
-            debit: amount(voucher.amountTTC),
-            credit: amount(voucher.amountTTC),
-            reference: voucher.reference || voucher.voucherNumber,
-            sourceType: 'CASH_VOUCHER',
-            sourceId: voucher.id,
-          });
-        }
+        id: buildEntryId('decaissement-booking', d.id),
+        date: d.createdAt,
+        journalCode: 'AC',
+        journalLabel: 'Journal des achats',
+        accountDebit: expenseAccount.code,
+        accountDebitLabel: expenseAccount.label,
+        accountCredit: '401',
+        accountCreditLabel: 'Fournisseurs',
+        label: `${d.numeroPiece} - ${d.description}`,
+        debit: amount(d.amountHT || d.amountTTC),
+        credit: amount(d.amountHT || d.amountTTC),
+        reference: d.reference || d.numeroPiece,
+        sourceType: 'DECAISSEMENT',
+        sourceId: d.id,
       });
+
+      if (d.status === 'DECAISSE') {
+        const treasuryAccount = treasuryAccountCode(d.paymentMethod);
+        entries.push({
+          id: buildEntryId('decaissement-payment', d.id),
+          date: d.dateDecaissement || d.createdAt,
+          journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
+          journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+          accountDebit: '401',
+          accountDebitLabel: 'Fournisseurs',
+          accountCredit: treasuryAccount.code,
+          accountCreditLabel: treasuryAccount.label,
+          label: `Décaissement ${d.numeroPiece}`,
+          debit: amount(d.amountTTC),
+          credit: amount(d.amountTTC),
+          reference: d.reference || d.numeroPiece,
+          sourceType: 'DECAISSEMENT',
+          sourceId: d.id,
+        });
+      }
+    });
+
+    receivedVouchers.forEach((e) => {
+      const treasuryAccount = treasuryAccountCode(e.paymentMethod);
+      entries.push({
+        id: buildEntryId('encaissement', e.id),
+        date: e.dateEncaissement || e.createdAt,
+        journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
+        journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+        accountDebit: treasuryAccount.code,
+        accountDebitLabel: treasuryAccount.label,
+        accountCredit: '706', // Hypothèse simplifiée: revenu prestation
+        accountCreditLabel: 'Prestations de services',
+        label: `${e.numeroPiece} - ${e.description}`,
+        debit: amount(e.amountTTC),
+        credit: amount(e.amountTTC),
+        reference: e.reference || e.numeroPiece,
+        sourceType: 'ENCAISSEMENT',
+        sourceId: e.id,
+      });
+    });
 
     const orderedEntries = [...entries, ...manualEntries].sort(
       (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
@@ -595,17 +620,15 @@ exports.getAccountingOverview = async (req, res) => {
     const reportedExpenses = totalExpenseHT + manualDeltasByType.expense;
     const reportedNetResult = reportedRevenue - reportedExpenses;
 
-    const paymentMethodBreakdown = outflowVouchers.reduce((accumulator, voucher) => {
-      const key = String(voucher.paymentMethod || 'AUTRE').toUpperCase();
-      accumulator[key] = (accumulator[key] || 0) + amount(voucher.amountTTC);
+    const paymentMethodBreakdown = activeDecaissements.reduce((accumulator, d) => {
+      const key = String(d.paymentMethod || 'AUTRE').toUpperCase();
+      accumulator[key] = (accumulator[key] || 0) + amount(d.amountTTC);
       return accumulator;
     }, {});
 
-    const expenseCategoryBreakdown = outflowVouchers.reduce((accumulator, voucher) => {
-      const key =
-        voucher.expenseCategory ||
-        (voucher.sourceType === 'PURCHASE_ORDER' ? 'Achats validés' : 'Autres dépenses');
-      accumulator[key] = (accumulator[key] || 0) + amount(voucher.amountTTC);
+    const expenseCategoryBreakdown = activeDecaissements.reduce((accumulator, d) => {
+      const key = d.description || 'Dépenses Diverses';
+      accumulator[key] = (accumulator[key] || 0) + amount(d.amountTTC);
       return accumulator;
     }, {});
 

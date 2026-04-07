@@ -192,6 +192,7 @@ docker compose up -d --build frontend nginx
 docker compose exec communication-service npx prisma migrate deploy
 
 
+<<<<<<< Updated upstream
 Voici les commandes pour effectuer un commit et un push propre de vos corrections :
 1. Ajout ciblé des fichiers modifiés
 Ajoutez uniquement les fichiers que nous avons corrigés ainsi que les changements de dépendances (package.json et package-lock.json) :
@@ -212,3 +213,34 @@ Pourquoi ce commit est "propre" ?
 Atomique : Il regroupe uniquement les modifications liées à la résolution des erreurs de build.
 Explicite : Le message de commit suit les conventions standards (fix: ...) pour faciliter le suivi dans l'historique Git.
 Sûr : En ciblant les fichiers individuellement avec git add, vous évitez d'ajouter par erreur des fichiers temporaires ou des fichiers de configuration locale.
+=======
+
+Parfait, merci pour la précision. Si tu es sur le VPS, alors pour récupérer les derniers changements il faut faire le pull sur le VPS, pas en local.
+
+Voici la commande exacte à exécuter sur le VPS :
+
+cd ~/apps/ParabellumGroups
+git pull
+Si tu veux je peux aussi lancer la rebuild après, par exemple :
+
+docker compose up -d --build frontend
+
+
+Bien vu — la variable est correcte, mais le service Postgres n’est pas joignable depuis ta session shell, parce que postgres est un nom DNS valide uniquement dans le réseau Docker.
+
+Tu as deux options :
+
+✅ Option A (recommandée, la plus simple)
+Exécuter la migration depuis le conteneur billing-service, où postgres est accessible :
+
+cd /home/theo_pbl/apps/ParabellumGroups
+docker compose exec billing-service npx prisma migrate dev -n add_treasury_closures
+✅ Option B (si tu veux lancer depuis le VPS directement)
+Il faut une URL avec l’IP/localhost au lieu de postgres.
+Exemple (si Postgres est exposé en local) :
+
+export DATABASE_URL="postgresql://parabellum:...@127.0.0.1:5432/parabellum_billing?schema=public"
+npx prisma migrate dev -n add_treasury_closures
+Je te conseille Option A, ça marchera tout de suite.
+Tu veux que je continue sur la validation des clôtures par rôle après ça ?
+>>>>>>> Stashed changes

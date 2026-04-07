@@ -1,4 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
+const { recordEngagement } = require('../utils/accountingWorkflow');
 
 const prisma = new PrismaClient();
 
@@ -102,18 +103,31 @@ const processProcurementEvent = async (event) => {
         break;
       }
       case 'procurement.purchase_order.status_changed': {
-        await tx.purchaseCommitment.updateMany({
+        const commitment = await tx.purchaseCommitment.findFirst({
           where: {
             sourceType: 'PURCHASE_ORDER',
             sourceId: String(payload.purchaseOrderId),
           },
-          data: {
-            status: payload.toStatus || payload.status || 'BROUILLON',
-            serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
-            serviceName: payload.serviceName || null,
-            amountTTC: normalizeNumber(payload.amountTTC, 0),
-          },
         });
+
+        if (commitment) {
+          const updated = await tx.purchaseCommitment.update({
+            where: { id: commitment.id },
+            data: {
+              status: (payload.toStatus || payload.status || 'BROUILLON') === 'CONFIRME' 
+                ? PurchaseCommitmentStatus.ENGAGE 
+                : (payload.toStatus || payload.status || 'BROUILLON'),
+              serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
+              serviceName: payload.serviceName || null,
+              amountTTC: normalizeNumber(payload.amountTTC, 0),
+            },
+          });
+
+          // Si passage à CONFIRME (ENGAGE), on enregistre l'écriture comptable
+          if (updated.status === PurchaseCommitmentStatus.ENGAGE && commitment.status !== PurchaseCommitmentStatus.ENGAGE) {
+            await recordEngagement(tx, { commitment: updated, user: null });
+          }
+        }
         break;
       }
       default:

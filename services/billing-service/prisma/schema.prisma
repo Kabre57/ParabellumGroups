@@ -220,41 +220,87 @@ model PurchaseCommitment {
   amountTVA      Float
   amountTTC      Float
   currency       String   @default("XOF")
-  status         String
+  status         PurchaseCommitmentStatus @default(ENGAGE)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  factureFournisseurId String?
+  factureFournisseur   FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id])
+  decaissements        Decaissement[]
 
   @@unique([sourceType, sourceId])
   @@index([status])
   @@map("purchase_commitments")
 }
 
-model CashVoucher {
+model FactureFournisseur {
+  id             String   @id @default(uuid())
+  numeroFacture  String   @unique
+  fournisseurId  String?
+  fournisseurNom String?
+  dateFacture    DateTime @default(now())
+  dateEcheance   DateTime?
+  montantHT      Float
+  montantTVA     Float
+  montantTTC     Float
+  currency       String   @default("XOF")
+  status         String   @default("A_PAYER") // A_PAYER, PARTIELLEMENT_PAYEE, PAYEE, ANNULEE
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  commitmentId   String?
+  commitment     PurchaseCommitment[]
+  decaissements  Decaissement[]
+
+  @@index([fournisseurId])
+  @@index([status])
+  @@map("factures_fournisseurs")
+}
+
+model Encaissement {
   id                String   @id @default(uuid())
-  voucherNumber     String   @unique
-  sourceType        String
-  sourceId          String?
-  sourceNumber      String?
-  expenseCategory   String?
-  serviceId         Int?
-  serviceName       String?
-  supplierId        String?
-  supplierName      String?
-  beneficiaryName   String
-  beneficiaryPhone  String?
+  numeroPiece       String   @unique
+  clientId          String?
+  clientName        String
   description       String
   amountHT          Float    @default(0)
   amountTVA         Float    @default(0)
   amountTTC         Float
   currency          String   @default("XOF")
   paymentMethod     MethodePaiement
-  flowType          CashVoucherFlowType @default(DECAISSEMENT)
   treasuryAccountId String?
-  status            CashVoucherStatus @default(BROUILLON)
-  issueDate         DateTime @default(now())
-  disbursementDate  DateTime?
+  dateEncaissement  DateTime @default(now())
   reference         String?
   notes             String?
+  createdByUserId   String?
+  createdByEmail    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  factureClientId   String?
+
+  @@index([dateEncaissement])
+  @@index([treasuryAccountId])
+  @@map("encaissements")
+}
+
+model Decaissement {
+  id                String   @id @default(uuid())
+  numeroPiece       String   @unique
+  beneficiaryName   String
+  description       String
+  amountHT          Float    @default(0)
+  amountTVA         Float    @default(0)
+  amountTTC         Float
+  currency          String   @default("XOF")
+  paymentMethod     MethodePaiement
+  treasuryAccountId String?
+  dateDecaissement  DateTime @default(now())
+  reference         String?
+  notes             String?
+  status            String   @default("VALIDE") // VALIDE, DECAISSE, ANNULE
   createdByUserId   String?
   createdByEmail    String?
   approvedByUserId  String?
@@ -262,13 +308,15 @@ model CashVoucher {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  treasuryAccount      TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  factureFournisseurId String?
+  factureFournisseur   FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id])
+  commitmentId         String?
+  commitment           PurchaseCommitment? @relation(fields: [commitmentId], references: [id])
 
-  @@index([sourceType, sourceId])
-  @@index([status])
-  @@index([issueDate])
+  @@index([dateDecaissement])
   @@index([treasuryAccountId])
-  @@map("cash_vouchers")
+  @@map("decaissements")
 }
 
 model TreasuryAccount {
@@ -288,7 +336,8 @@ model TreasuryAccount {
   updatedAt       DateTime             @updatedAt
 
   payments        Paiement[]
-  cashVouchers    CashVoucher[]
+  encaissements   Encaissement[]
+  decaissements   Decaissement[]
   closures        TreasuryClosure[]
 
   @@index([type])
@@ -434,17 +483,11 @@ enum MethodePaiement {
   ESPECES
 }
 
-enum CashVoucherStatus {
-  BROUILLON
-  EN_ATTENTE
-  VALIDE
-  DECAISSE
-  ANNULE
-}
-
-enum CashVoucherFlowType {
-  ENCAISSEMENT
-  DECAISSEMENT
+enum PurchaseCommitmentStatus {
+  ENGAGE
+  LIQUIDE
+  ORDONNANCE
+  PAYE
 }
 
 enum TreasuryClosureStatus {
