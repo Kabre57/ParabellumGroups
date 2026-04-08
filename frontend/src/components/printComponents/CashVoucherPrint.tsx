@@ -3,10 +3,10 @@
 import React from 'react';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatFCFAInWords, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
-import type { CashVoucher } from '@/shared/api/billing';
+import type { Encaissement, Decaissement } from '@/shared/api/billing';
 
 interface CashVoucherPrintProps {
-  voucher: CashVoucher;
+  voucher: (Encaissement | Decaissement) & { flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT' };
   onClose: () => void;
   companyName?: string;
   logoSrc?: string | null;
@@ -19,13 +19,16 @@ export default function CashVoucherPrint({
   logoSrc,
 }: CashVoucherPrintProps) {
   const resolvedLogo = resolvePrintLogo(logoSrc);
-  const isEncaissement = voucher.flowType === 'ENCAISSEMENT';
-
+  const isEncaissement = voucher.flowType === 'ENCAISSEMENT' || ('clientName' in voucher);
+  const voucherNumber = 'numeroPiece' in voucher ? voucher.numeroPiece : (voucher as any).voucherNumber;
+  const issueDate = 'dateEncaissement' in voucher ? voucher.dateEncaissement : ('dateDecaissement' in voucher ? voucher.dateDecaissement : (voucher as any).issueDate);
+  
   // Extraction nom/prénom
-  const fullName = voucher.beneficiaryName || '';
+  const fullName = ('clientName' in voucher ? voucher.clientName : ('beneficiaryName' in voucher ? voucher.beneficiaryName : '')) || '';
   const firstName = fullName.split(' ')[0] || '-';
   const lastName = fullName.split(' ').slice(1).join(' ') || '-';
   const nomComplet = `${firstName} ${lastName}`.trim();
+  const beneficiaryPhone = (voucher as any).beneficiaryPhone || (voucher as any).clientPhone || '-';
 
   return (
     <PrintLayout title="Bon de caisse" onClose={onClose} hideDefaultHeader>
@@ -72,7 +75,7 @@ export default function CashVoucherPrint({
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={{ fontSize: 18, fontWeight: 'bold' }}>{companyName}</div>
               <div style={{ fontSize: 14, fontWeight: 'bold', marginTop: 8 }}>BON DE CAISSE</div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>N° {textOrDash(voucher.voucherNumber)}</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>N° {textOrDash(voucherNumber)}</div>
             </div>
             
             {/* Espace pour équilibre */}
@@ -114,7 +117,7 @@ export default function CashVoucherPrint({
               </span>
             </div>
             <div>
-              Abidjan, le {formatPrintDate(voucher.issueDate)}
+              Abidjan, le {formatPrintDate(issueDate)}
             </div>
           </div>
 
@@ -156,7 +159,7 @@ export default function CashVoucherPrint({
                       N° TELEPHONE
                     </div>
                     <div style={{ padding: '10px', fontSize: 12 }}>
-                      {textOrDash(voucher.beneficiaryPhone)}
+                      {textOrDash(beneficiaryPhone)}
                     </div>
                   </div>
                 </td>
