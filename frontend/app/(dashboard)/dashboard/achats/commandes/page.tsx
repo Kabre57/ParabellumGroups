@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -26,8 +26,8 @@ import { CreateCommandeModal } from "@/components/achat/CreateCommandeModal";
 import type { CreateCommandePayload } from "@/components/achat/CreateCommandeModal";
 import { EditCommandeModal } from "@/components/achat/EditCommandeModal";
 import { ViewCommandeModal } from "@/components/achat/ViewCommandeModal";
-import billingService, { type CashVoucher, type PurchaseCommitment } from "@/shared/api/billing";
-import { CreateCashVoucherDialog } from "@/components/accounting/CreateCashVoucherDialog";
+import billingService, { type Decaissement, type PurchaseCommitment } from "@/shared/api/billing";
+import { CreateDecaissementDialog } from "@/components/accounting/CreateDecaissementDialog";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception } from "@/shared/api/inventory/types";
@@ -66,7 +66,7 @@ export default function PurchaseOrdersPage() {
   const [editOrder, setEditOrder] = useState<PurchaseOrder | null>(null);
   const [viewOrder, setViewOrder] = useState<PurchaseOrder | null>(null);
   const [showReceptionModal, setShowReceptionModal] = useState(false);
-  const [showCashVoucherDialog, setShowCashVoucherDialog] = useState(false);
+  const [showDecaissementDialog, setShowDecaissementDialog] = useState(false);
   const [receptionArticleSelections, setReceptionArticleSelections] = useState<Record<number, string>>({});
   const [receptionNotes, setReceptionNotes] = useState("");
   const [receptionInvoiceFile, setReceptionInvoiceFile] = useState<File | null>(null);
@@ -202,11 +202,11 @@ export default function PurchaseOrdersPage() {
     },
   });
 
-  const createCashVoucherMutation = useMutation({
-    mutationFn: billingService.createCashVoucher,
+  const createDecaissementMutation = useMutation({
+    mutationFn: billingService.createDecaissement,
     onSuccess: () => {
-      toast.success("Bon de caisse créé avec succès.");
-      setShowCashVoucherDialog(false);
+      toast.success("Bon de décaissement créé avec succès.");
+      setShowDecaissementDialog(false);
       queryClient.invalidateQueries({ queryKey: ["purchase-order-cash-vouchers"] });
       queryClient.invalidateQueries({ queryKey: ["billing-spending-overview"] });
       router.push("/dashboard/comptabilite/depenses");
@@ -249,14 +249,14 @@ export default function PurchaseOrdersPage() {
     isAdminRole(user) || permissionSet.has('expenses.create');
   const { data: cashVouchersResponse } = useQuery({
     queryKey: ["purchase-order-cash-vouchers"],
-    queryFn: () => billingService.getCashVouchers({ sourceType: "PURCHASE_ORDER" }),
+    queryFn: () => billingService.getDecaissements({ sourceType: "PURCHASE_ORDER" }),
     enabled: canReadCashVouchers,
     staleTime: 60 * 1000,
   });
   const articles = articlesResponse?.data ?? [];
   const receptions: Reception[] =
     (Array.isArray(receptionsResponse) ? receptionsResponse : receptionsResponse?.data) ?? [];
-  const cashVouchers: CashVoucher[] = cashVouchersResponse?.data ?? [];
+  const cashVouchers: Decaissement[] = (cashVouchersResponse?.data as any) ?? [];
   const receptionsByOrderId = useMemo(() => {
     const map = new Map<string, Reception>();
     receptions.forEach((reception) => {
@@ -267,10 +267,10 @@ export default function PurchaseOrdersPage() {
     return map;
   }, [receptions]);
   const cashVoucherByOrderId = useMemo(() => {
-    const map = new Map<string, CashVoucher>();
+    const map = new Map<string, Decaissement>();
     cashVouchers.forEach((voucher) => {
-      if (voucher?.sourceType === "PURCHASE_ORDER" && voucher?.sourceId && !map.has(voucher.sourceId)) {
-        map.set(voucher.sourceId, voucher);
+      if (voucher?.commitmentId && !map.has(voucher.commitmentId)) {
+        map.set(voucher.commitmentId, voucher as any);
       }
     });
     return map;
@@ -332,7 +332,7 @@ export default function PurchaseOrdersPage() {
     const amountTTC = Number(order.montantTotal ?? order.amount ?? amountHT + amountTVA);
 
     return {
-      voucher: cashVoucherByOrderId.get(order.id) || null,
+      voucher: cashVoucherByOrderId.get(`purchase-order-${order.id}`) || null,
       commitment: {
         id: `purchase-order-${order.id}`,
         sourceType: "PURCHASE_ORDER" as const,
@@ -600,16 +600,16 @@ export default function PurchaseOrdersPage() {
                       <Button onClick={() => setViewOrder(d)}>Voir</Button>
                       {existingCashVoucher ? (
                         <div className="flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                          Bon de caisse : {existingCashVoucher.voucherNumber}
+                          Bon de décaissement : {existingCashVoucher.numeroPiece}
                         </div>
                       ) : null}
                       {canCreateCashVoucher && ['CONFIRME', 'LIVRE'].includes(String(d.status || '')) ? (
                         <Button
                           variant="outline"
-                          onClick={() => setShowCashVoucherDialog(true)}
+                          onClick={() => setShowDecaissementDialog(true)}
                           disabled={Boolean(existingCashVoucher)}
                         >
-                          {existingCashVoucher ? 'Bon de caisse déjà créé' : 'Créer un bon de caisse'}
+                          {existingCashVoucher ? 'Déjà payé' : 'Payer (Décaissement)'}
                         </Button>
                       ) : null}
                       {existingCashVoucher ? (
@@ -674,12 +674,12 @@ export default function PurchaseOrdersPage() {
       />
 
       {canCreateCashVoucher && selectedOrderForAccounting ? (
-        <CreateCashVoucherDialog
-          open={showCashVoucherDialog}
-          onOpenChange={setShowCashVoucherDialog}
+        <CreateDecaissementDialog
+          open={showDecaissementDialog}
+          onOpenChange={setShowDecaissementDialog}
           defaultCommitment={selectedOrderForAccounting.commitment}
-          onSubmit={(payload) => createCashVoucherMutation.mutate(payload)}
-          isSubmitting={createCashVoucherMutation.isPending}
+          onSubmit={(payload) => createDecaissementMutation.mutate(payload)}
+          isSubmitting={createDecaissementMutation.isPending}
         />
       ) : null}
 
