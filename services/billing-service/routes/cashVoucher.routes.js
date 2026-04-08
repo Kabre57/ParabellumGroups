@@ -1,14 +1,8 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
-const cashVoucherController = require('../controllers/cashVoucher.controller');
-
 const router = express.Router();
+const accountingOverviewController = require('../controllers/accountingOverview.controller');
 
-router.use(authenticateToken);
-
-router.get('/', cashVoucherController.getAllCashVouchers);
-router.post('/', cashVoucherController.createCashVoucher);
-router.patch('/:id/status', cashVoucherController.updateCashVoucherStatus);
-router.get('/spending-overview', cashVoucherController.getSpendingOverview);
+// Redirige l'ancienne route de synthèse vers le nouveau contrôleur d'overview
+router.get('/spending-overview', accountingOverviewController.getAccountingOverview);
 
 module.exports = router;

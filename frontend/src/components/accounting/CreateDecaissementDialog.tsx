@@ -62,10 +62,16 @@ export function CreateDecaissementDialog({
   isSubmitting = false,
 }: CreateDecaissementDialogProps) {
   const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment));
+  const [accountingAccountId, setAccountingAccountId] = useState<string>('');
 
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
     queryFn: () => billingService.getTreasuryAccounts(),
+  });
+
+  const { data: accountingAccountsResponse } = useQuery({
+    queryKey: ['accounting-accounts'],
+    queryFn: () => billingService.getAccountingAccounts(),
   });
 
   useEffect(() => {
@@ -97,17 +103,21 @@ export function CreateDecaissementDialog({
       reference: form.reference || undefined,
       notes: form.notes || undefined,
       commitmentId: form.commitmentId || undefined,
+      accountingAccountId: accountingAccountId || undefined, // Nouveau champ
     });
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => 
+    acc.type === 'EXPENSE' || acc.code.startsWith('6')
+  );
   const filteredAccounts = treasuryAccounts.filter((acc) => 
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-rose-100">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-rose-100">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-rose-700 font-serif">Nouveau Bon de Décaissement</DialogTitle>
           <DialogDescription>
@@ -115,7 +125,7 @@ export function CreateDecaissementDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Bénéficiaire</Label>
@@ -220,6 +230,20 @@ export function CreateDecaissementDialog({
                  className="bg-slate-50 text-slate-500"
                />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Imputation Comptable (Compte de Charge)</Label>
+            <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
+              <SelectTrigger className="border-rose-200 focus:ring-rose-500">
+                <SelectValue placeholder="Sélectionner le compte de dépense" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountingAccounts.map((acc: any) => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

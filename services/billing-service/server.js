@@ -25,6 +25,7 @@ const factureFournisseurRoutes = require('./routes/factureFournisseur.routes');
 const accountingRoutes = require('./routes/accounting.routes');
 const treasuryAccountRoutes = require('./routes/treasuryAccount.routes');
 const treasuryClosureRoutes = require('./routes/treasuryClosure.routes');
+const cashVoucherRoutes = require('./routes/cashVoucher.routes');
 
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
@@ -37,6 +38,7 @@ app.use('/api/factures-fournisseurs', factureFournisseurRoutes);
 app.use('/api/treasury-accounts', treasuryAccountRoutes);
 app.use('/api/treasury-closures', treasuryClosureRoutes);
 app.use('/api/accounting', accountingRoutes);
+app.use('/api/cash-vouchers', cashVoucherRoutes);
 app.use('/api/internal/procurement-events', internalProcurementEventRoutes);
 
 // Route de santé

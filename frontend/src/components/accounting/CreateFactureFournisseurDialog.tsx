@@ -86,7 +86,7 @@ export function CreateFactureFournisseurDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-blue-100">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-blue-100">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-blue-800">Liquidation de l'Engagement</DialogTitle>
           <DialogDescription>
@@ -95,7 +95,7 @@ export function CreateFactureFournisseurDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Numéro de Facture Fournisseur</Label>

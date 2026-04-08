@@ -56,10 +56,16 @@ export function CreateEncaissementDialog({
   isSubmitting = false,
 }: CreateEncaissementDialogProps) {
   const [form, setForm] = useState<FormState>(initialState);
+  const [accountingAccountId, setAccountingAccountId] = useState<string>('');
 
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
     queryFn: () => billingService.getTreasuryAccounts(),
+  });
+
+  const { data: accountingAccountsResponse } = useQuery({
+    queryKey: ['accounting-accounts'],
+    queryFn: () => billingService.getAccountingAccounts(),
   });
 
   useEffect(() => {
@@ -93,17 +99,21 @@ export function CreateEncaissementDialog({
       dateEncaissement: new Date(form.dateEncaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
+      accountingAccountId: accountingAccountId || undefined,
     });
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => 
+    acc.type === 'REVENUE' || acc.code.startsWith('7')
+  );
   const filteredAccounts = treasuryAccounts.filter((acc) => 
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-emerald-700">Nouveau Bon d'Encaissement</DialogTitle>
           <DialogDescription>
@@ -111,7 +121,7 @@ export function CreateEncaissementDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Source / Client</Label>
@@ -205,6 +215,20 @@ export function CreateEncaissementDialog({
               onChange={(e) => updateField('reference', e.target.value)}
               placeholder="Facultatif"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Imputation Comptable (Compte de Revenu)</Label>
+            <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
+              <SelectTrigger className="border-emerald-200 focus:ring-emerald-500">
+                <SelectValue placeholder="Sélectionner le compte de produit" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountingAccounts.map((acc: any) => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

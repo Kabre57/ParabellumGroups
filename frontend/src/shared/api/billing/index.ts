@@ -227,6 +227,7 @@ export interface Encaissement {
   dateEncaissement: string;
   reference?: string | null;
   notes?: string | null;
+  accountingAccountId?: string | null; // Ajout
   createdAt?: string;
 }
 
@@ -247,6 +248,7 @@ export interface Decaissement {
   status: string;
   factureFournisseurId?: string | null;
   commitmentId?: string | null;
+  accountingAccountId?: string | null; // Ajout
   createdAt?: string;
 }
 

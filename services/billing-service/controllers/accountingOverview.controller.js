@@ -254,7 +254,7 @@ exports.getAccountingOverview = async (req, res) => {
         label: 'Banque',
         type: 'asset',
         balance: bankInflows - bankOutflows,
-        lastTransaction: paiements[0]?.datePaiement || disbursedVouchers[0]?.disbursementDate || null,
+        lastTransaction: paiements[0]?.datePaiement || disbursedVouchers[0]?.dateDecaissement || null,
         movementCount:
           paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() !== 'ESPECES').length +
           disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length,
@@ -267,7 +267,7 @@ exports.getAccountingOverview = async (req, res) => {
         balance: cashInflows - cashOutflows,
         lastTransaction:
           paiements.find((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES')?.datePaiement ||
-          disbursedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.disbursementDate ||
+          disbursedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.dateDecaissement ||
           null,
         movementCount:
           paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES').length +

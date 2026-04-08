@@ -28,6 +28,7 @@ import { EditCommandeModal } from "@/components/achat/EditCommandeModal";
 import { ViewCommandeModal } from "@/components/achat/ViewCommandeModal";
 import billingService, { type Decaissement, type PurchaseCommitment } from "@/shared/api/billing";
 import { CreateDecaissementDialog } from "@/components/accounting/CreateDecaissementDialog";
+import { CreateFactureFournisseurDialog } from "@/components/accounting/CreateFactureFournisseurDialog";
 import { inventoryReceptionsService } from "@/shared/api/inventory/receptions.service";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { Reception } from "@/shared/api/inventory/types";
@@ -67,6 +68,7 @@ export default function PurchaseOrdersPage() {
   const [viewOrder, setViewOrder] = useState<PurchaseOrder | null>(null);
   const [showReceptionModal, setShowReceptionModal] = useState(false);
   const [showDecaissementDialog, setShowDecaissementDialog] = useState(false);
+  const [showFactureFournisseurDialog, setShowFactureFournisseurDialog] = useState(false);
   const [receptionArticleSelections, setReceptionArticleSelections] = useState<Record<number, string>>({});
   const [receptionNotes, setReceptionNotes] = useState("");
   const [receptionInvoiceFile, setReceptionInvoiceFile] = useState<File | null>(null);
@@ -215,6 +217,22 @@ export default function PurchaseOrdersPage() {
       toast.error(
         error?.response?.data?.message ||
           "Impossible de créer le bon de caisse lié à cette commande."
+      );
+    },
+  });
+
+  const createFactureFournisseurMutation = useMutation({
+    mutationFn: billingService.createFactureFournisseur,
+    onSuccess: () => {
+      toast.success("Facture fournisseur enregistrée (Liquidation effectuée).");
+      setShowFactureFournisseurDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-order-detail", selectedOrderId] });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message ||
+          "Impossible d'enregistrer la facture fournisseur."
       );
     },
   });
@@ -604,13 +622,22 @@ export default function PurchaseOrdersPage() {
                         </div>
                       ) : null}
                       {canCreateCashVoucher && ['CONFIRME', 'LIVRE'].includes(String(d.status || '')) ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowDecaissementDialog(true)}
-                          disabled={Boolean(existingCashVoucher)}
-                        >
-                          {existingCashVoucher ? 'Déjà payé' : 'Payer (Décaissement)'}
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                            onClick={() => setShowFactureFournisseurDialog(true)}
+                          >
+                            Liquider (Saisir Facture)
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowDecaissementDialog(true)}
+                            disabled={Boolean(existingCashVoucher)}
+                          >
+                            {existingCashVoucher ? 'Déjà payé' : 'Payer (Décaissement)'}
+                          </Button>
+                        </>
                       ) : null}
                       {existingCashVoucher ? (
                         <Button variant="secondary" onClick={() => router.push('/dashboard/comptabilite/depenses')}>
@@ -674,13 +701,22 @@ export default function PurchaseOrdersPage() {
       />
 
       {canCreateCashVoucher && selectedOrderForAccounting ? (
-        <CreateDecaissementDialog
-          open={showDecaissementDialog}
-          onOpenChange={setShowDecaissementDialog}
-          defaultCommitment={selectedOrderForAccounting.commitment}
-          onSubmit={(payload) => createDecaissementMutation.mutate(payload)}
-          isSubmitting={createDecaissementMutation.isPending}
-        />
+        <>
+          <CreateDecaissementDialog
+            open={showDecaissementDialog}
+            onOpenChange={setShowDecaissementDialog}
+            defaultCommitment={selectedOrderForAccounting.commitment}
+            onSubmit={(payload) => createDecaissementMutation.mutate(payload)}
+            isSubmitting={createDecaissementMutation.isPending}
+          />
+          <CreateFactureFournisseurDialog
+            open={showFactureFournisseurDialog}
+            onOpenChange={setShowFactureFournisseurDialog}
+            commitment={selectedOrderForAccounting.commitment}
+            onSubmit={(payload) => createFactureFournisseurMutation.mutate(payload)}
+            isSubmitting={createFactureFournisseurMutation.isPending}
+          />
+        </>
       ) : null}
 
       {canUpdate && (

@@ -30,7 +30,7 @@ const config = {
   
   RATE_LIMIT: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 2000
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 5000
   },
   
   LOG_LEVEL: process.env.LOG_LEVEL || 'info'
