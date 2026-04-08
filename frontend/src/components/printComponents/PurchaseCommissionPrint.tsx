@@ -206,7 +206,7 @@ export default function PurchaseCommissionPrint({
                   <div style={{ fontWeight: 700 }}>{row.fournisseurNom}</div>
                   <div>
                     {row.selectedForOrder
-                      ? 'Retenue DG'
+                      ? 'Retenue PDG'
                       : row.recommendedForApproval
                       ? 'Recommandée achat'
                       : row.status}

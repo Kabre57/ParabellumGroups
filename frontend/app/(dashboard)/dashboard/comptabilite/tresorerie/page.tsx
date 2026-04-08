@@ -75,6 +75,7 @@ export default function TresoreriePage() {
       billingService.getTreasuryClosures({
         startDate: periodRange?.startDate,
         endDate: periodRange?.endDate,
+        period: customRange ? undefined : period,
       }),
     enabled: canRead,
   });
@@ -150,14 +151,15 @@ export default function TresoreriePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">Trésorerie</h1>
           <p className="text-muted-foreground mt-2">
             Suivi des flux de trésorerie, soldes multi-banques et sous-caisses.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setAccountDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Nouveau compte
@@ -446,7 +448,7 @@ export default function TresoreriePage() {
         accounts={treasuryAccounts}
         isSubmitting={createClosureMutation.isPending}
         onSubmit={(payload) => {
-           // On ne transmet pas de status "VALIDATED" à la création
+          // On ne transmet pas de status "VALIDATED" à la création
           const { status, ...payloadWithoutStatus } = payload;
           createClosureMutation.mutate(
             payloadWithoutStatus as Parameters<typeof billingService.createTreasuryClosure>[0]

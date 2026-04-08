@@ -68,7 +68,7 @@ export const sidebarCategories: SidebarCategory[] = [
 export const sidebarItems: SidebarItem[] = [
   { name: 'Tableau de bord', href: '/dashboard', icon: Home, permission: 'dashboard.read', categoryId: 'dashboard' },
   { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart, permission: 'reports.read_financial', categoryId: 'dashboard' },
-  { name: 'Validation DG Achats', href: '/dashboard/approbations/achats', icon: Workflow, permission: 'purchase_requests.approve', categoryId: 'dashboard' },
+  { name: 'Validation PDG Achats', href: '/dashboard/approbations/achats', icon: Workflow, permission: 'purchase_requests.approve', categoryId: 'dashboard' },
 
   { name: 'Dashboard Commercial', href: '/dashboard/commercial', icon: Home, permission: 'prospects.read', categoryId: 'commercial', isServiceDashboard: true },
   { name: 'Prospection', href: '/dashboard/commercial/prospects', icon: Target, permission: 'prospects.read', categoryId: 'commercial' },

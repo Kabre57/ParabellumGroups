@@ -57,7 +57,7 @@ export function ProformaSuppliersSection({
       <CardHeader>
         <CardTitle>Proformas fournisseurs</CardTitle>
         <CardDescription>
-          Gérez les proformas liées à ce devis interne, comparez-les et préparez la validation DG.
+          Gérez les proformas liées à ce devis interne, comparez-les et préparez la validation PDG.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -109,7 +109,7 @@ export function ProformaSuppliersSection({
                       disabled={isSubmitPending}
                     >
                       <Send className="mr-2 h-4 w-4" />
-                      Soumettre au DG
+                      Soumettre au PDG
                     </Button>
                   )}
 

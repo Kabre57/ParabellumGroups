@@ -1,4 +1,5 @@
-const { PrismaClient, MethodePaiement } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
+const { hasPermission } = require('../utils/accounting');
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,36 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const resolvePeriodRange = (period) => {
+  if (!period || period === 'all') return { start: null, end: null };
+  const now = new Date();
+  if (period === 'week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+  if (period === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+  }
+  if (period === 'quarter') {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    const start = new Date(now.getFullYear(), quarterStartMonth, 1);
+    const end = new Date(now.getFullYear(), quarterStartMonth + 3, 0, 23, 59, 59, 999);
+    return { start, end };
+  }
+  if (period === 'year') {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    return { start, end };
+  }
+  return { start: null, end: null };
+};
+
 const paymentBucket = (method) => {
   switch (String(method || '').toUpperCase()) {
     case 'ESPECES':
@@ -24,6 +55,14 @@ const paymentBucket = (method) => {
     default:
       return 'other';
   }
+};
+
+const canValidateClosure = (user) => {
+  const role = String(user?.role || user?.roleCode || '').toUpperCase();
+  if (['ADMIN', 'ADMINISTRATEUR', 'ADMINISTRATOR', 'DG', 'DIRECTEUR_GENERAL'].includes(role)) {
+    return true;
+  }
+  return hasPermission(user, 'payments.validate', 'expenses.approve', 'expenses.update');
 };
 
 const getExpectedTotals = async ({ start, end, treasuryAccountId }) => {
@@ -123,12 +162,16 @@ exports.getTreasuryClosures = async (req, res) => {
   try {
     const start = parseDate(req.query.startDate);
     const end = parseDate(req.query.endDate);
+    const period = req.query.period ? String(req.query.period) : null;
+    const resolvedRange = (!start && !end && period) ? resolvePeriodRange(period) : null;
+    const effectiveStart = resolvedRange?.start || start;
+    const effectiveEnd = resolvedRange?.end || end;
     const where = {};
 
-    if (start || end) {
+    if (effectiveStart || effectiveEnd) {
       where.periodStart = {};
-      if (start) where.periodStart.gte = start;
-      if (end) where.periodEnd.lte = end;
+      if (effectiveStart) where.periodStart.gte = effectiveStart;
+      if (effectiveEnd) where.periodEnd.lte = effectiveEnd;
     }
 
     if (req.query.treasuryAccountId) {
@@ -287,6 +330,12 @@ exports.updateTreasuryClosure = async (req, res) => {
 
 exports.validateTreasuryClosure = async (req, res) => {
   try {
+    if (!canValidateClosure(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous n’avez pas la permission de valider une clôture.',
+      });
+    }
     const { id } = req.params;
     const userId = String(req.user?.userId || req.user?.id || '');
     const userEmail = req.user?.email || null;

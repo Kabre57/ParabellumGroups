@@ -69,7 +69,7 @@ export default function ProspectionTerrainPage() {
       prospect: visit.prospect,
       scheduledAt: new Date(visit.scheduledAt),
       assignee: visit.assignee || 'Commercial',
-      status: visit.status || 'PLANIFIEE',
+      status: (visit.status || 'PLANIFIEE') as TerrainVisitStatus,
       note: visit.note || '',
       outcome: visit.outcome || '',
     }));
@@ -417,7 +417,7 @@ export default function ProspectionTerrainPage() {
                       prospectId: prospect.id,
                       scheduledAt: newVisit.date ? new Date(newVisit.date).toISOString() : new Date().toISOString(),
                       assignee: newVisit.assignee,
-                      status: newVisit.status as 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE',
+                      status: newVisit.status as TerrainVisitStatus,
                       note: newVisit.note,
                     },
                     {

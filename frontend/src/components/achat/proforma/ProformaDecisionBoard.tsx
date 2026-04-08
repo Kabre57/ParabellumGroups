@@ -181,7 +181,7 @@ export function ProformaDecisionBoard({
       <CardHeader>
         <CardTitle>Tableau de décision achat</CardTitle>
         <CardDescription>
-          Comparez les offres, renseignez la commission achat et préparez la décision DG.
+          Comparez les offres, renseignez la commission achat et préparez la décision PDG.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -342,7 +342,7 @@ export function ProformaDecisionBoard({
                           <div className="mt-1 flex flex-wrap gap-1">
                             {isBest ? <Badge variant="outline">Moins-disant</Badge> : null}
                             {isRecommended ? <Badge variant="secondary">Recommandée achat</Badge> : null}
-                            {isSelected ? <Badge>Retenue DG</Badge> : null}
+                            {isSelected ? <Badge>Retenue PDG</Badge> : null}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -362,7 +362,7 @@ export function ProformaDecisionBoard({
                         </td>
                         <td className="px-3 py-3">
                           <Badge variant={isSelected ? 'default' : isRecommended ? 'secondary' : 'outline'}>
-                            {isSelected ? 'Retenue DG' : isRecommended ? 'Recommandée' : row.status}
+                            {isSelected ? 'Retenue PDG' : isRecommended ? 'Recommandée' : row.status}
                           </Badge>
                         </td>
                         <td className="px-3 py-3 text-right">

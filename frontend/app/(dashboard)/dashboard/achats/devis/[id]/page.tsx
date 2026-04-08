@@ -809,7 +809,7 @@ export default function PurchaseQuoteDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Gérez ce devis interne et ses informations avant décision achat, validation DG et conversion en bon de commande.
+            Gérez ce devis interne et ses informations avant décision achat, validation PDG et conversion en bon de commande.
           </p>
         </div>
 
@@ -843,7 +843,7 @@ export default function PurchaseQuoteDetailPage() {
               disabled={submitMutation.isPending || lines.every((line) => !line.designation)}
             >
               <Send className="mr-2 h-4 w-4" />
-              Soumettre au DG
+              Soumettre au PDG
             </Button>
           )}
 

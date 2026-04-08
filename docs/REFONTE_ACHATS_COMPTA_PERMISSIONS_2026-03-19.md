@@ -15,7 +15,7 @@ Date: 19 mars 2026
 - Après validation, c'est lui qui renseigne les fournisseurs, les prix et prépare le bon de commande.
 
 ### Validation DG
-- L'espace `Validation DG Achats` est réservé aux utilisateurs disposant de `purchase_requests.approve`.
+- L'espace `Validation PDG Achats` est réservé aux utilisateurs disposant de `purchase_requests.approve`.
 - Si un utilisateur ne peut pas approuver, il ne peut pas rejeter non plus.
 - L'approbation DG ne crée plus automatiquement un bon de commande.
 

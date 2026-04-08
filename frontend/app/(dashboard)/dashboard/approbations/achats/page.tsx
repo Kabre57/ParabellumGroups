@@ -132,7 +132,7 @@ export default function PurchaseApprovalsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Validation Achats</h1>
         <p className="text-sm text-muted-foreground">
-          Espace DG pour valider d’abord les devis internes, puis les proformas retenues par le service achat.
+          Espace PDG pour valider d’abord les devis internes, puis les proformas retenues par le service achat.
         </p>
       </div>
 
@@ -210,7 +210,7 @@ export default function PurchaseApprovalsPage() {
         <CardHeader>
           <CardTitle>Proformas en attente de validation</CardTitle>
           <CardDescription>
-            Le service achat soumet ici la proforma retenue au DG avant génération du bon de commande.
+            Le service achat soumet ici la proforma retenue au PDG avant génération du bon de commande.
           </CardDescription>
         </CardHeader>
         <CardContent>

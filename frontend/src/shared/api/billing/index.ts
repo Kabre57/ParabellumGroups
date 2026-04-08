@@ -873,6 +873,7 @@ export const billingService = {
     startDate?: string;
     endDate?: string;
     treasuryAccountId?: string;
+    period?: 'week' | 'month' | 'quarter' | 'year' | 'all';
   }): Promise<ListResponse<TreasuryClosure>> {
     const response = await apiClient.get('/billing/treasury-closures', { params });
     return normalizeListResponse<TreasuryClosure>(response.data);
