@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency } from '@/utils/placements/formatters';
+import { formatCurrency } from '@/utils/comptabilite/placements/formatters';
 import type { Placement } from '@/shared/api/billing';
 
 interface AddCourseDialogProps {

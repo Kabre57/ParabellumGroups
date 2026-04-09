@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Placement } from '@/shared/api/billing';
-import { typeLabels } from '@/utils/placements/formatters';
+import { typeLabels } from '@/utils/comptabilite/placements/formatters';
 
 export function usePlacementFilters(placements: Placement[]) {
   const [search, setSearch] = useState('');

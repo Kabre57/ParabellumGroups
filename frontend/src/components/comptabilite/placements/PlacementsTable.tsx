@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { formatCurrency, formatPercent, typeLabels } from '@/utils/placements/formatters';
+import { formatCurrency, formatPercent, typeLabels } from '@/utils/comptabilite/placements/formatters';
 import type { Placement } from '@/shared/api/billing';
 
 interface PlacementsTableProps {

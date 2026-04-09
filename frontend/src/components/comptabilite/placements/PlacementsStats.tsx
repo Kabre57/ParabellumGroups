@@ -3,8 +3,8 @@
 import { DollarSign, PieChart, TrendingUp, History } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatPercent } from '@/utils/placements/formatters';
-import type { PlacementSummary } from '@/types/placements';
+import { formatCurrency, formatPercent } from '@/utils/comptabilite/placements/formatters';
+import type { PlacementSummary } from '@/types/comptabilite/placements';
 
 interface PlacementsStatsProps {
   summary: PlacementSummary;

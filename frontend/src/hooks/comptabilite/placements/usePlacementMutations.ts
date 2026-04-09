@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import billingService from '@/shared/api/billing';
-import type { CreatePlacementPayload, AddCoursePayload } from '@/types/placements';
+import type { CreatePlacementPayload, AddCoursePayload } from '@/types/comptabilite/placements';
 
 export function useCreatePlacement(onSuccess?: () => void) {
   const queryClient = useQueryClient();

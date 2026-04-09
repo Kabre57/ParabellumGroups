@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { validateCreatePlacement } from '@/utils/placements/validators';
-import type { CreatePlacementPayload } from '@/types/placements';
+import { validateCreatePlacement } from '@/utils/comptabilite/placements/validators';
+import type { CreatePlacementPayload } from '@/types/comptabilite/placements';
 
 interface CreatePlacementDialogProps {
   open: boolean;

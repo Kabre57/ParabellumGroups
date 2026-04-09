@@ -11,8 +11,8 @@ import {
 } from 'recharts';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/utils/placements/formatters';
-import type { PerformancePoint } from '@/types/placements';
+import { formatCurrency } from '@/utils/comptabilite/placements/formatters';
+import type { PerformancePoint } from '@/types/comptabilite/placements';
 
 interface PlacementsChartProps {
   history: PerformancePoint[];
