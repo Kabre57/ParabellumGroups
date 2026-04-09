@@ -279,6 +279,7 @@ model ReponseSondage {
 
   sondage      SondageSatisfaction @relation(fields: [sondageId], references: [id], onDelete: Cascade)
   client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact      Contact?            @relation(fields: [contactId], references: [id])
   ticket       TicketCRM?          @relation(fields: [ticketId], references: [id])
 
   createdAt    DateTime            @default(now())
