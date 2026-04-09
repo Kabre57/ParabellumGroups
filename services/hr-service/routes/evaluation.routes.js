@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const evaluationController = require('../controllers/evaluation.controller');
-const authMiddleware = require('../middleware/auth');
+const { authenticateUser } = require('../../shared/middleware/auth');
 
-// Routes
-router.get('/', authMiddleware, evaluationController.getAll);
-router.get('/employe/:employeId', authMiddleware, evaluationController.getByEmploye);
-router.get('/:id', authMiddleware, evaluationController.getById);
-router.post('/', authMiddleware, evaluationController.create);
-router.put('/:id', authMiddleware, evaluationController.update);
-router.delete('/:id', authMiddleware, evaluationController.remove);
+router.use(authenticateUser);
+
+router.get('/', evaluationController.getAllEvaluations);
+router.post('/', evaluationController.createEvaluation);
+router.get('/:id', evaluationController.getEvaluation);
+router.put('/:id', evaluationController.updateEvaluation);
+router.delete('/:id', evaluationController.deleteEvaluation);
 
 module.exports = router;

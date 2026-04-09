@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/shared/providers/ThemeProvider';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: "Parabellum Groups - Gestion d'entreprise",
-  description: "Système de gestion intégré pour votre entreprise",
+  title: "Parabellum Groups",
+  description: "Système de gestion Parabellum Groups",
   icons: {
     icon: '/icon.svg',
     shortcut: '/icon.svg',

@@ -1,18 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const payrollController = require('../controllers/payroll.controller');
+const { authenticateUser } = require('../../shared/middleware/auth');
 
-router.get('/', payrollController.getAllPayroll.bind(payrollController));
-router.get('/overview', payrollController.getPayrollOverview.bind(payrollController));
-router.get('/exports/disa', payrollController.exportPayrollDisa.bind(payrollController));
-router.get('/exports/dgi', payrollController.exportPayrollDgi.bind(payrollController));
-router.get('/exports/pdf-grouped', payrollController.exportGroupedPayrollPdf.bind(payrollController));
-router.get('/:id', payrollController.getPayroll.bind(payrollController));
-router.get('/:id/pdf', payrollController.getPayrollPdf.bind(payrollController));
-router.post('/', payrollController.createPayroll.bind(payrollController));
-router.post('/generate', payrollController.generatePayslip.bind(payrollController));
-router.post('/generate-all', payrollController.generateAllCurrent.bind(payrollController));
-router.patch('/:id', payrollController.updatePayroll.bind(payrollController));
-router.delete('/:id', payrollController.deletePayroll.bind(payrollController));
+router.use(authenticateUser);
+
+router.get('/bulletins', payrollController.getAllBulletins);
+router.post('/bulletins/calculer', payrollController.calculerPaie);
+router.post('/traitement-masse', payrollController.traitementMasse);
+router.get('/annuel-summary', payrollController.getLivrePaieAnnuel);
+router.get('/bulletins/:id', payrollController.getBulletin);
+router.delete('/bulletins/:id', payrollController.deleteBulletin);
 
 module.exports = router;

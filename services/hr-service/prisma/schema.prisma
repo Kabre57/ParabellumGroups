@@ -29,7 +29,8 @@ model Configuration {
 }
 
 model Employe {
-  matricule             String   @id
+  id                    String   @id @default(uuid())
+  matricule             String   @unique
   civilite              String?
   nom                   String?
   prenoms               String?
@@ -77,6 +78,8 @@ model Employe {
   provisionsRetraite   ProvisionRetraiteCalc[]
   detailsVirements     DetailVirement[]
   certificatsTravail   CertificatTravail[]
+  evaluationsRecues    Evaluation[] @relation("EmployeEvaluations")
+  evaluationsDonnees   Evaluation[] @relation("EvaluateurEvaluations")
 }
 
 model Contrat {
@@ -95,7 +98,7 @@ model Contrat {
   regime                    String?
   typeEmploi                String?
   salaireBaseMensuel        Decimal? @db.Decimal(12, 2)
-  periodeEssaiMois           Int?
+  periodeEssaiMois          Int?
   dureeCddMois              Int?
   motifRecrutement          String?
   lieuTravail               String?
@@ -209,15 +212,15 @@ model GestionConge {
 }
 
 model ProvisionCongeCalc {
-  id                  Int      @id @default(autoincrement())
-  matricule           String
-  periode             String?
+  id                   Int      @id @default(autoincrement())
+  matricule            String
+  periode              String?
   droitCongeAcquisMois Decimal? @db.Decimal(6, 2)
-  droitCongeCumule    Decimal? @db.Decimal(6, 2)
-  droitCongeConsomme  Decimal? @db.Decimal(6, 2)
-  droitCongeRestant   Decimal? @db.Decimal(6, 2)
-  montantProvision    Decimal? @db.Decimal(12, 2)
-  tauxJournalier      Decimal? @db.Decimal(12, 2)
+  droitCongeCumule     Decimal? @db.Decimal(6, 2)
+  droitCongeConsomme   Decimal? @db.Decimal(6, 2)
+  droitCongeRestant    Decimal? @db.Decimal(6, 2)
+  montantProvision     Decimal? @db.Decimal(12, 2)
+  tauxJournalier       Decimal? @db.Decimal(12, 2)
 
   employe Employe @relation(fields: [matricule], references: [matricule])
 }
@@ -478,4 +481,228 @@ model StatistiqueRh {
   masseSalarialeTotale Decimal? @db.Decimal(12, 2)
   coutMoyenEmploye     Decimal? @db.Decimal(12, 2)
   coutChargesSociales  Decimal? @db.Decimal(12, 2)
+}
+
+model Evaluation {
+  id             String   @id @default(uuid())
+  employeId      String
+  evaluateurId   String
+  dateEvaluation DateTime
+  periode        String
+  noteGlobale    Decimal  @db.Decimal(3, 2)
+  competences    Json
+  commentaires   String?
+  objectifs      Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employe    Employe @relation("EmployeEvaluations", fields: [employeId], references: [id], onDelete: Cascade)
+  evaluateur Employe @relation("EvaluateurEvaluations", fields: [evaluateurId], references: [id])
+
+  @@map("evaluations")
+}
+
+// ============================================================
+// SIRH PHASE 2/3 - Portail Employé, Recrutement, Formation
+// ============================================================
+
+// Comptes utilisateurs du portail employé
+model UserAccount {
+  id          String   @id @default(uuid())
+  matricule   String   @unique
+  email       String   @unique
+  password    String
+  role        String   @default("EMPLOYE") // EMPLOYE | RH_MANAGER | RH_ADMIN
+  isActive    Boolean  @default(true)
+  lastLogin   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  demandesConge   DemandeConge[]
+  demandesPret    DemandePret[]
+  notifications   Notification[]
+}
+
+// Demandes de congé via portail (workflow d'approbation)
+model DemandeConge {
+  id             Int      @id @default(autoincrement())
+  userId         String
+  matricule      String
+  typeConge      String   // Annuel, Maladie, Maternité, Exceptionnel
+  dateDebut      DateTime
+  dateFin        DateTime
+  nombreJours    Int
+  motif          String?
+  statut         String   @default("En attente") // En attente | Approuvé | Refusé
+  approbateurId  String?
+  dateDecision   DateTime?
+  commentaire    String?
+  createdAt      DateTime @default(now())
+
+  user           UserAccount @relation(fields: [userId], references: [id])
+}
+
+// Demandes de prêts via portail
+model DemandePret {
+  id              Int      @id @default(autoincrement())
+  userId          String
+  matricule       String
+  typePret        String   // Personnel, Scolarité, Médical, Logement
+  montantDemande  Decimal  @db.Decimal(12, 2)
+  dureeRemboursement Int
+  motif           String?
+  statut          String   @default("En attente")
+  approbateurId   String?
+  dateDecision    DateTime?
+  commentaire     String?
+  createdAt       DateTime @default(now())
+
+  user            UserAccount @relation(fields: [userId], references: [id])
+}
+
+// Notifications système
+model Notification {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  titre      String
+  message    String
+  type       String   @default("INFO") // INFO | SUCCESS | WARNING | URGENT
+  isRead     Boolean  @default(false)
+  lien       String?
+  createdAt  DateTime @default(now())
+
+  user       UserAccount @relation(fields: [userId], references: [id])
+}
+
+// ---- RECRUTEMENT ----
+
+model OffreEmploi {
+  id               Int      @id @default(autoincrement())
+  intitulePoste    String
+  direction        String?
+  typeContrat      String?  // CDI, CDD, Stage, Intérim
+  profil           String?  // Description du profil recherché
+  missions         String?
+  salaireFourchette String?
+  dateOuverture    DateTime @default(now())
+  dateLimiteCandidature DateTime?
+  statut           String   @default("Ouverte") // Ouverte | Fermée | Pourvue
+  createdAt        DateTime @default(now())
+
+  candidatures     Candidature[]
+}
+
+model Candidature {
+  id              Int      @id @default(autoincrement())
+  offreId         Int
+  nomCandidat     String
+  prenomCandidat  String
+  email           String
+  telephone       String?
+  cvUrl           String?  // Chemin vers le CV uploadé
+  lettreMotivation String?
+  source          String?  // LinkedIn, Site Web, Interne, Recommandation
+  statut          String   @default("Reçue") // Reçue | Présélection | Entretien | Offre | Intégré | Refusé
+  noteEvaluation  Int?     // Score 1-10
+  commentaires    String?
+  dateEntretien   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  offre           OffreEmploi @relation(fields: [offreId], references: [id])
+  entretiens      Entretien[]
+}
+
+model Entretien {
+  id              Int      @id @default(autoincrement())
+  candidatureId   Int
+  dateHeure       DateTime
+  type            String?  // RH, Technique, DG
+  intervieweurs   String?
+  lieu            String?
+  statut          String   @default("Planifié") // Planifié | Réalisé | Annulé
+  noteCandidat    Int?
+  remarques       String?
+  createdAt       DateTime @default(now())
+
+  candidature     Candidature @relation(fields: [candidatureId], references: [id])
+}
+
+// ---- FORMATION ----
+
+model PlanFormation {
+  id          Int      @id @default(autoincrement())
+  annee       Int
+  budget      Decimal  @db.Decimal(12, 2)
+  statut      String   @default("Draft") // Draft | Validé | Clôturé
+  createdAt   DateTime @default(now())
+
+  formations  Formation[]
+}
+
+model Formation {
+  id              Int      @id @default(autoincrement())
+  planId          Int?
+  titre           String
+  type            String?  // Présentiel | En ligne | Mixte
+  organisme       String?
+  objectifs       String?
+  dureeHeures     Decimal? @db.Decimal(6, 1)
+  cout            Decimal? @db.Decimal(12, 2)
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  lieu            String?
+  capaciteMax     Int?
+  statut          String   @default("Planifiée") // Planifiée | En cours | Terminée | Annulée
+  createdAt       DateTime @default(now())
+
+  plan            PlanFormation? @relation(fields: [planId], references: [id])
+  inscriptions    InscriptionFormation[]
+}
+
+model InscriptionFormation {
+  id              Int      @id @default(autoincrement())
+  formationId     Int
+  matricule       String
+  statut          String   @default("Inscrit") // Inscrit | Présent | Absent | Certifié
+  noteAvant       Int?     // Évaluation avant formation (test)
+  noteApres       Int?     // Évaluation après formation
+  noteFormation   Int?     // Note donnée à la formation (satisfaction)
+  commentaire     String?
+  attestationUrl  String?
+  dateInscription DateTime @default(now())
+
+  formation       Formation @relation(fields: [formationId], references: [id])
+}
+
+// ---- CARRIÈRES & COMPÉTENCES ----
+
+model Competence {
+  id       Int    @id @default(autoincrement())
+  code     String @unique
+  libelle  String
+  famille  String?   // Technique, Managériale, Transversale
+
+  employeCompetences EmployeCompetence[]
+}
+
+model EmployeCompetence {
+  id              Int      @id @default(autoincrement())
+  matricule       String
+  competenceId    Int
+  niveau          Int      // 1=Notions, 2=Pratique, 3=Maîtrise, 4=Expert
+  dateAcquisition DateTime?
+  certificat      String?
+
+  competence      Competence @relation(fields: [competenceId], references: [id])
+}
+
+model PosteReferentiel {
+  id           Int    @id @default(autoincrement())
+  code         String @unique
+  libelle      String
+  familleEmploi String?
+  grilleSalaire String?
+  echelonMin   Int?
+  echelonMax   Int?
 }

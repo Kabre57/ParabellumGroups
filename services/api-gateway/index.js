@@ -16,7 +16,15 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    // Ne pas compresser les flux SSE pour éviter la mise en mémoire tampon qui cause des 502/timeouts
+    if (req.headers['accept'] === 'text/event-stream' || req.originalUrl.includes('/stream')) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 app.use(corsMiddleware);
 
 if (config.NODE_ENV !== 'test') {

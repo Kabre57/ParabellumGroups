@@ -11,7 +11,7 @@ model Facture {
   id             String          @id @default(uuid())
   numeroFacture  String          @unique
   clientId       String
-  serviceId      String?
+  serviceId      Int?
   serviceName    String?
   serviceLogoUrl String?
   dateEmission   DateTime        @default(now())
@@ -60,6 +60,8 @@ model Paiement {
   montant          Float
   datePaiement     DateTime        @default(now())
   methodePaiement  MethodePaiement
+  serviceId        Int?
+  serviceName      String?
   treasuryAccountId String?
   reference        String?
   notes            String?
@@ -128,7 +130,7 @@ model Devis {
   clientId      String
   objet         String?
   notes         String?
-  serviceId     String?
+  serviceId     Int?
   serviceName   String?
   serviceLogoUrl String?
   commercialId  String?
@@ -264,6 +266,8 @@ model Encaissement {
   clientId          String?
   clientName        String
   description       String
+  serviceId         Int?
+  serviceName       String?
   amountHT          Float    @default(0)
   amountTVA         Float    @default(0)
   amountTTC         Float
@@ -338,6 +342,7 @@ model TreasuryAccount {
   payments        Paiement[]
   encaissements   Encaissement[]
   decaissements   Decaissement[]
+  cashVouchers    CashVoucher[]
   closures        TreasuryClosure[]
 
   @@index([type])
@@ -526,4 +531,191 @@ enum AccountingAccountType {
 enum AccountingEntrySide {
   DEBIT
   CREDIT
+}
+
+model CashVoucher {
+  id                String          @id @default(uuid())
+  voucherNumber     String          @unique
+  sourceType        String
+  sourceId          String?
+  sourceNumber      String?
+  expenseCategory   String?
+  serviceId         Int?
+  serviceName       String?
+  supplierId        String?
+  supplierName      String?
+  beneficiaryName   String
+  beneficiaryPhone  String?
+  description       String
+  amountHT          Float
+  amountTVA         Float
+  amountTTC         Float
+  currency          String          @default("XOF")
+  paymentMethod     MethodePaiement
+  flowType          CashVoucherFlowType @default(DECAISSEMENT)
+  treasuryAccountId String?
+  status            CashVoucherStatus   @default(BROUILLON)
+  issueDate         DateTime        @default(now())
+  disbursementDate  DateTime?
+  reference         String?
+  notes             String?
+  createdByUserId   String?
+  createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
+  @@index([issueDate])
+  @@index([status])
+  @@index([treasuryAccountId])
+  @@map("cash_vouchers")
+}
+
+enum CashVoucherStatus {
+  BROUILLON
+  EN_ATTENTE
+  VALIDE
+  DECAISSE
+  ANNULE
+}
+
+enum CashVoucherFlowType {
+  ENCAISSEMENT
+  DECAISSEMENT
+}
+
+// --- MODULE PLACEMENTS ---
+
+model Placement {
+  id              String          @id @default(uuid())
+  type            PlacementType
+  name            String
+  issuer          String?         // Émetteur
+  country         String?         // Pays d'exposition
+  currency        String          @default("XOF")
+  quantity        Float           @default(1)
+  purchasePrice   Float           // Prix d'acquisition unitaire
+  totalCost       Float           // Coût total d'acquisition
+  purchaseDate    DateTime        @default(now())
+  maturityDate    DateTime?       // Date d'échéance (obligations/TCN)
+  interestRate    Float?          // Taux d'intérêt nominal
+  serviceId       Int?            // Liaison à la filiale (modèle Service)
+  serviceName     String?
+  status          PlacementStatus @default(ACTIF)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  courses         AssetCourse[]
+
+  @@index([type])
+  @@index([serviceId])
+  @@map("placements")
+}
+
+model AssetCourse {
+  id          String    @id @default(uuid())
+  placementId String
+  atDate      DateTime  @default(now())
+  value       Float     // Cours ou valorisation à cette date
+  createdAt   DateTime  @default(now())
+
+  placement   Placement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@index([placementId])
+  @@index([atDate])
+  @@map("asset_courses")
+}
+
+enum PlacementType {
+  ACTION
+  OBLIGATION
+  TCN
+  IMMOBILIER
+}
+
+enum PlacementStatus {
+  ACTIF
+  CEDE
+  FRACTIONNE
+  ANNULE
+}
+
+// --- MODULE BUDGET ET ANALYTIQUE ---
+
+model Budget {
+  id              String          @id @default(uuid())
+  name            String
+  fiscalYear      Int
+  serviceId       Int?            // Entité / Filiale
+  serviceName     String?
+  description     String?
+  totalAllocated  Float           @default(0)
+  status          BudgetStatus    @default(BROUILLON)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  versions        BudgetVersion[]
+  allocations     BudgetAllocation[]
+
+  @@index([fiscalYear])
+  @@index([serviceId])
+  @@map("budgets")
+}
+
+model BudgetVersion {
+  id            String       @id @default(uuid())
+  budgetId      String
+  versionNumber Int          @default(1)
+  label         String?
+  totalAmount   Float
+  isCurrent     Boolean      @default(false)
+  status        BudgetStatus @default(BROUILLON)
+  createdAt     DateTime     @default(now())
+
+  budget        Budget       @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@map("budget_versions")
+}
+
+model AnalyticCenter {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  serviceId       Int?     // Centre rattaché à une filiale
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  allocations     BudgetAllocation[]
+
+  @@map("analytic_centers")
+}
+
+model BudgetAllocation {
+  id               String   @id @default(uuid())
+  budgetId         String
+  analyticCenterId String
+  amount           Float
+  spent            Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  budget           Budget         @relation(fields: [budgetId], references: [id])
+  analyticCenter   AnalyticCenter @relation(fields: [analyticCenterId], references: [id])
+
+  @@index([budgetId])
+  @@index([analyticCenterId])
+  @@map("budget_allocations")
+}
+
+enum BudgetStatus {
+  BROUILLON
+  EN_REVISION
+  VALIDE
+  CLOTURE
 }

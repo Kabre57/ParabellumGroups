@@ -1,107 +1,73 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const winston = require('winston');
-const { authenticateUser } = require('./middleware/auth');
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
-// Import routes
-const employeRoutes = require('./routes/employe.routes');
-const congeRoutes = require('./routes/conge.routes');
-const presenceRoutes = require('./routes/presence.routes');
-const evaluationRoutes = require('./routes/evaluation.routes');
-const contractRoutes = require('./routes/contract.routes');
-const payrollRoutes = require('./routes/payroll.routes');
-const loanRoutes = require('./routes/loan.routes');
-const timesheetRoutes = require('./routes/timesheet.routes');
-const logipaieRoutes = require('./routes/logipaie.routes');
-
-// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 4009;
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 8001;
 
-// Configure Winston logger
+// Config Logger (Winston)
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
+  format: winston.format.json(),
   transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    })
-  ]
+    new winston.transports.Console()
+  ],
 });
 
 // Middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(authenticateUser);
-app.use((req, res, next) => {
-  req.userId = req.user?.id;
-  next();
+
+// Routes de base pour vérifier si le service fonctionne
+app.get('/api/ping', (req, res) => {
+  res.json({ message: 'HR Service is running' });
 });
 
-// Request logging
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`);
-  next();
-});
+// Importer les routers
+const employeRoutes = require('./routes/employe.routes');
+const contractRoutes = require('./routes/contract.routes');
+const congeRoutes = require('./routes/conge.routes');
+const loanRoutes = require('./routes/loan.routes');
+const presenceRoutes = require('./routes/presence.routes');
+const payrollRoutes = require('./routes/payroll.routes');
+const evaluationRoutes = require('./routes/evaluation.routes');
+const logipaieRoutes = require('./routes/logipaie.routes');
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'hr-service',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Routes
 app.use('/api/employes', employeRoutes);
-app.use('/employees', employeRoutes);
-app.use('/hr/employees', employeRoutes);
+app.use('/api/contrats', contractRoutes);
 app.use('/api/conges', congeRoutes);
-app.use('/hr/leave-requests', congeRoutes);
+app.use('/api/prets', loanRoutes);
 app.use('/api/presences', presenceRoutes);
-app.use('/hr/presences', presenceRoutes);
+app.use('/api/paie', payrollRoutes);
 app.use('/api/evaluations', evaluationRoutes);
-app.use('/hr/evaluations', evaluationRoutes);
-app.use('/contracts', contractRoutes);
-app.use('/hr/contracts', contractRoutes);
-app.use('/payroll', payrollRoutes);
-app.use('/payrolls', payrollRoutes);
-app.use('/api/payroll', payrollRoutes);
-app.use('/api/payrolls', payrollRoutes);
-app.use('/api/loans', loanRoutes);
-app.use('/hr/loans', loanRoutes);
-app.use('/api/timesheets', timesheetRoutes);
-app.use('/api/logipaie', logipaieRoutes);
+app.use('/api/exports', logipaieRoutes);
+app.use('/api/documents', require('./routes/document.routes'));
+app.use('/api/analytics', require('./routes/analytics.routes'));
+app.use('/api/recruitment', require('./routes/recruitment.routes'));
+app.use('/api/formation', require('./routes/formation.routes'));
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/portal', require('./routes/portal.routes'));
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route non trouvée' });
-});
-
-// Error handler
+// Error Handling Middleware
 app.use((err, req, res, next) => {
-  logger.error(err.stack);
-  res.status(500).json({ 
-    error: 'Erreur interne du serveur',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  logger.error(err.message, { stack: err.stack });
+  res.status(500).json({ error: 'Une erreur interne est survenue', details: err.message });
 });
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`HR Service started on port ${PORT}`);
-  logger.info(`Health check: http://localhost:${PORT}/health`);
+// Start Server
+app.listen(PORT, async () => {
+    try {
+        await prisma.$connect();
+        logger.info(`Database connected successfully.`);
+        logger.info(`HR Service started on port ${PORT}`);
+    } catch (e) {
+        logger.error(`Failed to connect to database: ${e.message}`);
+    }
 });
 
 module.exports = app;

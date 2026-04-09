@@ -1,123 +1,79 @@
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
+const factory = require('../utils/crudFactory');
+const asyncHandler = require('express-async-handler');
 
-const buildSearchWhere = (query) => {
-  if (!query) return undefined;
-  const q = String(query).trim();
-  if (!q) return undefined;
-  return {
-    OR: [
-      { matricule: { contains: q, mode: 'insensitive' } },
-      { nom: { contains: q, mode: 'insensitive' } },
-      { prenoms: { contains: q, mode: 'insensitive' } },
-      { emailPersonnel: { contains: q, mode: 'insensitive' } },
-    ],
-  };
-};
-
-const employeController = {
-  async getAll(req, res) {
-    try {
-      const page = Number(req.query.page || 1);
-      const pageSize = Number(req.query.pageSize || req.query.limit || 50);
-      const where = {
-        ...buildSearchWhere(req.query.search || req.query.query),
-        ...(req.query.statut ? { statut: req.query.statut } : {}),
-      };
-      const [items, total] = await Promise.all([
-        prisma.employe.findMany({
-          where,
-          orderBy: { dateCreation: 'desc' },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-        prisma.employe.count({ where }),
-      ]);
-      res.json({
-        data: items,
-        currentPage: page,
-        pageSize,
-        totalItems: total,
-        totalPages: Math.max(1, Math.ceil(total / Math.max(1, pageSize))),
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+// Méthodes de base améliorées
+exports.getAllEmployes = asyncHandler(async (req, res, next) => {
+    const { statut, search } = req.query;
+    let where = {};
+    
+    if (statut) where.statut = statut;
+    if (search) {
+        where.OR = [
+            { nom: { contains: search, mode: 'insensitive' } },
+            { prenoms: { contains: search, mode: 'insensitive' } },
+            { matricule: { contains: search, mode: 'insensitive' } }
+        ];
     }
-  },
 
-  async getById(req, res) {
-    try {
-      const employe = await prisma.employe.findUnique({
-        where: { matricule: req.params.id },
-      });
-      if (!employe) {
-        return res.status(404).json({ error: 'Employe non trouvé' });
-      }
-      res.json(employe);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+    const data = await prisma.employe.findMany({ 
+        where,
+        orderBy: { nom: 'asc' }
+    });
+    res.status(200).json(data);
+});
 
-  async create(req, res) {
-    try {
-      if (!req.body?.matricule) {
-        return res.status(400).json({ error: 'Matricule requis' });
-      }
-      const employe = await prisma.employe.create({ data: req.body });
-      res.status(201).json(employe);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+exports.getEmploye = factory.getOne('employe');
 
-  async update(req, res) {
-    try {
-      const employe = await prisma.employe.update({
-        where: { matricule: req.params.id },
-        data: req.body,
-      });
-      res.json(employe);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+// Vision 360° de l'employé
+exports.getEmployeProfile = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const isIdNumeric = !isNaN(Number(id));
+    
+    const employe = await prisma.employe.findUnique({
+        where: { id: isIdNumeric ? Number(id) : id },
+        include: {
+            contrats: { orderBy: { dateDebut: 'desc' } },
+            conges: { orderBy: { dateDebut: 'desc' } },
+            bulletins: { orderBy: { dateGeneration: 'desc' }, take: 12 },
+            prets: { orderBy: { datePret: 'desc' } },
+            absences: { orderBy: { dateAbsence: 'desc' } },
+            historiques: { orderBy: { dateEvenement: 'desc' } },
+            évaluationsRecues: true
+        }
+    });
 
-  async delete(req, res) {
-    try {
-      await prisma.employe.delete({ where: { matricule: req.params.id } });
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+    if (!employe) return res.status(404).json({ error: "Employé introuvable" });
+    res.status(200).json(employe);
+});
 
-  async getStats(req, res) {
-    try {
-      const total = await prisma.employe.count();
-      const actifs = await prisma.employe.count({ where: { statut: 'ACTIF' } });
-      res.json({
-        total,
-        actifs,
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+// Surcharge de createOne...
+// [rest of functions]
+exports.createEmploye = asyncHandler(async (req, res, next) => {
+  const newEmploye = await prisma.employe.create({
+    data: req.body,
+  });
+  res.status(201).json(newEmploye);
+});
 
-  async getContracts(req, res) {
-    try {
-      const matricule = req.params.id;
-      const contracts = await prisma.contrat.findMany({
-        where: { matricule },
-        orderBy: { dateDebut: 'desc' },
-      });
-      res.json(contracts);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-};
+exports.updateEmploye = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const isIdNumeric = !isNaN(Number(id));
+  const updatedEmploye = await prisma.employe.update({
+    where: { id: isIdNumeric ? Number(id) : id },
+    data: req.body,
+  });
+  res.status(200).json(updatedEmploye);
+});
 
-module.exports = employeController;
+exports.deleteEmploye = factory.deleteOne('employe');
+
+exports.getEmployeContrats = asyncHandler(async (req, res, next) => {
+    const matricule = req.params.matricule;
+    const contrats = await prisma.contrat.findMany({
+        where: { matricule }
+    });
+    res.status(200).json(contrats);
+});
+

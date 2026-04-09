@@ -1,77 +1,32 @@
 const { PrismaClient } = require('@prisma/client');
-const { createCrudController } = require('../utils/crudFactory');
-
 const prisma = new PrismaClient();
+const factory = require('../utils/crudFactory');
+const asyncHandler = require('express-async-handler');
 
-const controller = createCrudController({
-  model: 'gestionConge',
-  idField: 'id',
-  idType: 'int',
-  filters: ['matricule', 'typeConge', 'statut'],
-  include: { employe: true },
+// CRUD de base
+exports.getAllConges = factory.getAll('gestionConge');
+exports.getConge = factory.getOne('gestionConge');
+exports.deleteConge = factory.deleteOne('gestionConge');
+
+exports.createConge = asyncHandler(async (req, res, next) => {
+    // Calculer les données de congé (par exemple on suppose que les dates sont envoyées)
+    const conge = await prisma.gestionConge.create({
+        data: {
+            ...req.body,
+            statut: "En attente" // Par défaut
+        }
+    });
+    res.status(201).json(conge);
 });
 
-controller.approve = async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const updated = await prisma.gestionConge.update({
-      where: { id },
-      data: {
-        statut: 'APPROUVE',
-        dateApprobation: new Date(),
-        observations: req.body?.commentaire,
-      },
+exports.approuverConge = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const conge = await prisma.gestionConge.update({
+        where: { id: Number(id) },
+        data: {
+            statut: "Approuvé",
+            dateApprobation: new Date()
+        }
     });
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-controller.reject = async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const updated = await prisma.gestionConge.update({
-      where: { id },
-      data: {
-        statut: 'REFUSE',
-        observations: req.body?.commentaire,
-      },
-    });
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-controller.getSolde = async (req, res) => {
-  try {
-    const matricule = req.params.employeId;
-    const conges = await prisma.gestionConge.findMany({ where: { matricule } });
-    const total = conges.reduce((sum, row) => sum + Number(row.nombreJours || 0), 0);
-    res.json({
-      success: true,
-      data: {
-        employeId: matricule,
-        annuel: 0,
-        maladie: 0,
-        sanssolde: 0,
-        pris: { annuel: total, maladie: 0, sanssolde: 0 },
-        restant: { annuel: 0, maladie: 0, sanssolde: 0 },
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-controller.getCalendrier = async (req, res) => {
-  try {
-    const items = await prisma.gestionConge.findMany({ include: { employe: true } });
-    res.json({ success: true, data: items });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-module.exports = controller;
+    res.status(200).json(conge);
+});

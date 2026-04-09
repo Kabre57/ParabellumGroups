@@ -244,3 +244,64 @@ npx prisma migrate dev -n add_treasury_closures
 Je te conseille Option A, ça marchera tout de suite.
 Tu veux que je continue sur la validation des clôtures par rôle après ça ?
 >>>>>>> Stashed changes
+
+
+C'est un plaisir de voir cet écran de connexion ! Voici un guide de maintenance complet pour gérer sereinement votre nouveau serveur de production.
+
+J'ai préparé ce guide sous forme d'artifact pour que vous puissiez le conserver précieusement.
+
+Guide de Maintenance : Parabellum ERP
+Ce guide récapitule les commandes essentielles pour administrer votre infrastructure Docker sur le VPS.
+
+1. Gestion des Services (Docker Compose)
+Toutes ces commandes doivent être exécutées depuis le dossier du projet : ~/apps/ParabellumGroups.
+
+Voir l'état de tous les services :
+bash
+docker compose ps
+Redémarrer tous les services :
+bash
+docker compose restart
+Redémarrer un service spécifique (ex: frontend) :
+bash
+docker compose restart frontend
+Arrêter proprement toute l'application :
+bash
+docker compose down
+Démarrer l'application (et reconstruire si changement de code) :
+bash
+docker compose up -d --build
+2. Consultation des Logs (Débogage)
+Les logs sont vos meilleurs amis pour comprendre ce qui se passe à l'intérieur des conteneurs.
+
+Logs de tous les services en temps réel :
+bash
+docker compose logs -f
+Logs d'un service spécifique (ex: customer-service) :
+bash
+docker compose logs -f customer-service
+Logs de Nginx (Host) pour les problèmes de connexion/SSL :
+bash
+sudo tail -f /var/log/nginx/error.log
+3. Base de Données & Sauvegarde
+Accéder à la console PostgreSQL (si besoin) :
+bash
+docker exec -it parabellum-db psql -U postgres -d parabellum_customers
+Effectuer une sauvegarde rapide (Dump) :
+bash
+docker exec -t parabellum-db pg_dumpall -c -U postgres > dump_$(date +%Y%m%d).sql
+4. Maintenance du Serveur (UFW & Nginx)
+Vérifier le pare-feu : sudo ufw status
+Recharger la configuration Nginx de l'hôte (après modification de fichier de conf) :
+bash
+sudo nginx -t && sudo systemctl reload nginx
+5. Procédure de mise à jour du code
+Lorsque vous faites des modifications sur GitHub et que vous voulez les mettre en production :
+
+git pull
+docker compose up -d --build (Docker ne reconstruira que les modules modifiés).
+TIP
+
+Nettoyage de l'espace disque : Docker consomme de l'espace au fil des builds. Si votre disque sature, utilisez cette commande pour supprimer les images inutilisées : docker system prune -a (attention, cela supprimera les images non utilisées par des conteneurs actifs).
+
+Félicitations encore pour ce lancement réussi ! Votre ERP est maintenant prêt pour ses premiers utilisateurs. Avez-vous besoin d'aide sur un point spécifique avant de conclure cette session ?

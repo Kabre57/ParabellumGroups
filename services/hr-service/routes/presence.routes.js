@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const presenceController = require('../controllers/presence.controller');
-const authMiddleware = require('../middleware/auth');
+const { authenticateUser } = require('../../shared/middleware/auth');
 
-// Routes
-router.post('/', authMiddleware, presenceController.create);
-router.put('/:id', authMiddleware, presenceController.update);
-router.get('/employe/:employeId', authMiddleware, presenceController.listByEmployee);
-router.get('/stats', authMiddleware, presenceController.stats);
-router.get('/export', authMiddleware, presenceController.exportCsv);
-router.post('/pointage', authMiddleware, presenceController.pointage);
+router.use(authenticateUser);
+
+router.get('/absences', presenceController.getAllAbsences);
+router.post('/absences', presenceController.createAbsence);
+router.get('/absences/:id', presenceController.getAbsence);
+router.put('/absences/:id', presenceController.updateAbsence);
+router.delete('/absences/:id', presenceController.deleteAbsence);
+
+router.get('/variables', presenceController.getAllVariables);
+router.post('/variables/saisir', presenceController.saisirVariables);
 
 module.exports = router;
