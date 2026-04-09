@@ -7,6 +7,8 @@ import { typeClientsService } from './type-clients.service';
 import { secteursService } from './secteurs.service';
 import { adressesService } from './adresses.service';
 import { documentsService } from './documents.service';
+import { relancesService } from './relances.service';
+import { segmentsService } from './segments.service';
 
 export * from './types';
 
@@ -20,6 +22,8 @@ export const crmService = {
   ...secteursService,
   ...adressesService,
   ...documentsService,
+  ...relancesService,
+  ...segmentsService,
 };
 
 export default crmService;

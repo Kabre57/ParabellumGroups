@@ -267,3 +267,67 @@ export interface SecteurTreeItem {
   niveau?: number;
   enfants?: SecteurTreeItem[];
 }
+
+// ==================== NOUVEAUX TYPES CRM ====================
+
+export type CanalRelance = 'EMAIL_RELANCE' | 'SMS' | 'WHATSAPP';
+export type DeclencheurRelance = 
+  | 'TICKET_OUVERT' 
+  | 'ECHEANCE_CONTRAT' 
+  | 'SANS_INTERACTION' 
+  | 'SONDAGE_NON_REPONDU'
+  | 'COTISATION'
+  | 'ANNIVERSAIRE'
+  | 'MANUEL';
+
+export type TypeSegmentCRM = 'DYNAMIQUE' | 'STATIQUE' | 'HYBRIDE';
+
+export interface SegmentClient {
+  id: string;
+  nom: string;
+  description?: string;
+  couleur?: string;
+  criteres: any;
+  typeSegment: TypeSegmentCRM;
+  isActive: boolean;
+  compte: number;
+  dernierCalcul?: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RelanceAutomatique {
+  id: string;
+  nom: string;
+  description?: string;
+  declencheur: DeclencheurRelance;
+  delaiJours: number;
+  canal: CanalRelance;
+  templateId?: string;
+  sujetTemplate?: string;
+  corpsTemplate?: string;
+  segmentId?: string;
+  segment?: SegmentClient;
+  estActif: boolean;
+  heureEnvoi: string;
+  joursEnvoi: string[];
+  nombreExecutions: number;
+  dernierExecutionLe?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CanalConsent = 'EMAIL' | 'SMS' | 'WHATSAPP' | 'TELEPHONE' | 'COURRIER' | 'PUSH';
+export type FinaliteConsent = 'MARKETING' | 'NEWSLETTER' | 'RELANCE' | 'SONDAGE' | 'STATISTIQUES' | 'PARTAGE_PARTENAIRES';
+
+export interface ConsentementClient {
+  id: string;
+  clientId: string;
+  canal: CanalConsent;
+  finalite: FinaliteConsent;
+  consenti: boolean;
+  dateConsent?: string;
+  dateRevocation?: string;
+  sourceConsent?: string;
+}

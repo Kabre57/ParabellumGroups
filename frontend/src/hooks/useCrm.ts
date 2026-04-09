@@ -662,3 +662,129 @@ export function useSecteursTree() {
     queryFn: () => crmService.getSecteursTree(),
   });
 }
+
+// ==================== RELANCES ====================
+
+export function useRelances(params?: Record<string, any>) {
+  return useQuery({
+    queryKey: ['crm', 'relances', params],
+    queryFn: async () => normalizeListResponse(await crmService.getRelances(params)),
+  });
+}
+
+export function useRelance(id: string) {
+  return useQuery({
+    queryKey: ['crm', 'relance', id],
+    queryFn: () => crmService.getRelance(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateRelance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: any) => crmService.createRelance(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relances'] });
+    },
+  });
+}
+
+export function useUpdateRelance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateRelance(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relances'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relance', variables.id] });
+    },
+  });
+}
+
+export function useDeleteRelance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.deleteRelance(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relances'] });
+    },
+  });
+}
+
+export function useToggleRelance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.toggleRelance(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relances'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'relance', id] });
+    },
+  });
+}
+
+// ==================== SEGMENTS ====================
+
+export function useSegments(params?: Record<string, any>) {
+  return useQuery({
+    queryKey: ['crm', 'segments', params],
+    queryFn: async () => normalizeListResponse(await crmService.getSegments(params)),
+  });
+}
+
+export function useSegment(id: string) {
+  return useQuery({
+    queryKey: ['crm', 'segment', id],
+    queryFn: () => crmService.getSegment(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateSegment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: any) => crmService.createSegment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segments'] });
+    },
+  });
+}
+
+export function useUpdateSegment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmService.updateSegment(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segments'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segment', variables.id] });
+    },
+  });
+}
+
+export function useDeleteSegment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.deleteSegment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segments'] });
+    },
+  });
+}
+
+export function useRefreshSegment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => crmService.refreshSegment(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segments'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'segment', id] });
+    },
+  });
+}
