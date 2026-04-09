@@ -42,6 +42,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -110,6 +117,18 @@ export default function PlacementsPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour du cours.');
+    }
+  });
+
+  const createPlacementMutation = useMutation({
+    mutationFn: (data: any) => billingService.createPlacement(data),
+    onSuccess: () => {
+      toast.success('Placement créé avec succès.');
+      setIsCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['billing-placements'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création du placement.');
     }
   });
 
@@ -421,6 +440,81 @@ export default function PlacementsPage() {
               {addCourseMutation.isPending ? 'Enregistrement...' : 'Mettre à jour'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Nouveau Placement */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enregistrer un nouveau placement</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const data = {
+              name: formData.get('name'),
+              issuer: formData.get('issuer'),
+              type: formData.get('type'),
+              quantity: parseFloat(formData.get('quantity') as string),
+              purchasePrice: parseFloat(formData.get('purchasePrice') as string),
+              purchaseDate: formData.get('purchaseDate'),
+              currency: formData.get('currency') || 'XOF',
+              notes: formData.get('notes'),
+            };
+            createPlacementMutation.mutate(data);
+          }} className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="name">Désignation du placement</Label>
+                <Input id="name" name="name" placeholder="ex: Actions Sonatel, Titre Foncier..." required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="issuer">Émetteur / Institution</Label>
+                <Input id="issuer" name="issuer" placeholder="ex: BRVM, État du Sénégal" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Type d&apos;actif</Label>
+                <Select name="type" defaultValue="ACTION">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner le type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ACTION">Action</SelectItem>
+                    <SelectItem value="OBLIGATION">Obligation</SelectItem>
+                    <SelectItem value="TCN">TCN (Titres Créances Négociables)</SelectItem>
+                    <SelectItem value="IMMOBILIER">Immobilier</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantité / Parts</Label>
+                <Input id="quantity" name="quantity" type="number" step="any" placeholder="1" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchasePrice">Prix d&apos;acquisition (unitaire)</Label>
+                <Input id="purchasePrice" name="purchasePrice" type="number" step="any" placeholder="0" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchaseDate">Date d&apos;acquisition</Label>
+                <Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Devise</Label>
+                <Input id="currency" name="currency" defaultValue="XOF" placeholder="XOF" />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="notes">Notes & observations</Label>
+                <Input id="notes" name="notes" placeholder="Détails du placement..." />
+              </div>
+            </div>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
+              <Button type="submit" disabled={createPlacementMutation.isPending}>
+                {createPlacementMutation.isPending ? 'Création en cours...' : 'Créer le placement'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

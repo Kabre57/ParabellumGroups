@@ -1,17 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 
 /**
  * Calcule la valorisation actuelle d'un placement basée sur son dernier cours
  */
 const calculateValuation = (placement) => {
-  const lastCourse = placement.courses && placement.courses.length > 0 
-    ? placement.courses[0].value 
-    : placement.purchasePrice;
-  
-  const currentValuation = lastCourse * placement.quantity;
-  const gainLoss = currentValuation - placement.totalCost;
-  const gainLossPercent = placement.totalCost > 0 ? (gainLoss / placement.totalCost) * 100 : 0;
+  const lastCourse = safeAmount(safeAccess(placement, 'courses.0.value'), placement.purchasePrice);
+  const quantity = safeAmount(placement.quantity);
+  const totalCost = safeAmount(placement.totalCost);
+
+  const currentValuation = lastCourse * quantity;
+  const gainLoss = currentValuation - totalCost;
+  const gainLossPercent = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
 
   return {
     lastCourse,
@@ -51,8 +52,8 @@ exports.getPlacements = async (req, res) => {
 
     // Calcul des totaux pour la synthèse
     const totals = enrichedPlacements.reduce((acc, p) => {
-      acc.totalInvested += p.totalCost;
-      acc.currentValuation += p.currentValuation;
+      acc.totalInvested += safeAmount(p.totalCost);
+      acc.currentValuation += safeAmount(p.currentValuation);
       return acc;
     }, { totalInvested: 0, currentValuation: 0 });
 
@@ -200,7 +201,10 @@ exports.getPlacementsPerformance = async (req, res) => {
 
     // On regroupe par date pour voir l'évolution de la valeur totale
     const performanceByDate = courses.reduce((acc, course) => {
-      const dateStr = course.atDate.toISOString().split('T')[0];
+      const atDate = safeDate(course.atDate);
+      if (!atDate) return acc;
+      
+      const dateStr = atDate.toISOString().split('T')[0];
       if (!acc[dateStr]) {
         acc[dateStr] = {
           date: dateStr,
@@ -211,9 +215,12 @@ exports.getPlacementsPerformance = async (req, res) => {
       }
       
       // On calcule la valorisation de ce titre précis à cette date
-      const valuation = course.value * course.placement.quantity;
+      const quantity = safeAmount(safeAccess(course, 'placement.quantity'));
+      const cost = safeAmount(safeAccess(course, 'placement.totalCost'));
+      const valuation = safeAmount(course.value) * quantity;
+      
       acc[dateStr].totalValuation += valuation;
-      acc[dateStr].totalInvested += course.placement.totalCost;
+      acc[dateStr].totalInvested += cost;
       
       return acc;
     }, {});

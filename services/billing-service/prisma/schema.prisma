@@ -419,6 +419,7 @@ model AccountingAccount {
   @@index([type])
   @@index([isActive])
   @@map("accounting_accounts")
+  mappings        AccountingMapping[]
 }
 
 model AccountingJournalEntry {
@@ -718,4 +719,21 @@ enum BudgetStatus {
   EN_REVISION
   VALIDE
   CLOTURE
+}
+
+model AccountingMapping {
+  id              String   @id @default(uuid())
+  sourceType      String   // ex: 'CASH_VOUCHER', 'DECAISSEMENT', 'FACTURE'
+  categoryKey     String   // la valeur ou le pattern à matcher (ex: 'transport')
+  accountId       String   // ID du compte comptable dans accounting_accounts
+  priority        Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account         AccountingAccount @relation(fields: [accountId], references: [id])
+
+  @@index([sourceType, categoryKey])
+  @@index([accountId])
+  @@map("accounting_mappings")
 }

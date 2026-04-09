@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const factory = require('../utils/crudFactory');
 const asyncHandler = require('express-async-handler');
+const { safeAccess } = require('../utils/safe-access');
 
 // Méthodes de base améliorées
 exports.getAllEmployes = asyncHandler(async (req, res, next) => {
@@ -45,7 +46,18 @@ exports.getEmployeProfile = asyncHandler(async (req, res, next) => {
     });
 
     if (!employe) return res.status(404).json({ error: "Employé introuvable" });
-    res.status(200).json(employe);
+    
+    // Protection des données sensibles ou optionnelles
+    const responseData = {
+        ...employe,
+        contrats: safeAccess(employe, 'contrats', []),
+        conges: safeAccess(employe, 'conges', []),
+        bulletins: safeAccess(employe, 'bulletins', []),
+        prets: safeAccess(employe, 'prets', []),
+        absences: safeAccess(employe, 'absences', [])
+    };
+
+    res.status(200).json(responseData);
 });
 
 // Surcharge de createOne...

@@ -1,7 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-
-const amount = (val) => Number(val || 0);
+const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 
 /**
  * Analyse de performance budgétaire (Prévisions vs Réel)
@@ -48,11 +47,14 @@ exports.getBudgetPerformance = async (req, res) => {
           };
         }
         
-        statsByCenter[centerName].allocated += amount(alloc.amount);
-        statsByCenter[centerName].spent += amount(alloc.spent);
+        const allocated = safeAmount(alloc.amount);
+        const spent = safeAmount(alloc.spent);
+
+        statsByCenter[centerName].allocated += allocated;
+        statsByCenter[centerName].spent += spent;
         
-        totalAllocated += amount(alloc.amount);
-        totalSpent += amount(alloc.spent);
+        totalAllocated += allocated;
+        totalSpent += spent;
       });
     });
 

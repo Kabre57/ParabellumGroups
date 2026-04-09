@@ -13,6 +13,8 @@ const {
   treasuryTypeFromPaymentMethod,
   serializeTreasuryAccount,
 } = require('../utils/treasury');
+const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
+const MappingService = require('../core/services/AccountingMappingService');
 
 const prisma = new PrismaClient();
 
@@ -49,27 +51,9 @@ const buildDateWhere = (field, startDate, endDate) => {
   return { [field]: where };
 };
 
-const expenseAccountCode = (voucher) => {
-  const category = String(voucher.expenseCategory || '').toLowerCase();
-  const sourceType = String(voucher.sourceType || '').toUpperCase();
 
-  if (sourceType === 'PURCHASE_ORDER' || sourceType === 'PURCHASE_QUOTE' || category.includes('achat')) {
-    return { code: '607', label: 'Achats de biens et services' };
-  }
-  if (category.includes('transport') || category.includes('mission')) {
-    return { code: '625', label: 'Déplacements et missions' };
-  }
-  if (category.includes('maintenance') || category.includes('technique')) {
-    return { code: '615', label: 'Entretien et maintenance' };
-  }
-
-  return { code: '618', label: 'Autres charges d exploitation' };
-};
-
-const treasuryAccountCode = (paymentMethod) =>
-  String(paymentMethod || '').toUpperCase() === 'ESPECES'
-    ? { code: '531', label: 'Caisse' }
-    : { code: '512', label: 'Banque' };
+// Les fonctions expenseAccountCode et treasuryAccountCode ont été supprimées 
+// au profit du MappingService dynamique.
 
 const mergeAccounts = (persistedAccounts, dynamicAccounts) => {
   const accountMap = new Map();
@@ -140,6 +124,9 @@ exports.getAccountingOverview = async (req, res) => {
           };
     const journalEntryWhere = buildDateWhere('entryDate', startDate, endDate);
 
+    console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
+    await MappingService.refreshCache();
+
     const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts] = await Promise.all([
       prisma.facture.findMany({
         where: invoiceWhere,
@@ -185,21 +172,33 @@ exports.getAccountingOverview = async (req, res) => {
       }),
     ]);
 
-    const totalRevenue = factures
-      .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
-      .reduce((sum, invoice) => sum + amount(invoice.montantHT), 0);
+    console.log('[DEBUG] Step 2: Data fetched successfully', {
+      factures: factures.length,
+      paiements: paiements.length,
+      decaissements: decaissements.length
+    });
+
+    let totalRevenue = 0;
+    try {
+      totalRevenue = factures
+        .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
+        .reduce((sum, invoice) => sum + safeAmount(invoice.montantHT), 0);
+    } catch (e) {
+      console.error('[ERROR] Revenue calculation failed', { error: e.message, firstFacture: factures[0] });
+    }
+
     const totalCollectedVat = factures
       .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
-      .reduce((sum, invoice) => sum + amount(invoice.montantTVA), 0);
-    const totalInvoiceReceived = paiements.reduce((sum, payment) => sum + amount(payment.montant), 0);
+      .reduce((sum, invoice) => sum + safeAmount(invoice.montantTVA), 0);
+    const totalInvoiceReceived = paiements.reduce((sum, payment) => sum + safeAmount(payment.montant), 0);
 
     const activeDecaissements = decaissements.filter((d) => d.status !== 'ANNULE');
     const disbursedVouchers = activeDecaissements.filter((d) => d.status === 'DECAISSE');
-    const receivedVouchers = encaissements; // Tous les encaissements sont considérés comme reçus par défaut
-    const totalExpenseHT = activeDecaissements.reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0);
-    const totalDeductibleVat = activeDecaissements.reduce((sum, d) => sum + amount(d.amountTVA), 0);
-    const totalDisbursed = disbursedVouchers.reduce((sum, d) => sum + amount(d.amountTTC), 0);
-    const totalOtherIncome = receivedVouchers.reduce((sum, e) => sum + amount(e.amountTTC), 0);
+    const receivedVouchers = encaissements; 
+    const totalExpenseHT = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountHT || d.amountTTC), 0);
+    const totalDeductibleVat = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountTVA), 0);
+    const totalDisbursed = disbursedVouchers.reduce((sum, d) => sum + safeAmount(d.amountTTC), 0);
+    const totalOtherIncome = receivedVouchers.reduce((sum, e) => sum + safeAmount(e.amountTTC), 0);
     const totalTreasuryIncome = totalInvoiceReceived + totalOtherIncome;
 
     const bankInflows =
@@ -232,12 +231,12 @@ exports.getAccountingOverview = async (req, res) => {
 
     const supplierLiabilities = decaissements
       .filter((d) => ['VALIDE'].includes(String(d.status)))
-      .reduce((sum, d) => sum + amount(d.amountTTC), 0);
-
-    const totalCommitted = commitments.reduce((sum, item) => sum + amount(item.amountTTC), 0);
+      .reduce((sum, d) => sum + safeAmount(d.amountTTC), 0);
+		
+	const totalCommitted = commitments.reduce((sum, item) => sum + safeAmount(item.amountTTC), 0);
     const pendingCommitments = commitments
       .filter((item) => !['PAYE', 'ANNULE'].includes(String(item.status)))
-      .reduce((sum, item) => sum + amount(item.amountTTC), 0);
+      .reduce((sum, item) => sum + safeAmount(item.amountTTC), 0);
 
     const serializedTreasuryAccounts = treasuryAccounts.map(serializeTreasuryAccount);
     const defaultTreasuryByType = serializedTreasuryAccounts.reduce((accumulator, account) => {
@@ -499,29 +498,32 @@ exports.getAccountingOverview = async (req, res) => {
 
     const entries = [];
 
-    factures
-      .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
-      .forEach((invoice) => {
-        entries.push({
-          id: buildEntryId('invoice', invoice.id),
-          date: invoice.dateEmission,
-          journalCode: 'VT',
-          journalLabel: 'Journal des ventes',
-          accountDebit: '411',
-          accountDebitLabel: 'Clients',
-          accountCredit: '706',
-          accountCreditLabel: 'Prestations de services',
-          label: `Facture ${invoice.numeroFacture}`,
-          debit: amount(invoice.montantHT),
-          credit: amount(invoice.montantHT),
-          reference: invoice.numeroFacture,
-          sourceType: 'INVOICE',
-          sourceId: invoice.id,
-        });
-      });
+    for (const invoice of factures.filter((i) => !['BROUILLON', 'ANNULEE'].includes(String(i.status)))) {
+      const revenueAccount = await MappingService.resolveAccount('INVOICE', 'REVENUE'); 
+      const clientAccount = await MappingService.resolveAccount('INVOICE', 'DEBIT_CUSTOMER');
 
-    paiements.forEach((payment) => {
-      const treasuryAccount = treasuryAccountCode(payment.methodePaiement);
+      entries.push({
+        id: buildEntryId('invoice', invoice.id),
+        date: invoice.dateEmission,
+        journalCode: 'VT',
+        journalLabel: 'Journal des ventes',
+        accountDebit: clientAccount.code,
+        accountDebitLabel: clientAccount.label,
+        accountCredit: revenueAccount.code,
+        accountCreditLabel: revenueAccount.label,
+        label: `Facture ${invoice.numeroFacture}`,
+        debit: safeAmount(invoice.montantHT),
+        credit: safeAmount(invoice.montantHT),
+        reference: invoice.numeroFacture,
+        sourceType: 'INVOICE',
+        sourceId: invoice.id,
+      });
+    }
+
+    for (const payment of paiements) {
+      const treasuryAccount = await MappingService.resolveAccount('PAYMENT', payment.methodePaiement);
+      const clientAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER');
+
       entries.push({
         id: buildEntryId('payment', payment.id),
         date: payment.datePaiement,
@@ -529,22 +531,23 @@ exports.getAccountingOverview = async (req, res) => {
         journalLabel: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'Journal de caisse' : 'Journal de banque',
         accountDebit: treasuryAccount.code,
         accountDebitLabel: treasuryAccount.label,
-        accountCredit: '411',
-        accountCreditLabel: 'Clients',
-        label: payment.facture?.numeroFacture
+        accountCredit: clientAccount.code,
+        accountCreditLabel: clientAccount.label,
+        label: safeAccess(payment, 'facture.numeroFacture')
           ? `Encaissement facture ${payment.facture.numeroFacture}`
           : 'Encaissement client',
-        debit: amount(payment.montant),
-        credit: amount(payment.montant),
-        reference: payment.reference || payment.facture?.numeroFacture || payment.id,
+        debit: safeAmount(payment.montant),
+        credit: safeAmount(payment.montant),
+        reference: payment.reference || safeAccess(payment, 'facture.numeroFacture') || payment.id,
         sourceType: 'PAYMENT',
         sourceId: payment.id,
       });
-    });
+    }
 
-    activeDecaissements.forEach((d) => {
-      // Pour les engagements, on considère l'achat comme "ECRITURE D'ACHAT"
-      const expenseAccount = { code: '607', label: 'Achats et approvisionnements' }; // simplifé
+    for (const d of activeDecaissements) {
+      const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', d.expenseCategory);
+      const supplierAccount = await MappingService.resolveAccount('DECAISSEMENT', 'CREDIT_SUPPLIER');
+
       entries.push({
         id: buildEntryId('decaissement-booking', d.id),
         date: d.createdAt,
@@ -552,39 +555,43 @@ exports.getAccountingOverview = async (req, res) => {
         journalLabel: 'Journal des achats',
         accountDebit: expenseAccount.code,
         accountDebitLabel: expenseAccount.label,
-        accountCredit: '401',
-        accountCreditLabel: 'Fournisseurs',
+        accountCredit: supplierAccount.code,
+        accountCreditLabel: supplierAccount.label,
         label: `${d.numeroPiece} - ${d.description}`,
-        debit: amount(d.amountHT || d.amountTTC),
-        credit: amount(d.amountHT || d.amountTTC),
+        debit: safeAmount(d.amountHT || d.amountTTC),
+        credit: safeAmount(d.amountHT || d.amountTTC),
         reference: d.reference || d.numeroPiece,
         sourceType: 'DECAISSEMENT',
         sourceId: d.id,
       });
 
       if (d.status === 'DECAISSE') {
-        const treasuryAccount = treasuryAccountCode(d.paymentMethod);
+        const treasuryAccount = await MappingService.resolveAccount('PAYMENT', d.paymentMethod);
+        const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
+
         entries.push({
           id: buildEntryId('decaissement-payment', d.id),
           date: d.dateDecaissement || d.createdAt,
           journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
           journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
-          accountDebit: '401',
-          accountDebitLabel: 'Fournisseurs',
+          accountDebit: supplierDebitAccount.code,
+          accountDebitLabel: supplierDebitAccount.label,
           accountCredit: treasuryAccount.code,
           accountCreditLabel: treasuryAccount.label,
           label: `Décaissement ${d.numeroPiece}`,
-          debit: amount(d.amountTTC),
-          credit: amount(d.amountTTC),
+          debit: safeAmount(d.amountTTC),
+          credit: safeAmount(d.amountTTC),
           reference: d.reference || d.numeroPiece,
           sourceType: 'DECAISSEMENT',
           sourceId: d.id,
         });
       }
-    });
+    }
 
-    receivedVouchers.forEach((e) => {
-      const treasuryAccount = treasuryAccountCode(e.paymentMethod);
+    for (const e of receivedVouchers) {
+      const treasuryAccount = await MappingService.resolveAccount('PAYMENT', e.paymentMethod);
+      const incomeAccount = await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory); // Réutilise la catégorie pour le revenu
+
       entries.push({
         id: buildEntryId('encaissement', e.id),
         date: e.dateEncaissement || e.createdAt,
@@ -592,16 +599,16 @@ exports.getAccountingOverview = async (req, res) => {
         journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
         accountDebit: treasuryAccount.code,
         accountDebitLabel: treasuryAccount.label,
-        accountCredit: '706', // Hypothèse simplifiée: revenu prestation
-        accountCreditLabel: 'Prestations de services',
+        accountCredit: incomeAccount.code,
+        accountCreditLabel: incomeAccount.label,
         label: `${e.numeroPiece} - ${e.description}`,
-        debit: amount(e.amountTTC),
-        credit: amount(e.amountTTC),
+        debit: safeAmount(e.amountTTC),
+        credit: safeAmount(e.amountTTC),
         reference: e.reference || e.numeroPiece,
         sourceType: 'ENCAISSEMENT',
         sourceId: e.id,
       });
-    });
+    }
 
     const orderedEntries = [...entries, ...manualEntries].sort(
       (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
