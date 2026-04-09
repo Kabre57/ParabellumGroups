@@ -17,7 +17,7 @@ import {
   TrendingUp, 
   AlertTriangle, 
   CheckCircle2, 
-  Filtr, 
+  Filter, 
   Download,
   Building2,
   Calendar,
@@ -29,7 +29,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@/components/ui/Progress';
 import billingService from '@/shared/api/billing';
 
 const formatCurrency = (value: number) =>
