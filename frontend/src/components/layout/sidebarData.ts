@@ -103,6 +103,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Dashboard Comptable', href: '/dashboard/comptabilite', icon: Home, permission: 'expenses.read', categoryId: 'accounting', isServiceDashboard: true },
   { name: 'Bons de caisse', href: '/dashboard/comptabilite/depenses', icon: DollarSign, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Placements', href: '/dashboard/comptabilite/placements', icon: LineChart, permission: 'reports.read_financial', categoryId: 'accounting' },
+  { name: 'Budget', href: '/dashboard/comptabilite/budget', icon: BarChart3, permission: 'reports.read_financial', categoryId: 'accounting' },
   { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'payments.read', categoryId: 'accounting' },
   { name: 'Comptes', href: '/dashboard/comptabilite/comptes', icon: BookOpen, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Écritures', href: '/dashboard/comptabilite/ecritures', icon: Receipt, permission: 'payments.read', categoryId: 'accounting' },

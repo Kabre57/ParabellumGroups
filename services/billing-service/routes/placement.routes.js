@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+router.get('/stats/performance', placementController.getPlacementsPerformance);
 router.get('/', placementController.getPlacements);
 router.get('/:id', placementController.getPlacementById);
 router.post('/', placementController.createPlacement);

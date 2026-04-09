@@ -488,6 +488,31 @@ export interface PlacementsResponse {
   summary: PlacementSummary;
 }
 
+export interface PlacementPerformancePoint {
+  date: string;
+  totalValuation: number;
+  totalInvested: number;
+  roi: number;
+}
+
+export interface BudgetPerformancePoint {
+  centerName: string;
+  allocated: number;
+  spent: number;
+  remaining: number;
+  performance: number;
+}
+
+export interface BudgetPerformanceResponse {
+  success: boolean;
+  data: BudgetPerformancePoint[];
+  summary: {
+    totalAllocated: number;
+    totalSpent: number;
+    globalPerformance: number;
+  };
+}
+
 export interface ListResponse<T> {
   success: boolean;
   data: T[];
@@ -1070,6 +1095,16 @@ export const billingService = {
   async updatePlacementStatus(id: string, status: string): Promise<DetailResponse<Placement>> {
     const response = await apiClient.patch(`/billing/placements/${id}/status`, { status });
     return normalizeDetailResponse<Placement>(response.data);
+  },
+
+  async getPlacementsPerformance(): Promise<ListResponse<PlacementPerformancePoint>> {
+    const response = await apiClient.get('/billing/placements/stats/performance');
+    return response.data;
+  },
+
+  async getBudgetPerformance(year?: number): Promise<BudgetPerformanceResponse> {
+    const response = await apiClient.get('/billing/budgets/performance', { params: { year } });
+    return response.data;
   },
 };
 

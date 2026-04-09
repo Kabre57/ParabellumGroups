@@ -179,6 +179,64 @@ exports.addAssetCourse = async (req, res) => {
 };
 
 /**
+ * Analyse de performance historique pour tous les placements
+ * Utilisé pour le graphique ROI
+ */
+exports.getPlacementsPerformance = async (req, res) => {
+  try {
+    const courses = await prisma.assetCourse.findMany({
+      orderBy: { atDate: 'asc' },
+      include: {
+        placement: {
+          select: {
+            name: true,
+            type: true,
+            quantity: true,
+            totalCost: true
+          }
+        }
+      }
+    });
+
+    // On regroupe par date pour voir l'évolution de la valeur totale
+    const performanceByDate = courses.reduce((acc, course) => {
+      const dateStr = course.atDate.toISOString().split('T')[0];
+      if (!acc[dateStr]) {
+        acc[dateStr] = {
+          date: dateStr,
+          totalValuation: 0,
+          totalInvested: 0,
+          roi: 0
+        };
+      }
+      
+      // On calcule la valorisation de ce titre précis à cette date
+      const valuation = course.value * course.placement.quantity;
+      acc[dateStr].totalValuation += valuation;
+      acc[dateStr].totalInvested += course.placement.totalCost;
+      
+      return acc;
+    }, {});
+
+    // Calcul final du ROI par date
+    const history = Object.values(performanceByDate).map(point => ({
+      ...point,
+      roi: point.totalInvested > 0 
+        ? ((point.totalValuation - point.totalInvested) / point.totalInvested) * 100 
+        : 0
+    }));
+
+    return res.json({
+      success: true,
+      data: history
+    });
+  } catch (error) {
+    console.error('Erreur getPlacementsPerformance:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * Mise à jour du statut d'un placement
  */
 exports.updatePlacementStatus = async (req, res) => {

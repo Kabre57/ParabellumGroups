@@ -16,6 +16,18 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend
+} from 'recharts';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,8 +90,14 @@ export default function PlacementsPage() {
     queryFn: () => billingService.getPlacements(),
   });
 
+  const { data: performanceData, isLoading: isPerfLoading } = useQuery({
+    queryKey: ['billing-placements-performance'],
+    queryFn: () => billingService.getPlacementsPerformance(),
+  });
+
   const placements = data?.data || [];
   const summary = data?.summary || { totalInvested: 0, currentValuation: 0, totalGainLoss: 0, totalGainLossPercent: 0 };
+  const history = performanceData?.data || [];
 
   const addCourseMutation = useMutation({
     mutationFn: ({ id, value, atDate }: { id: string; value: number; atDate: string }) => 
@@ -176,6 +194,62 @@ export default function PlacementsPage() {
               <p className="text-xs font-medium text-muted-foreground uppercase">Actifs Engagés</p>
               <p className="text-xl font-bold">{placements.length} placements</p>
             </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Graphique de performance */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-1">
+        <Card className="p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold">Évolution de la Valeur & ROI</h3>
+              <p className="text-sm text-muted-foreground">Tendance historique basée sur les cours saisis.</p>
+            </div>
+            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+              Reporting Mensuel
+            </Badge>
+          </div>
+          <div className="h-[300px] w-full">
+            {isPerfLoading ? (
+              <div className="flex h-full items-center justify-center italic text-muted-foreground tabular-nums">
+                Chargement du graphique...
+              </div>
+            ) : history.length < 2 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground bg-muted/20 rounded-lg border-2 border-dashed">
+                Pas assez de données historiques pour afficher le graphique.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="date" 
+                    fontSize={12} 
+                    tickFormatter={(val) => new Date(val).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
+                  />
+                  <YAxis fontSize={12} tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
+                  <Tooltip 
+                    formatter={(val: number) => [formatCurrency(val), "Valorisation"]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="totalValuation" 
+                    stroke="#6366f1" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorVal)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
