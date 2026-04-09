@@ -168,10 +168,12 @@ exports.getTreasuryClosures = async (req, res) => {
     const effectiveEnd = resolvedRange?.end || end;
     const where = {};
 
-    if (effectiveStart || effectiveEnd) {
-      where.periodStart = {};
-      if (effectiveStart) where.periodStart.gte = effectiveStart;
-      if (effectiveEnd) where.periodEnd.lte = effectiveEnd;
+    if (effectiveStart) {
+      where.periodStart = { gte: effectiveStart };
+    }
+
+    if (effectiveEnd) {
+      where.periodEnd = { lte: effectiveEnd };
     }
 
     if (req.query.treasuryAccountId) {

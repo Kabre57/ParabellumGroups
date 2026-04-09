@@ -254,7 +254,48 @@ export interface Decaissement {
 
 export interface CashVoucher {
   id: string;
-  // ... reste obsolète
+}
+
+export interface Placement {
+  id: string;
+  type: 'ACTION' | 'OBLIGATION' | 'TCN' | 'IMMOBILIER';
+  name: string;
+  issuer?: string | null;
+  country?: string | null;
+  currency: string;
+  quantity: number;
+  purchasePrice: number;
+  totalCost: number;
+  purchaseDate: string;
+  maturityDate?: string | null;
+  interestRate?: number | null;
+  serviceId?: number | null;
+  serviceName?: string | null;
+  status: 'ACTIF' | 'CEDE' | 'FRACTIONNE' | 'ANNULE';
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  courses?: AssetCourse[];
+  // Calculated fields
+  lastCourse: number;
+  currentValuation: number;
+  gainLoss: number;
+  gainLossPercent: number;
+}
+
+export interface AssetCourse {
+  id: string;
+  placementId: string;
+  atDate: string;
+  value: number;
+  createdAt: string;
+}
+
+export interface PlacementSummary {
+  totalInvested: number;
+  currentValuation: number;
+  totalGainLoss: number;
+  totalGainLossPercent: number;
 }
 
 export interface TreasuryAccount {
@@ -439,6 +480,12 @@ export interface AccountingOverview {
   treasuryMovements: AccountingMovement[];
   entries: AccountingEntry[];
   reports: AccountingReports;
+}
+
+export interface PlacementsResponse {
+  success: boolean;
+  data: Placement[];
+  summary: PlacementSummary;
 }
 
 export interface ListResponse<T> {
@@ -994,6 +1041,35 @@ export const billingService = {
   }): Promise<DetailResponse<AccountingEntry>> {
     const response = await apiClient.post('/billing/accounting/entries', data);
     return normalizeDetailResponse<AccountingEntry>(response.data);
+  },
+
+  async getPlacements(params?: {
+    type?: string;
+    status?: string;
+    serviceId?: number;
+  }): Promise<PlacementsResponse> {
+    const response = await apiClient.get('/billing/placements', { params });
+    return response.data;
+  },
+
+  async getPlacement(id: string): Promise<DetailResponse<Placement>> {
+    const response = await apiClient.get(`/billing/placements/${id}`);
+    return normalizeDetailResponse<Placement>(response.data);
+  },
+
+  async createPlacement(data: Partial<Placement>): Promise<DetailResponse<Placement>> {
+    const response = await apiClient.post('/billing/placements', data);
+    return normalizeDetailResponse<Placement>(response.data);
+  },
+
+  async addAssetCourse(id: string, data: { value: number; atDate?: string }): Promise<DetailResponse<AssetCourse>> {
+    const response = await apiClient.post(`/billing/placements/${id}/courses`, data);
+    return normalizeDetailResponse<AssetCourse>(response.data);
+  },
+
+  async updatePlacementStatus(id: string, status: string): Promise<DetailResponse<Placement>> {
+    const response = await apiClient.patch(`/billing/placements/${id}/status`, { status });
+    return normalizeDetailResponse<Placement>(response.data);
   },
 };
 

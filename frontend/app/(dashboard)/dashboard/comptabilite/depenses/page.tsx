@@ -283,22 +283,22 @@ export default function DepensesPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">
           <p className="text-sm text-gray-600">Engagements achats</p>
-          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals.totalCommitted || 0)}</p>
+          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals?.totalCommitted || 0)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-600">Bons de caisse saisis</p>
-          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals.totalVouchered || 0)}</p>
+          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals?.totalVouchered || 0)}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-600">Décaissements réalisés</p>
           <p className="mt-2 text-2xl font-bold text-emerald-700">
-            {formatCurrency(data?.data?.totals.totalDisbursed || 0)}
+            {formatCurrency(data?.data?.totals?.totalDisbursed || 0)}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-600">Bons en attente / validés</p>
           <p className="mt-2 text-2xl font-bold text-amber-700">
-            {formatCurrency(data?.data?.totals.pendingVouchersAmount || 0)}
+            {formatCurrency(data?.data?.totals?.pendingVouchersAmount || 0)}
           </p>
         </Card>
       </div>

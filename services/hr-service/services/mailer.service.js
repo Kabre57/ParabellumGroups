@@ -6,7 +6,7 @@ const transporter = nodemailer.createTransport({
     port: process.env.SMTP_PORT || 587,
     auth: {
         user: process.env.SMTP_USER || 'test@example.com',
-        pass: process.env.SMTP_PASS || 'pass123'
+        pass: process.env.SMTP_PASSWORD || 'pass123'
     }
 });
 
