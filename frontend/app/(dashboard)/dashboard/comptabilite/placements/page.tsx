@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import type { Placement } from '@/shared/api/billing';
 
-import { usePlacements, usePlacementsPerformance } from '@/hooks/placements/usePlacements';
-import { useCreatePlacement, useAddAssetCourse } from '@/hooks/placements/usePlacementMutations';
-import { usePlacementFilters } from '@/hooks/placements/usePlacementFilters';
+import { usePlacements, usePlacementsPerformance } from '@/hooks/comptabilite/placements/usePlacements';
+import { useCreatePlacement, useAddAssetCourse } from '@/hooks/comptabilite/placements/usePlacementMutations';
+import { usePlacementFilters } from '@/hooks/comptabilite/placements/usePlacementFilters';
 
 import {
   PlacementsHeader,
@@ -15,9 +15,9 @@ import {
   PlacementsTable,
   CreatePlacementDialog,
   AddCourseDialog,
-} from '@/components/placements';
+} from '@/components/comptabilite/placements';
 
-import type { CreatePlacementPayload } from '@/types/placements';
+import type { CreatePlacementPayload } from '@/types/comptabilite/placements';
 
 export default function PlacementsPage() {
   // ─── UI State ───────────────────────────────────────────────

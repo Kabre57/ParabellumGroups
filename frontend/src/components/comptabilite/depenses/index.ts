@@ -1,0 +1,1 @@
+export { DepensesStats } from './DepensesStats';
