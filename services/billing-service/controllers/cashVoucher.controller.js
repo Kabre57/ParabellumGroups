@@ -381,7 +381,7 @@ exports.getSpendingOverview = async (req, res) => {
       }
     }
 
-    const [commitments, vouchers] = await Promise.all([
+    const [commitments, vouchers, encaissements, decaissements] = await Promise.all([
       prisma.purchaseCommitment.findMany({
         where: commitmentWhere,
         orderBy: { createdAt: 'desc' },
@@ -391,13 +391,24 @@ exports.getSpendingOverview = async (req, res) => {
         include: { treasuryAccount: true },
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
       }),
+      prisma.encaissement.findMany({
+        where: voucherWhere.issueDate ? { dateEncaissement: voucherWhere.issueDate } : {},
+        include: { treasuryAccount: true },
+        orderBy: { dateEncaissement: 'desc' },
+      }),
+      prisma.decaissement.findMany({
+        where: voucherWhere.issueDate ? { dateDecaissement: voucherWhere.issueDate } : {},
+        include: { treasuryAccount: true },
+        orderBy: { dateDecaissement: 'desc' },
+      }),
     ]);
 
     const totalCommitted = commitments.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalVouchered = vouchers.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
-    const totalDisbursed = vouchers
-      .filter((item) => item.status === 'DECAISSE' && item.flowType !== 'ENCAISSEMENT')
+    const totalDisbursed = decaissements
+      .filter((item) => item.status !== 'ANNULE')
       .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
+    const totalReceived = encaissements.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
 
     return res.json({
       success: true,
@@ -406,11 +417,14 @@ exports.getSpendingOverview = async (req, res) => {
           totalCommitted,
           totalVouchered,
           totalDisbursed,
+          totalReceived,
           pendingVouchersAmount: vouchers
             .filter((item) => item.status === 'EN_ATTENTE' || item.status === 'VALIDE')
             .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0),
         },
         commitments,
+        encaissements,
+        decaissements,
         cashVouchers: vouchers.map(serializeCashVoucher),
       },
     });

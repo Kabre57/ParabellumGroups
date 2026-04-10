@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorField, setErrorField] = useState<'email' | 'password' | null>(null);
 
   const {
     register,
@@ -33,16 +34,34 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  const extractAuthErrorMessage = (value: unknown) => {
+    if (!value) return 'Échec de la connexion';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value !== null) {
+      const message = (value as { message?: string }).message;
+      const nestedMessage = (value as { data?: { message?: string } }).data?.message;
+      return message || nestedMessage || 'Échec de la connexion';
+    }
+    return 'Échec de la connexion';
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
       setError('');
+      setErrorField(null);
       const sanitizedEmail = data.email.trim().toLowerCase();
       const sanitizedPassword = data.password.normalize('NFC').trim();
       await login(sanitizedEmail, sanitizedPassword);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Échec de la connexion');
+      const message = extractAuthErrorMessage(err);
+      setError(message);
+      if (message.toLowerCase().includes('email')) {
+        setErrorField('email');
+      } else if (message.toLowerCase().includes('mot de passe')) {
+        setErrorField('password');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +100,11 @@ export default function LoginPage() {
 
           {/* Error Alert */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            <div
+              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
+              role="status"
+              aria-live="assertive"
+            >
               {error}
             </div>
           )}
@@ -107,19 +130,28 @@ export default function LoginPage() {
                     autoCorrect="off"
                     spellCheck={false}
                     {...register('email')}
-                    className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    className={`appearance-none block w-full px-12 py-3 border rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ${
+                      errors.email || errorField === 'email'
+                        ? 'border-red-500 ring-red-100'
+                        : 'border-gray-200'
+                    }`}
                     placeholder="email@exemple.com"
                   />
                 </div>
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
+                  {errors.email.message}
+                </p>
+              )}
+              {!errors.email && errorField === 'email' && (
+                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
+                  {error}
+                </p>
+              )}
+            </div>
 
-              {/* Password Field */}
-              <div className="group">
+            {/* Password Field */}
+            <div className="group">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
                   Mot de passe
                 </label>
@@ -135,7 +167,11 @@ export default function LoginPage() {
                     autoCorrect="off"
                     spellCheck={false}
                     {...register('password')}
-                    className="appearance-none block w-full px-12 py-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    className={`appearance-none block w-full px-12 py-3 border rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ${
+                      errors.password || errorField === 'password'
+                        ? 'border-red-500 ring-red-100'
+                        : 'border-gray-200'
+                    }`}
                     placeholder="Mot de passe"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -153,14 +189,19 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
-                    {errors.password.message}
-                  </p>
-                )}
-              </div>
-
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
+                  {errors.password.message}
+                </p>
+              )}
+              {!errors.password && errorField === 'password' && (
+                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
+                  {error}
+                </p>
+              )}
             </div>
+
+          </div>
 
             {/* Submit Button */}
             <div className="pt-2">

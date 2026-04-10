@@ -35,8 +35,9 @@ exports.getBudgetPerformance = async (req, res) => {
     let totalSpent = 0;
 
     budgets.forEach(budget => {
-      budget.allocations.forEach(alloc => {
-        const centerName = alloc.analyticCenter.name;
+      const allocations = budget.allocations || [];
+      allocations.forEach(alloc => {
+        const centerName = safeAccess(alloc, 'analyticCenter.name', 'Centre inconnu');
         if (!statsByCenter[centerName]) {
           statsByCenter[centerName] = {
             centerName,

@@ -119,7 +119,14 @@ exports.createPlacement = async (req, res) => {
       serviceName, notes 
     } = req.body;
 
-    const totalCost = quantity * purchasePrice;
+    const validTypes = ['ACTION', 'OBLIGATION', 'TCN', 'IMMOBILIER'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ success: false, message: `Type de placement invalide: ${type}` });
+    }
+
+    const quantityNum = safeAmount(quantity, 1);
+    const purchasePriceNum = safeAmount(purchasePrice, 0);
+    const totalCost = quantityNum * purchasePriceNum;
 
     const placement = await prisma.placement.create({
       data: {
@@ -128,12 +135,12 @@ exports.createPlacement = async (req, res) => {
         issuer,
         country,
         currency: currency || 'XOF',
-        quantity: parseFloat(quantity),
-        purchasePrice: parseFloat(purchasePrice),
+        quantity: quantityNum,
+        purchasePrice: purchasePriceNum,
         totalCost,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-        maturityDate: maturityDate ? new Date(maturityDate) : null,
-        interestRate: interestRate ? parseFloat(interestRate) : null,
+        purchaseDate: safeDate(purchaseDate) || new Date(),
+        maturityDate: safeDate(maturityDate),
+        interestRate: interestRate ? safeAmount(interestRate) : null,
         serviceId: serviceId ? parseInt(serviceId) : null,
         serviceName,
         notes,

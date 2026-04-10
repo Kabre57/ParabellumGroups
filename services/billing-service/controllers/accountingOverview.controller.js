@@ -127,36 +127,46 @@ exports.getAccountingOverview = async (req, res) => {
     console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
     await MappingService.refreshCache();
 
-    const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts] = await Promise.all([
-      prisma.facture.findMany({
+    // Helper pour sécuriser les appels Prisma
+    const safeQuery = async (promise, label) => {
+      try {
+        return await promise;
+      } catch (err) {
+        console.error(`[CRITICAL] Prisma Query Fail (${label}):`, err.message);
+        return [];
+      }
+    };
+
+    const results = await Promise.all([
+      safeQuery(prisma.facture.findMany({
         where: invoiceWhere,
         include: { paiements: true, lignes: true },
         orderBy: { dateEmission: 'desc' },
-      }),
-      prisma.paiement.findMany({
+      }), 'factures'),
+      safeQuery(prisma.paiement.findMany({
         where: paymentWhere,
         include: { facture: true, treasuryAccount: true },
         orderBy: { datePaiement: 'desc' },
-      }),
-      prisma.purchaseCommitment.findMany({
+      }), 'paiements'),
+      safeQuery(prisma.purchaseCommitment.findMany({
         where: commitmentWhere,
         orderBy: { createdAt: 'desc' },
-      }),
-      prisma.encaissement.findMany({
+      }), 'commitments'),
+      safeQuery(prisma.encaissement.findMany({
         where: encaissementWhere,
         include: { treasuryAccount: true },
         orderBy: { dateEncaissement: 'desc' },
-      }),
-      prisma.decaissement.findMany({
+      }), 'encaissements'),
+      safeQuery(prisma.decaissement.findMany({
         where: decaissementWhere,
         include: { treasuryAccount: true },
         orderBy: [{ dateDecaissement: 'desc' }, { createdAt: 'desc' }],
-      }),
-      prisma.accountingAccount.findMany({
+      }), 'decaissements'),
+      safeQuery(prisma.accountingAccount.findMany({
         where: { isActive: true },
         orderBy: [{ code: 'asc' }],
-      }),
-      prisma.accountingJournalEntry.findMany({
+      }), 'persistedAccounts'),
+      safeQuery(prisma.accountingJournalEntry.findMany({
         where: journalEntryWhere,
         include: {
           lines: {
@@ -165,12 +175,14 @@ exports.getAccountingOverview = async (req, res) => {
           },
         },
         orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }],
-      }),
-      prisma.treasuryAccount.findMany({
+      }), 'manualJournalEntries'),
+      safeQuery(prisma.treasuryAccount.findMany({
         where: { isActive: true },
         orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
-      }),
+      }), 'treasuryAccounts'),
     ]);
+
+    const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts] = results;
 
     console.log('[DEBUG] Step 2: Data fetched successfully', {
       factures: factures.length,

@@ -122,6 +122,10 @@ class ApiClient {
     // Gestion spécifique selon le code HTTP
     switch (status) {
       case 401:
+        if (config?.url?.includes('/auth/login')) {
+          this.handleUnauthorized();
+          throw this.formatError(401, 'Adresse email ou mot de passe incorrect');
+        }
         // Token expiré ou invalide - tentative de refresh
         if (this.shouldRetryWithRefresh(error)) {
           const refreshToken = typeof window !== 'undefined'

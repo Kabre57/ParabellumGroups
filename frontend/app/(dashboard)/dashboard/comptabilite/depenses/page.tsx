@@ -154,10 +154,7 @@ export default function DepensesPage() {
   });
 
   const commitments = useMemo(() => data?.data?.commitments ?? [], [data]);
-  const vouchers = useMemo(() => [
-    ...(data?.data?.encaissements || []).map((e: any) => ({ ...e, flowType: 'ENCAISSEMENT', voucherNumber: e.numeroPiece, issueDate: e.dateEncaissement })),
-    ...(data?.data?.decaissements || []).map((d: any) => ({ ...d, flowType: 'DECAISSEMENT', voucherNumber: d.numeroPiece, issueDate: d.dateDecaissement })),
-  ], [data]);
+  const vouchers = useMemo(() => data?.data?.cashVouchers ?? [], [data]);
 
   const filteredCommitments = useMemo(() => {
     const query = search.trim().toLowerCase();
