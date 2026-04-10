@@ -1,27 +1,29 @@
+'use client';
+
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Receipt, Search, Wallet, Printer } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import billingService, { 
   type PurchaseCommitment, 
-  type Encaissement, 
-  type Decaissement,
-  type FactureFournisseur 
 } from '@/shared/api/billing';
-import { CashVoucherStatusBadge } from '@/components/accounting/CashVoucherStatusBadge';
 import { CreateEncaissementDialog } from '@/components/accounting/CreateEncaissementDialog';
 import { CreateDecaissementDialog } from '@/components/accounting/CreateDecaissementDialog';
 import { CreateFactureFournisseurDialog } from '@/components/accounting/CreateFactureFournisseurDialog';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import CashVoucherPrint from '@/components/printComponents/CashVoucherPrint';
-import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
+import { formatFCFA } from '@/components/printComponents/printUtils';
+
+// Import modular components
+import { 
+  DepensesHeader, 
+  DepensesStats, 
+  DepensesTable 
+} from '@/components/comptabilite/depenses';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('fr-FR', {
@@ -158,70 +160,42 @@ export default function DepensesPage() {
 
   const filteredCommitments = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return commitments;
-    return commitments.filter((item) =>
-      [
-        item.sourceNumber,
-        item.serviceName,
-        item.supplierName,
-        sourceLabels[item.sourceType] || item.sourceType,
-      ]
+    return commitments.filter((item: any) =>
+      [item.sourceNumber, item.serviceName, item.supplierName]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
+        .some((val) => String(val).toLowerCase().includes(query))
     );
   }, [commitments, search]);
 
   const filteredVouchers = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return vouchers;
-    return vouchers.filter((item) =>
-      [
-        item.voucherNumber,
-        item.sourceNumber,
-        item.beneficiaryName,
-        item.supplierName,
-        item.description,
-        item.serviceName,
-      ]
+    return vouchers.filter((item: any) =>
+      [item.voucherNumber, item.sourceNumber, item.beneficiaryName, item.description]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
+        .some((val) => String(val).toLowerCase().includes(query))
     );
   }, [vouchers, search]);
 
   const filteredEncaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return encaissements;
-    return encaissements.filter((item) =>
-      [
-        item.numeroPiece,
-        item.clientName,
-        item.description,
-        item.reference,
-        item.serviceName,
-      ]
+    return encaissements.filter((item: any) =>
+      [item.numeroPiece, item.clientName, item.description]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
+        .some((val) => String(val).toLowerCase().includes(query))
     );
   }, [encaissements, search]);
 
   const filteredDecaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return decaissements;
-    return decaissements.filter((item) =>
-      [
-        item.numeroPiece,
-        item.beneficiaryName,
-        item.description,
-        item.reference,
-        item.serviceName,
-      ]
+    return decaissements.filter((item: any) =>
+      [item.numeroPiece, item.beneficiaryName, item.description]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
+        .some((val) => String(val).toLowerCase().includes(query))
     );
   }, [decaissements, search]);
 
   const consolidatedRows = useMemo(() => {
-    const commitmentRows = filteredCommitments.map((item) => ({
+    const commitmentRows = filteredCommitments.map((item: any) => ({
       id: `commitment-${item.id}`,
       kind: 'commitment' as const,
       date: item.createdAt || null,
@@ -233,7 +207,7 @@ export default function DepensesPage() {
       status: item.status,
     }));
 
-    const voucherRows = filteredVouchers.map((item) => ({
+    const voucherRows = filteredVouchers.map((item: any) => ({
       id: `voucher-${item.id}`,
       kind: 'voucher' as const,
       date: item.issueDate,
@@ -245,7 +219,7 @@ export default function DepensesPage() {
       status: item.status,
     }));
 
-    const encaissementRows = filteredEncaissements.map((item) => ({
+    const encaissementRows = filteredEncaissements.map((item: any) => ({
       id: `encaissement-${item.id}`,
       kind: 'encaissement' as const,
       date: item.dateEncaissement,
@@ -254,10 +228,10 @@ export default function DepensesPage() {
       serviceName: item.serviceName || '-',
       thirdParty: item.clientName,
       amount: item.amountTTC,
-      status: 'DECAISSE', // Simulé pour l'affichage badge
+      status: 'RECU',
     }));
 
-    const decaissementRows = filteredDecaissements.map((item) => ({
+    const decaissementRows = filteredDecaissements.map((item: any) => ({
       id: `decaissement-${item.id}`,
       kind: 'decaissement' as const,
       date: item.dateDecaissement,
@@ -286,79 +260,28 @@ export default function DepensesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Bons de caisse et dépenses</h1>
-          <p className="mt-2 text-muted-foreground">
-            Suivi des engagements d&apos;achat, des bons de caisse et des décaissements comptables de l&apos;entreprise.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={period}
-            onChange={(event) => setPeriod(event.target.value as typeof period)}
-            className="px-4 py-2 border rounded-md"
-          >
-            <option value="month">Ce mois</option>
-            <option value="quarter">Ce trimestre</option>
-            <option value="year">Cette année</option>
-            <option value="all">Toutes les périodes</option>
-          </select>
-          <Button variant="outline" onClick={() => setPrintListOpen(true)}>
-            <Printer className="mr-2 h-4 w-4" />
-            Imprimer la liste
-          </Button>
-          {canCreateVoucher && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                onClick={() => setEncaissementOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Encaissement
-              </Button>
-              <Button
-                className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700"
-                onClick={() => {
-                  setSelectedCommitment(null);
-                  setDecaissementOpen(true);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Décaissement
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      <DepensesHeader 
+        period={period}
+        onPeriodChange={setPeriod}
+        onPrintList={() => setPrintListOpen(true)}
+        onNewEncaissement={() => setEncaissementOpen(true)}
+        onNewDecaissement={() => {
+          setSelectedCommitment(null);
+          setDecaissementOpen(true);
+        }}
+        canCreate={canCreateVoucher}
+      />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-gray-600">Engagements achats</p>
-          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals?.totalCommitted || 0)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-600">Bons de caisse saisis</p>
-          <p className="mt-2 text-2xl font-bold">{formatCurrency(data?.data?.totals?.totalVouchered || 0)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-600">Décaissements réalisés</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-700">
-            {formatCurrency(data?.data?.totals?.totalDisbursed || 0)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-600">Bons en attente / validés</p>
-          <p className="mt-2 text-2xl font-bold text-amber-700">
-            {formatCurrency(data?.data?.totals?.pendingVouchersAmount || 0)}
-          </p>
-        </Card>
-      </div>
+      <DepensesStats 
+        totalCommitted={data?.data?.totals?.totalCommitted || 0}
+        totalVouchered={data?.data?.totals?.totalVouchered || 0}
+        totalDisbursed={data?.data?.totals?.totalDisbursed || 0}
+        pendingVouchersAmount={data?.data?.totals?.pendingVouchersAmount || 0}
+      />
 
-      <Card className="p-4">
+      <Card className="p-4 shadow-sm">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -368,259 +291,37 @@ export default function DepensesPage() {
         </div>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Vue consolidée</TabsTrigger>
-          <TabsTrigger value="vouchers">Bons de caisse</TabsTrigger>
-          <TabsTrigger value="commitments">Engagements achats</TabsTrigger>
-        </TabsList>
+      <DepensesTable 
+        isLoading={isLoading}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        filteredCommitments={filteredCommitments}
+        filteredVouchers={filteredVouchers}
+        filteredEncaissements={filteredEncaissements}
+        filteredDecaissements={filteredDecaissements}
+        consolidatedRows={consolidatedRows}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+        sourceLabels={sourceLabels}
+        canApprove={canApproveVoucher}
+        onUpdateVoucher={(id, status) => updateVoucherMutation.mutate({ id, status })}
+        onPrintVoucher={setPrintVoucher}
+        onLiquider={(commitment) => {
+          setSelectedCommitment(commitment);
+          setLiquidationOpen(true);
+        }}
+        onPayer={(commitment) => {
+          setSelectedCommitment(commitment);
+          setDecaissementOpen(true);
+        }}
+      />
 
-        <TabsContent value="overview">
-          <Card className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Document</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Service</th>
-                    <th className="px-4 py-3">Tiers</th>
-                    <th className="px-4 py-3">Référence</th>
-                    <th className="px-4 py-3 text-right">Montant TTC</th>
-                    <th className="px-4 py-3">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={8}>
-                        Chargement...
-                      </td>
-                    </tr>
-                  ) : consolidatedRows.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={8}>
-                        Aucun mouvement à afficher.
-                      </td>
-                    </tr>
-                  ) : (
-                    consolidatedRows.map((row) => (
-                      <tr key={row.id} className="border-b">
-                        <td className="px-4 py-3 text-sm">{formatDate(row.date)}</td>
-                        <td className="px-4 py-3 font-medium">{row.number || '-'}</td>
-                        <td className="px-4 py-3 text-sm">{row.label}</td>
-                        <td className="px-4 py-3 text-sm">{row.serviceName}</td>
-                        <td className="px-4 py-3 text-sm">{row.thirdParty}</td>
-                        <td className="px-4 py-3 text-sm">
-                          {row.kind === 'voucher'
-                            ? textOrDash(vouchers.find((item) => `voucher-${item.id}` === row.id)?.reference)
-                            : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(row.amount)}</td>
-                        <td className="px-4 py-3">
-                          {row.kind === 'voucher' ? (
-                            <div className="flex flex-col gap-1">
-                              <Badge className={row.kind === 'voucher' && (vouchers.find(v => `voucher-${v.id}` === row.id)?.flowType === 'ENCAISSEMENT') ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}>
-                                {vouchers.find(v => `voucher-${v.id}` === row.id)?.flowType || 'DECAISSEMENT'}
-                              </Badge>
-                              <CashVoucherStatusBadge status={row.status} />
-                            </div>
-                          ) : (
-                            <CashVoucherStatusBadge status={row.status} />
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="vouchers">
-          <Card className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-4 py-3">Bon de caisse</th>
-                    <th className="px-4 py-3">Origine</th>
-                    <th className="px-4 py-3">Bénéficiaire</th>
-                    <th className="px-4 py-3">Mode</th>
-                    <th className="px-4 py-3">Compte</th>
-                    <th className="px-4 py-3">Référence</th>
-                    <th className="px-4 py-3 text-right">Montant TTC</th>
-                    <th className="px-4 py-3">Statut</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={9}>
-                        Chargement...
-                      </td>
-                    </tr>
-                  ) : filteredVouchers.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={9}>
-                        Aucun bon de caisse enregistré.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredVouchers.map((voucher) => (
-                      <tr key={voucher.id} className="border-b">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{voucher.voucherNumber}</div>
-                          <div className="text-xs text-gray-500">{formatDate(voucher.issueDate)}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <div>{sourceLabels[voucher.sourceType] || voucher.sourceType}</div>
-                          <div className="text-xs text-gray-500">{voucher.sourceNumber || '-'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <div>{voucher.beneficiaryName}</div>
-                          <div className="text-xs text-gray-500">{voucher.serviceName || voucher.supplierName || '-'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          {voucher.paymentMethod === 'CHEQUE'
-                            ? 'Chèque'
-                            : voucher.paymentMethod === 'CARTE'
-                            ? 'Carte'
-                            : voucher.paymentMethod === 'VIREMENT'
-                            ? 'Virement'
-                            : 'Espèces'}
-                        </td>
-                        <td className="px-4 py-3 text-sm">{voucher.treasuryAccountName || '-'}</td>
-                        <td className="px-4 py-3 text-sm">{voucher.reference || '-'}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(voucher.amountTTC)}</td>
-                        <td className="px-4 py-3">
-                          <CashVoucherStatusBadge status={voucher.status} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setPrintVoucher(voucher)}>
-                              Imprimer
-                            </Button>
-                            {canApproveVoucher && voucher.status === 'EN_ATTENTE' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateVoucherMutation.mutate({ id: voucher.id, status: 'VALIDE' })}
-                              >
-                                Valider
-                              </Button>
-                            )}
-                            {canApproveVoucher && voucher.status === 'VALIDE' && (
-                              <Button
-                                size="sm"
-                                onClick={() => updateVoucherMutation.mutate({ id: voucher.id, status: 'DECAISSE' })}
-                              >
-                                Décaisser
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="commitments">
-          <Card className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-4 py-3">Document source</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Service</th>
-                    <th className="px-4 py-3">Fournisseur</th>
-                    <th className="px-4 py-3 text-right">Montant TTC</th>
-                    <th className="px-4 py-3">Statut</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={7}>
-                        Chargement...
-                      </td>
-                    </tr>
-                  ) : filteredCommitments.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={7}>
-                        Aucun engagement achat disponible.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCommitments.map((commitment) => (
-                      <tr key={commitment.id} className="border-b">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{commitment.sourceNumber}</div>
-                          <div className="text-xs text-gray-500">{formatDate(commitment.createdAt)}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">{sourceLabels[commitment.sourceType] || commitment.sourceType}</td>
-                        <td className="px-4 py-3 text-sm">{commitment.serviceName || '-'}</td>
-                        <td className="px-4 py-3 text-sm">{commitment.supplierName || '-'}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(commitment.amountTTC)}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline">{commitment.status}</Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-2">
-                            {commitment.status === 'ENGAGE' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-blue-200 text-blue-700"
-                                onClick={() => {
-                                  setSelectedCommitment(commitment);
-                                  setLiquidationOpen(true);
-                                }}
-                              >
-                                Liquider
-                              </Button>
-                            )}
-                            {(commitment.status === 'LIQUIDE' || commitment.status === 'ORDONNANCE') && (
-                              <Button
-                                size="sm"
-                                className="bg-rose-600 hover:bg-rose-700"
-                                onClick={() => {
-                                  setSelectedCommitment(commitment);
-                                  setDecaissementOpen(true);
-                                }}
-                              >
-                                <Wallet className="mr-2 h-4 w-4" />
-                                Payer
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
+      {/* Dialogs */}
       <CreateEncaissementDialog
         open={encaissementOpen}
         onOpenChange={setEncaissementOpen}
         isSubmitting={createEncaissementMutation.isPending}
-        onSubmit={async (payload) => {
-          await createEncaissementMutation.mutateAsync(payload);
-        }}
+        onSubmit={async (payload) => { await createEncaissementMutation.mutateAsync(payload); }}
       />
 
       <CreateDecaissementDialog
@@ -628,9 +329,7 @@ export default function DepensesPage() {
         onOpenChange={setDecaissementOpen}
         defaultCommitment={selectedCommitment}
         isSubmitting={createDecaissementMutation.isPending}
-        onSubmit={async (payload) => {
-          await createDecaissementMutation.mutateAsync(payload);
-        }}
+        onSubmit={async (payload) => { await createDecaissementMutation.mutateAsync(payload); }}
       />
 
       {selectedCommitment && (
@@ -639,9 +338,7 @@ export default function DepensesPage() {
           onOpenChange={setLiquidationOpen}
           commitment={selectedCommitment}
           isSubmitting={createLiquidationMutation.isPending}
-          onSubmit={async (payload) => {
-            await createLiquidationMutation.mutateAsync(payload);
-          }}
+          onSubmit={async (payload) => { await createLiquidationMutation.mutateAsync(payload); }}
         />
       )}
 
@@ -652,31 +349,27 @@ export default function DepensesPage() {
       {printListOpen && (
         <TabularListPrint
           title="Bons de caisse"
-          subtitle="Liste des bons de caisse et décaissements"
+          subtitle="Liste des mouvements financiers"
           columns={[
-            { key: 'number', label: 'Bon de caisse' },
+            { key: 'number', label: 'N° Piece' },
             { key: 'date', label: 'Date' },
-            { key: 'beneficiary', label: 'Bénéficiaire' },
-            { key: 'service', label: 'Service' },
-            { key: 'account', label: 'Compte' },
-            { key: 'reference', label: 'Référence' },
+            { key: 'label', label: 'Type' },
+            { key: 'thirdParty', label: 'Tiers' },
             { key: 'amount', label: 'Montant TTC', align: 'right' },
             { key: 'status', label: 'Statut' },
           ]}
-          rows={filteredVouchers.map((voucher) => ({
-            number: voucher.voucherNumber,
-            date: formatDate(voucher.issueDate),
-            beneficiary: textOrDash(voucher.beneficiaryName),
-            service: textOrDash(voucher.serviceName),
-            account: textOrDash(voucher.treasuryAccountName),
-            reference: textOrDash(voucher.reference),
-            amount: formatFCFA(voucher.amountTTC),
-            status: voucher.status,
+          rows={consolidatedRows.map((row) => ({
+            number: row.number,
+            date: formatDate(row.date),
+            label: row.label,
+            thirdParty: row.thirdParty,
+            amount: formatFCFA(row.amount),
+            status: row.status,
           }))}
           summary={[
             {
-              label: 'Total TTC',
-              value: formatFCFA(filteredVouchers.reduce((sum, item) => sum + (item.amountTTC || 0), 0)),
+              label: 'Total Décaissements',
+              value: formatFCFA(data?.data?.totals?.totalDisbursed || 0),
             },
           ]}
           onClose={() => setPrintListOpen(false)}
