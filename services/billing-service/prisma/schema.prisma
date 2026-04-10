@@ -395,7 +395,9 @@ model BillingProcessedEvent {
   source       String
   processedAt  DateTime @default(now())
 
-  @@index([eventType])
+  @@map("billing_processed_events")
+}
+
 model AccountingAccount {
   id              String                @id @default(uuid())
   code            String                @unique
