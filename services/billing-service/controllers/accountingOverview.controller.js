@@ -258,115 +258,99 @@ exports.getAccountingOverview = async (req, res) => {
       return accumulator;
     }, {});
 
-    const dynamicAccounts = [
-      {
-        id: 'account-512',
-        code: '512',
-        label: 'Banque',
-        type: 'asset',
-        balance: bankInflows - bankOutflows,
-        lastTransaction: paiements[0]?.datePaiement || disbursedVouchers[0]?.dateDecaissement || null,
-        movementCount:
-          paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() !== 'ESPECES').length +
-          disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length,
-      },
-      {
-        id: 'account-531',
-        code: '531',
-        label: 'Caisse',
-        type: 'asset',
-        balance: cashInflows - cashOutflows,
-        lastTransaction:
-          paiements.find((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES')?.datePaiement ||
-          disbursedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.dateDecaissement ||
-          null,
-        movementCount:
-          paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES').length +
-          disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES').length,
-      },
-      {
-        id: 'account-411',
-        code: '411',
-        label: 'Clients',
-        type: 'asset',
-        balance: clientReceivables,
-        lastTransaction: factures[0]?.dateEmission || null,
-        movementCount: factures.length,
-      },
-      {
-        id: 'account-401',
-        code: '401',
-        label: 'Fournisseurs',
-        type: 'liability',
-        balance: supplierLiabilities,
-        lastTransaction: decaissements[0]?.createdAt || commitments[0]?.createdAt || null,
-        movementCount: decaissements.length + commitments.length,
-      },
-      {
-        id: 'account-4456',
-        code: '4456',
-        label: 'TVA déductible',
-        type: 'asset',
-        balance: totalDeductibleVat,
-        lastTransaction: decaissements[0]?.createdAt || null,
-        movementCount: decaissements.length,
-      },
-      {
-        id: 'account-4457',
-        code: '4457',
-        label: 'TVA collectée',
-        type: 'liability',
-        balance: totalCollectedVat,
-        lastTransaction: factures[0]?.dateEmission || null,
-        movementCount: factures.length,
-      },
-      {
-        id: 'account-706',
-        code: '706',
-        label: 'Prestations de services',
-        type: 'revenue',
-        balance: totalRevenue,
-        lastTransaction: factures[0]?.dateEmission || null,
-        movementCount: factures.length,
-      },
-      {
-        id: 'account-607',
-        code: '607',
-        label: 'Achats et approvisionnements',
-        type: 'expense',
-        balance: decaissements
-          .filter((d) =>
-            ['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase())
-          )
-          .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
-        lastTransaction: decaissements[0]?.createdAt || commitments[0]?.createdAt || null,
-        movementCount: decaissements.length,
-      },
-      {
-        id: 'account-618',
-        code: '618',
-        label: 'Autres charges d exploitation',
-        type: 'expense',
-        balance: decaissements
-          .filter((d) =>
-            !['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase())
-          )
-          .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
-        lastTransaction: decaissements[0]?.createdAt || null,
-        movementCount: decaissements.length,
-      },
-      {
-        id: 'account-101',
-        code: '101',
-        label: 'Capital et résultat',
-        type: 'equity',
-        balance: Math.max(totalRevenue - totalExpenseHT, 0),
-        lastTransaction: new Date().toISOString(),
-        movementCount: 1,
-      },
-    ];
+    // 1. Build context for formulas
+    const context = {
+      bankInflows,
+      cashInflows,
+      bankOutflows,
+      cashOutflows,
+      clientReceivables,
+      supplierLiabilities,
+      totalDeductibleVat,
+      totalCollectedVat,
+      totalRevenue,
+      totalExpenseHT,
+      totalDisbursed,
+      netResult: Math.max(totalRevenue - totalExpenseHT, 0),
+      bankMovementCount:
+        paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() !== 'ESPECES').length +
+        disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length,
+      cashMovementCount:
+        paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES').length +
+        disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES').length,
+      lastBankTransaction: paiements[0]?.datePaiement || disbursedVouchers[0]?.dateDecaissement || null,
+      lastCashTransaction: 
+        paiements.find((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES')?.datePaiement ||
+        disbursedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.dateDecaissement ||
+        null,
+      invoiceCount: factures.length,
+      lastInvoiceDate: factures[0]?.dateEmission || null,
+      decaissementCount: decaissements.length,
+      lastDecaissementDate: decaissements[0]?.createdAt || null,
+      commitmentCount: commitments.length,
+      purchasesExpense: decaissements
+        .filter((d) => ['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase()))
+        .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
+      otherExpense: decaissements
+        .filter((d) => !['PURCHASE_ORDER', 'PURCHASE_QUOTE', 'SUPPLIER_INVOICE'].includes(String(d.sourceType || '').toUpperCase()))
+        .reduce((sum, d) => sum + amount(d.amountHT || d.amountTTC), 0),
+      today: new Date().toISOString()
+    };
 
-    const mergedAccounts = mergeAccounts(persistedAccounts, dynamicAccounts);
+    // 2. Fetch and evaluate dynamic accounts from DB
+    const FormulaEvaluator = require('../utils/FormulaEvaluator');
+    const dynamicAccountsFromDb = persistedAccounts.filter(a => a.isDynamic);
+    
+    const evaluatedDynamicAccounts = dynamicAccountsFromDb.map(account => {
+      const evaluation = FormulaEvaluator.evaluateAccount(account.formula, context);
+      return {
+        id: account.id,
+        code: account.code,
+        label: account.label,
+        type: account.type.toLowerCase(),
+        balance: evaluation.balance,
+        lastTransaction: evaluation.lastTransaction,
+        movementCount: evaluation.movementCount,
+        isDynamic: true
+      };
+    });
+
+    // 3. Fallback to hardcoded if DB is empty (safety migration)
+    let dynamicAccounts = evaluatedDynamicAccounts;
+    if (dynamicAccounts.length === 0) {
+      console.log('[DEBUG] No dynamic accounts found in DB, using hardcoded fallback');
+      dynamicAccounts = [
+        {
+          id: 'account-512',
+          code: '512',
+          label: 'Banque',
+          type: 'asset',
+          balance: bankInflows - bankOutflows,
+          lastTransaction: context.lastBankTransaction,
+          movementCount: context.bankMovementCount,
+        },
+        {
+          id: 'account-531',
+          code: '531',
+          label: 'Caisse',
+          type: 'asset',
+          balance: cashInflows - cashOutflows,
+          lastTransaction: context.lastCashTransaction,
+          movementCount: context.cashMovementCount,
+        },
+        // ... (system accounts 411, 401, 4456, 4457, 706, 607, 618, 101)
+        { id: 'account-411', code: '411', label: 'Clients', type: 'asset', balance: clientReceivables, lastTransaction: context.lastInvoiceDate, movementCount: context.invoiceCount },
+        { id: 'account-401', code: '401', label: 'Fournisseurs', type: 'liability', balance: supplierLiabilities, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length + commitments.length },
+        { id: 'account-4456', code: '4456', label: 'TVA déductible', type: 'asset', balance: totalDeductibleVat, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
+        { id: 'account-4457', code: '4457', label: 'TVA collectée', type: 'liability', balance: totalCollectedVat, lastTransaction: context.lastInvoiceDate, movementCount: factures.length },
+        { id: 'account-706', code: '706', label: 'Prestations de services', type: 'revenue', balance: totalRevenue, lastTransaction: context.lastInvoiceDate, movementCount: factures.length },
+        { id: 'account-607', code: '607', label: 'Achats et approvisionnements', type: 'expense', balance: context.purchasesExpense, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
+        { id: 'account-618', code: '618', label: 'Autres charges d exploitation', type: 'expense', balance: context.otherExpense, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
+        { id: 'account-101', code: '101', label: 'Capital et résultat', type: 'equity', balance: context.netResult, lastTransaction: context.today, movementCount: 1 }
+      ];
+    }
+
+    const mergedAccounts = mergeAccounts(persistedAccounts.filter(a => !a.isDynamic), dynamicAccounts);
 
     const manualEntries = manualJournalEntries.map(serializeJournalEntry);
     const manualDeltasByType = manualJournalEntries.reduce(
