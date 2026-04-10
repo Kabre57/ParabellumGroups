@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Receipt, Search, Wallet, Printer } from 'lucide-react';
@@ -155,6 +153,8 @@ export default function DepensesPage() {
 
   const commitments = useMemo(() => data?.data?.commitments ?? [], [data]);
   const vouchers = useMemo(() => data?.data?.cashVouchers ?? [], [data]);
+  const encaissements = useMemo(() => data?.data?.encaissements ?? [], [data]);
+  const decaissements = useMemo(() => data?.data?.decaissements ?? [], [data]);
 
   const filteredCommitments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -188,6 +188,38 @@ export default function DepensesPage() {
     );
   }, [vouchers, search]);
 
+  const filteredEncaissements = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return encaissements;
+    return encaissements.filter((item) =>
+      [
+        item.numeroPiece,
+        item.clientName,
+        item.description,
+        item.reference,
+        item.serviceName,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [encaissements, search]);
+
+  const filteredDecaissements = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return decaissements;
+    return decaissements.filter((item) =>
+      [
+        item.numeroPiece,
+        item.beneficiaryName,
+        item.description,
+        item.reference,
+        item.serviceName,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [decaissements, search]);
+
   const consolidatedRows = useMemo(() => {
     const commitmentRows = filteredCommitments.map((item) => ({
       id: `commitment-${item.id}`,
@@ -213,12 +245,36 @@ export default function DepensesPage() {
       status: item.status,
     }));
 
-    return [...voucherRows, ...commitmentRows].sort((left, right) => {
+    const encaissementRows = filteredEncaissements.map((item) => ({
+      id: `encaissement-${item.id}`,
+      kind: 'encaissement' as const,
+      date: item.dateEncaissement,
+      number: item.numeroPiece,
+      label: 'Encaissement direct',
+      serviceName: item.serviceName || '-',
+      thirdParty: item.clientName,
+      amount: item.amountTTC,
+      status: 'DECAISSE', // Simulé pour l'affichage badge
+    }));
+
+    const decaissementRows = filteredDecaissements.map((item) => ({
+      id: `decaissement-${item.id}`,
+      kind: 'decaissement' as const,
+      date: item.dateDecaissement,
+      number: item.numeroPiece,
+      label: 'Décaissement réalisé',
+      serviceName: item.serviceName || '-',
+      thirdParty: item.beneficiaryName,
+      amount: item.amountTTC,
+      status: item.status || 'DECAISSE',
+    }));
+
+    return [...voucherRows, ...commitmentRows, ...encaissementRows, ...decaissementRows].sort((left, right) => {
       const leftTime = left.date ? new Date(left.date).getTime() : 0;
       const rightTime = right.date ? new Date(right.date).getTime() : 0;
       return rightTime - leftTime;
     });
-  }, [filteredCommitments, filteredVouchers]);
+  }, [filteredCommitments, filteredVouchers, filteredEncaissements, filteredDecaissements]);
 
   if (!canRead) {
     return (
