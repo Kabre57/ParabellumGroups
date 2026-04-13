@@ -72,24 +72,31 @@ export const getPermissionAliases = (permission: string): string[] => {
   return Array.from(aliases);
 };
 
+const ADMIN_ROLE_CODES = new Set([
+  'ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR',
+  'GENERAL_DIRECTOR', 'DIRECTEUR_GENERAL', 'SUPER_ADMIN', 'SUPERADMIN',
+]);
+
 export const isAdminRole = (user: User | null | undefined): boolean => {
   if (!user?.role) return false;
 
   const role = user.role as any;
 
   if (typeof role === 'string') {
-    const upperRole = role.toUpperCase();
-    return upperRole === 'ADMIN' || upperRole === 'ADMINISTRATOR' || upperRole === 'ADMINISTRATEUR';
+    return ADMIN_ROLE_CODES.has(role.toUpperCase());
   }
 
   if (role && typeof role === 'object') {
-    const roleValue =
-      role.code || role.name || role.value || role.role || (role.toString && role.toString());
+    // Check code first (most reliable), then name
+    const code = typeof role.code === 'string' ? role.code.toUpperCase().trim() : null;
+    if (code && ADMIN_ROLE_CODES.has(code)) return true;
 
-    if (typeof roleValue === 'string') {
-      const upperRole = roleValue.toUpperCase();
-      return upperRole === 'ADMIN' || upperRole === 'ADMINISTRATOR' || upperRole === 'ADMINISTRATEUR';
-    }
+    const name = typeof role.name === 'string' ? role.name.toUpperCase().trim() : null;
+    if (name && ADMIN_ROLE_CODES.has(name)) return true;
+
+    // Fallback: check value/role fields
+    const fallback = role.value || role.role;
+    if (typeof fallback === 'string' && ADMIN_ROLE_CODES.has(fallback.toUpperCase())) return true;
   }
 
   return false;

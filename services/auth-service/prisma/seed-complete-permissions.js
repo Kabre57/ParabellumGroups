@@ -131,6 +131,19 @@ const completePermissions = {
     ]
   },
 
+  enterprises: {
+    label: 'Entreprises (Multi-Tenant)',
+    permissions: [
+      { name: 'enterprises.read', description: 'Voir la liste des entreprises' },
+      { name: 'enterprises.read_own', description: 'Voir uniquement son entreprise' },
+      { name: 'enterprises.create', description: 'Créer des entreprises' },
+      { name: 'enterprises.update', description: 'Modifier les entreprises' },
+      { name: 'enterprises.delete', description: 'Supprimer des entreprises' },
+      { name: 'enterprises.manage_logo', description: 'Gérer le logo des entreprises' },
+      { name: 'enterprises.toggle_status', description: 'Activer/Désactiver des entreprises' }
+    ]
+  },
+
   audit_logs: {
     label: 'Journaux d\'Audit',
     permissions: [
