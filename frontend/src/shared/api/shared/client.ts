@@ -118,11 +118,12 @@ class ApiClient {
     }
 
     const { status, data } = error.response;
+    const requestConfig = error.config as any;
 
     // Gestion spécifique selon le code HTTP
     switch (status) {
       case 401:
-        if (config?.url?.includes('/auth/login')) {
+        if (requestConfig?.url?.includes('/auth/login')) {
           this.handleUnauthorized();
           throw this.formatError(401, 'Adresse email ou mot de passe incorrect');
         }
@@ -138,19 +139,18 @@ class ApiClient {
           try {
             await this.refreshAccessToken();
             // Retry la requête originale avec le nouveau token
-            const config = error.config as any;
             // IMPORTANT: marquer AVANT de modifier les headers
-            config._retry = true;
+            requestConfig._retry = true;
             const token = this.getToken();
-            if (token && config.headers) {
+            if (token && requestConfig.headers) {
               // Use .set() method for Axios 1.x AxiosHeaders
-              if (typeof config.headers.set === 'function') {
-                config.headers.set('Authorization', `Bearer ${token}`);
+              if (typeof requestConfig.headers.set === 'function') {
+                requestConfig.headers.set('Authorization', `Bearer ${token}`);
               } else {
-                config.headers.Authorization = `Bearer ${token}`;
+                requestConfig.headers.Authorization = `Bearer ${token}`;
               }
             }
-            return this.instance.request(config);
+            return this.instance.request(requestConfig);
           } catch (refreshError) {
             this.handleUnauthorized();
             throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
