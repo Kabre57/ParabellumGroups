@@ -174,11 +174,7 @@ export default function PrintLayout({
   companyName = 'PROGITECK',
   logoSrc = '/progiteck.jpg',
   logoAlt = 'Logo',
-  footerLines = [
-    'SARL au capital de 5 000 000 FCFA Siège Social Abengourou/Treichville RCCM N° CI-ABG-2021-M2-104',
-    'N°CC : 2029843Z- Email : progiteck31@gmail.com – TEL : 225 0576208494/0142649927/0143859286',
-    'N° de compte Bancaire : n°CI121 01302 034304800201 24 ORABANK',
-  ],
+  footerLines = [],
   children,
 }: PrintLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);

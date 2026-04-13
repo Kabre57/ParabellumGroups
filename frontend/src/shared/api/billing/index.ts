@@ -218,6 +218,8 @@ export interface Encaissement {
   clientId?: string | null;
   clientName: string;
   description: string;
+  serviceId?: number | null;
+  serviceName?: string | null;
   amountHT: number;
   amountTVA: number;
   amountTTC: number;
@@ -236,6 +238,8 @@ export interface Decaissement {
   numeroPiece: string;
   beneficiaryName: string;
   description: string;
+  serviceId?: number | null;
+  serviceName?: string | null;
   amountHT: number;
   amountTVA: number;
   amountTTC: number;

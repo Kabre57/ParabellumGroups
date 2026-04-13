@@ -301,6 +301,8 @@ model Decaissement {
   currency          String   @default("XOF")
   paymentMethod     MethodePaiement
   treasuryAccountId String?
+  serviceId         Int?
+  serviceName       String?
   dateDecaissement  DateTime @default(now())
   reference         String?
   notes             String?

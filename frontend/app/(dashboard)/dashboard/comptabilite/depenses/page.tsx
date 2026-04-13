@@ -179,7 +179,7 @@ export default function DepensesPage() {
   const filteredEncaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
     return encaissements.filter((item: any) =>
-      [item.numeroPiece, item.clientName, item.description]
+      [item.numeroPiece, item.clientName, item.description, item.serviceName]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query))
     );
@@ -188,7 +188,7 @@ export default function DepensesPage() {
   const filteredDecaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
     return decaissements.filter((item: any) =>
-      [item.numeroPiece, item.beneficiaryName, item.description]
+      [item.numeroPiece, item.beneficiaryName, item.description, item.serviceName]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query))
     );

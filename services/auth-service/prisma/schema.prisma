@@ -64,12 +64,15 @@ model User {
   user_permissions     UserPermission[]
   role                 Role?            @relation(fields: [roleId], references: [id])
   service              Service?         @relation(fields: [serviceId], references: [id])
+  enterpriseId         Int?             @map("enterprise_id")
+  enterprise           Enterprise?      @relation(fields: [enterpriseId], references: [id])
 
   // relations for permission change workflow
   requestedRequests    PermissionChangeRequest[] @relation("Requester")
   reviewedRequests     PermissionChangeRequest[] @relation("Reviewer")
 
   @@index([roleId])
+  @@index([enterpriseId])
   @@map("users")
 }
 
@@ -82,15 +85,17 @@ model Service {
   isActive    Boolean   @default(true) @map("is_active")
   managerId   Int?      @map("manager_id")
   parentId    Int?      @map("parent_id")
+  enterpriseId Int?     @map("enterprise_id")
   code        String?   @unique @map("service_code") @db.VarChar(10)
-  imageUrl    String?   @map("image_url")
   manager     User?     @relation("ServiceManager", fields: [managerId], references: [id])
   parent      Service?  @relation("ServiceHierarchy", fields: [parentId], references: [id])
+  enterprise  Enterprise? @relation(fields: [enterpriseId], references: [id])
   children    Service[] @relation("ServiceHierarchy")
   members     User[]
 
   @@index([parentId])
   @@index([managerId])
+  @@index([enterpriseId])
   @@index([isActive])
   @@map("services")
 }
@@ -207,4 +212,21 @@ model PermissionChangeRequest {
   reviewer      User?    @relation("Reviewer", fields: [reviewedBy], references: [id])
 
   @@map("permission_change_requests")
+}
+
+model Enterprise {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  code        String?   @unique @map("enterprise_code") @db.VarChar(10)
+  logoUrl     String?   @map("logo_url")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  users       User[]
+  services    Service[]
+
+  @@index([isActive])
+  @@map("enterprises")
 }

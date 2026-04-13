@@ -192,6 +192,7 @@ export const quickAccessItems: SidebarItem[] = [
 ];
 
 export const adminNavigation: SidebarItem[] = [
+  { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2, permission: 'admin' },
   { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: 'admin' },
   { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
   { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userApi, User } from '@/lib/api';
+import { userApi, enterpriseApi, User } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
@@ -14,6 +14,7 @@ const userSchema = z.object({
   nom: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
   email: z.string().email('Adresse email invalide'),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+  enterpriseId: z.string().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -28,6 +29,12 @@ export default function UsersPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['users', page],
     queryFn: () => userApi.getAll({ page, limit: 10 }),
+  });
+
+  // Fetch enterprises for the dropdown
+  const { data: enterprisesData } = useQuery({
+    queryKey: ['enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 100 }),
   });
 
   const {
@@ -123,7 +130,7 @@ export default function UsersPage() {
       </div>
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex gap-4">
           <Input
             type="search"
             placeholder="Rechercher un utilisateur..."
@@ -131,6 +138,7 @@ export default function UsersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-md"
           />
+
         </div>
 
         <div className="overflow-x-auto">
@@ -264,6 +272,24 @@ export default function UsersPage() {
                 <Input {...register('password')} type="password" placeholder="••••••••" />
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Entreprise affiliée (Optionnel)
+                </label>
+                <select
+                  {...register('enterpriseId')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">-- Sans entreprise (Global) --</option>
+                  {enterprisesData?.data?.map((ent) => (
+                    <option key={ent.id} value={ent.id.toString()}>{ent.name}</option>
+                  ))}
+                </select>
+                {errors.enterpriseId && (
+                  <p className="mt-1 text-sm text-red-500">{errors.enterpriseId.message}</p>
                 )}
               </div>
 

@@ -9,7 +9,6 @@ const {
 } = require('../controllers/service.controller');
 const authenticate = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleCheck');
-const { uploadServiceImage } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -32,18 +31,12 @@ router.get('/:id', getServiceById);
 
 /**
  * @route   POST /api/services
- * @desc    Create new service (supports multipart/form-data with image)
+ * @desc    Create new service
  * @access  Private - ADMIN, GENERAL_DIRECTOR
  */
 router.post(
   '/',
   checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
-  (req, res, next) => {
-    uploadServiceImage(req, res, (err) => {
-      if (err) return res.status(400).json({ success: false, message: err.message });
-      next();
-    });
-  },
   [
     body('name')
       .trim()
@@ -69,6 +62,11 @@ router.post(
       .optional({ values: 'falsy' })
       .isInt({ min: 1 })
       .withMessage('Manager ID must be a positive integer'),
+    body('enterpriseId')
+      .notEmpty()
+      .withMessage('Enterprise ID is required')
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')
@@ -79,18 +77,12 @@ router.post(
 
 /**
  * @route   PUT /api/services/:id
- * @desc    Update service (supports multipart/form-data with image, removeImage=true to clear)
+ * @desc    Update service
  * @access  Private - ADMIN, GENERAL_DIRECTOR
  */
 router.put(
   '/:id',
   checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
-  (req, res, next) => {
-    uploadServiceImage(req, res, (err) => {
-      if (err) return res.status(400).json({ success: false, message: err.message });
-      next();
-    });
-  },
   [
     body('name')
       .optional()
@@ -117,14 +109,14 @@ router.put(
       .optional({ values: 'falsy' })
       .isInt({ min: 1 })
       .withMessage('Manager ID must be a positive integer'),
+    body('enterpriseId')
+      .optional({ values: 'falsy' })
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')
       .withMessage('isActive must be a boolean'),
-    body('removeImage')
-      .optional()
-      .custom((v) => v === undefined || v === null || v === true || v === 'true' || v === false || v === 'false')
-      .withMessage('removeImage must be a boolean'),
   ],
   updateService
 );

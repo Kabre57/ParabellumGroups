@@ -46,6 +46,10 @@ router.get(
       .optional()
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
+    query('enterpriseId')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     query('isActive')
       .optional()
       .isBoolean()
@@ -95,6 +99,10 @@ router.post(
       .optional({ nullable: true })
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
+    body('enterpriseId')
+      .optional({ nullable: true })
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .isBoolean()
@@ -150,6 +158,10 @@ router.put(
       .optional({ nullable: true, checkFalsy: true })
       .isInt({ min: 1 })
       .withMessage('Service ID must be a positive integer'),
+    body('enterpriseId')
+      .optional({ nullable: true, checkFalsy: true })
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .isBoolean()

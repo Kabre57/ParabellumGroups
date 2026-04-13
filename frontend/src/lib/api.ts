@@ -24,6 +24,7 @@ export interface User {
   lastName: string;
   email: string;
   actif: boolean;
+  enterpriseId?: string | number;
   createdAt: string;
   updatedAt: string;
   roles?: Role[];
@@ -57,7 +58,20 @@ export interface Service {
   id: string;
   nom: string;
   description?: string;
+  enterpriseId?: string | number;
   actif: boolean;
+}
+
+export interface Enterprise {
+  id: string | number;
+  name: string;
+  description?: string;
+  code?: string;
+  logoUrl?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: { users: number; services: number };
 }
 
 export interface PaginatedResponse<T> {
@@ -311,6 +325,60 @@ export const serviceApi = {
 
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     const response = await api.delete(`/auth/services/${id}`);
+    return response.data;
+  },
+};
+
+export const enterpriseApi = {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    isActive?: boolean;
+  }): Promise<PaginatedResponse<Enterprise>> => {
+    const response = await api.get<PaginatedResponse<Enterprise>>('/auth/enterprises', { params });
+    // Handle the case where the backend might return { success: true, data: [...] } without pagination
+    if (response.data.data && Array.isArray(response.data.data) && response.data.page === undefined) {
+       return {
+         success: true,
+         data: response.data.data,
+         page: 1, limit: 100, total: response.data.data.length, pages: 1
+       };
+    }
+    return response.data;
+  },
+
+  getById: async (id: string | number): Promise<{ success: boolean; data: Enterprise }> => {
+    const response = await api.get(`/auth/enterprises/${id}`);
+    return response.data;
+  },
+
+  create: async (enterpriseData: FormData | {
+    name: string;
+    description?: string;
+    code?: string;
+    isActive?: boolean;
+  }): Promise<{ success: boolean; data: Enterprise }> => {
+    // Determine headers based on whether we're sending FormData (file upload) or JSON
+    const isFormData = enterpriseData instanceof FormData;
+    const response = await api.post('/auth/enterprises', enterpriseData, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+    });
+    return response.data;
+  },
+
+  update: async (
+    id: string | number,
+    enterpriseData: FormData | Partial<{ name: string; description: string; code: string; isActive: boolean; removeLogo: boolean }>
+  ): Promise<{ success: boolean; data: Enterprise }> => {
+    const isFormData = enterpriseData instanceof FormData;
+    const response = await api.put(`/auth/enterprises/${id}`, enterpriseData, {
+       headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+    });
+    return response.data;
+  },
+
+  delete: async (id: string | number): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/auth/enterprises/${id}`);
     return response.data;
   },
 };

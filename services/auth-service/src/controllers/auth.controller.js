@@ -155,6 +155,9 @@ const login = async (req, res) => {
             code: true,
           },
         },
+        enterprise: {
+          select: { id: true, name: true, logoUrl: true }
+        }
       },
     });
 
@@ -278,13 +281,16 @@ const refreshToken = async (req, res) => {
         user: {
           include: {
             role: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
+        },
+        enterprise: {
+          select: { id: true, name: true, logoUrl: true }
+        }
+      },
         },
       }
     });
@@ -502,6 +508,7 @@ const getCurrentUser = async (req, res) => {
         department: true,
         createdAt: true,
         updatedAt: true,
+        enterpriseId: true,
         role: {
           select: {
             id: true,
@@ -517,6 +524,9 @@ const getCurrentUser = async (req, res) => {
             description: true,
           },
         },
+        enterprise: {
+          select: { id: true, name: true, logoUrl: true }
+        }
       },
     });
 

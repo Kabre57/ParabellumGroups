@@ -3,34 +3,38 @@ const prisma = new PrismaClient();
 
 exports.create = async (req, res) => {
   try {
-    const {
-      clientName,
-      description,
-      amountTTC,
-      paymentMethod,
-      treasuryAccountId,
-      dateEncaissement,
-      reference,
-      notes,
-      factureClientId,
-    } = req.body;
-
-    const result = await prisma.$transaction(async (tx) => {
-      const encaissement = await tx.encaissement.create({
-        data: {
-          numeroPiece: `ENC-${Date.now()}`,
-          clientName,
-          description,
-          amountTTC,
-          paymentMethod,
-          treasuryAccountId,
-          dateEncaissement: dateEncaissement ? new Date(dateEncaissement) : new Date(),
-          reference,
-          notes,
-          factureClientId,
-          createdByUserId: req.user?.userId ? String(req.user.userId) : null,
-        },
-      });
+      const {
+        clientName,
+        description,
+        amountTTC,
+        paymentMethod,
+        treasuryAccountId,
+        serviceId,
+        serviceName,
+        dateEncaissement,
+        reference,
+        notes,
+        factureClientId,
+      } = req.body;
+  
+      const result = await prisma.$transaction(async (tx) => {
+        const encaissement = await tx.encaissement.create({
+          data: {
+            numeroPiece: `ENC-${Date.now()}`,
+            clientName,
+            description,
+            amountTTC,
+            paymentMethod,
+            treasuryAccountId,
+            serviceId: serviceId ? Number(serviceId) : null,
+            serviceName,
+            dateEncaissement: dateEncaissement ? new Date(dateEncaissement) : new Date(),
+            reference,
+            notes,
+            factureClientId,
+            createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+          },
+        });
 
       // Si lié à une facture client, on pourrait enregistrer un paiement ici aussi
       // Mais le flux client est déjà géré par Paiement. 

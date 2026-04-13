@@ -45,6 +45,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
+  { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2 },
   { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users },
   { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
 ];

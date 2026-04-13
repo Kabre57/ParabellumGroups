@@ -10,6 +10,8 @@ exports.create = async (req, res) => {
       amountTTC,
       paymentMethod,
       treasuryAccountId,
+      serviceId,
+      serviceName,
       dateDecaissement,
       reference,
       notes,
@@ -20,12 +22,14 @@ exports.create = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       const decaissement = await tx.decaissement.create({
         data: {
-          numeroPiece: `DEC-${Date.now()}`, // Simple generator for now
+          numeroPiece: `DEC-${Date.now()}`, 
           beneficiaryName,
           description,
           amountTTC,
           paymentMethod,
           treasuryAccountId,
+          serviceId: serviceId ? Number(serviceId) : null,
+          serviceName,
           dateDecaissement: dateDecaissement ? new Date(dateDecaissement) : new Date(),
           reference,
           notes,

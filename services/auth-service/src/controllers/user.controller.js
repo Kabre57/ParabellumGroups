@@ -40,6 +40,12 @@ const getAllUsers = async (req, res) => {
       where.serviceId = parseInt(serviceId);
     }
 
+    if (req.user.enterpriseId) {
+      where.enterpriseId = req.user.enterpriseId;
+    } else if (req.query.enterpriseId) {
+      where.enterpriseId = parseInt(req.query.enterpriseId);
+    }
+
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
     }
@@ -68,6 +74,7 @@ const getAllUsers = async (req, res) => {
         lastName: true,
         roleId: true,
         serviceId: true,
+        enterpriseId: true,
         isActive: true,
         lastLogin: true,
         avatarUrl: true,
@@ -77,6 +84,12 @@ const getAllUsers = async (req, res) => {
         department: true,
         createdAt: true,
         updatedAt: true,
+        enterprise: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         role: {
           select: {
             id: true,
@@ -129,7 +142,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { email, password, firstName, lastName, roleId, serviceId, isActive } = req.body;
+    const { email, password, firstName, lastName, roleId, serviceId, enterpriseId, isActive } = req.body;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -164,6 +177,7 @@ const createUser = async (req, res) => {
         lastName,
         roleId: finalRoleId,
         serviceId: serviceId ? parseInt(serviceId) : null,
+        enterpriseId: req.user.enterpriseId || (enterpriseId ? parseInt(enterpriseId) : null),
         isActive: isActive !== undefined ? isActive : true,
       },
       select: {
@@ -173,6 +187,7 @@ const createUser = async (req, res) => {
         lastName: true,
         roleId: true,
         serviceId: true,
+        enterpriseId: true,
         isActive: true,
         createdAt: true,
         role: {
@@ -229,8 +244,13 @@ const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
       select: {
         id: true,
         email: true,
@@ -238,6 +258,7 @@ const getUserById = async (req, res) => {
         lastName: true,
         roleId: true,
         serviceId: true,
+        enterpriseId: true,
         isActive: true,
         lastLogin: true,
         preferences: true,
@@ -339,9 +360,25 @@ const updateUser = async (req, res) => {
       updateData.serviceId = parseInt(updateData.serviceId);
     }
 
+    if (updateData.enterpriseId === '') {
+      updateData.enterpriseId = null;
+    } else if (updateData.enterpriseId !== undefined && updateData.enterpriseId !== null) {
+      updateData.enterpriseId = parseInt(updateData.enterpriseId);
+    }
+
+    if (req.user.enterpriseId) {
+       // Cannot change your enterprise if you are bounded to one
+       delete updateData.enterpriseId;
+    }
+
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
     });
 
     if (!existingUser) {
@@ -381,6 +418,7 @@ const updateUser = async (req, res) => {
         lastName: true,
         roleId: true,
         serviceId: true,
+        enterpriseId: true,
         isActive: true,
         avatarUrl: true,
         employeeNumber: true,
@@ -443,9 +481,14 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
     });
 
     if (!user) {
@@ -515,9 +558,14 @@ const updateUserStatus = async (req, res) => {
     const { id } = req.params;
     const { isActive } = req.body;
 
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
     });
 
     if (!user) {

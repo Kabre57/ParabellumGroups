@@ -1,6 +1,5 @@
 const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
-const { uploadToS3, deleteFromS3, isS3Configured } = require('../utils/s3');
 
 /**
  * Get all services
@@ -8,8 +7,19 @@ const { uploadToS3, deleteFromS3, isS3Configured } = require('../utils/s3');
  */
 const getAllServices = async (req, res) => {
   try {
+    const whereClause = req.user.enterpriseId 
+      ? { enterpriseId: req.user.enterpriseId } 
+      : {};
+
     const services = await prisma.service.findMany({
+      where: whereClause,
       include: {
+        enterprise: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         manager: {
           select: {
             id: true,
@@ -53,9 +63,17 @@ const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     const service = await prisma.service.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
       include: {
+        enterprise: {
+          select: { id: true, name: true },
+        },
         manager: {
           select: {
             id: true,
@@ -137,16 +155,21 @@ const createService = async (req, res) => {
       });
     }
 
-    const { name, description, code, parentId, managerId, isActive } = req.body;
+    const { name, description, code, parentId, managerId, enterpriseId, isActive } = req.body;
 
-    let imageUrl = null;
-    if (req.file && isS3Configured()) {
-      imageUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'services');
+    // Enforce tenant isolation if user belongs to an enterprise
+    const finalEnterpriseId = req.user.enterpriseId || parseNum(enterpriseId);
+
+    if (!finalEnterpriseId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enterprise ID is required to create a service',
+      });
     }
 
-    // Check if service with same name exists
-    const existingService = await prisma.service.findUnique({
-      where: { name },
+    // Check if service with same name exists in this enterprise
+    const existingService = await prisma.service.findFirst({
+      where: { name, enterpriseId: finalEnterpriseId },
     });
 
     if (existingService) {
@@ -158,8 +181,8 @@ const createService = async (req, res) => {
 
     // Check if code is unique if provided
     if (code) {
-      const codeExists = await prisma.service.findUnique({
-        where: { code },
+      const codeExists = await prisma.service.findFirst({
+        where: { code, enterpriseId: finalEnterpriseId },
       });
 
       if (codeExists) {
@@ -181,8 +204,8 @@ const createService = async (req, res) => {
         code: code || null,
         parentId: parseNum(parentId),
         managerId: parseNum(managerId),
+        enterpriseId: finalEnterpriseId,
         isActive: isActive !== undefined ? parseBool(isActive) : true,
-        imageUrl,
       },
       include: {
         manager: {
@@ -248,11 +271,16 @@ const updateService = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, description, code, parentId, managerId, isActive, removeImage } = req.body;
+    const { name, description, code, parentId, enterpriseId, managerId, isActive } = req.body;
+
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
 
     // Check if service exists
     const existingService = await prisma.service.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
     });
 
     if (!existingService) {
@@ -262,26 +290,14 @@ const updateService = async (req, res) => {
       });
     }
 
-    let imageUrl = existingService.imageUrl;
-    if (req.file && isS3Configured()) {
-      if (existingService.imageUrl) {
-        await deleteFromS3(existingService.imageUrl);
-      }
-      imageUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'services');
-    } else if (removeImage === true || removeImage === 'true') {
-      if (existingService.imageUrl && isS3Configured()) {
-        await deleteFromS3(existingService.imageUrl);
-      }
-      imageUrl = null;
-    }
-
-    const parseBool = (v) => v === true || v === 'true';
     const parseNum = (v) => (v && !Number.isNaN(parseInt(v, 10)) ? parseInt(v, 10) : null);
+    
+    const finalEnterpriseId = req.user.enterpriseId || existingService.enterpriseId;
 
     // If name is being updated, check for duplicates
     if (name && name !== existingService.name) {
-      const nameExists = await prisma.service.findUnique({
-        where: { name },
+      const nameExists = await prisma.service.findFirst({
+        where: { name, enterpriseId: finalEnterpriseId },
       });
 
       if (nameExists) {
@@ -294,8 +310,8 @@ const updateService = async (req, res) => {
 
     // If code is being updated, check for duplicates
     if (code && code !== existingService.code) {
-      const codeExists = await prisma.service.findUnique({
-        where: { code },
+      const codeExists = await prisma.service.findFirst({
+        where: { code, enterpriseId: finalEnterpriseId },
       });
 
       if (codeExists) {
@@ -316,7 +332,6 @@ const updateService = async (req, res) => {
         parentId: parentId !== undefined ? parseNum(parentId) : existingService.parentId,
         managerId: managerId !== undefined ? parseNum(managerId) : existingService.managerId,
         isActive: isActive !== undefined ? parseBool(isActive) : existingService.isActive,
-        imageUrl: imageUrl !== undefined ? imageUrl : existingService.imageUrl,
       },
       include: {
         manager: {
@@ -375,9 +390,14 @@ const deleteService = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const whereClause = { id: parseInt(id) };
+    if (req.user.enterpriseId) {
+      whereClause.enterpriseId = req.user.enterpriseId;
+    }
+
     // Check if service exists
     const service = await prisma.service.findUnique({
-      where: { id: parseInt(id) },
+      where: whereClause,
       include: {
         _count: {
           select: { users: true },
@@ -401,10 +421,6 @@ const deleteService = async (req, res) => {
           userCount: service._count.members,
         },
       });
-    }
-
-    if (service.imageUrl && isS3Configured()) {
-      await deleteFromS3(service.imageUrl);
     }
 
     // Delete service

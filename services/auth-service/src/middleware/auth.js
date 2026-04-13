@@ -46,6 +46,10 @@ const authenticate = async (req, res, next) => {
         lastName: true,
         role: true,
         serviceId: true,
+        enterpriseId: true,
+        enterprise: {
+           select: { id: true, name: true }
+        },
         isActive: true,
         permissions: true,
       },

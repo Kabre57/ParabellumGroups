@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import billingService, { type Decaissement, type PurchaseCommitment } from '@/shared/api/billing';
+import adminService from '@/shared/api/admin/admin.service';
 
 interface CreateDecaissementDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ type FormState = {
   amountTTC: string;
   paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
   treasuryAccountId: string;
+  serviceId: string;
   dateDecaissement: string;
   reference: string;
   notes: string;
@@ -48,6 +50,7 @@ const buildInitialState = (commitment?: PurchaseCommitment | null): FormState =>
   amountTTC: String(commitment?.amountTTC ?? 0),
   paymentMethod: 'CHEQUE',
   treasuryAccountId: '',
+  serviceId: commitment?.serviceId ? String(commitment.serviceId) : '',
   dateDecaissement: new Date().toISOString().slice(0, 10),
   reference: '',
   notes: '',
@@ -74,6 +77,11 @@ export function CreateDecaissementDialog({
     queryFn: () => billingService.getAccountingAccounts(),
   });
 
+  const { data: servicesResponse } = useQuery({
+    queryKey: ['admin-services'],
+    queryFn: () => adminService.services.getServices(),
+  });
+
   useEffect(() => {
     if (open) {
       setForm(buildInitialState(defaultCommitment));
@@ -91,6 +99,8 @@ export function CreateDecaissementDialog({
   };
 
   const handleSubmit = async () => {
+    const selectedService = servicesResponse?.data?.find(s => String(s.id) === form.serviceId);
+
     await onSubmit({
       beneficiaryName: form.beneficiaryName,
       description: form.description,
@@ -99,6 +109,8 @@ export function CreateDecaissementDialog({
       amountTTC: Number(form.amountTTC),
       paymentMethod: form.paymentMethod,
       treasuryAccountId: form.treasuryAccountId || undefined,
+      serviceId: form.serviceId ? Number(form.serviceId) : undefined,
+      serviceName: selectedService?.name || undefined,
       dateDecaissement: new Date(form.dateDecaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
@@ -136,12 +148,36 @@ export function CreateDecaissementDialog({
               />
             </div>
             <div className="space-y-2">
+              <Label>Service / Entité</Label>
+              <Select value={form.serviceId} onValueChange={(v) => updateField('serviceId', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner l'entité" />
+                </SelectTrigger>
+                <SelectContent>
+                  {servicesResponse?.data?.map(service => (
+                    <SelectItem key={service.id} value={String(service.id)}>{service.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label>Date de Paiement</Label>
               <Input 
                 type="date" 
                 value={form.dateDecaissement} 
                 onChange={(e) => updateField('dateDecaissement', e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+               <Label>N° Pièce / Référence</Label>
+               <Input 
+                 value={form.reference} 
+                 onChange={(e) => updateField('reference', e.target.value)}
+                 placeholder="Chèque n°, Virement n°"
+               />
             </div>
           </div>
 
