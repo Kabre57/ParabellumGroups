@@ -109,13 +109,14 @@ export default function EnterprisesPage() {
   });
 
   const onSubmit = async (formData: EnterpriseFormData) => {
-    // Si on a un fichier on utilise FormData
-    if (selectedFile || editingEnterprise) {
+    const hasFile = !!selectedFile;
+    
+    if (hasFile) {
       const data = new FormData();
       data.append('name', formData.name);
       if (formData.code) data.append('code', formData.code);
       if (formData.description) data.append('description', formData.description);
-      if (selectedFile) data.append('logo', selectedFile);
+      data.append('logo', selectedFile);
 
       if (editingEnterprise) {
          updateMutation.mutate({ id: editingEnterprise.id, data });
@@ -123,7 +124,6 @@ export default function EnterprisesPage() {
          createMutation.mutate(data);
       }
     } else {
-       // Just JSON si pas d'image et création
        if (editingEnterprise) {
          updateMutation.mutate({ id: editingEnterprise.id, data: formData });
        } else {
