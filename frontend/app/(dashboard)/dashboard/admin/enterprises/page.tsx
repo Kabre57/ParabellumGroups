@@ -30,7 +30,7 @@ export default function EnterprisesPage() {
 
   const { data: enterprisesData, isLoading } = useQuery({
     queryKey: ['enterprises', page, search],
-    queryFn: () => enterpriseApi.getEnterprises(page, 10, search),
+    queryFn: () => enterpriseApi.getAll({ page, limit: 10 }),
   });
 
   const form = useForm<EnterpriseFormData>({
@@ -43,7 +43,7 @@ export default function EnterprisesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: FormData) => enterpriseApi.createEnterprise(data),
+    mutationFn: (data: FormData) => enterpriseApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
       toast.success('Entreprise créée avec succès');
@@ -56,8 +56,8 @@ export default function EnterprisesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      enterpriseApi.updateEnterprise(id, data),
+    mutationFn: ({ id, data }: { id: string | number; data: FormData }) =>
+      enterpriseApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
       toast.success('Entreprise mise à jour avec succès');
@@ -71,7 +71,7 @@ export default function EnterprisesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => enterpriseApi.deleteEnterprise(id),
+    mutationFn: (id: string | number) => enterpriseApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
       toast.success('Entreprise supprimée avec succès');
