@@ -22,6 +22,12 @@ const rewriteAuthPath = (path) => {
   if (path.startsWith('/auth/permissions')) {
     return path.replace(/^\/auth\/permissions/, '/api/permissions');
   }
+  if (path.startsWith('/auth/enterprises')) {
+    return path.replace(/^\/auth\/enterprises/, '/api/enterprises');
+  }
+  if (path.startsWith('/auth/enterprises/logo')) {
+    return path.replace(/^\/auth\/enterprises\/logo/, '/api/enterprises/logo');
+  }
   return path.replace(/^\/auth/, '/api/auth');
 };
 
@@ -148,6 +154,17 @@ module.exports = {
       auth: true,
       admin: true,
       pathRewrite: { '^/audit-logs': '/api/audit-logs' },
+    },
+    {
+      path: '/auth/enterprises',
+      auth: true,
+      admin: true,
+    },
+    {
+      path: '/enterprises',
+      auth: true,
+      admin: true,
+      pathRewrite: { '^/enterprises': '/api/enterprises' },
     },
   ],
 };
