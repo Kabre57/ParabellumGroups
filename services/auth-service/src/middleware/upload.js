@@ -17,7 +17,7 @@ const uploadServiceImage = multer({
   storage,
   fileFilter,
   limits: { fileSize: MAX_SIZE },
-}).single('image');
+}).single('logo');
 
 module.exports = {
   uploadServiceImage,
