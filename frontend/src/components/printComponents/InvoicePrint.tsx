@@ -4,6 +4,7 @@ import React from 'react';
 import PrintLayout from './PrintLayout';
 import type { Invoice, InvoiceItem } from '@/shared/api/billing';
 import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface InvoicePrintProps {
   invoice: Invoice;
@@ -11,6 +12,7 @@ interface InvoicePrintProps {
 }
 
 export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
+  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
   const normalizedItems = (invoice.lignes || []).map((item) => {
     const quantity = item.quantity ?? item.quantite ?? 0;
     const unitPrice = item.unitPrice ?? item.prixUnitaire ?? 0;
@@ -32,7 +34,8 @@ export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
   const subtotal = invoice.montantHT ?? normalizedItems.reduce((sum, item) => sum + item.totalHT, 0);
   const totalVAT = invoice.montantTVA ?? normalizedItems.reduce((sum, item) => sum + (item.totalTTC - item.totalHT), 0);
   const total = invoice.montantTTC ?? subtotal + totalVAT;
-  const logoSrc = resolvePrintLogo(invoice.serviceLogoUrl || null);
+  // Priorité: logo du service > logo de l'entreprise (tenant)
+  const logoSrc = invoice.serviceLogoUrl ? resolvePrintLogo(invoice.serviceLogoUrl) : enterpriseLogo;
   const clientLabel =
     invoice.client?.nom ||
     (invoice as any).clientName ||
@@ -44,7 +47,7 @@ export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
       title="Facture"
       subtitle={`N° ${invoice.numeroFacture}`}
       meta={`Date: ${formatPrintDate(invoice.dateFacture || (invoice as any).dateEmission)}${invoice.dateEcheance ? `\nÉchéance: ${formatPrintDate(invoice.dateEcheance)}` : ''}\nStatut: ${textOrDash(invoice.status)}`}
-      companyName="Parabellum Groups"
+      companyName={enterpriseName}
       logoSrc={logoSrc}
       onClose={onClose}
     >

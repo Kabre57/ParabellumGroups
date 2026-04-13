@@ -3,6 +3,7 @@
 import React from 'react';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 type ProcurementRecipient = {
   name?: string | null;
@@ -82,6 +83,8 @@ export default function ProcurementDocumentPrint({
   footerNote,
   onClose,
 }: ProcurementDocumentPrintProps) {
+  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
+  const effectiveCompanyName = companyName !== 'Parabellum Groups' ? companyName : enterpriseName;
   const minimumVisualRows = 8;
   const enrichedLines = lines.map((line) => {
     const totalHT = line.totalHT ?? line.unitPrice * line.quantity;
@@ -99,8 +102,9 @@ export default function ProcurementDocumentPrint({
   const subtotalHT = enrichedLines.reduce((sum, line) => sum + line.totalHT, 0);
   const totalVAT = enrichedLines.reduce((sum, line) => sum + (line.totalTTC - line.totalHT), 0);
   const totalTTC = enrichedLines.reduce((sum, line) => sum + line.totalTTC, 0);
-  const logoSrc = resolvePrintLogo(serviceLogoUrl);
-  const producerLabel = textOrDash(issuedBy || serviceName || companyName);
+  // Priorité: logo du service > logo de l'entreprise (tenant)
+  const logoSrc = serviceLogoUrl ? resolvePrintLogo(serviceLogoUrl) : enterpriseLogo;
+  const producerLabel = textOrDash(issuedBy || serviceName || effectiveCompanyName);
   const blankRowCount = Math.max(0, minimumVisualRows - enrichedLines.length);
   const fillerHeightMm = blankRowCount > 0 ? Math.max(36, blankRowCount * 16) : 0;
   const recipientLines = [

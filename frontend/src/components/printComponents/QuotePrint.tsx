@@ -2,6 +2,7 @@
 
 import React from 'react';
 import PrintLayout from './PrintLayout';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface QuoteItem {
   description: string;
@@ -34,6 +35,7 @@ interface QuotePrintProps {
 }
 
 export default function QuotePrint({ quote, onClose }: QuotePrintProps) {
+  const { companyName, logoSrc } = useEnterpriseLogo();
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -76,6 +78,8 @@ export default function QuotePrint({ quote, onClose }: QuotePrintProps) {
       subtitle={`N° ${quote.quoteNumber}`}
       meta={`Date: ${formatDate(quote.date)}${quote.validUntil ? `\nValable jusqu'au: ${formatDate(quote.validUntil)}` : ''}`}
       onClose={onClose}
+      companyName={companyName}
+      logoSrc={logoSrc}
     >
       <div className="grid grid-cols-2 gap-8 mb-8">
         <div>

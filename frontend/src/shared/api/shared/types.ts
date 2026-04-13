@@ -134,6 +134,12 @@ export interface User {
     name?: string;
     description?: string | null;
   } | null;
+  enterpriseId?: string | number | null;
+  enterprise?: {
+    id?: string | number;
+    name?: string;
+    logoUrl?: string | null;
+  } | null;
   department?: string | null;
   position?: string | null;
   phoneNumber?: string;

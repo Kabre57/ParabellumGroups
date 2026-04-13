@@ -2,6 +2,7 @@
 
 import React from 'react';
 import PrintLayout from './PrintLayout';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface MissionOrderPrintProps {
   mission: any;
@@ -52,6 +53,7 @@ export default function MissionOrderPrint({
   interventionTitle,
   onClose,
 }: MissionOrderPrintProps) {
+  const { companyName, logoSrc } = useEnterpriseLogo();
   const technicianName = getTechnicienName(technicien);
   const technicianRole = getTechnicienRole(technicien);
   const missionNumber = missionOrder?.numeroOrdre || mission?.numeroMission || 'MISSION';
@@ -72,6 +74,8 @@ export default function MissionOrderPrint({
       meta=""
       onClose={onClose}
       showFooter={false}
+      companyName={companyName}
+      logoSrc={logoSrc}
     >
       <div style={{ paddingTop: 8, minHeight: '244mm', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, fontSize: 14 }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface PrintLayoutProps {
   title: string;
@@ -171,12 +172,15 @@ export default function PrintLayout({
   showFooter = true,
   orientation = 'portrait',
   hideDefaultHeader = false,
-  companyName = 'PROGITECK',
-  logoSrc = '/progiteck.jpg',
+  companyName: companyNameProp,
+  logoSrc: logoSrcProp,
   logoAlt = 'Logo',
   footerLines = [],
   children,
 }: PrintLayoutProps) {
+  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
+  const companyName = companyNameProp ?? enterpriseName;
+  const logoSrc = logoSrcProp ?? enterpriseLogo;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
