@@ -17,9 +17,11 @@ export interface AdminUser {
   department: string | null;
   employeeNumber: string | null;
   hireDate: string | null;
+  enterpriseId?: number | null;
   emergencyContact: string | null;
   role?: Role;
   service?: Service;
+  enterprise?: { id: number; name: string };
   userPermissions?: UserPermission[];
 }
 
@@ -126,6 +128,7 @@ export interface CreateUserRequest {
   lastName: string;
   roleId?: number;
   serviceId?: number;
+  enterpriseId?: number;
   isActive?: boolean;
   phone?: string;
   position?: string;
@@ -138,6 +141,7 @@ export interface UpdateUserRequest {
   lastName?: string;
   roleId?: number | null;
   serviceId?: number | null;
+  enterpriseId?: number | null;
   isActive?: boolean;
   phone?: string;
   position?: string;

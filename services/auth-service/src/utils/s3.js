@@ -59,8 +59,10 @@ async function uploadToS3(buffer, mimetype, prefix = 'services') {
     })
   );
 
-  if (ENDPOINT && ENDPOINT.includes('minio')) {
-    return `${ENDPOINT}/${BUCKET}/${key}`;
+  const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
+
+  if (PUBLIC_ENDPOINT && PUBLIC_ENDPOINT.includes('minio')) {
+    return `${PUBLIC_ENDPOINT}/${BUCKET}/${key}`;
   }
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 }
