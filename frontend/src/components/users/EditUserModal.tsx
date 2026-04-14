@@ -15,6 +15,7 @@ const editUserSchema = z.object({
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
   roleId: z.string().min(1, 'Le role est requis'),
   serviceId: z.string().optional(),
+  enterpriseId: z.string().optional(),
   isActive: z.boolean().default(true),
   changePassword: z.boolean().default(false),
   newPassword: z.string().optional(),
@@ -46,9 +47,15 @@ interface EditUserModalProps {
   onSuccess?: () => void;
 }
 
+import { enterpriseApi } from '@/lib/api';
+import { useAuth } from '@/shared/hooks/useAuth';
+
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSuccess }) => {
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = !currentUser?.enterpriseId;
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['admin-roles-edit-modal'],
@@ -62,8 +69,15 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     enabled: isOpen,
   });
 
+  const { data: enterprisesData, isLoading: enterprisesLoading } = useQuery({
+    queryKey: ['admin-enterprises-edit-modal'],
+    queryFn: () => enterpriseApi.getAll({ limit: 100 }),
+    enabled: isOpen && isSuperAdmin,
+  });
+
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const enterprises = Array.isArray(enterprisesData?.data) ? enterprisesData.data : [];
 
   const {
     register,
@@ -92,6 +106,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         lastName: user.lastName || '',
         roleId: user.roleId ? String(user.roleId) : (user.role?.id ? String(user.role.id) : ''),
         serviceId: user.serviceId ? String(user.serviceId) : '',
+        enterpriseId: user.enterpriseId ? String(user.enterpriseId) : '',
         isActive: user.isActive ?? true,
         changePassword: false,
         newPassword: '',
@@ -122,6 +137,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         updateData.serviceId = null;
       } else if (data.serviceId) {
         updateData.serviceId = parseInt(data.serviceId, 10);
+      }
+
+      if (data.enterpriseId === '') {
+        updateData.enterpriseId = null;
+      } else if (data.enterpriseId) {
+        updateData.enterpriseId = parseInt(data.enterpriseId, 10);
       }
 
       if (data.changePassword && data.newPassword) {
@@ -365,6 +386,31 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       ))}
                     </select>
                   </div>
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Entreprise *
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <select
+                      {...register('enterpriseId')}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Selectionner une entreprise</option>
+                      {enterprises.map((enterprise: any) => (
+                        <option key={enterprise.id} value={enterprise.id}>
+                          {enterprise.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.enterpriseId && (
+                    <p className="mt-1 text-sm text-red-600">{errors.enterpriseId.message}</p>
+                  )}
                 </div>
               )}
             </div>

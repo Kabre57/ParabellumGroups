@@ -17,6 +17,7 @@ const createUserSchema = z.object({
   confirmPassword: z.string(),
   roleId: z.string().min(1, 'Le role est requis'),
   serviceId: z.string().optional(),
+  enterpriseId: z.string().optional(),
   isActive: z.boolean().default(true)
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
@@ -31,9 +32,15 @@ interface CreateUserModalProps {
   onSuccess?: () => void;
 }
 
+import { enterpriseApi } from '@/lib/api';
+import { useAuth } from '@/shared/hooks/useAuth';
+
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = !currentUser?.enterpriseId;
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['admin-roles-modal'],
@@ -47,8 +54,15 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
     enabled: isOpen,
   });
 
+  const { data: enterprisesData, isLoading: enterprisesLoading } = useQuery({
+    queryKey: ['admin-enterprises-modal'],
+    queryFn: () => enterpriseApi.getAll({ limit: 100 }),
+    enabled: isOpen && isSuperAdmin,
+  });
+
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const enterprises = Array.isArray(enterprisesData?.data) ? enterprisesData.data : [];
 
   const {
     register,
@@ -69,6 +83,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
 
   const onSubmit = async (data: CreateUserFormData) => {
     try {
+      if (isSuperAdmin && !data.enterpriseId) {
+        toast.error('L\'entreprise est requise');
+        return;
+      }
+      
       await adminUsersService.createUser({
         email: data.email,
         password: data.password,
@@ -76,6 +95,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         lastName: data.lastName,
         roleId: parseInt(data.roleId),
         serviceId: data.serviceId ? parseInt(data.serviceId) : undefined,
+        enterpriseId: data.enterpriseId ? parseInt(data.enterpriseId) : undefined,
         isActive: data.isActive,
       });
       
@@ -296,6 +316,31 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                   </div>
                   {errors.serviceId && (
                     <p className="mt-1 text-sm text-red-600">{errors.serviceId.message}</p>
+                  )}
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Entreprise *
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <select
+                      {...register('enterpriseId')}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Selectionner une entreprise</option>
+                      {enterprises.map((enterprise: any) => (
+                        <option key={enterprise.id} value={enterprise.id}>
+                          {enterprise.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.enterpriseId && (
+                    <p className="mt-1 text-sm text-red-600">{errors.enterpriseId.message}</p>
                   )}
                 </div>
               )}

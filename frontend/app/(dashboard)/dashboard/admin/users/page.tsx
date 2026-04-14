@@ -56,7 +56,7 @@ export default function UsersManagementPage() {
   const canDeleteUsers = hasPermission(currentUser, 'users.delete');
   const canManagePermissionOverrides = hasAnyPermission(currentUser, ['permissions.manage', 'users.update']);
   const canManageUserActions = canUpdateUsers || canDeleteUsers || canManagePermissionOverrides;
-  const userTableColumnCount = canManageUserActions ? 6 : 5;
+  const userTableColumnCount = canManageUserActions ? 7 : 6;
   const visibleTabs = useMemo(
     () =>
       [
@@ -367,6 +367,7 @@ export default function UsersManagementPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entreprise</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Derniere connexion</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
               {canManageUserActions && (
@@ -416,6 +417,9 @@ export default function UsersManagementPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.service?.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.enterprise?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(user.lastLogin)}
