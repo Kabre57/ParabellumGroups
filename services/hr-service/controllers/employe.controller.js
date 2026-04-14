@@ -6,10 +6,13 @@ const { safeAccess } = require('../utils/safe-access');
 
 // Méthodes de base améliorées
 exports.getAllEmployes = asyncHandler(async (req, res, next) => {
-    const { statut, search } = req.query;
+    const { statut, status, search, page = 1, limit = 10 } = req.query;
     let where = {};
     
-    if (statut) where.statut = statut;
+    // Supporte les deux noms de paramètres (statut en fr, status de l'url)
+    const activeStatus = statut || status;
+    if (activeStatus) where.statut = { equals: activeStatus, mode: 'insensitive' };
+    
     if (search) {
         where.OR = [
             { nom: { contains: search, mode: 'insensitive' } },
@@ -18,11 +21,30 @@ exports.getAllEmployes = asyncHandler(async (req, res, next) => {
         ];
     }
 
-    const data = await prisma.employe.findMany({ 
-        where,
-        orderBy: { nom: 'asc' }
-    });
-    res.status(200).json(data);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    try {
+      const [data, total] = await Promise.all([
+        prisma.employe.findMany({ 
+            where,
+            orderBy: { nom: 'asc' },
+            skip,
+            take
+        }),
+        prisma.employe.count({ where })
+      ]);
+
+      res.status(200).json({
+        data,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+    } catch (e) {
+      console.error("Prisma Employe error:", e);
+      res.status(500).json({ error: e.message });
+    }
 });
 
 exports.getEmploye = factory.getOne('employe');

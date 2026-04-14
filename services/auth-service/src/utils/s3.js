@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.S3_REGION || 'us-east-1';
 const ENDPOINT = process.env.S3_ENDPOINT;
-const FORCE_PATH_STYLE = !!process.env.S3_FORCE_PATH_STYLE;
+const FORCE_PATH_STYLE = process.env.S3_FORCE_PATH_STYLE !== 'false';
 
 let client = null;
 
