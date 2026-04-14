@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const employeController = require('../controllers/employe.controller');
-const { authenticateUser } = require('../../shared/middleware/auth');
 const { body, validationResult } = require('express-validator');
 
 // Middleware de validation basique
@@ -15,9 +14,6 @@ const validateEmploye = [
         next();
     }
 ];
-
-// Appliquer le middleware d'auth à toutes les routes
-router.use(authenticateUser);
 
 router.get('/', employeController.getAllEmployes);
 router.post('/', validateEmploye, employeController.createEmploye);
