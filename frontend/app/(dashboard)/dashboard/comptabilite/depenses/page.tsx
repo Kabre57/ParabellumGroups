@@ -368,8 +368,16 @@ export default function DepensesPage() {
           }))}
           summary={[
             {
+              label: 'Total Encaissements',
+              value: formatFCFA(data?.data?.totals?.totalReceived || 0),
+            },
+            {
               label: 'Total Décaissements',
               value: formatFCFA(data?.data?.totals?.totalDisbursed || 0),
+            },
+            {
+              label: 'Net Trésorerie',
+              value: formatFCFA((data?.data?.totals?.totalReceived || 0) - (data?.data?.totals?.totalDisbursed || 0)),
             },
           ]}
           onClose={() => setPrintListOpen(false)}

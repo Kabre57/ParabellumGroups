@@ -97,16 +97,16 @@ export const sidebarItems: SidebarItem[] = [
 
   { name: 'Dashboard Facturation', href: '/dashboard/facturation', icon: Home, permission: 'invoices.read', categoryId: 'billing', isServiceDashboard: true },
   { name: 'Factures', href: '/dashboard/facturation/factures', icon: Receipt, permission: 'invoices.read', categoryId: 'billing' },
-  { name: 'Suivi Paiements', href: '/dashboard/facturation/paiements', icon: CreditCard, permission: 'payments.read', categoryId: 'billing' },
+  { name: 'Suivi Paiements', href: '/dashboard/facturation/paiements', icon: CreditCard, permission: 'invoices.read', categoryId: 'billing' },
   { name: 'Avoirs & notes de crédit', href: '/dashboard/facturation/avoirs', icon: FileText, permission: 'invoices.read', categoryId: 'billing' },
 
   { name: 'Dashboard Comptable', href: '/dashboard/comptabilite', icon: Home, permission: 'expenses.read', categoryId: 'accounting', isServiceDashboard: true },
   { name: 'Bons de caisse', href: '/dashboard/comptabilite/depenses', icon: DollarSign, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Placements', href: '/dashboard/comptabilite/placements', icon: LineChart, permission: 'reports.read_financial', categoryId: 'accounting' },
   { name: 'Budget', href: '/dashboard/comptabilite/budget', icon: BarChart, permission: 'reports.read_financial', categoryId: 'accounting' },
-  { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'payments.read', categoryId: 'accounting' },
+  { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Comptes', href: '/dashboard/comptabilite/comptes', icon: BookOpen, permission: 'expenses.read', categoryId: 'accounting' },
-  { name: 'Écritures', href: '/dashboard/comptabilite/ecritures', icon: Receipt, permission: 'payments.read', categoryId: 'accounting' },
+  { name: 'Écritures', href: '/dashboard/comptabilite/ecritures', icon: Receipt, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Rapports comptables', href: '/dashboard/comptabilite/rapports', icon: BarChart, permission: 'reports.read_financial', categoryId: 'accounting' },
 
   { name: 'Dashboard Technique', href: '/dashboard/technical', icon: Home, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },

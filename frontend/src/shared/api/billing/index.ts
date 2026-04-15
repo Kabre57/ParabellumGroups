@@ -356,6 +356,7 @@ export interface AccountingAccount {
   description?: string | null;
   isSystem?: boolean;
   isActive?: boolean;
+  isDynamic?: boolean;
   openingBalance?: number;
   balance: number;
   currentBalance?: number;
@@ -1044,6 +1045,11 @@ export const billingService = {
   ): Promise<DetailResponse<AccountingAccount>> {
     const response = await apiClient.patch(`/billing/accounting/accounts/${id}`, data);
     return normalizeDetailResponse<AccountingAccount>(response.data);
+  },
+
+  async deleteAccountingAccount(id: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/billing/accounting/accounts/${id}`);
+    return response.data;
   },
 
   async getAccountingEntries(params?: {

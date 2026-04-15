@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   ChevronDown,
@@ -22,6 +21,7 @@ import {
   employeeProjectShortcuts
 } from './sidebarData';
 import { hasPermission, isAdminRole } from '@/shared/permissions';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface NavigationItem {
   name: string;
@@ -44,6 +44,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { companyName, logoSrc } = useEnterpriseLogo();
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -233,16 +234,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
           {!isCollapsed ? (
             <>
               <div className="flex items-center space-x-3">
-                <Image
-                  src="/parabellum.jpg"
-                  alt="Parabellum"
+                <img
+                  src={logoSrc}
+                  alt={companyName}
                   width={40}
                   height={40}
                   className="rounded-lg object-cover"
                 />
                 <div className="flex flex-col">
-                  <h1 className="text-gray-900 dark:text-gray-100 text-base font-bold leading-tight">Parabellum</h1>
-                  <span className="text-gray-500 dark:text-gray-400 text-xs">Groups</span>
+                  <h1 className="text-gray-900 dark:text-gray-100 text-base font-bold leading-tight">{companyName}</h1>
+                  <span className="text-gray-500 dark:text-gray-400 text-xs">Entreprise</span>
                 </div>
               </div>
               <button

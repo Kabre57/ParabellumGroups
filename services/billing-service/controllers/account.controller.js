@@ -4,7 +4,7 @@ const {
   accountTypeFromInput,
   ensureAccountingReadAccess,
   ensureAccountingWriteAccess,
-  ensureDefaultAccounts,
+  getDynamicAccountTemplate,
   serializeAccountingAccount,
 } = require('../utils/accounting');
 
@@ -16,8 +16,6 @@ exports.getAllAccounts = async (req, res) => {
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }
-
-    await ensureDefaultAccounts(prisma, req.user);
 
     const accounts = await prisma.accountingAccount.findMany({
       where: { isActive: true },
@@ -69,6 +67,8 @@ exports.createAccount = async (req, res) => {
     }
 
     const initialBalance = amount(openingBalance);
+    const dynamicTemplate = getDynamicAccountTemplate(normalizedCode);
+
     const account = await prisma.accountingAccount.create({
       data: {
         code: normalizedCode,
@@ -77,6 +77,8 @@ exports.createAccount = async (req, res) => {
         description: description ? String(description).trim() : null,
         openingBalance: initialBalance,
         currentBalance: initialBalance,
+        isDynamic: Boolean(dynamicTemplate),
+        formula: dynamicTemplate?.formula || null,
         createdByUserId: req.user?.userId ? String(req.user.userId) : null,
         createdByEmail: req.user?.email || null,
       },
@@ -85,7 +87,9 @@ exports.createAccount = async (req, res) => {
     return res.status(201).json({
       success: true,
       data: serializeAccountingAccount(account),
-      message: 'Compte comptable créé avec succès',
+      message: dynamicTemplate
+        ? 'Compte comptable créé avec succès. Les calculs automatiques ont été activés pour ce code.'
+        : 'Compte comptable créé avec succès',
     });
   } catch (error) {
     console.error('Erreur création compte comptable:', error.message);
@@ -158,6 +162,17 @@ exports.updateAccount = async (req, res) => {
       data.isActive = Boolean(isActive);
     }
 
+    const nextCode = data.code || account.code;
+    const dynamicTemplate = getDynamicAccountTemplate(nextCode);
+
+    if (dynamicTemplate) {
+      data.isDynamic = true;
+      data.formula = dynamicTemplate.formula;
+    } else if (data.code && account.isDynamic) {
+      data.isDynamic = false;
+      data.formula = null;
+    }
+
     const updated = await prisma.accountingAccount.update({
       where: { id },
       data,
@@ -173,6 +188,64 @@ exports.updateAccount = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise à jour du compte comptable',
+    });
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de supprimer un compte comptable');
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const { id } = req.params;
+    const account = await prisma.accountingAccount.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            journalLines: true,
+            mappings: true,
+          },
+        },
+      },
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'Compte comptable introuvable',
+      });
+    }
+
+    const hasDependencies = account._count.journalLines > 0 || account._count.mappings > 0;
+
+    if (hasDependencies) {
+      await prisma.accountingAccount.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Le compte est déjà utilisé. Il a été désactivé au lieu d être supprimé.',
+      });
+    }
+
+    await prisma.accountingAccount.delete({
+      where: { id },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Compte comptable supprimé avec succès',
+    });
+  } catch (error) {
+    console.error('Erreur suppression compte comptable:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression du compte comptable',
     });
   }
 };

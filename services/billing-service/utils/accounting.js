@@ -136,40 +136,85 @@ const accountTypeFromInput = (type) => {
   return null;
 };
 
-const defaultAccounts = [
-  { code: '101', label: 'Capital et résultat', type: AccountingAccountType.EQUITY },
-  { code: '401', label: 'Fournisseurs', type: AccountingAccountType.LIABILITY },
-  { code: '411', label: 'Clients', type: AccountingAccountType.ASSET },
-  { code: '4456', label: 'TVA déductible', type: AccountingAccountType.ASSET },
-  { code: '4457', label: 'TVA collectée', type: AccountingAccountType.LIABILITY },
-  { code: '512', label: 'Banque', type: AccountingAccountType.ASSET },
-  { code: '531', label: 'Caisse', type: AccountingAccountType.ASSET },
-  { code: '607', label: 'Achats et approvisionnements', type: AccountingAccountType.EXPENSE },
-  { code: '618', label: 'Autres charges d exploitation', type: AccountingAccountType.EXPENSE },
-  { code: '706', label: 'Prestations de services', type: AccountingAccountType.REVENUE },
-];
-
-const ensureDefaultAccounts = async (client, user = null) => {
-  const existing = await client.accountingAccount.findMany({
-    where: { code: { in: defaultAccounts.map((account) => account.code) } },
-    select: { code: true },
-  });
-
-  const existingCodes = new Set(existing.map((account) => account.code));
-  const missing = defaultAccounts.filter((account) => !existingCodes.has(account.code));
-
-  if (!missing.length) return;
-
-  await client.accountingAccount.createMany({
-    data: missing.map((account) => ({
-      ...account,
-      isSystem: true,
-      createdByUserId: user?.userId ? String(user.userId) : null,
-      createdByEmail: user?.email || null,
-    })),
-    skipDuplicates: true,
-  });
+const DYNAMIC_ACCOUNT_TEMPLATES = {
+  '101': {
+    formula: {
+      balance: 'netResult',
+      lastTransaction: 'today',
+      movementCount: '1',
+    },
+  },
+  '401': {
+    formula: {
+      balance: 'supplierLiabilities',
+      lastTransaction: 'lastDecaissementDate',
+      movementCount: 'decaissementCount + commitmentCount',
+    },
+  },
+  '411': {
+    formula: {
+      balance: 'clientReceivables',
+      lastTransaction: 'lastInvoiceDate',
+      movementCount: 'invoiceCount',
+    },
+  },
+  '4456': {
+    formula: {
+      balance: 'totalDeductibleVat',
+      lastTransaction: 'lastDecaissementDate',
+      movementCount: 'decaissementCount',
+    },
+  },
+  '4457': {
+    formula: {
+      balance: 'totalCollectedVat',
+      lastTransaction: 'lastInvoiceDate',
+      movementCount: 'invoiceCount',
+    },
+  },
+  '512': {
+    formula: {
+      balance: 'bankInflows - bankOutflows',
+      lastTransaction: 'lastBankTransaction',
+      movementCount: 'bankMovementCount',
+    },
+  },
+  '531': {
+    formula: {
+      balance: 'cashInflows - cashOutflows',
+      lastTransaction: 'lastCashTransaction',
+      movementCount: 'cashMovementCount',
+    },
+  },
+  '607': {
+    formula: {
+      balance: 'purchasesExpense',
+      lastTransaction: 'lastDecaissementDate',
+      movementCount: 'decaissementCount',
+    },
+  },
+  '618': {
+    formula: {
+      balance: 'otherExpense',
+      lastTransaction: 'lastDecaissementDate',
+      movementCount: 'decaissementCount',
+    },
+  },
+  '706': {
+    formula: {
+      balance: 'totalRevenue',
+      lastTransaction: 'lastInvoiceDate',
+      movementCount: 'invoiceCount',
+    },
+  },
 };
+
+const getDynamicAccountTemplate = (code) => {
+  const normalizedCode = String(code || '').trim();
+  return DYNAMIC_ACCOUNT_TEMPLATES[normalizedCode] || null;
+};
+
+const ensureDefaultAccounts = async () => null;
 
 const serializeAccountingAccount = (account) => ({
   id: account.id,
@@ -183,6 +228,7 @@ const serializeAccountingAccount = (account) => ({
   balance: amount(account.currentBalance),
   currentBalance: amount(account.currentBalance),
   lastTransaction: account.updatedAt || account.createdAt || null,
+  isDynamic: Boolean(account.isDynamic),
 });
 
 const nextEntryNumber = async (client) => {
@@ -262,7 +308,7 @@ module.exports = {
   resolveDateRange,
   accountTypeToView,
   accountTypeFromInput,
-  defaultAccounts,
+  getDynamicAccountTemplate,
   ensureDefaultAccounts,
   serializeAccountingAccount,
   nextEntryNumber,

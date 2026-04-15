@@ -66,7 +66,7 @@ export function DepensesTable({
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Document</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Service</th>
+                  <th className="px-4 py-3">Entreprise / Entité</th>
                   <th className="px-4 py-3">Tiers</th>
                   <th className="px-4 py-3">Référence</th>
                   <th className="px-4 py-3 text-right">Montant TTC</th>
@@ -287,7 +287,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Service</th>
+                  <th className="px-4 py-3">Entreprise / Entité</th>
                   <th className="px-4 py-3">Fournisseur</th>
                   <th className="px-4 py-3 text-right">Montant TTC</th>
                   <th className="px-4 py-3">Statut</th>

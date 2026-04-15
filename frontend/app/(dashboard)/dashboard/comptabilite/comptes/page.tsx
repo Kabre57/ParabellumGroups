@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { useComptes, useCreateCompte, useUpdateCompte } from '@/hooks/comptabilite/comptes/useComptes';
+import { useComptes, useCreateCompte, useDeleteCompte, useUpdateCompte } from '@/hooks/comptabilite/comptes/useComptes';
 import { ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,11 +24,21 @@ export default function ComptesPage() {
   const [selected, setSelected] = useState<AccountingAccount | null>(null);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead = isAdminRole(user) || ['reports.read_financial','expenses.read','expenses.read_all','expenses.read_own','payments.read','invoices.read'].some(p => permissionSet.has(p));
-  const { canCreate, canUpdate } = getCrudVisibility(user, { read: ['reports.read_financial','invoices.read'], create: ['expenses.create'], update: ['expenses.update','invoices.update'] });
+  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+    read: ['reports.read_financial','invoices.read'],
+    create: ['expenses.create'],
+    update: ['expenses.update','invoices.update'],
+    remove: ['expenses.delete', 'expenses.update'],
+  });
 
   const { data, isLoading } = useComptes(canRead);
   const createMutation = useCreateCompte(() => setCreateDialogOpen(false));
   const updateMutation = useUpdateCompte(() => { setEditDialogOpen(false); setSelected(null); });
+  const deleteMutation = useDeleteCompte(() => {
+    if (selected?.id) {
+      setSelected(null);
+    }
+  });
 
   const accounts: AccountingAccount[] = data?.data?.accounts ?? [];
   const filtered = accounts.filter(a => {
@@ -72,9 +82,14 @@ export default function ComptesPage() {
         </div>
       </Card>
 
-      <ComptesTable accounts={filtered} isLoading={isLoading} canUpdate={canUpdate}
+      <ComptesTable accounts={filtered} isLoading={isLoading} canUpdate={canUpdate} canDelete={canDelete}
         onDetails={a => { setSelected(a); setDetailsOpen(true); }}
         onEdit={a => { setSelected(a); setEditDialogOpen(true); }}
+        onDelete={a => {
+          const confirmed = window.confirm(`Supprimer le compte ${a.code} - ${a.label} ?`);
+          if (!confirmed) return;
+          deleteMutation.mutate(a.id);
+        }}
       />
 
       <CreateAccountingAccountDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}

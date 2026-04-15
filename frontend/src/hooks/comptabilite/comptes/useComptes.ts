@@ -42,3 +42,19 @@ export function useUpdateCompte(onSuccess?: () => void) {
     },
   });
 }
+
+export function useDeleteCompte(onSuccess?: () => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => billingService.deleteAccountingAccount(id),
+    onSuccess: (response) => {
+      toast.success(response?.message || 'Compte comptable supprimé.');
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression du compte.');
+    },
+  });
+}

@@ -1,5 +1,5 @@
 'use client';
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,13 @@ interface ComptesTableProps {
   accounts: AccountingAccount[];
   isLoading: boolean;
   canUpdate: boolean;
+  canDelete: boolean;
   onDetails: (a: AccountingAccount) => void;
   onEdit: (a: AccountingAccount) => void;
+  onDelete: (a: AccountingAccount) => void;
 }
 
-export function ComptesTable({ accounts, isLoading, canUpdate, onDetails, onEdit }: ComptesTableProps) {
+export function ComptesTable({ accounts, isLoading, canUpdate, canDelete, onDetails, onEdit, onDelete }: ComptesTableProps) {
   return (
     <Card className="p-6">
       {isLoading ? (
@@ -58,12 +60,17 @@ export function ComptesTable({ accounts, isLoading, canUpdate, onDetails, onEdit
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => onDetails(account)}>Détails</Button>
                         {canUpdate && (
-                          <Button size="sm" variant="outline" onClick={() => onEdit(account)}>
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        <Button size="sm" variant="outline" onClick={() => onEdit(account)}>
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button size="sm" variant="outline" onClick={() => onDelete(account)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   </tr>
                 );
               })}

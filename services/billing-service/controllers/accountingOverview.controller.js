@@ -2,7 +2,6 @@ const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const {
   amount,
   ensureAccountingReadAccess,
-  ensureDefaultAccounts,
   resolveDateRange,
   computeSignedDelta,
   serializeAccountingAccount,
@@ -100,7 +99,6 @@ exports.getAccountingOverview = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    await ensureDefaultAccounts(prisma, req.user);
     await ensureDefaultTreasuryAccounts(prisma, req.user);
 
     const { startDate, endDate, periodLabel } = resolveDateRange({
@@ -350,9 +348,15 @@ exports.getAccountingOverview = async (req, res) => {
       ];
     }
 
+    dynamicAccounts = evaluatedDynamicAccounts;
     const mergedAccounts = mergeAccounts(persistedAccounts.filter(a => !a.isDynamic), dynamicAccounts);
 
     const manualEntries = manualJournalEntries.map(serializeJournalEntry);
+    const manualEntrySourceKeys = new Set(
+      manualEntries
+        .filter((entry) => entry.sourceType && entry.sourceId)
+        .map((entry) => `${entry.sourceType}:${entry.sourceId}`)
+    );
     const manualDeltasByType = manualJournalEntries.reduce(
       (accumulator, entry) => {
         entry.lines.forEach((line) => {
@@ -392,6 +396,7 @@ exports.getAccountingOverview = async (req, res) => {
     });
 
     disbursedVouchers.forEach((d) => {
+      if (manualEntrySourceKeys.has(`DECAISSEMENT:${d.id}`)) return;
       const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(d.paymentMethod)];
       const treasuryAccount = d.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
@@ -411,6 +416,7 @@ exports.getAccountingOverview = async (req, res) => {
     });
 
     receivedVouchers.forEach((e) => {
+      if (manualEntrySourceKeys.has(`ENCAISSEMENT:${e.id}`)) return;
       const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(e.paymentMethod)];
       const treasuryAccount = e.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
@@ -430,6 +436,9 @@ exports.getAccountingOverview = async (req, res) => {
     });
 
     manualJournalEntries.forEach((entry) => {
+      if (['ENCAISSEMENT', 'DECAISSEMENT', 'PAYMENT'].includes(String(entry.sourceType || '').toUpperCase())) {
+        return;
+      }
       entry.lines
         .filter((line) => ['512', '531'].includes(String(line.account?.code || '')))
         .forEach((line) => {
@@ -541,6 +550,7 @@ exports.getAccountingOverview = async (req, res) => {
     }
 
     for (const d of activeDecaissements) {
+      if (manualEntrySourceKeys.has(`DECAISSEMENT:${d.id}`)) continue;
       const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', d.expenseCategory);
       const supplierAccount = await MappingService.resolveAccount('DECAISSEMENT', 'CREDIT_SUPPLIER');
 
@@ -585,6 +595,7 @@ exports.getAccountingOverview = async (req, res) => {
     }
 
     for (const e of receivedVouchers) {
+      if (manualEntrySourceKeys.has(`ENCAISSEMENT:${e.id}`)) continue;
       const treasuryAccount = await MappingService.resolveAccount('PAYMENT', e.paymentMethod);
       const incomeAccount = await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory); // Réutilise la catégorie pour le revenu
 

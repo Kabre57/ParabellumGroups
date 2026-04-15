@@ -88,11 +88,10 @@ export const serviceDefinitions: ServiceDefinition[] = [
     label: 'Facturation Clients',
     description: 'Devis commerciaux, factures clients et suivi des encaissements.',
     order: 40,
-    categories: ['billing', 'invoices', 'payments'],
-    prefixes: ['invoices', 'payments'],
+    categories: ['billing', 'invoices'],
+    prefixes: ['invoices'],
     subgroupLabels: {
       invoices: 'Factures',
-      payments: 'Paiements',
     },
     dashboards: [{ label: 'Dashboard facturation', href: '/dashboard/facturation' }],
   },

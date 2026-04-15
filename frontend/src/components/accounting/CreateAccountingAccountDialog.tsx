@@ -46,6 +46,25 @@ const initialState: {
   openingBalance: '0',
 };
 
+const codeGuides: Array<{ match: (code: string) => boolean; text: string }> = [
+  { match: (code) => code.startsWith('40'), text: 'Les comptes 40x concernent généralement les fournisseurs et autres tiers créditeurs. Exemple: 401 = Fournisseurs.' },
+  { match: (code) => code.startsWith('41'), text: 'Les comptes 41x concernent généralement les clients et autres tiers débiteurs. Exemple: 411 = Clients.' },
+  { match: (code) => code === '512', text: '512 correspond habituellement à la banque.' },
+  { match: (code) => code === '531', text: '531 correspond habituellement à la caisse.' },
+  { match: (code) => code.startsWith('6'), text: 'Les comptes 6xx sont en principe des charges.' },
+  { match: (code) => code.startsWith('7'), text: 'Les comptes 7xx sont en principe des produits.' },
+];
+
+const getTypeWarning = (code: string, type: AccountType) => {
+  if (code.startsWith('6') && type !== 'EXPENSE') return 'Un compte 6xx est normalement une charge.';
+  if (code.startsWith('7') && type !== 'REVENUE') return 'Un compte 7xx est normalement un produit.';
+  if (code === '512' && type !== 'ASSET') return 'Le compte 512 est normalement un compte d actif.';
+  if (code === '531' && type !== 'ASSET') return 'Le compte 531 est normalement un compte d actif.';
+  if (code === '401' && type !== 'LIABILITY') return 'Le compte 401 est normalement un compte fournisseur.';
+  if (code === '411' && type !== 'ASSET') return 'Le compte 411 est normalement un compte client.';
+  return null;
+};
+
 export function CreateAccountingAccountDialog({
   open,
   onOpenChange,
@@ -56,6 +75,9 @@ export function CreateAccountingAccountDialog({
   isSubmitting = false,
 }: CreateAccountingAccountDialogProps) {
   const [form, setForm] = useState(initialState);
+  const normalizedCode = form.code.trim();
+  const codeGuide = codeGuides.find((guide) => guide.match(normalizedCode))?.text || null;
+  const typeWarning = getTypeWarning(normalizedCode, form.type);
 
   useEffect(() => {
     if (open) {
@@ -102,6 +124,8 @@ export function CreateAccountingAccountDialog({
               onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
               placeholder="512, 6011, 707..."
             />
+            {codeGuide && <p className="text-xs text-muted-foreground">{codeGuide}</p>}
+            {typeWarning && <p className="text-xs text-amber-700">{typeWarning}</p>}
           </div>
 
           <div className="space-y-2">
@@ -151,6 +175,11 @@ export function CreateAccountingAccountDialog({
               rows={4}
             />
           </div>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          Utilisez de préférence des comptes détaillés plutôt qu un compte générique.
+          Exemples utiles: `401` fournisseurs, `411` clients, `512` banque, `531` caisse, `6xx` charges, `7xx` produits.
         </div>
 
         <DialogFooter>
