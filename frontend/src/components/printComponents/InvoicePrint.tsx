@@ -34,8 +34,7 @@ export default function InvoicePrint({ invoice, onClose }: InvoicePrintProps) {
   const subtotal = invoice.montantHT ?? normalizedItems.reduce((sum, item) => sum + item.totalHT, 0);
   const totalVAT = invoice.montantTVA ?? normalizedItems.reduce((sum, item) => sum + (item.totalTTC - item.totalHT), 0);
   const total = invoice.montantTTC ?? subtotal + totalVAT;
-  // Priorité: logo du service > logo de l'entreprise (tenant)
-  const logoSrc = invoice.serviceLogoUrl ? resolvePrintLogo(invoice.serviceLogoUrl) : enterpriseLogo;
+  const logoSrc = resolvePrintLogo(enterpriseLogo);
   const clientLabel =
     invoice.client?.nom ||
     (invoice as any).clientName ||

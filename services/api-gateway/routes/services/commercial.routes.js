@@ -25,7 +25,16 @@ module.exports = {
       path: '/commercial',
       auth: true,
       permission: {
-        GET: 'prospects.read',
+        GET: [
+          'prospects.read',
+          'prospects.read_all',
+          'prospects.read_own',
+          'quotes.read',
+          'quotes.read_all',
+          'quotes.read_own',
+          'dashboard.analytics',
+          'dashboard.read_analytics',
+        ],
         POST: 'prospects.create',
         PUT: 'prospects.update',
         PATCH: 'prospects.update',
@@ -36,7 +45,13 @@ module.exports = {
       path: '/commercial/terrain/visits',
       auth: true,
       permission: {
-        GET: 'prospects.read',
+        GET: [
+          'prospects.read',
+          'prospects.read_all',
+          'prospects.read_own',
+          'dashboard.analytics',
+          'dashboard.read_analytics',
+        ],
         POST: 'prospects.update',
         PATCH: 'prospects.update'
       },

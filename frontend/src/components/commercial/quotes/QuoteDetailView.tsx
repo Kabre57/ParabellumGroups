@@ -430,7 +430,7 @@ export function QuoteDetailView({ quoteId }: Props) {
               <Card>
                 <CardHeader>
                   <CardTitle>Informations générales</CardTitle>
-                  <CardDescription>Client, service émetteur, validité et commentaires.</CardDescription>
+                  <CardDescription>Client, service associé, validité et commentaires.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-5 md:grid-cols-2">
                   <div>
@@ -438,7 +438,7 @@ export function QuoteDetailView({ quoteId }: Props) {
                     <div className="mt-1 font-medium">{quote.objet || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Service émetteur</div>
+                    <div className="text-sm text-muted-foreground">Service associé</div>
                     <div className="mt-1 font-medium">{quote.serviceName || '-'}</div>
                   </div>
                   <div>

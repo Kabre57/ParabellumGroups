@@ -62,6 +62,7 @@ export default function PurchaseQuotesPage() {
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
+  const enterpriseLabel = user?.enterprise?.name || 'Entreprise non attribuée';
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const hasDirectPermission = (...permissions: string[]) =>
     permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
@@ -129,7 +130,7 @@ export default function PurchaseQuotesPage() {
   const { data: servicesResponse } = useQuery({
     queryKey: ['procurement-service-options'],
     queryFn: () => adminServicesService.getServices(),
-    enabled: open && (canChooseService || !userServiceId),
+    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -145,7 +146,6 @@ export default function PurchaseQuotesPage() {
     user?.service?.name ||
     user?.department ||
     undefined;
-  const displayServiceName = requestServiceName || 'Veuillez sélectionner un service';
   const draftTotals = useMemo(() => {
     const montantHT = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire, 0);
     const montantTTC = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire * (1 + line.tva / 100), 0);
@@ -395,7 +395,7 @@ export default function PurchaseQuotesPage() {
       <CreateDpaDialog
         open={open}
         onOpenChange={setOpen}
-        displayServiceName={displayServiceName}
+        enterpriseLabel={enterpriseLabel}
         showServiceSelector={canChooseService || !userServiceId}
         selectedServiceId={selectedServiceId}
         services={services}

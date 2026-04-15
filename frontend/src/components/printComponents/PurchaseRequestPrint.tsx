@@ -17,7 +17,7 @@ export default function PurchaseRequestPrint({
   request,
   supplier,
   articles = [],
-  serviceLogoUrl,
+  serviceLogoUrl: _serviceLogoUrl,
   onClose,
 }: PurchaseRequestPrintProps) {
   const articleMap = new Map(articles.map((article) => [article.id, article]));
@@ -25,10 +25,9 @@ export default function PurchaseRequestPrint({
     <ProcurementDocumentPrint
       documentLabel="Devis d'achat"
       documentNumber={request.number}
-      serviceName={request.serviceName || 'Service non attribué'}
-      serviceLogoUrl={serviceLogoUrl}
+      serviceName={request.serviceName || undefined}
       issueDate={request.date}
-      issuedBy={request.requesterEmail || request.serviceName || undefined}
+      issuedBy={request.requesterEmail || undefined}
       deliveryLeadTime={request.dateBesoin || undefined}
       paymentTerms="Selon conditions d'achat"
       recipient={{

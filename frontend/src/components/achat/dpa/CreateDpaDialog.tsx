@@ -20,7 +20,7 @@ import type { DpaDraftLine } from './types';
 interface CreateDpaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  displayServiceName: string;
+  enterpriseLabel: string;
   showServiceSelector: boolean;
   selectedServiceId: string;
   services: Service[];
@@ -54,7 +54,7 @@ interface CreateDpaDialogProps {
 export function CreateDpaDialog({
   open,
   onOpenChange,
-  displayServiceName,
+  enterpriseLabel,
   showServiceSelector,
   selectedServiceId,
   services,
@@ -93,6 +93,12 @@ export function CreateDpaDialog({
             Gérez le devis interne et ses informations avant soumission et validation.
           </DialogDescription>
         </DialogHeader>
+
+        {enterpriseLabel ? (
+          <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Ce devis interne sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
+          </div>
+        ) : null}
 
         <DpaFormFields
           showServiceSelector={showServiceSelector}

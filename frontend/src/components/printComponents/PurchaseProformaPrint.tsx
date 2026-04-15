@@ -14,17 +14,16 @@ interface PurchaseProformaPrintProps {
 export default function PurchaseProformaPrint({
   request,
   proforma,
-  serviceLogoUrl,
+  serviceLogoUrl: _serviceLogoUrl,
   onClose,
 }: PurchaseProformaPrintProps) {
   return (
     <ProcurementDocumentPrint
       documentLabel="Proforma fournisseur retenue"
       documentNumber={proforma.numeroProforma}
-      serviceName={request.serviceName || 'Service non attribue'}
-      serviceLogoUrl={serviceLogoUrl}
+      serviceName={request.serviceName || undefined}
       issueDate={proforma.approvedAt || proforma.submittedAt || proforma.createdAt || request.date}
-      issuedBy={proforma.approvedByServiceName || request.serviceName || request.requesterEmail || undefined}
+      issuedBy={request.requesterEmail || undefined}
       deliveryLeadTime={
         proforma.delaiLivraisonJours ? `${proforma.delaiLivraisonJours} jour(s)` : request.dateBesoin || undefined
       }

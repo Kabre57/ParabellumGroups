@@ -49,6 +49,7 @@ const buildDefaultValidityDate = () => {
 export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const enterpriseLabel = user?.enterprise?.name || 'Entreprise non attribuée';
   const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
   const canChooseService =
     isAdminRole(user) || hasAnyPermission(user, ['services.read_all', 'services.read']);
@@ -258,15 +259,15 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {serviceLabel && (
+          {enterpriseLabel && (
             <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              Ce devis sera émis au nom du service <strong>{serviceLabel}</strong>.
+              Ce devis sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
             </div>
           )}
 
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Service émetteur</label>
+              <label className="text-sm font-medium">Service interne associé</label>
               {canChooseService || !userServiceId ? (
                 <select
                   value={selectedServiceId}

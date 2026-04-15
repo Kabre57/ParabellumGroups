@@ -52,14 +52,14 @@ export function DpaFormFields({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showServiceSelector ? (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Service demandeur</label>
+            <label className="text-sm font-medium">Service interne associé</label>
             <select
               value={selectedServiceId}
               onChange={(event) => onServiceChange(event.target.value)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               disabled={disabled}
             >
-              <option value="">Sélectionner un service</option>
+              <option value="">Sélectionner un service associé</option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.name}

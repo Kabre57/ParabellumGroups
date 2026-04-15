@@ -3,6 +3,7 @@
 import React from 'react';
 import PrintLayout from './PrintLayout';
 import { formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 type PrintColumn = {
   key: string;
@@ -28,7 +29,7 @@ interface TabularListPrintProps {
 export default function TabularListPrint({
   title,
   subtitle,
-  companyName = 'Parabellum Groups',
+  companyName,
   serviceName,
   logoSrc,
   columns,
@@ -37,7 +38,12 @@ export default function TabularListPrint({
   orientation = 'landscape',
   onClose,
 }: TabularListPrintProps) {
-  const resolvedLogo = resolvePrintLogo(logoSrc);
+  const {
+    companyName: enterpriseName,
+    logoSrc: enterpriseLogoSrc,
+  } = useEnterpriseLogo();
+  const effectiveCompanyName = companyName || enterpriseName;
+  const resolvedLogo = resolvePrintLogo(logoSrc || enterpriseLogoSrc);
 
   return (
     <PrintLayout
@@ -51,14 +57,14 @@ export default function TabularListPrint({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img
             src={resolvedLogo}
-            alt={companyName}
+            alt={effectiveCompanyName}
             style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 8 }}
             onError={(e) => {
               e.currentTarget.src = '/parabellum.jpg';
             }}
           />
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{companyName}</div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>{effectiveCompanyName}</div>
             <div style={{ fontSize: 12, color: '#475569' }}>{textOrDash(serviceName)}</div>
           </div>
         </div>

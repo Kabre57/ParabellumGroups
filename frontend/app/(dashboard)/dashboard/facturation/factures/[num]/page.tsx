@@ -248,7 +248,7 @@ export default function InvoiceDetailPage() {
           <InfoRow label="Date d'emission" value={formatDate((invoice as any).dateFacture || (invoice as any).dateEmission)} />
           <InfoRow label="Date d'echeance" value={formatDate(invoice.dateEcheance)} />
           <InfoRow label="Client" value={clientName} />
-          <InfoRow label="Service emetteur" value={invoice.serviceName || '-'} />
+          <InfoRow label="Service associe" value={invoice.serviceName || '-'} />
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
             <div className="mt-1">{getStatusBadge(invoice.status)}</div>

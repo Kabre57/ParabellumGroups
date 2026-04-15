@@ -2,6 +2,7 @@
 
 import React from 'react';
 import PrintLayout from './PrintLayout';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface PayslipDeduction {
   label: string;
@@ -33,6 +34,7 @@ interface PayslipPrintProps {
 }
 
 export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
+  const { companyName } = useEnterpriseLogo();
   const normalizedDeductions = (() => {
     if (Array.isArray(salary.deductions)) return salary.deductions;
     if (typeof salary.deductions === 'string') {
@@ -102,7 +104,7 @@ export default function PayslipPrint({ salary, onClose }: PayslipPrintProps) {
           </h3>
           <div className="space-y-1 text-sm">
             <p className="text-gray-700">
-              <span className="font-semibold">Raison sociale:</span> PARABELLUM GROUP
+              <span className="font-semibold">Raison sociale:</span> {companyName}
             </p>
             <p className="text-gray-700">
               <span className="font-semibold">IDU:</span> CI-2019-0046392 R

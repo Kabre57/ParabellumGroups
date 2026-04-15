@@ -5,6 +5,7 @@ import PrintLayout from './PrintLayout';
 import { formatFCFA, formatFCFAInWords, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 import type { Encaissement, Decaissement } from '@/shared/api/billing';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface CashVoucherPrintProps {
   voucher: (Encaissement | Decaissement) & { flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT' };
@@ -16,12 +17,10 @@ interface CashVoucherPrintProps {
 export default function CashVoucherPrint({
   voucher,
   onClose,
-  companyName: companyNameProp,
-  logoSrc: logoSrcProp,
+  companyName = 'PROGI-TECK',
+  logoSrc,
 }: CashVoucherPrintProps) {
-  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
-  const companyName = companyNameProp ?? enterpriseName ?? '';
-  const resolvedLogo = resolvePrintLogo(logoSrcProp ?? enterpriseLogo);
+  const resolvedLogo = resolvePrintLogo(logoSrc);
   const isEncaissement = voucher.flowType === 'ENCAISSEMENT' || ('clientName' in voucher);
   const voucherNumber = 'numeroPiece' in voucher ? voucher.numeroPiece : (voucher as any).voucherNumber;
   const issueDate = 'dateEncaissement' in voucher ? voucher.dateEncaissement : ('dateDecaissement' in voucher ? voucher.dateDecaissement : (voucher as any).issueDate);
@@ -41,7 +40,7 @@ export default function CashVoucherPrint({
           {resolvedLogo && (
             <img
               src={resolvedLogo}
-              alt={companyName}
+              alt={effectiveCompanyName}
               style={{ width: 45, height: 45, objectFit: 'contain' }}
               onError={(e) => { e.currentTarget.src = '/parabellum.jpg'; }}
             />
@@ -49,7 +48,7 @@ export default function CashVoucherPrint({
         </div>
         
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</div>
+          <div style={{ fontSize: 16, fontWeight: 'bold' }}>{effectiveCompanyName}</div>
           <div style={{ fontSize: 12, fontWeight: 'bold', marginTop: 4 }}>BON DE CAISSE</div>
           <div style={{ fontSize: 11, marginTop: 2 }}>N° {textOrDash(voucherNumber)}</div>
         </div>

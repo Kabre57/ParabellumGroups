@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.S3_REGION || 'us-east-1';
 const ENDPOINT = process.env.S3_ENDPOINT;
-const FORCE_PATH_STYLE = !!process.env.S3_FORCE_PATH_STYLE;
+const FORCE_PATH_STYLE = process.env.S3_FORCE_PATH_STYLE !== 'false';
 
 let client = null;
 
@@ -53,8 +53,11 @@ async function uploadToS3(buffer, mimetype, prefix = 'receptions') {
     })
   );
 
-  if (ENDPOINT && ENDPOINT.includes('minio')) {
-    return `${ENDPOINT}/${BUCKET}/${key}`;
+  const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
+
+  if (PUBLIC_ENDPOINT && !PUBLIC_ENDPOINT.includes('.amazonaws.com')) {
+    const base = PUBLIC_ENDPOINT.endsWith('/') ? PUBLIC_ENDPOINT.slice(0, -1) : PUBLIC_ENDPOINT;
+    return `${base}/${BUCKET}/${key}`;
   }
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 }
