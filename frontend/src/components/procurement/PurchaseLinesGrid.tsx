@@ -12,6 +12,7 @@ export type PurchaseLineDraft = {
   imageUrl?: string;
   designation: string;
   categorie: string;
+  unite?: string;
   quantite: number;
   prixUnitaire: number;
   tva: number;
@@ -43,7 +44,7 @@ export function PurchaseLinesGrid({
   articles,
   disabled = false,
   maxBodyHeightClass = 'min-h-[300px] max-h-[380px]',
-  tableMinWidthClass = 'min-w-[1260px]',
+  tableMinWidthClass = 'min-w-[1360px]',
   onAddLine,
   onDuplicateLine,
   onRemoveLine,
@@ -93,6 +94,7 @@ export function PurchaseLinesGrid({
                 <th className="min-w-[210px] px-3 py-3 font-semibold">Désignation</th>
                 <th className="min-w-[150px] px-3 py-3 font-semibold">Catégorie</th>
                 <th className="w-24 px-3 py-3 font-semibold">Qté</th>
+                <th className="w-28 px-3 py-3 font-semibold">Unité</th>
                 <th className="w-32 px-3 py-3 font-semibold">P.U. HT</th>
                 <th className="w-24 px-3 py-3 font-semibold">TVA %</th>
                 <th className="w-32 px-3 py-3 font-semibold text-right">Total TTC</th>
@@ -104,6 +106,7 @@ export function PurchaseLinesGrid({
                 const lineTotal = line.quantite * line.prixUnitaire * (1 + line.tva / 100);
                 const selectedArticle = articles.find((article) => article.id === line.articleId);
                 const lineImageUrl = line.imageUrl || selectedArticle?.imageUrl || '';
+                const lineUnit = selectedArticle?.unite || line.unite || '';
 
                 return (
                   <tr key={`${line.id || 'line'}-${index}`} className="border-b align-top last:border-0">
@@ -162,6 +165,14 @@ export function PurchaseLinesGrid({
                         onChange={(event) => onUpdateLine(index, { quantite: Number(event.target.value) || 1 })}
                         disabled={disabled}
                         className="h-12 min-w-[96px] text-lg font-medium"
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <Input
+                        value={lineUnit}
+                        disabled
+                        placeholder="Unité"
+                        className="h-12 min-w-[100px] text-base"
                       />
                     </td>
                     <td className="px-3 py-3">

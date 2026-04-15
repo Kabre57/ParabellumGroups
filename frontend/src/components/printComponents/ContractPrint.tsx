@@ -65,11 +65,7 @@ export default function ContractPrint({ contract, onClose }: ContractPrintProps)
           <h4 className="font-bold text-gray-700 mb-2">L'EMPLOYEUR:</h4>
           <div className="pl-4 space-y-1">
             <p className="text-gray-700">
-<<<<<<< HEAD
               <span className="font-semibold">Raison sociale:</span> {companyName || 'L\'ENTREPRISE'}
-=======
-              <span className="font-semibold">Raison sociale:</span> {companyName}
->>>>>>> 8c1fdf6a (harmonisation des libellés d’interface)
             </p>
             <p className="text-gray-700">
               <span className="font-semibold">IDU:</span> CI-2019-0046392 R

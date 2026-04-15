@@ -85,8 +85,8 @@ export function CreateDpaDialog({
   onSubmit,
 }: CreateDpaDialogProps) {
   return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[95vh] max-h-[95vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] w-[min(98vw,1680px)] max-w-none overflow-y-auto px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
         <DialogHeader>
           <DialogTitle>Nouveau devis interne</DialogTitle>
           <DialogDescription>
@@ -94,39 +94,40 @@ export function CreateDpaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {enterpriseLabel ? (
-          <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-            Ce devis interne sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
-          </div>
-        ) : null}
+        <div className="space-y-6">
+          {enterpriseLabel ? (
+            <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              Ce devis interne sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
+            </div>
+          ) : null}
 
-        <DpaFormFields
-          showServiceSelector={showServiceSelector}
-          selectedServiceId={selectedServiceId}
-          services={services}
-          onServiceChange={onServiceChange}
-          title={title}
-          onTitleChange={onTitleChange}
-          dateBesoin={dateBesoin}
-          onDateBesoinChange={onDateBesoinChange}
-          supplierId={supplierId}
-          suppliers={suppliers}
-          onSupplierChange={onSupplierChange}
-          manualSupplierName={manualSupplierName}
-          onManualSupplierNameChange={onManualSupplierNameChange}
-          notes={notes}
-          onNotesChange={onNotesChange}
-          description={description}
-          onDescriptionChange={onDescriptionChange}
-        />
+          <DpaFormFields
+            showServiceSelector={showServiceSelector}
+            selectedServiceId={selectedServiceId}
+            services={services}
+            onServiceChange={onServiceChange}
+            title={title}
+            onTitleChange={onTitleChange}
+            dateBesoin={dateBesoin}
+            onDateBesoinChange={onDateBesoinChange}
+            supplierId={supplierId}
+            suppliers={suppliers}
+            onSupplierChange={onSupplierChange}
+            manualSupplierName={manualSupplierName}
+            onManualSupplierNameChange={onManualSupplierNameChange}
+            notes={notes}
+            onNotesChange={onNotesChange}
+            description={description}
+            onDescriptionChange={onDescriptionChange}
+            servicePlaceholder="Sélectionner un service associé"
+          />
 
-        <div className="min-h-0 flex-1">
           <PurchaseLinesGrid
             title="Lignes du devis interne"
             description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="min-h-[360px] max-h-[52vh]"
+            maxBodyHeightClass="min-h-[320px] max-h-[52vh]"
             tableMinWidthClass="min-w-[1100px]"
             onAddLine={onAddLine}
             onDuplicateLine={onDuplicateLine}
@@ -135,16 +136,16 @@ export function CreateDpaDialog({
             onSelectArticle={onSelectArticle}
             formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
           />
-        </div>
 
-        <DialogFooter className="gap-3 border-t bg-background pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
-          <div className="min-w-0 text-sm text-muted-foreground">
-            Total estimé : {totalTTC.toLocaleString('fr-FR')} F
-          </div>
-          <Button className="shrink-0" onClick={onSubmit} disabled={!canSubmit || isPending}>
-            {isPending ? 'Enregistrement...' : 'Créer le devis'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-3 border-t bg-background pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
+            <div className="min-w-0 text-sm text-muted-foreground">
+              Total estimé : {totalTTC.toLocaleString('fr-FR')} F
+            </div>
+            <Button className="shrink-0" onClick={onSubmit} disabled={!canSubmit || isPending}>
+              {isPending ? 'Enregistrement...' : 'Créer le devis'}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

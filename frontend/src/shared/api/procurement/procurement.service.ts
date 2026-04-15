@@ -264,6 +264,7 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
       imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
       designation: ligne?.designation || ligne?.description || '',
       categorie: ligne?.categorie || null,
+      unite: ligne?.unite || ligne?.article?.unite || null,
       quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
       prixUnitaire: normalizeNumber(ligne?.prixUnitaire ?? ligne?.unitPrice, 0),
       tva: normalizeNumber(ligne?.tva, 0),
@@ -321,6 +322,7 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
         imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
         designation: ligne?.designation || '',
         categorie: ligne?.categorie || null,
+        unite: ligne?.unite || ligne?.article?.unite || null,
         quantity: normalizeNumber(ligne?.quantity ?? ligne?.quantite, 0),
         quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
         unitPrice: normalizeNumber(ligne?.unitPrice ?? ligne?.prixUnitaire, 0),
@@ -338,6 +340,7 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
         imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
         designation: ligne?.designation || '',
         categorie: ligne?.categorie || null,
+        unite: ligne?.unite || ligne?.article?.unite || null,
         quantity: normalizeNumber(ligne?.quantite, 0),
         quantite: normalizeNumber(ligne?.quantite, 0),
         unitPrice: normalizeNumber(ligne?.prixUnitaire, 0),
@@ -547,14 +550,15 @@ export const procurementService = {
     devise?: string;
     serviceId?: number;
     serviceName?: string;
-    lignes?: Array<{
-      articleId?: string;
-      referenceArticle?: string;
-      designation: string;
-      categorie?: string;
-      quantite: number;
-      prixUnitaire: number;
-      tva?: number;
+      lignes?: Array<{
+        articleId?: string;
+        referenceArticle?: string;
+        designation: string;
+        categorie?: string;
+        unite?: string;
+        quantite: number;
+        prixUnitaire: number;
+        tva?: number;
     }>;
   }): Promise<DetailResponse<PurchaseRequest>> {
     const response = await apiClient.post('/procurement/devis-achat', data);
@@ -630,6 +634,7 @@ export const procurementService = {
         referenceArticle?: string | null;
         designation: string;
         categorie?: string | null;
+        unite?: string | null;
         quantite: number;
         prixUnitaire: number;
         tva?: number;
@@ -820,9 +825,14 @@ export const procurementService = {
     fournisseurId: string;
     montantTotal: number;
     lignes?: {
+      articleId?: string;
+      referenceArticle?: string;
       designation: string;
+      categorie?: string;
+      unite?: string;
       quantite: number;
       prixUnitaire: number;
+      tva?: number;
     }[];
     requestId?: string;
     status?: PurchaseOrderStatus;
@@ -861,8 +871,10 @@ export const procurementService = {
 
   async addOrderLine(id: string, ligne: {
     designation: string;
+    unite?: string;
     quantite: number;
     prixUnitaire: number;
+    tva?: number;
   }): Promise<DetailResponse<PurchaseOrder>> {
     const response = await apiClient.post(`/procurement/bons-commande/${id}/lignes`, ligne);
     return normalizeDetailResponse<PurchaseOrder>(response.data);

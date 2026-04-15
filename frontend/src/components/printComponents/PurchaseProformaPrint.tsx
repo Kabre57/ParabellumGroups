@@ -11,6 +11,21 @@ interface PurchaseProformaPrintProps {
   onClose: () => void;
 }
 
+const formatArticleUnit = (unit?: string | null) => {
+  switch (unit) {
+    case 'PIECE':
+      return 'Piece';
+    case 'KG':
+      return 'Kg';
+    case 'M':
+      return 'Metre';
+    case 'L':
+      return 'Litre';
+    default:
+      return unit || '-';
+  }
+};
+
 export default function PurchaseProformaPrint({
   request,
   proforma,
@@ -35,7 +50,7 @@ export default function PurchaseProformaPrint({
         imageUrl: line.imageUrl || null,
         designation: line.designation,
         quantity: line.quantite,
-        unit: line.categorie || '-',
+        unit: formatArticleUnit(line.unite || null),
         unitPrice: line.prixUnitaire,
         vatRate: line.tva,
         totalHT: line.montantHT,

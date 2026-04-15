@@ -772,6 +772,7 @@ export default function PurchaseQuoteDetailPage() {
               imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
+              unite: article?.unite || line.unite,
               prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
             }
           : line

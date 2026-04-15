@@ -161,35 +161,39 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
   };
 
+  const customerOptions = Array.isArray(customersResponse) ? customersResponse : [];
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <Card className="rounded-xl border p-5 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Informations générales</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="xl:col-span-2">
             <Label htmlFor="customer_id">Client *</Label>
             <select
               id="customer_id"
               {...register('customer_id')}
               className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
             >
-            <option value="">Sélectionner un client</option>
-            {customersResponse?.map((customer) => {
-              const name = customer.raisonSociale || customer.nom || customer.reference || customer.email || customer.id;
-              const email = customer.email ? ` - ${customer.email}` : '';
-              return (
-                <option key={customer.id} value={customer.id}>
-                  {`${name}${email}`}
-                </option>
-              );
-            })}
+              <option value="">
+                {customerOptions.length > 0 ? 'Sélectionner un client' : 'Aucun client disponible'}
+              </option>
+              {customerOptions.map((customer) => {
+                const name = customer.raisonSociale || customer.nom || customer.reference || customer.email || customer.id;
+                const email = customer.email ? ` - ${customer.email}` : '';
+                return (
+                  <option key={customer.id} value={customer.id}>
+                    {`${name}${email}`}
+                  </option>
+                );
+              })}
             </select>
             {errors.customer_id && (
               <p className="text-sm text-red-500 mt-1">{errors.customer_id.message}</p>
             )}
           </div>
 
-          <div>
+          <div className="xl:col-span-2">
             <Label htmlFor="status">Statut *</Label>
             <select
               id="status"
@@ -230,7 +234,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
             )}
           </div>
 
-          <div>
+          <div className="md:col-span-2 xl:col-span-1">
             <Label htmlFor="tax_rate">Taux de TVA (%)</Label>
             <Input
               id="tax_rate"
@@ -243,8 +247,8 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
         </div>
       </Card>
 
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-4">
+      <Card className="rounded-xl border p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold">Lignes de facturation</h3>
           <Button
             type="button"
@@ -255,10 +259,13 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
           </Button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {fields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-12 gap-4 items-start">
-              <div className="col-span-5">
+            <div
+              key={field.id}
+              className="grid grid-cols-1 gap-3 rounded-lg border p-3 md:grid-cols-[minmax(0,2.8fr)_110px_140px_140px_auto] md:items-start"
+            >
+              <div>
                 <Label htmlFor={`line_items.${index}.description`}>
                   Description
                 </Label>
@@ -275,7 +282,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
                 )}
               </div>
 
-              <div className="col-span-2">
+              <div>
                 <Label htmlFor={`line_items.${index}.quantity`}>
                   Quantité
                 </Label>
@@ -288,7 +295,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
                 />
               </div>
 
-              <div className="col-span-2">
+              <div>
                 <Label htmlFor={`line_items.${index}.unit_price`}>
                   Prix unitaire
                 </Label>
@@ -302,16 +309,16 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
                 />
               </div>
 
-              <div className="col-span-2">
+              <div>
                 <Label>Total</Label>
-                <div className="mt-1 h-10 flex items-center font-medium">
+                <div className="mt-1 flex h-10 items-center rounded-md border bg-slate-50 px-3 font-medium">
                   {formatCurrency(
                     (lineItems[index]?.quantity || 0) * (lineItems[index]?.unit_price || 0)
                   )}
                 </div>
               </div>
 
-              <div className="col-span-1 flex items-end">
+              <div className="flex items-end md:justify-end">
                 {fields.length > 1 && (
                   <Button
                     type="button"
@@ -327,10 +334,9 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
           ))}
         </div>
 
-        {/* Totaux */}
-        <div className="mt-6 pt-6 border-t">
+        <div className="mt-6 border-t pt-6">
           <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2">
+            <div className="w-full max-w-sm rounded-lg border bg-slate-50/70 p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Sous-total</span>
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
@@ -350,21 +356,21 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
         </div>
       </Card>
 
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Notes</h3>
+      <Card className="rounded-xl border p-5 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Notes</h3>
         <div>
           <Label htmlFor="notes">Notes internes</Label>
           <textarea
             id="notes"
             {...register('notes')}
-            rows={3}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background mt-1"
+            rows={4}
+            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
             placeholder="Notes ou conditions particulières..."
           />
         </div>
       </Card>
 
-      <div className="flex justify-end gap-4">
+      <div className="flex justify-end gap-3 border-t pt-4">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
             Annuler

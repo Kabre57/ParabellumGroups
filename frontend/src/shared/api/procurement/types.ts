@@ -73,6 +73,7 @@ export interface PurchaseOrderItem {
   imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
+  unite?: string | null;
   quantity: number;
   quantite?: number;
   unitPrice: number;
@@ -137,6 +138,7 @@ export interface PurchaseRequestLine {
   imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
+  unite?: string | null;
   quantite: number;
   prixUnitaire: number;
   tva: number;
@@ -164,6 +166,7 @@ export interface PurchaseProformaLine {
   imageUrl?: string | null;
   designation: string;
   categorie?: string | null;
+  unite?: string | null;
   quantite: number;
   prixUnitaire: number;
   tva: number;

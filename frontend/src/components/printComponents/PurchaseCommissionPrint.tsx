@@ -51,44 +51,27 @@ const tdStyle: React.CSSProperties = {
 export default function PurchaseCommissionPrint({
   request,
   rows,
-  serviceLogoUrl: _serviceLogoUrl,
+  serviceLogoUrl,
   onClose,
 }: PurchaseCommissionPrintProps) {
-<<<<<<< HEAD
   const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
   const selectedRow = rows.find((row) => row.selectedForOrder) || null;
   const recommendedRow = rows.find((row) => row.recommendedForApproval) || null;
   const bestRow = [...rows].sort((left, right) => left.montantTTC - right.montantTTC)[0] || null;
   const logoSrc = resolvePrintLogo(serviceLogoUrl ?? enterpriseLogo);
   const resolvedCompanyName = enterpriseName || 'Parabellum Groups';
-=======
-  const {
-    companyName,
-    logoSrc: enterpriseLogoSrc,
-  } = useEnterpriseLogo();
-  const selectedRow = rows.find((row) => row.selectedForOrder) || null;
-  const recommendedRow = rows.find((row) => row.recommendedForApproval) || null;
-  const bestRow = [...rows].sort((left, right) => left.montantTTC - right.montantTTC)[0] || null;
-  const logoSrc = resolvePrintLogo(enterpriseLogoSrc);
->>>>>>> 8c1fdf6a (harmonisation des libellés d’interface)
   const criteriaProfile = resolveProcurementCriteriaProfile(request);
 
   return (
     <PrintLayout
       title="Commission Achat"
       subtitle={`Procès-verbal de décision - ${request.number}`}
-      meta={`Entreprise : ${companyName}\nDate : ${formatPrintDate(new Date().toISOString(), true)}`}
+      meta={`Entreprise : ${resolvedCompanyName}\nDate : ${formatPrintDate(new Date().toISOString(), true)}`}
       onClose={onClose}
       orientation="landscape"
-<<<<<<< HEAD
       companyName={resolvedCompanyName}
       logoSrc={logoSrc}
       logoAlt={request.serviceName || resolvedCompanyName}
-=======
-      companyName={companyName}
-      logoSrc={logoSrc}
-      logoAlt={companyName}
->>>>>>> 8c1fdf6a (harmonisation des libellés d’interface)
     >
       <div className="print-sheet">
         <div className="section-title">Contexte du devis interne</div>
@@ -102,7 +85,7 @@ export default function PurchaseCommissionPrint({
             </tr>
             <tr>
               <td style={{ ...tdStyle, fontWeight: 700 }}>Entreprise émettrice</td>
-              <td style={tdStyle}>{companyName}</td>
+              <td style={tdStyle}>{resolvedCompanyName}</td>
               <td style={{ ...tdStyle, fontWeight: 700 }}>Date de besoin</td>
               <td style={tdStyle}>{formatPrintDate(request.dateBesoin)}</td>
             </tr>

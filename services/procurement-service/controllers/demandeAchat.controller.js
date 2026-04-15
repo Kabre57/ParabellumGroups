@@ -1688,6 +1688,7 @@ exports.generateOrder = async (req, res) => {
                 referenceArticle: ligne.referenceArticle,
                 designation: ligne.designation,
                 categorie: ligne.categorie,
+                unite: ligne.unite,
                 quantite: ligne.quantite,
                 prixUnitaire: ligne.prixUnitaire,
                 tva: ligne.tva,

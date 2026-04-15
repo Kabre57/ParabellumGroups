@@ -266,7 +266,7 @@ export default function FacturesPage() {
       {/* Create Dialog */}
       {canCreate && (
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[92vh] w-[min(96vw,1180px)] max-w-none overflow-y-auto px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle>Nouvelle facture</DialogTitle>
             </DialogHeader>

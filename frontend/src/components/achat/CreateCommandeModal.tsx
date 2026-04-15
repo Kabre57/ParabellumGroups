@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 import type { InventoryArticle } from "@/shared/api/inventory/types";
 import type { Supplier, PurchaseOrderStatus } from "@/services/procurement";
@@ -19,6 +18,9 @@ export interface CreateCommandePayload {
     prixUnitaire: number;
     tva: number;
     articleId?: string;
+    referenceArticle?: string;
+    categorie?: string;
+    unite?: string;
   }[];
   montantTotal: number;
 }
@@ -35,6 +37,7 @@ const buildEmptyLine = (): PurchaseLineDraft => ({
   articleId: "",
   designation: "",
   categorie: "",
+  unite: "",
   quantite: 1,
   prixUnitaire: 0,
   tva: 0,
@@ -91,6 +94,8 @@ export function CreateCommandeModal({
         prixUnitaire: Number(line.prixUnitaire) || 0,
         tva: Number(line.tva) || 0,
         articleId: line.articleId || undefined,
+        categorie: line.categorie || undefined,
+        unite: line.unite || undefined,
       }))
       .filter((line) => line.designation && line.quantite > 0);
 
@@ -102,7 +107,7 @@ export function CreateCommandeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
-      <div className="grid w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-[1220px] overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h3 className="text-lg font-semibold">Nouvelle commande</h3>
@@ -115,9 +120,10 @@ export function CreateCommandeModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="min-h-0 space-y-4 px-6 pb-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1">
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5">
+          <div className="rounded-xl border bg-slate-50/40 p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
               <label className="text-sm font-medium">Fournisseur</label>
               <select
                 value={fournisseurId}
@@ -131,8 +137,8 @@ export function CreateCommandeModal({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="space-y-1">
+              </div>
+              <div className="space-y-2">
               <label className="text-sm font-medium">Statut</label>
               <select
                 value={status}
@@ -145,17 +151,18 @@ export function CreateCommandeModal({
                 <option value="LIVRE">Livrée</option>
                 <option value="ANNULE">Annulée</option>
               </select>
+              </div>
             </div>
           </div>
 
-          <div className="min-h-0">
+          <div className="min-h-0 rounded-xl border bg-background p-4">
             <PurchaseLinesGrid
               title="Lignes de commande"
               description="Saisie compacte type ERP pour préparer la commande fournisseur."
               lines={lines}
               articles={products}
-              maxBodyHeightClass="max-h-[420px]"
-              tableMinWidthClass="min-w-[1320px]"
+              maxBodyHeightClass="min-h-[280px] max-h-[50vh]"
+              tableMinWidthClass="min-w-[1080px]"
               onAddLine={() => setLines((current) => [...current, buildEmptyLine()])}
               onDuplicateLine={(index) =>
                 setLines((current) => {
@@ -185,6 +192,7 @@ export function CreateCommandeModal({
                           articleId,
                           designation: selected?.nom || line.designation,
                           categorie: selected?.categorie || line.categorie,
+                          unite: selected?.unite || line.unite,
                           prixUnitaire: Number(selected?.prixAchat ?? selected?.prixVente ?? line.prixUnitaire ?? 0),
                         }
                       : line
@@ -194,7 +202,7 @@ export function CreateCommandeModal({
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-1">
             <div className="text-sm text-muted-foreground">
               Total TTC : {totals.ttc.toLocaleString("fr-FR")} F
             </div>

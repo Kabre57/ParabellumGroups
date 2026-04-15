@@ -92,7 +92,8 @@ export default function PurchaseQuotesPage() {
   const canApprove =
     isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
   const canReject = canApprove;
-  const canChooseService = isAdminRole(user) || hasDirectPermission('services.read_all');
+  const canChooseService =
+    isAdminRole(user) || hasDirectPermission('services.read_all', 'services.read');
   const canCreateOrder =
     isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
   const canSubmit =
@@ -139,7 +140,47 @@ export default function PurchaseQuotesPage() {
   );
   const suppliers = suppliersResponse?.data ?? [];
   const articles = articlesResponse?.data ?? [];
-  const services = servicesResponse?.data ?? [];
+  const rawServices = Array.isArray(servicesResponse)
+    ? servicesResponse
+    : Array.isArray(servicesResponse?.data)
+      ? servicesResponse.data
+      : [];
+  const services = useMemo(() => {
+    const merged = [...rawServices];
+    const fallbackServiceId = user?.serviceId ?? user?.service?.id;
+    const fallbackServiceName = user?.service?.name || user?.department;
+
+    if (
+      fallbackServiceId != null &&
+      fallbackServiceName &&
+      !merged.some((service) => String(service.id) === String(fallbackServiceId))
+    ) {
+      merged.unshift({
+        id: Number(fallbackServiceId),
+        name: fallbackServiceName,
+        code: null,
+        description: null,
+        parentId: null,
+        managerId: null,
+        isActive: true,
+        imageUrl: null,
+        createdAt: '',
+        updatedAt: '',
+      });
+    }
+
+    return merged;
+  }, [rawServices, user?.department, user?.service?.id, user?.service?.name, user?.serviceId]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedServiceId) return;
+    if (userServiceId) return;
+    if (services.length > 0) {
+      setSelectedServiceId(String(services[0].id));
+    }
+  }, [open, selectedServiceId, services, userServiceId]);
+
   const selectedService = services.find((service) => String(service.id) === selectedServiceId);
   const requestServiceName =
     selectedService?.name ||
@@ -177,6 +218,7 @@ export default function PurchaseQuotesPage() {
             articleId: line.articleId || undefined,
             designation: line.designation,
             categorie: line.categorie || undefined,
+            unite: line.unite || undefined,
             quantite: line.quantite,
             prixUnitaire: line.prixUnitaire,
             tva: line.tva,
@@ -229,6 +271,7 @@ export default function PurchaseQuotesPage() {
               imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
+              unite: article?.unite || line.unite,
               quantite: line.quantite,
               prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
               tva: line.tva,

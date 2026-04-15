@@ -6,6 +6,7 @@ export type DpaDraftLine = {
   imageUrl?: string;
   designation: string;
   categorie: string;
+  unite?: string;
   quantite: number;
   prixUnitaire: number;
   tva: number;
@@ -16,6 +17,7 @@ export const createEmptyDpaDraftLine = (): DpaDraftLine => ({
   imageUrl: '',
   designation: '',
   categorie: '',
+  unite: '',
   quantite: 1,
   prixUnitaire: 0,
   tva: 18,

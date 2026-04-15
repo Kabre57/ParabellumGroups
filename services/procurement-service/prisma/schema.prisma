@@ -148,6 +148,7 @@ model LigneCommande {
   referenceArticle String?
   designation   String
   categorie     String?
+  unite         String?
   quantite      Int
   prixUnitaire  Decimal     @db.Decimal(10, 2)
   tva           Decimal     @db.Decimal(5, 2) @default(0) // % de TVA
@@ -169,6 +170,7 @@ model LigneDemandeAchat {
   referenceArticle String?
   designation    String
   categorie      String?
+  unite          String?
   quantite       Int
   prixUnitaire   Decimal      @db.Decimal(10, 2)
   tva            Decimal      @db.Decimal(5, 2) @default(0)
@@ -240,6 +242,7 @@ model LigneProforma {
   referenceArticle String?
   designation     String
   categorie       String?
+  unite           String?
   quantite        Int
   prixUnitaire    Decimal   @db.Decimal(10, 2)
   tva             Decimal   @db.Decimal(5, 2) @default(0)

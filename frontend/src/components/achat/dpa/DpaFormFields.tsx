@@ -24,6 +24,7 @@ interface DpaFormFieldsProps {
   onNotesChange: (value: string) => void;
   description: string;
   onDescriptionChange: (value: string) => void;
+  servicePlaceholder?: string;
   disabled?: boolean;
 }
 
@@ -45,8 +46,11 @@ export function DpaFormFields({
   onNotesChange,
   description,
   onDescriptionChange,
+  servicePlaceholder = 'Sélectionner un service associé',
   disabled = false,
 }: DpaFormFieldsProps) {
+  const hasServices = services.length > 0;
+
   return (
     <div className="space-y-4 pb-2">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -57,15 +61,22 @@ export function DpaFormFields({
               value={selectedServiceId}
               onChange={(event) => onServiceChange(event.target.value)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              disabled={disabled}
+              disabled={disabled || (!hasServices && !selectedServiceId)}
             >
-              <option value="">Sélectionner un service associé</option>
+              <option value="">
+                {hasServices ? servicePlaceholder : 'Aucun service disponible pour cette entreprise'}
+              </option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.name}
                 </option>
               ))}
             </select>
+            {!hasServices ? (
+              <p className="text-xs text-muted-foreground">
+                La liste des services renvoyee par l&apos;API est vide pour l&apos;entreprise rattachee a ce compte.
+              </p>
+            ) : null}
           </div>
         ) : null}
 

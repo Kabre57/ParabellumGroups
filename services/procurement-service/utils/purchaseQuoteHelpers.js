@@ -7,6 +7,7 @@ const roundCurrency = (value) => Math.round((normalizeNumber(value) + Number.EPS
 
 const buildQuoteLine = (ligne = {}) => {
   const designation = String(ligne.designation || ligne.nom || ligne.label || '').trim();
+  const unite = String(ligne.unite || ligne.unit || '').trim() || null;
   const quantite = Math.max(1, Math.trunc(normalizeNumber(ligne.quantite ?? ligne.quantity ?? ligne.qty, 1)));
   const prixUnitaire = Math.max(0, normalizeNumber(ligne.prixUnitaire ?? ligne.unitPrice ?? ligne.unit_price, 0));
   const tva = Math.min(100, Math.max(0, normalizeNumber(ligne.tva ?? ligne.tauxTVA ?? ligne.vatRate, 0)));
@@ -18,6 +19,7 @@ const buildQuoteLine = (ligne = {}) => {
     referenceArticle: ligne.referenceArticle || ligne.reference || null,
     designation,
     categorie: ligne.categorie || ligne.category || null,
+    unite,
     quantite,
     prixUnitaire,
     tva,
@@ -125,6 +127,7 @@ const serializeProforma = (proforma = {}) => ({
         referenceArticle: ligne.referenceArticle || null,
         designation: ligne.designation,
         categorie: ligne.categorie || null,
+        unite: ligne.unite || null,
         quantite: ligne.quantite,
         prixUnitaire: Number(ligne.prixUnitaire ?? 0),
         tva: Number(ligne.tva ?? 0),
@@ -214,6 +217,7 @@ const serializeQuote = (demande = {}) => {
           referenceArticle: ligne.referenceArticle || null,
           designation: ligne.designation,
           categorie: ligne.categorie || null,
+          unite: ligne.unite || null,
           quantite: ligne.quantite,
           prixUnitaire: Number(ligne.prixUnitaire ?? 0),
           tva: Number(ligne.tva ?? 0),
@@ -270,6 +274,7 @@ const serializeOrder = (bon = {}) => ({
         referenceArticle: ligne.referenceArticle || null,
         designation: ligne.designation,
         categorie: ligne.categorie || null,
+        unite: ligne.unite || null,
         quantity: ligne.quantite,
         quantite: ligne.quantite,
         unitPrice: Number(ligne.prixUnitaire ?? 0),

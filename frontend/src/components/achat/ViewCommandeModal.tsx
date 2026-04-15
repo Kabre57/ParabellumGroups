@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { procurementService } from "@/services/procurement";
 import PurchaseOrderPrint from "@/components/printComponents/PurchaseOrderPrint";
 import { adminServicesService } from "@/shared/api/admin/admin.service";
+import { inventoryService } from "@/shared/api/inventory/inventory.service";
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +17,20 @@ interface Props {
 
 export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const formatArticleUnit = (unit?: string | null) => {
+    switch (unit) {
+      case "PIECE":
+        return "Piece";
+      case "KG":
+        return "Kg";
+      case "M":
+        return "Metre";
+      case "L":
+        return "Litre";
+      default:
+        return unit || "—";
+    }
+  };
   const { data: fullOrderResponse } = useQuery({
     queryKey: ["purchase-order-modal-detail", order?.id],
     queryFn: () => procurementService.getOrder(order?.id || ""),
@@ -29,7 +44,14 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
     enabled: isOpen,
     staleTime: 5 * 60 * 1000,
   });
+  const { data: articlesResponse } = useQuery({
+    queryKey: ["purchase-order-view-articles"],
+    queryFn: () => inventoryService.getArticles(),
+    enabled: isOpen,
+    staleTime: 5 * 60 * 1000,
+  });
   const lines = effectiveOrder?.itemsDetail || effectiveOrder?.lignes || [];
+  const articleMap = new Map((articlesResponse?.data || []).map((article: any) => [article.id, article]));
   const supplierName = effectiveOrder?.supplier || effectiveOrder?.supplierName || "";
   const serviceLogoUrl =
     servicesResponse?.data?.find((service: any) => service.name === effectiveOrder?.serviceName)?.imageUrl || null;
@@ -97,6 +119,7 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
                 <tr>
                   <th className="px-4 py-3 font-medium">Désignation</th>
                   <th className="px-4 py-3 font-medium">Qté</th>
+                  <th className="px-4 py-3 font-medium">Unité</th>
                   <th className="px-4 py-3 font-medium">PU</th>
                   <th className="px-4 py-3 font-medium">TVA %</th>
                   <th className="px-4 py-3 font-medium">Total TTC</th>
@@ -107,6 +130,9 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
                   <tr key={item.id || item.designation} className="border-t">
                     <td className="px-4 py-3">{item.designation}</td>
                     <td className="px-4 py-3">{item.quantity ?? item.quantite}</td>
+                    <td className="px-4 py-3">
+                      {formatArticleUnit(item.unite || (item.articleId ? articleMap.get(item.articleId)?.unite : null))}
+                    </td>
                     <td className="px-4 py-3">
                       {(item.unitPrice ?? item.prixUnitaire ?? 0).toLocaleString("fr-FR", {
                         minimumFractionDigits: 2,
@@ -124,7 +150,7 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
                 ))}
                 {lines.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                       Aucune ligne disponible.
                     </td>
                   </tr>
@@ -177,6 +203,7 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
       {isPrintOpen && (
         <PurchaseOrderPrint
           order={effectiveOrder}
+          articles={articlesResponse?.data || []}
           serviceLogoUrl={serviceLogoUrl}
           onClose={() => setIsPrintOpen(false)}
         />

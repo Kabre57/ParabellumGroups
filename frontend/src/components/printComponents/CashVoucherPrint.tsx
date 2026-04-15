@@ -5,7 +5,6 @@ import PrintLayout from './PrintLayout';
 import { formatFCFA, formatFCFAInWords, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 import type { Encaissement, Decaissement } from '@/shared/api/billing';
-import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface CashVoucherPrintProps {
   voucher: (Encaissement | Decaissement) & { flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT' };
@@ -17,10 +16,12 @@ interface CashVoucherPrintProps {
 export default function CashVoucherPrint({
   voucher,
   onClose,
-  companyName = 'PROGI-TECK',
+  companyName,
   logoSrc,
 }: CashVoucherPrintProps) {
-  const resolvedLogo = resolvePrintLogo(logoSrc);
+  const { companyName: enterpriseName, logoSrc: enterpriseLogoSrc } = useEnterpriseLogo();
+  const effectiveCompanyName = enterpriseName || companyName || 'PROGI-TECK';
+  const resolvedLogo = resolvePrintLogo(logoSrc ?? enterpriseLogoSrc);
   const isEncaissement = voucher.flowType === 'ENCAISSEMENT' || ('clientName' in voucher);
   const voucherNumber = 'numeroPiece' in voucher ? voucher.numeroPiece : (voucher as any).voucherNumber;
   const issueDate = 'dateEncaissement' in voucher ? voucher.dateEncaissement : ('dateDecaissement' in voucher ? voucher.dateDecaissement : (voucher as any).issueDate);

@@ -47,6 +47,7 @@ const buildLignePayload = (ligne) => {
     referenceArticle: ligne.referenceArticle || ligne.reference || null,
     designation: ligne.designation,
     categorie: ligne.categorie || ligne.category || null,
+    unite: String(ligne.unite || ligne.unit || '').trim() || null,
     quantite,
     prixUnitaire,
     tva,
@@ -275,6 +276,7 @@ exports.createFromProforma = async (req, res) => {
             referenceArticle: ligne.referenceArticle,
             designation: ligne.designation,
             categorie: ligne.categorie,
+            unite: ligne.unite,
             quantite: ligne.quantite,
             prixUnitaire: ligne.prixUnitaire,
             tva: ligne.tva,
@@ -455,13 +457,13 @@ exports.update = async (req, res) => {
 exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
-    const { designation, quantite, prixUnitaire, tva = 0 } = req.body;
+    const { designation, quantite, prixUnitaire, tva = 0, unite } = req.body;
 
     if (!designation || !quantite || !prixUnitaire) {
       return res.status(400).json({ error: 'designation, quantite et prixUnitaire sont requis' });
     }
 
-    const payload = buildLignePayload({ designation, quantite, prixUnitaire, tva });
+    const payload = buildLignePayload({ designation, quantite, prixUnitaire, tva, unite });
 
     const ligne = await prisma.ligneCommande.create({
       data: {

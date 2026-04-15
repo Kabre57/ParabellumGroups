@@ -13,6 +13,21 @@ interface PurchaseRequestPrintProps {
   onClose: () => void;
 }
 
+const formatArticleUnit = (unit?: string | null) => {
+  switch (unit) {
+    case 'PIECE':
+      return 'Piece';
+    case 'KG':
+      return 'Kg';
+    case 'M':
+      return 'Metre';
+    case 'L':
+      return 'Litre';
+    default:
+      return unit || '-';
+  }
+};
+
 export default function PurchaseRequestPrint({
   request,
   supplier,
@@ -40,7 +55,7 @@ export default function PurchaseRequestPrint({
         imageUrl: line.imageUrl || (line.articleId ? articleMap.get(line.articleId)?.imageUrl || null : null),
         designation: line.designation,
         quantity: line.quantite,
-        unit: line.categorie || '-',
+        unit: formatArticleUnit(line.unite || (line.articleId ? articleMap.get(line.articleId)?.unite || null : null)),
         unitPrice: line.prixUnitaire,
         vatRate: line.tva,
         totalHT: line.montantHT,

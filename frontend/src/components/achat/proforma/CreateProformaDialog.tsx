@@ -21,6 +21,7 @@ type DraftLine = {
   imageUrl?: string;
   designation: string;
   categorie: string;
+  unite?: string;
   quantite: number;
   prixUnitaire: number;
   tva: number;
@@ -31,6 +32,7 @@ const emptyLine = (): DraftLine => ({
   imageUrl: '',
   designation: '',
   categorie: '',
+  unite: '',
   quantite: 1,
   prixUnitaire: 0,
   tva: 18,
@@ -108,6 +110,7 @@ export function CreateProformaDialog({
               imageUrl: article?.imageUrl || '',
               designation: article?.nom || line.designation,
               categorie: article?.categorie || '',
+              unite: article?.unite || line.unite,
               prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? 0),
             }
           : line
@@ -230,6 +233,7 @@ export function CreateProformaDialog({
                     articleId: line.articleId || null,
                     designation: line.designation,
                     categorie: line.categorie || null,
+                    unite: line.unite || null,
                     quantite: line.quantite,
                     prixUnitaire: line.prixUnitaire,
                     tva: line.tva,
