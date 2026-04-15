@@ -7,7 +7,7 @@ module.exports = {
       method: 'use',
       auth: false,
       pathRewrite: {
-        '^/api/storage': ''
+        '^/storage': ''
       }
     }
   ]
