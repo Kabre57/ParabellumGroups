@@ -101,7 +101,7 @@ export default function MissionOrderPrint({
             {missionTitle}
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, textTransform: 'uppercase' }}>
-            LE DIRECTEUR GENERAL DE LA SOCIETE PROGITECK SARL
+            LE DIRECTEUR GENERAL DE LA SOCIETE {(companyName || '').toUpperCase()}
           </div>
         </div>
 

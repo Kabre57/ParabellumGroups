@@ -2,6 +2,7 @@
 
 import React from 'react';
 import PrintLayout from './PrintLayout';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface ContractPrintProps {
   contract: {
@@ -34,6 +35,7 @@ const contractTypeLabels: Record<string, string> = {
 };
 
 export default function ContractPrint({ contract, onClose }: ContractPrintProps) {
+  const { companyName } = useEnterpriseLogo();
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -63,7 +65,7 @@ export default function ContractPrint({ contract, onClose }: ContractPrintProps)
           <h4 className="font-bold text-gray-700 mb-2">L'EMPLOYEUR:</h4>
           <div className="pl-4 space-y-1">
             <p className="text-gray-700">
-              <span className="font-semibold">Raison sociale:</span> PARABELLUM GROUP
+              <span className="font-semibold">Raison sociale:</span> {companyName || 'L\'ENTREPRISE'}
             </p>
             <p className="text-gray-700">
               <span className="font-semibold">IDU:</span> CI-2019-0046392 R

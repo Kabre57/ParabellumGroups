@@ -5,6 +5,7 @@ import type { PurchaseRequest } from '@/services/procurement';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import { resolveProcurementCriteriaProfile } from '@/components/achat/proforma/criteriaProfiles';
+import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 type CommissionDecisionRow = {
   proformaId: string;
@@ -53,10 +54,12 @@ export default function PurchaseCommissionPrint({
   serviceLogoUrl,
   onClose,
 }: PurchaseCommissionPrintProps) {
+  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
   const selectedRow = rows.find((row) => row.selectedForOrder) || null;
   const recommendedRow = rows.find((row) => row.recommendedForApproval) || null;
   const bestRow = [...rows].sort((left, right) => left.montantTTC - right.montantTTC)[0] || null;
-  const logoSrc = resolvePrintLogo(serviceLogoUrl);
+  const logoSrc = resolvePrintLogo(serviceLogoUrl ?? enterpriseLogo);
+  const resolvedCompanyName = enterpriseName || 'Parabellum Groups';
   const criteriaProfile = resolveProcurementCriteriaProfile(request);
 
   return (
@@ -66,9 +69,9 @@ export default function PurchaseCommissionPrint({
       meta={`Service : ${textOrDash(request.serviceName)}\nDate : ${formatPrintDate(new Date().toISOString(), true)}`}
       onClose={onClose}
       orientation="landscape"
-      companyName="Parabellum Groups"
+      companyName={resolvedCompanyName}
       logoSrc={logoSrc}
-      logoAlt={request.serviceName || 'Parabellum Groups'}
+      logoAlt={request.serviceName || resolvedCompanyName}
     >
       <div className="print-sheet">
         <div className="section-title">Contexte du devis interne</div>
