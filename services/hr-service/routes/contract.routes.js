@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contract.controller');
-const { authenticateUser } = require('../../shared/middleware/auth');
+const { authenticateUser } = require('../middleware/auth.middleware');
 const { body, validationResult } = require('express-validator');
 
 const validateContrat = [

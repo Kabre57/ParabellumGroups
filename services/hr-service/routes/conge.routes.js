@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const congeController = require('../controllers/conge.controller');
-const { authenticateUser } = require('../../shared/middleware/auth');
+const { authenticateUser } = require('../middleware/auth.middleware');
 const { body, validationResult } = require('express-validator');
 
 const validateConge = [

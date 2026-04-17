@@ -31,6 +31,22 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-bootstrap:
+    image: postgres:15-alpine
+    container_name: parabellum-db-bootstrap
+    restart: "no"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - ./scripts/postgres-bootstrap.sh:/scripts/postgres-bootstrap.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/postgres-bootstrap.sh"]
+
   redis:
     image: redis:alpine
     container_name: parabellum-redis
@@ -182,6 +198,7 @@ services:
   communication-service:
     build: ./services/communication-service
     container_name: communication-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4002:4002"
     environment:
@@ -194,13 +211,16 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - EMAIL_FROM=${EMAIL_FROM:-admin@parabellum-erp.online}
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   technical-service:
     build: ./services/technical-service
     container_name: technical-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4003:4003"
     environment:
@@ -219,9 +239,11 @@ services:
       - MINIO_USE_SSL=false
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
       - REPORT_LOGO_URL=http://frontend:3000/parabellum.jpg
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio:
@@ -230,6 +252,7 @@ services:
   commercial-service:
     build: ./services/commercial-service
     container_name: commercial-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4004:4004"
     environment:
@@ -237,13 +260,16 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_commercial?schema=public
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   inventory-service:
     build: ./services/inventory-service
     container_name: inventory-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4005:4005"
     environment:
@@ -258,13 +284,16 @@ services:
       - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
       - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
       - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   project-service:
     build: ./services/project-service
     container_name: project-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4006:4006"
     environment:
@@ -273,15 +302,18 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_projects?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   procurement-service:
     build: ./services/procurement-service
     container_name: procurement-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4007:4007"
     environment:
@@ -290,15 +322,18 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_procurement?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   customer-service:
     build: ./services/customer-service
     container_name: customer-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4008:4008"
     environment:
@@ -307,9 +342,11 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_customers?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
@@ -338,6 +375,7 @@ services:
   billing-service:
     build: ./services/billing-service
     container_name: billing-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4010:4010"
     environment:
@@ -353,15 +391,18 @@ services:
       - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
       - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
       - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   analytics-service:
     build: ./services/analytics-service
     container_name: analytics-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4011:4011"
     environment:
@@ -369,13 +410,16 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_Analytics?schema=public
       - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   notification-service:
     build: ./services/notification-service
     container_name: notification-service
+    entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4012:4012"
     environment:
@@ -383,9 +427,11 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_notification?schema=public
+    volumes:
+      - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
