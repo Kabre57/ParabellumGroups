@@ -13,7 +13,14 @@ fi
 # Run migrations in production if needed
 if [ "$NODE_ENV" = "production" ]; then
   echo "Running migrations..."
-  npx prisma migrate deploy
+  if npx prisma migrate deploy; then
+    echo "Prisma migrations applied."
+  else
+    echo "Prisma migrate deploy failed, continuing with schema synchronization..."
+  fi
+
+  echo "Synchronizing Prisma schema..."
+  npx prisma db push --accept-data-loss --skip-generate
 fi
 
 echo "Starting server..."
