@@ -232,7 +232,7 @@ export default function OpportunitiesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(stats.pipelineValue)}
+              {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(stats.pipelineValue)}
             </div>
           </CardContent>
         </Card>
@@ -317,7 +317,7 @@ export default function OpportunitiesPage() {
                       <td className="p-4 font-medium">{opp.nom}</td>
                       <td className="p-4">{clientMap.get(opp.clientId)?.nom || 'Inconnu'}</td>
                       <td className="p-4">
-                        {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(opp.montantEstime)}
+                        {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(opp.montantEstime)}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">

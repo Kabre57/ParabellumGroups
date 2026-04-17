@@ -47,7 +47,15 @@ interface CreateMissionModalProps {
 
 const formatAddressLabel = (address: Address) => {
   const header = [address.nomAdresse, address.typeAdresse].filter(Boolean).join(' - ');
-  const location = [address.ligne1, address.ligne2, address.codePostal, address.ville, address.pays]
+  const location = [
+    address.ligne1,
+    address.ligne2,
+    address.ligne3,
+    address.codePostal,
+    address.ville,
+    address.region,
+    address.pays,
+  ]
     .filter(Boolean)
     .join(', ');
 
@@ -55,7 +63,7 @@ const formatAddressLabel = (address: Address) => {
 };
 
 const formatAddressValue = (address: Address) =>
-  [address.ligne1, address.ligne2, address.codePostal, address.ville, address.pays]
+  [address.ligne1, address.ligne2, address.ligne3, address.codePostal, address.ville, address.region, address.pays]
     .filter(Boolean)
     .join(', ');
 

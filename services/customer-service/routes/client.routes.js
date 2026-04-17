@@ -11,43 +11,55 @@ const isGenericPhone = (value) => {
   return /^[+\d][\d\s().-]{5,}$/.test(trimmed);
 };
 
+const isIdu = (value) => /^CI-\d{4}-[A-Z0-9]{6,12}$/i.test(value.trim());
+const isAlphanumericId = (value) => /^[A-Z0-9/-]{6,30}$/i.test(value.trim());
+const isCodeActivite = (value) => value.trim().length <= 100;
+
 // Validation rules
 const createValidation = [
   body('nom').notEmpty().trim().withMessage('Le nom est requis'),
   body('email').isEmail().normalizeEmail().withMessage('Email invalide'),
   body('typeClientId').notEmpty().withMessage('Le type de client est requis'),
-  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numéro de téléphone invalide'),
-  body('siret').optional({ checkFalsy: true }).isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
-  body('tvaIntra').optional({ checkFalsy: true }).matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
+  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de telephone invalide'),
+  body('mobile').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de mobile invalide'),
+  body('fax').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de fax invalide'),
+  body('idu').optional({ checkFalsy: true }).custom(isIdu).withMessage('IDU invalide (format attendu: CI-YYYY-XXXXXXXK)'),
+  body('ncc').optional({ checkFalsy: true }).custom(isAlphanumericId).withMessage('NCC invalide'),
+  body('rccm').optional({ checkFalsy: true }).custom(isAlphanumericId).withMessage('RCCM invalide'),
+  body('codeActivite').optional({ checkFalsy: true }).custom(isCodeActivite).withMessage("Code d'activite invalide"),
 ];
 
 const updateValidation = [
-  body('nom').optional().notEmpty().trim().withMessage('Le nom ne peut pas être vide'),
+  body('nom').optional().notEmpty().trim().withMessage('Le nom ne peut pas etre vide'),
   body('email').optional().isEmail().normalizeEmail().withMessage('Email invalide'),
   body('typeClientId').optional().notEmpty().withMessage('Le type de client est requis'),
-  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numéro de téléphone invalide'),
-  body('siret').optional({ checkFalsy: true }).isLength({ min: 14, max: 14 }).withMessage('SIRET invalide (14 caractères)'),
-  body('tvaIntra').optional({ checkFalsy: true }).matches(/^[A-Z]{2}[0-9]{11}$/).withMessage('Numéro de TVA intracommunautaire invalide')
+  body('telephone').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de telephone invalide'),
+  body('mobile').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de mobile invalide'),
+  body('fax').optional({ checkFalsy: true }).custom(isGenericPhone).withMessage('Numero de fax invalide'),
+  body('idu').optional({ checkFalsy: true }).custom(isIdu).withMessage('IDU invalide (format attendu: CI-YYYY-XXXXXXXK)'),
+  body('ncc').optional({ checkFalsy: true }).custom(isAlphanumericId).withMessage('NCC invalide'),
+  body('rccm').optional({ checkFalsy: true }).custom(isAlphanumericId).withMessage('RCCM invalide'),
+  body('codeActivite').optional({ checkFalsy: true }).custom(isCodeActivite).withMessage("Code d'activite invalide"),
 ];
 
 const statusValidation = [
   body('status').isIn(['PROSPECT', 'ACTIF', 'INACTIF', 'SUSPENDU', 'ARCHIVE', 'LEAD_CHAUD', 'LEAD_FROID']).withMessage('Status invalide'),
-  body('raison').optional().isString().withMessage('La raison doit être une chaîne de caractères')
+  body('raison').optional().isString().withMessage('La raison doit etre une chaine de caracteres'),
 ];
 
 const priorityValidation = [
-  body('priorite').isIn(['BASSE', 'MOYENNE', 'HAUTE', 'CRITIQUE']).withMessage('Priorité invalide'),
-  body('raison').optional().isString().withMessage('La raison doit être une chaîne de caractères')
+  body('priorite').isIn(['BASSE', 'MOYENNE', 'HAUTE', 'CRITIQUE']).withMessage('Priorite invalide'),
+  body('raison').optional().isString().withMessage('La raison doit etre une chaine de caracteres'),
 ];
 
 // Query validation
 const queryValidation = [
-  query('page').optional().isInt({ min: 1 }).withMessage('La page doit être un nombre positif'),
-  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('La limite doit être entre 1 et 100'),
+  query('page').optional().isInt({ min: 1 }).withMessage('La page doit etre un nombre positif'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('La limite doit etre entre 1 et 100'),
   query('status').optional().isIn(['PROSPECT', 'ACTIF', 'INACTIF', 'SUSPENDU', 'ARCHIVE', 'LEAD_CHAUD', 'LEAD_FROID']).withMessage('Status invalide'),
-  query('priorite').optional().isIn(['BASSE', 'MOYENNE', 'HAUTE', 'CRITIQUE']).withMessage('Priorité invalide'),
+  query('priorite').optional().isIn(['BASSE', 'MOYENNE', 'HAUTE', 'CRITIQUE']).withMessage('Priorite invalide'),
   query('sortBy').optional().isIn(['nom', 'createdAt', 'updatedAt', 'scoreFidelite', 'chiffreAffaireAnnuel']).withMessage('Champ de tri invalide'),
-  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Ordre de tri invalide')
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Ordre de tri invalide'),
 ];
 
 // Routes

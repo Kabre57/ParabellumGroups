@@ -49,6 +49,8 @@ interface AddressFormValues {
   ville: string;
   region?: string;
   pays: string;
+  coordonneesGps?: string;
+  informationsAcces?: string;
   isPrincipal: boolean;
 }
 
@@ -105,7 +107,11 @@ export default function AddressesPage() {
       const matchesSearch =
         (adresse.nomAdresse || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (adresse.ligne1 || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (adresse.ligne2 || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (adresse.ligne3 || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (adresse.codePostal || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (adresse.ville || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (adresse.informationsAcces || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesType = typeFilter === 'all' || adresse.typeAdresse === typeFilter;
@@ -126,7 +132,9 @@ export default function AddressesPage() {
       codePostal: '',
       ville: '',
       region: '',
-      pays: 'Cote d Ivoire',
+      pays: "Cote d'Ivoire",
+      coordonneesGps: '',
+      informationsAcces: '',
       isPrincipal: false,
     },
   });
@@ -144,7 +152,9 @@ export default function AddressesPage() {
         codePostal: editingAddress.codePostal || '',
         ville: editingAddress.ville || '',
         region: editingAddress.region || '',
-        pays: editingAddress.pays || 'Cote d Ivoire',
+        pays: editingAddress.pays || "Cote d'Ivoire",
+        coordonneesGps: editingAddress.coordonneesGps || '',
+        informationsAcces: editingAddress.informationsAcces || '',
         isPrincipal: !!editingAddress.isPrincipal,
       });
     } else {
@@ -158,7 +168,9 @@ export default function AddressesPage() {
         codePostal: '',
         ville: '',
         region: '',
-        pays: 'Cote d Ivoire',
+        pays: "Cote d'Ivoire",
+        coordonneesGps: '',
+        informationsAcces: '',
         isPrincipal: false,
       });
     }
@@ -197,7 +209,7 @@ export default function AddressesPage() {
     try {
       const payload = compactPayload({
         ...values,
-        pays: values.pays || 'Cote d Ivoire',
+        pays: values.pays || "Cote d'Ivoire",
       });
       if (editingAddress?.id) {
         await updateMutation.mutateAsync({ id: editingAddress.id, data: payload });
@@ -238,7 +250,7 @@ export default function AddressesPage() {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher..."
+                placeholder="Rechercher par quartier, commune, BP, repere..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
@@ -281,8 +293,8 @@ export default function AddressesPage() {
                   <tr>
                     <th className="text-left p-4 font-medium">Client</th>
                     <th className="text-left p-4 font-medium">Type</th>
-                    <th className="text-left p-4 font-medium">Adresse</th>
-                    <th className="text-left p-4 font-medium">Ville</th>
+                    <th className="text-left p-4 font-medium">Quartier / repere</th>
+                    <th className="text-left p-4 font-medium">Commune / ville</th>
                     <th className="text-left p-4 font-medium">Pays</th>
                     <th className="text-left p-4 font-medium">Principal</th>
                     {canUpdate && <th className="text-left p-4 font-medium">Actions</th>}
@@ -295,7 +307,16 @@ export default function AddressesPage() {
                       <td className="p-4">
                         <Badge variant="outline">{adresse.typeAdresse}</Badge>
                       </td>
-                      <td className="p-4">{adresse.ligne1}</td>
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span>{adresse.ligne1}</span>
+                          {(adresse.ligne2 || adresse.ligne3 || adresse.informationsAcces) && (
+                            <span className="text-xs text-muted-foreground">
+                              {[adresse.ligne2, adresse.ligne3, adresse.informationsAcces].filter(Boolean).join(' | ')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-4">{adresse.ville}</td>
                       <td className="p-4">{adresse.pays}</td>
                       <td className="p-4">
@@ -378,44 +399,44 @@ export default function AddressesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Nom adresse</label>
-                <Input {...form.register('nomAdresse')} />
+                <label className="block text-sm font-medium mb-1">Nom de l'adresse</label>
+                <Input {...form.register('nomAdresse')} placeholder="Siege social, depot Vridi..." />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Ligne 1 *</label>
-                <Input {...form.register('ligne1', { required: true })} />
+                <label className="block text-sm font-medium mb-1">Quartier *</label>
+                <Input {...form.register('ligne1', { required: true })} placeholder="Ex: Angre 7e tranche" />
                 {form.formState.errors.ligne1 && (
-                  <p className="text-xs text-red-600">Ligne 1 requise</p>
+                  <p className="text-xs text-red-600">Quartier requis</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Ligne 2</label>
-                <Input {...form.register('ligne2')} />
+                <label className="block text-sm font-medium mb-1">Rue / residence</label>
+                <Input {...form.register('ligne2')} placeholder="Ex: Rue L125, Residence Soleil" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Ligne 3</label>
-                <Input {...form.register('ligne3')} />
+                <label className="block text-sm font-medium mb-1">Repere visuel</label>
+                <Input {...form.register('ligne3')} placeholder="Ex: Non loin de la pharmacie" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Code postal</label>
-                <Input {...form.register('codePostal')} />
+                <label className="block text-sm font-medium mb-1">Boite postale (BP)</label>
+                <Input {...form.register('codePostal')} placeholder="Ex: 01 BP 456" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Ville *</label>
-                <Input {...form.register('ville', { required: true })} />
+                <label className="block text-sm font-medium mb-1">Commune / ville *</label>
+                <Input {...form.register('ville', { required: true })} placeholder="Ex: Cocody" />
                 {form.formState.errors.ville && (
-                  <p className="text-xs text-red-600">Ville requise</p>
+                  <p className="text-xs text-red-600">Commune ou ville requise</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Region</label>
-                <Input {...form.register('region')} />
+                <label className="block text-sm font-medium mb-1">District</label>
+                <Input {...form.register('region')} placeholder="Ex: District d'Abidjan" />
               </div>
 
               <div>
@@ -424,6 +445,16 @@ export default function AddressesPage() {
                 {form.formState.errors.pays && (
                   <p className="text-xs text-red-600">Pays requis</p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Coordonnees GPS</label>
+                <Input {...form.register('coordonneesGps')} placeholder="Ex: 5.348,-4.030" />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Infos d'acces</label>
+                <Input {...form.register('informationsAcces')} placeholder="Ex: Pres de l'allocodrome, portail gris" />
               </div>
 
               <div className="flex items-center gap-2">

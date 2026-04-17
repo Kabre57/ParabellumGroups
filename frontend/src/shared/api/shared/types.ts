@@ -163,8 +163,10 @@ export interface Customer {
   email: string;
   phoneNumber?: string;
   address?: Address;
-  siret?: string;
-  vatNumber?: string;
+  idu?: string;
+  ncc?: string;
+  rccm?: string;
+  codeActivite?: string;
   billingAddress?: Address;
   isActive: boolean;
   createdAt: string;
@@ -177,9 +179,11 @@ export interface Customer {
 export interface Address {
   street: string;
   city: string;
-  postalCode: string;
+  postalCode?: string;
   country: string;
   additionalInfo?: string;
+  district?: string;
+  landmark?: string;
 }
 
 /**

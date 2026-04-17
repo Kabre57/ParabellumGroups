@@ -5,7 +5,15 @@ const prisma = new PrismaClient();
 const CUSTOMERS_SERVICE_URL = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
 
 const formatAddressValue = (address) =>
-  [address?.ligne1, address?.ligne2, address?.codePostal, address?.ville, address?.pays]
+  [
+    address?.ligne1,
+    address?.ligne2,
+    address?.ligne3,
+    address?.codePostal,
+    address?.ville,
+    address?.region,
+    address?.pays,
+  ]
     .filter(Boolean)
     .join(', ');
 

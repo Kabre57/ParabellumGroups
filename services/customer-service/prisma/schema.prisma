@@ -171,7 +171,7 @@ model TypeClient {
 // Table des secteurs d'activité
 model SecteurActivite {
   id            String          @id @default(uuid())
-  codeNAF       String?         @unique
+  codeActivite  String?         @unique @map("codeNAF")
   libelle       String
   description   String?
   parentId      String?
@@ -190,7 +190,7 @@ model SecteurActivite {
   
   @@map("secteurs_activite")
   @@index([parentId])
-  @@index([codeNAF])
+  @@index([codeActivite])
 }
 
 // Table principale des clients
@@ -202,9 +202,10 @@ model Client {
   reference     String          @unique
   nom           String
   raisonSociale String?         // Pour les entreprises
-  siret         String?         @unique
-  tvaIntra      String?         @unique
-  ape           String?
+  idu           String?         @unique @map("siret")
+  ncc           String?         @unique @map("tvaIntra")
+  rccm          String?         @unique
+  codeActivite  String?         @map("ape")
   
   // ===== CLASSIFICATION =====
   typeClientId  String
@@ -333,10 +334,10 @@ model AdresseClient {
   ligne1        String
   ligne2        String?
   ligne3        String?
-  codePostal    String
+  codePostal    String?
   ville         String
   region        String?
-  pays          String        @default("côte d'ivoire")
+  pays          String        @default("Cote d'Ivoire")
   isPrincipal   Boolean       @default(false)
   coordonneesGps String?      // "lat,lng"
   informationsAcces String?
@@ -710,9 +711,9 @@ model PreferenceClient {
   id            String          @id @default(uuid())
   clientId      String          @unique
   langue        String          @default("fr")
-  fuseauHoraire String          @default("Europe/Paris")
+  fuseauHoraire String          @default("Africa/Abidjan")
   formatDate    String          @default("DD/MM/YYYY")
-  devise        String          @default("EUR")
+  devise        String          @default("XOF")
   
   // Communications
   accepteMarketing Boolean      @default(false)
@@ -1194,4 +1195,4 @@ model RelanceExecution {
   @@index([relanceId])
   @@index([clientId])
   @@index([statut])
-}
+}

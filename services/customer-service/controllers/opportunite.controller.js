@@ -199,9 +199,9 @@ exports.create = async (req, res) => {
           quantite: parseInt(produit.quantite || 1),
           prixUnitaire: parseFloat(produit.prixUnitaire),
           remise: produit.remise ? parseFloat(produit.remise) : null,
-          tva: parseFloat(produit.tva || 20),
+          tva: parseFloat(produit.tva || 18),
           montantHT: parseFloat(produit.prixUnitaire) * parseInt(produit.quantite || 1) * (1 - (parseFloat(produit.remise || 0) / 100)),
-          montantTTC: parseFloat(produit.prixUnitaire) * parseInt(produit.quantite || 1) * (1 - (parseFloat(produit.remise || 0) / 100)) * (1 + (parseFloat(produit.tva || 20) / 100))
+          montantTTC: parseFloat(produit.prixUnitaire) * parseInt(produit.quantite || 1) * (1 - (parseFloat(produit.remise || 0) / 100)) * (1 + (parseFloat(produit.tva || 18) / 100))
         }));
 
         await tx.ligneProduit.createMany({
@@ -508,9 +508,10 @@ exports.close = async (req, res) => {
             description: `Créé à partir de l'opportunité: ${existingOpportunite.nom}`,
             typeContrat: 'SERVICE',
             dateDebut: new Date(),
-            montantHT: parseFloat(montantFinal) / 1.2, // Assuming 20% VAT
+            montantHT: parseFloat(montantFinal) / 1.18,
             montantTTC: parseFloat(montantFinal),
-            tauxTVA: 20,
+            devise: 'XOF',
+            tauxTVA: 18,
             status: 'EN_ATTENTE_SIGNATURE',
             createdBy: req.user.id
           }
@@ -591,9 +592,9 @@ exports.addProduct = async (req, res) => {
         quantite: parseInt(productData.quantite || 1),
         prixUnitaire: parseFloat(productData.prixUnitaire),
         remise: productData.remise ? parseFloat(productData.remise) : null,
-        tva: parseFloat(productData.tva || 20),
+        tva: parseFloat(productData.tva || 18),
         montantHT: parseFloat(productData.prixUnitaire) * parseInt(productData.quantite || 1) * (1 - (parseFloat(productData.remise || 0) / 100)),
-        montantTTC: parseFloat(productData.prixUnitaire) * parseInt(productData.quantite || 1) * (1 - (parseFloat(productData.remise || 0) / 100)) * (1 + (parseFloat(productData.tva || 20) / 100))
+        montantTTC: parseFloat(productData.prixUnitaire) * parseInt(productData.quantite || 1) * (1 - (parseFloat(productData.remise || 0) / 100)) * (1 + (parseFloat(productData.tva || 18) / 100))
       }
     });
 

@@ -19,6 +19,9 @@ const emptyToUndefined = (value: unknown) => {
 };
 
 const phoneRegex = /^[+\d][\d\s().-]{5,}$/;
+const iduRegex = /^CI-\d{4}-[A-Z0-9]{7,8}$/i;
+const alphaNumRegex = /^[A-Z0-9\-/. ]+$/i;
+const websiteRegex = /^https?:\/\/.+/i;
 
 const sanitizeClientPayload = (data: ClientFormData) =>
   Object.fromEntries(
@@ -31,20 +34,35 @@ const clientSchema = z.object({
   email: z.string().email('Email invalide'),
   telephone: z.preprocess(
     emptyToUndefined,
-    z.string().regex(phoneRegex, 'Numéro de téléphone invalide').optional()
+    z.string().regex(phoneRegex, 'Numero de telephone invalide').optional()
   ),
   mobile: z.preprocess(
     emptyToUndefined,
-    z.string().regex(phoneRegex, 'Numéro de mobile invalide').optional()
+    z.string().regex(phoneRegex, 'Numero de mobile invalide').optional()
   ),
-  siteWeb: z.preprocess(emptyToUndefined, z.string().optional()),
-  siret: z.preprocess(
+  fax: z.preprocess(
     emptyToUndefined,
-    z.string().regex(/^\d{14}$/, 'SIRET invalide (14 chiffres)').optional()
+    z.string().regex(phoneRegex, 'Numero de fax invalide').optional()
   ),
-  tvaIntra: z.preprocess(
+  siteWeb: z.preprocess(
     emptyToUndefined,
-    z.string().regex(/^[A-Z]{2}[0-9]{11}$/, 'Numéro de TVA intracommunautaire invalide').optional()
+    z.string().regex(websiteRegex, 'URL invalide').optional()
+  ),
+  idu: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(iduRegex, 'IDU invalide (ex: CI-2024-1234567A)').optional()
+  ),
+  ncc: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(alphaNumRegex, 'NCC invalide').optional()
+  ),
+  rccm: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(alphaNumRegex, 'RCCM invalide').optional()
+  ),
+  codeActivite: z.preprocess(
+    emptyToUndefined,
+    z.string().regex(alphaNumRegex, "Code d'activite invalide").optional()
   ),
   typeClientId: z.string().min(1, 'Le type de client est requis'),
   status: z.string().default('PROSPECT'),
@@ -83,9 +101,12 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
           email: customer.email,
           telephone: customer.telephone || '',
           mobile: customer.mobile || '',
+          fax: customer.fax || '',
           siteWeb: customer.siteWeb || '',
-          siret: customer.siret || '',
-          tvaIntra: customer.tvaIntra || '',
+          idu: customer.idu || '',
+          ncc: customer.ncc || '',
+          rccm: customer.rccm || '',
+          codeActivite: customer.codeActivite || '',
           typeClientId: customer.typeClientId,
           status: customer.status,
           priorite: customer.priorite,
@@ -131,25 +152,25 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Informations générales</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h3 className="mb-4 text-lg font-semibold">Informations generales</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <Label htmlFor="nom">Nom / Nom de l&apos;entreprise *</Label>
             <Input
               id="nom"
               {...register('nom')}
-              placeholder="Acme Corp ou Jean Dupont"
+              placeholder="Ex: Societe Ivoirienne de Services"
               className="mt-1"
             />
-            {errors.nom && <p className="text-sm text-red-500 mt-1">{errors.nom.message}</p>}
+            {errors.nom && <p className="mt-1 text-sm text-red-500">{errors.nom.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="raisonSociale">Raison Sociale</Label>
+            <Label htmlFor="raisonSociale">Raison sociale</Label>
             <Input
               id="raisonSociale"
               {...register('raisonSociale')}
-              placeholder="SARL Acme"
+              placeholder="Ex: SARL S2I"
               className="mt-1"
             />
           </div>
@@ -159,16 +180,18 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
             <select
               id="typeClientId"
               {...register('typeClientId')}
-              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"
               disabled={isLoadingTypes}
             >
-              <option value="">Sélectionner un type</option>
-              {typeClients.filter((t: any) => t.isActive).map((t: any) => (
-                <option key={t.id} value={t.id}>{t.libelle}</option>
+              <option value="">Selectionner un type</option>
+              {typeClients.filter((typeClient: any) => typeClient.isActive).map((typeClient: any) => (
+                <option key={typeClient.id} value={typeClient.id}>
+                  {typeClient.libelle}
+                </option>
               ))}
             </select>
             {errors.typeClientId && (
-              <p className="text-sm text-red-500 mt-1">{errors.typeClientId.message}</p>
+              <p className="mt-1 text-sm text-red-500">{errors.typeClientId.message}</p>
             )}
           </div>
 
@@ -177,23 +200,23 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
             <select
               id="status"
               {...register('status')}
-              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"
             >
               <option value="PROSPECT">Prospect</option>
               <option value="ACTIF">Actif</option>
               <option value="INACTIF">Inactif</option>
               <option value="SUSPENDU">Suspendu</option>
-              <option value="LEAD_CHAUD">Lead Chaud</option>
-              <option value="LEAD_FROID">Lead Froid</option>
+              <option value="LEAD_CHAUD">Lead chaud</option>
+              <option value="LEAD_FROID">Lead froid</option>
             </select>
           </div>
 
           <div>
-            <Label htmlFor="priorite">Priorité</Label>
+            <Label htmlFor="priorite">Priorite</Label>
             <select
               id="priorite"
               {...register('priorite')}
-              className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background"
+              className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3"
             >
               <option value="BASSE">Basse</option>
               <option value="MOYENNE">Moyenne</option>
@@ -205,28 +228,29 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Contact & Identifiants</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h3 className="mb-4 text-lg font-semibold">Contact principal</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               type="email"
               {...register('email')}
-              placeholder="contact@example.com"
+              placeholder="contact@entreprise.ci"
               className="mt-1"
             />
-            {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
+            {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="telephone">Téléphone fixe</Label>
+            <Label htmlFor="telephone">Telephone fixe</Label>
             <Input
               id="telephone"
               {...register('telephone')}
-              placeholder="+33 1 23 45 67 89"
+              placeholder="+225 27 22 00 00 00"
               className="mt-1"
             />
+            {errors.telephone && <p className="mt-1 text-sm text-red-500">{errors.telephone.message}</p>}
           </div>
 
           <div>
@@ -234,39 +258,81 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
             <Input
               id="mobile"
               {...register('mobile')}
-              placeholder="+33 6 12 34 56 78"
+              placeholder="+225 07 00 00 00 00"
               className="mt-1"
             />
+            {errors.mobile && <p className="mt-1 text-sm text-red-500">{errors.mobile.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="siteWeb">Site Web</Label>
+            <Label htmlFor="fax">Fax</Label>
+            <Input
+              id="fax"
+              {...register('fax')}
+              placeholder="+225 27 21 00 00 00"
+              className="mt-1"
+            />
+            {errors.fax && <p className="mt-1 text-sm text-red-500">{errors.fax.message}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="siteWeb">Site web</Label>
             <Input
               id="siteWeb"
               {...register('siteWeb')}
-              placeholder="https://www.example.com"
+              placeholder="https://www.entreprise.ci"
               className="mt-1"
             />
+            {errors.siteWeb && <p className="mt-1 text-sm text-red-500">{errors.siteWeb.message}</p>}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="mb-4 text-lg font-semibold">Identification ivoirienne</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="idu">IDU</Label>
+            <Input
+              id="idu"
+              {...register('idu')}
+              placeholder="CI-2024-1234567A"
+              className="mt-1"
+            />
+            {errors.idu && <p className="mt-1 text-sm text-red-500">{errors.idu.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="siret">SIRET</Label>
+            <Label htmlFor="ncc">NCC</Label>
             <Input
-              id="siret"
-              {...register('siret')}
-              placeholder="123 456 789 00012"
+              id="ncc"
+              {...register('ncc')}
+              placeholder="1234567A"
               className="mt-1"
             />
+            {errors.ncc && <p className="mt-1 text-sm text-red-500">{errors.ncc.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="tvaIntra">TVA Intracommunautaire</Label>
+            <Label htmlFor="rccm">RCCM</Label>
             <Input
-              id="tvaIntra"
-              {...register('tvaIntra')}
-              placeholder="FR12345678901"
+              id="rccm"
+              {...register('rccm')}
+              placeholder="CI-ABJ-03-2024-B12-34567"
               className="mt-1"
             />
+            {errors.rccm && <p className="mt-1 text-sm text-red-500">{errors.rccm.message}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="codeActivite">Code activite</Label>
+            <Input
+              id="codeActivite"
+              {...register('codeActivite')}
+              placeholder="Commerce general"
+              className="mt-1"
+            />
+            {errors.codeActivite && <p className="mt-1 text-sm text-red-500">{errors.codeActivite.message}</p>}
           </div>
         </div>
       </Card>
@@ -278,7 +344,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
           </Button>
         )}
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer'}
+          {isLoading ? 'Enregistrement...' : isEditing ? 'Mettre a jour' : 'Creer'}
         </Button>
       </div>
     </form>

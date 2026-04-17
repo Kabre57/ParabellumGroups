@@ -5,28 +5,30 @@ const { authMiddleware, requireManager } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Validation rules
+const codeActiviteValidator = body('codeActivite')
+  .optional()
+  .matches(/^[A-Z0-9.\-/ ]{2,20}$/i)
+  .withMessage("Format du code d'activite invalide");
+
 const createValidation = [
-  body('libelle').notEmpty().trim().withMessage('Le libellé est requis'),
-  body('codeNAF').optional().matches(/^\d{2}\.\d{2}[A-Z]$/).withMessage('Format code NAF invalide (ex: 62.01Z)'),
-  body('description').optional().isString().withMessage('La description doit être une chaîne de caractères'),
-  body('parentId').optional().isString().withMessage('L\'ID parent doit être une chaîne de caractères')
+  body('libelle').notEmpty().trim().withMessage('Le libelle est requis'),
+  codeActiviteValidator,
+  body('description').optional().isString().withMessage('La description doit etre une chaine de caracteres'),
+  body('parentId').optional().isString().withMessage("L'ID parent doit etre une chaine de caracteres"),
 ];
 
 const updateValidation = [
-  body('libelle').optional().notEmpty().trim().withMessage('Le libellé ne peut pas être vide'),
-  body('codeNAF').optional().matches(/^\d{2}\.\d{2}[A-Z]$/).withMessage('Format code NAF invalide (ex: 62.01Z)'),
-  body('description').optional().isString().withMessage('La description doit être une chaîne de caractères'),
-  body('parentId').optional().isString().withMessage('L\'ID parent doit être une chaîne de caractères')
+  body('libelle').optional().notEmpty().trim().withMessage('Le libelle ne peut pas etre vide'),
+  codeActiviteValidator,
+  body('description').optional().isString().withMessage('La description doit etre une chaine de caracteres'),
+  body('parentId').optional().isString().withMessage("L'ID parent doit etre une chaine de caracteres"),
 ];
 
-// Query validation
 const queryValidation = [
-  query('parentId').optional().isString().withMessage('L\'ID parent doit être une chaîne de caractères'),
-  query('niveau').optional().isInt({ min: 1 }).withMessage('Le niveau doit être un nombre positif')
+  query('parentId').optional().isString().withMessage("L'ID parent doit etre une chaine de caracteres"),
+  query('niveau').optional().isInt({ min: 1 }).withMessage('Le niveau doit etre un nombre positif'),
 ];
 
-// Routes
 router.get('/', authMiddleware, queryValidation, secteurController.getAll);
 router.get('/tree', authMiddleware, secteurController.getTree);
 router.post('/', authMiddleware, requireManager, createValidation, secteurController.create);

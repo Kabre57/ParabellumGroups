@@ -176,8 +176,8 @@ export default function ContractsPage() {
       dateEffet: '',
       montantHT: '',
       montantTTC: '',
-      tauxTVA: '20',
-      devise: 'EUR',
+      tauxTVA: '18',
+      devise: 'XOF',
       status: 'BROUILLON',
       periodicitePaiement: '',
       jourPaiement: '',
@@ -203,8 +203,8 @@ export default function ContractsPage() {
       dateEffet: '',
       montantHT: '',
       montantTTC: '',
-      tauxTVA: '20',
-      devise: 'EUR',
+      tauxTVA: '18',
+      devise: 'XOF',
       status: 'BROUILLON',
       periodicitePaiement: '',
       jourPaiement: '',
@@ -371,7 +371,7 @@ export default function ContractsPage() {
                       <td className="p-4">{clientMap.get(contract.clientId)?.nom || 'Inconnu'}</td>
                       <td className="p-4">{contract.typeContrat}</td>
                       <td className="p-4">
-                        {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: contract.devise || 'EUR' }).format(contract.montantTTC)}
+                        {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: contract.devise || 'XOF' }).format(contract.montantTTC)}
                       </td>
                       <td className="p-4">{getStatusBadge(contract.status)}</td>
                       <td className="p-4">

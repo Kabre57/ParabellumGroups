@@ -62,10 +62,13 @@ type AddressFormValues = {
   nomAdresse?: string;
   ligne1: string;
   ligne2?: string;
+  ligne3?: string;
   codePostal?: string;
   ville: string;
   region?: string;
   pays: string;
+  coordonneesGps?: string;
+  informationsAcces?: string;
   isPrincipal: boolean;
 };
 
@@ -88,7 +91,16 @@ const INTERACTION_CHANNELS = ['TELEPHONE', 'EMAIL', 'EN_PERSONNE', 'VIDEO', 'CHA
 const INTERACTION_RESULTS = ['POSITIF', 'NEUTRE', 'NEGATIF', 'A_SUIVRE', 'A_RELANCER', 'TERMINE'];
 
 const formatAddress = (address: Address) =>
-  [address.nomAdresse, address.ligne1, address.ligne2, address.codePostal, address.ville, address.pays]
+  [
+    address.nomAdresse,
+    address.ligne1,
+    address.ligne2,
+    address.ligne3,
+    address.codePostal,
+    address.ville,
+    address.region,
+    address.pays,
+  ]
     .filter(Boolean)
     .join(', ');
 
@@ -196,10 +208,13 @@ export default function CustomerDetailPage() {
       nomAdresse: '',
       ligne1: '',
       ligne2: '',
+      ligne3: '',
       codePostal: '',
       ville: '',
       region: '',
-      pays: 'Cote d Ivoire',
+      pays: "Cote d'Ivoire",
+      coordonneesGps: '',
+      informationsAcces: '',
       isPrincipal: false,
     },
   });
@@ -262,10 +277,13 @@ export default function CustomerDetailPage() {
             nomAdresse: editingAddress.nomAdresse || '',
             ligne1: editingAddress.ligne1 || '',
             ligne2: editingAddress.ligne2 || '',
+            ligne3: editingAddress.ligne3 || '',
             codePostal: editingAddress.codePostal || '',
             ville: editingAddress.ville || '',
             region: editingAddress.region || '',
-            pays: editingAddress.pays || 'Cote d Ivoire',
+            pays: editingAddress.pays || "Cote d'Ivoire",
+            coordonneesGps: editingAddress.coordonneesGps || '',
+            informationsAcces: editingAddress.informationsAcces || '',
             isPrincipal: !!editingAddress.isPrincipal,
           }
         : {
@@ -274,10 +292,13 @@ export default function CustomerDetailPage() {
             nomAdresse: '',
             ligne1: '',
             ligne2: '',
+            ligne3: '',
             codePostal: '',
             ville: '',
             region: '',
-            pays: 'Cote d Ivoire',
+            pays: "Cote d'Ivoire",
+            coordonneesGps: '',
+            informationsAcces: '',
             isPrincipal: addresses.length === 0,
           }
     );
@@ -349,7 +370,7 @@ export default function CustomerDetailPage() {
       const payload = compactPayload({
         ...values,
         clientId: customerId,
-        pays: values.pays || 'Cote d Ivoire',
+        pays: values.pays || "Cote d'Ivoire",
       });
       if (editingAddress?.id) {
         await updateAddressMutation.mutateAsync({ id: editingAddress.id, data: payload });
@@ -486,7 +507,7 @@ export default function CustomerDetailPage() {
                 <p className="mt-1 text-gray-900 dark:text-white">{customer.email}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Téléphone</label>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Telephone</label>
                 <p className="mt-1 text-gray-900 dark:text-white">{customer.telephone || customer.mobile || '-'}</p>
               </div>
               <div>
@@ -502,8 +523,28 @@ export default function CustomerDetailPage() {
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Priorité</label>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Priorite</label>
                 <p className="mt-1 text-gray-900 dark:text-white">{customer.priorite}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">IDU</label>
+                <p className="mt-1 text-gray-900 dark:text-white">{customer.idu || '-'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">NCC</label>
+                <p className="mt-1 text-gray-900 dark:text-white">{customer.ncc || '-'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">RCCM</label>
+                <p className="mt-1 text-gray-900 dark:text-white">{customer.rccm || '-'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Code activite</label>
+                <p className="mt-1 text-gray-900 dark:text-white">{customer.codeActivite || '-'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Fax</label>
+                <p className="mt-1 text-gray-900 dark:text-white">{customer.fax || '-'}</p>
               </div>
             </div>
           </Card>
@@ -639,7 +680,7 @@ export default function CustomerDetailPage() {
                     setAddressDialogOpen(true);
                   }}
                 >
-                  Ajouter une adresse
+                  Ajouter une adresse CI
                 </Button>
               )}
             </div>
@@ -659,6 +700,11 @@ export default function CustomerDetailPage() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{address.typeAdresse}</p>
                     <p className="mt-2 font-medium text-gray-900 dark:text-white">{address.nomAdresse || 'Adresse client'}</p>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{formatAddress(address)}</p>
+                    {(address.coordonneesGps || address.informationsAcces) && (
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        {[address.coordonneesGps, address.informationsAcces].filter(Boolean).join(' | ')}
+                      </p>
+                    )}
                     {canManageAddresses && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {!address.isPrincipal && (
@@ -890,14 +936,14 @@ export default function CustomerDetailPage() {
       <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{editingAddress ? 'Modifier l’adresse' : 'Ajouter une adresse'}</DialogTitle>
-            <DialogDescription>Le client peut avoir autant d’adresses que nécessaire.</DialogDescription>
+            <DialogTitle>{editingAddress ? "Modifier l'adresse" : 'Ajouter une adresse CI'}</DialogTitle>
+            <DialogDescription>On capture ici une adresse adaptee au contexte ivoirien.</DialogDescription>
           </DialogHeader>
           <form onSubmit={submitAddress} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Nom de l’adresse</label>
-                <Input {...addressForm.register('nomAdresse')} placeholder="Siège, chantier, agence..." />
+                <label className="mb-1 block text-sm font-medium">Nom de l'adresse</label>
+                <Input {...addressForm.register('nomAdresse')} placeholder="Siege social, depot Vridi..." />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Type</label>
@@ -910,28 +956,40 @@ export default function CustomerDetailPage() {
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Adresse ligne 1</label>
-                <Input {...addressForm.register('ligne1', { required: true })} />
+                <label className="mb-1 block text-sm font-medium">Quartier</label>
+                <Input {...addressForm.register('ligne1', { required: true })} placeholder="Ex: Angre 7e tranche" />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Adresse ligne 2</label>
-                <Input {...addressForm.register('ligne2')} />
+                <label className="mb-1 block text-sm font-medium">Rue / residence</label>
+                <Input {...addressForm.register('ligne2')} placeholder="Ex: Rue L125, Residence Soleil" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium">Repere visuel</label>
+                <Input {...addressForm.register('ligne3')} placeholder="Ex: Non loin de la pharmacie" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Code postal</label>
-                <Input {...addressForm.register('codePostal')} />
+                <label className="mb-1 block text-sm font-medium">Boite postale (BP)</label>
+                <Input {...addressForm.register('codePostal')} placeholder="Ex: 01 BP 456" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Ville</label>
-                <Input {...addressForm.register('ville', { required: true })} />
+                <label className="mb-1 block text-sm font-medium">Commune / ville</label>
+                <Input {...addressForm.register('ville', { required: true })} placeholder="Ex: Cocody" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Région</label>
-                <Input {...addressForm.register('region')} />
+                <label className="mb-1 block text-sm font-medium">District</label>
+                <Input {...addressForm.register('region')} placeholder="Ex: District d'Abidjan" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Pays</label>
                 <Input {...addressForm.register('pays', { required: true })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Coordonnees GPS</label>
+                <Input {...addressForm.register('coordonneesGps')} placeholder="Ex: 5.348,-4.030" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium">Infos d'acces</label>
+                <Input {...addressForm.register('informationsAcces')} placeholder="Ex: Pres de l'allocodrome, portail gris" />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm">

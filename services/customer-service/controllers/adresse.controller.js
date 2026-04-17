@@ -96,10 +96,10 @@ exports.create = async (req, res) => {
       ligne1,
       ligne2: ligne2 || null,
       ligne3: ligne3 || null,
-      codePostal: codePostal || '',
+      codePostal: codePostal || null,
       ville,
       region: region || null,
-      pays: pays || 'Cote d Ivoire',
+      pays: pays || "Cote d'Ivoire",
       isPrincipal: Boolean(isPrincipal),
       coordonneesGps: coordonneesGps || null,
       informationsAcces: informationsAcces || null
@@ -247,7 +247,7 @@ exports.update = async (req, res) => {
     const updateData = Object.fromEntries(
       Object.entries(req.body || {}).map(([key, value]) => [
         key,
-        value === '' ? (key === 'codePostal' ? '' : null) : value
+        value === '' ? null : value
       ])
     );
 

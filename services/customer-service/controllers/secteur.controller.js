@@ -32,7 +32,7 @@ exports.getAll = async (req, res) => {
     if (search) {
       where.OR = [
         { libelle: { contains: search, mode: 'insensitive' } },
-        { codeNAF: { contains: search, mode: 'insensitive' } },
+        { codeActivite: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } }
       ];
     }
@@ -44,14 +44,14 @@ exports.getAll = async (req, res) => {
           select: {
             id: true,
             libelle: true,
-            codeNAF: true
+            codeActivite: true
           }
         },
         enfants: {
           select: {
             id: true,
             libelle: true,
-            codeNAF: true,
+            codeActivite: true,
             niveau: true
           }
         },
@@ -99,7 +99,7 @@ exports.getTree = async (req, res) => {
           select: {
             id: true,
             libelle: true,
-            codeNAF: true,
+            codeActivite: true,
             niveau: true,
             enfants: {
               select: {
@@ -161,22 +161,22 @@ exports.create = async (req, res) => {
     }
 
     const {
-      codeNAF,
+      codeActivite,
       libelle,
       description,
       parentId
     } = req.body;
 
-    // Check if codeNAF already exists
-    if (codeNAF) {
+    // Check if codeActivite already exists
+    if (codeActivite) {
       const existingSecteur = await prisma.secteurActivite.findUnique({
-        where: { codeNAF }
+        where: { codeActivite }
       });
 
       if (existingSecteur) {
         return res.status(409).json({
           success: false,
-          error: 'Un secteur avec ce code NAF existe déjà'
+          error: "Un secteur avec ce code d'activite existe déjà"
         });
       }
     }
@@ -200,7 +200,7 @@ exports.create = async (req, res) => {
 
     const secteur = await prisma.secteurActivite.create({
       data: {
-        codeNAF,
+        codeActivite,
         libelle,
         description,
         parentId: parentId || null,
@@ -211,7 +211,7 @@ exports.create = async (req, res) => {
           select: {
             id: true,
             libelle: true,
-            codeNAF: true
+            codeActivite: true
           }
         }
       }
@@ -234,7 +234,7 @@ exports.create = async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({
         success: false,
-        error: 'Un secteur avec ce code NAF existe déjà'
+        error: "Un secteur avec ce code d'activite existe déjà"
       });
     }
 
@@ -260,7 +260,7 @@ exports.getById = async (req, res) => {
           select: {
             id: true,
             libelle: true,
-            codeNAF: true,
+            codeActivite: true,
             description: true
           }
         },
@@ -410,7 +410,7 @@ exports.update = async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({
         success: false,
-        error: 'Un secteur avec ce code NAF existe déjà'
+        error: "Un secteur avec ce code d'activite existe déjà"
       });
     }
 
@@ -538,7 +538,7 @@ exports.getStats = async (req, res) => {
       select: {
         id: true,
         libelle: true,
-        codeNAF: true,
+        codeActivite: true,
         _count: {
           select: {
             clients: true
@@ -575,7 +575,7 @@ exports.getStats = async (req, res) => {
 };
 
 /**
- * Search sectors by code NAF or name
+ * Search sectors by code d'activite or name
  */
 exports.search = async (req, res) => {
   try {
@@ -592,14 +592,14 @@ exports.search = async (req, res) => {
       where: {
         OR: [
           { libelle: { contains: q, mode: 'insensitive' } },
-          { codeNAF: { contains: q, mode: 'insensitive' } },
+          { codeActivite: { contains: q, mode: 'insensitive' } },
           { description: { contains: q, mode: 'insensitive' } }
         ]
       },
       take: parseInt(limit),
       select: {
         id: true,
-        codeNAF: true,
+        codeActivite: true,
         libelle: true,
         description: true,
         niveau: true,
@@ -617,7 +617,7 @@ exports.search = async (req, res) => {
       },
       orderBy: {
         _relevance: {
-          fields: ['libelle', 'codeNAF', 'description'],
+          fields: ['libelle', 'codeActivite', 'description'],
           search: q,
           sort: 'desc'
         }

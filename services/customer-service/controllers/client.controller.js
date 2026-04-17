@@ -105,8 +105,10 @@ exports.getAll = async (req, res) => {
         { raisonSociale: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { telephone: { contains: search, mode: 'insensitive' } },
-        { siret: { contains: search, mode: 'insensitive' } },
-        { tvaIntra: { contains: search, mode: 'insensitive' } },
+        { idu: { contains: search, mode: 'insensitive' } },
+        { ncc: { contains: search, mode: 'insensitive' } },
+        { rccm: { contains: search, mode: 'insensitive' } },
+        { codeActivite: { contains: search, mode: 'insensitive' } },
         { reference: { contains: search, mode: 'insensitive' } }
       ];
     }
@@ -126,7 +128,7 @@ exports.getAll = async (req, res) => {
             select: { id: true, code: true, libelle: true, couleur: true }
           },
           secteurActivite: {
-            select: { id: true, libelle: true, codeNAF: true }
+            select: { id: true, libelle: true, codeActivite: true }
           },
           contacts: {
             where: { principal: true },
@@ -338,11 +340,16 @@ exports.create = async (req, res) => {
       email,
       telephone,
       mobile,
+      fax,
       siteWeb,
-      siret,
-      tvaIntra,
+      idu,
+      ncc,
+      rccm,
+      codeActivite,
       typeClientId,
       secteurActiviteId,
+      status = 'PROSPECT',
+      priorite = 'MOYENNE',
       source,
       chiffreAffaireAnnuel,
       effectif,
@@ -375,11 +382,16 @@ exports.create = async (req, res) => {
           email,
           telephone,
           mobile,
+          fax,
           siteWeb,
-          siret,
-          tvaIntra,
+          idu,
+          ncc,
+          rccm,
+          codeActivite,
           typeClientId,
           secteurActiviteId,
+          status,
+          priorite,
           source,
           chiffreAffaireAnnuel: chiffreAffaireAnnuel ? parseFloat(chiffreAffaireAnnuel) : null,
           effectif: effectif ? parseInt(effectif) : null,
@@ -982,8 +994,10 @@ exports.search = async (req, res) => {
           { raisonSociale: { contains: q, mode: 'insensitive' } },
           { email: { contains: q, mode: 'insensitive' } },
           { telephone: { contains: q, mode: 'insensitive' } },
-          { siret: { contains: q, mode: 'insensitive' } },
-          { tvaIntra: { contains: q, mode: 'insensitive' } },
+          { idu: { contains: q, mode: 'insensitive' } },
+          { ncc: { contains: q, mode: 'insensitive' } },
+          { rccm: { contains: q, mode: 'insensitive' } },
+          { codeActivite: { contains: q, mode: 'insensitive' } },
           { reference: { contains: q, mode: 'insensitive' } }
         ],
         status: { not: 'ARCHIVE' }
@@ -1037,3 +1051,4 @@ exports.search = async (req, res) => {
     });
   }
 };
+

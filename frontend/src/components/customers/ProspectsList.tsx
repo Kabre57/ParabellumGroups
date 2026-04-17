@@ -88,7 +88,7 @@ export default function ProspectsList({ onConvert }: ProspectsListProps) {
                       <div className="text-xs font-semibold text-green-600">
                         {new Intl.NumberFormat('fr-FR', {
                           style: 'currency',
-                          currency: 'EUR',
+                          currency: 'XOF',
                         }).format(prospect.potentialValue)}
                       </div>
                     )}

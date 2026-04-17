@@ -47,6 +47,8 @@ export interface Address {
   ville: string;
   region?: string;
   pays: string;
+  coordonneesGps?: string;
+  informationsAcces?: string;
   isPrincipal: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -66,7 +68,7 @@ export interface TypeClient {
 export interface SecteurActivite {
   id: string;
   libelle: string;
-  codeNAF?: string;
+  codeActivite?: string;
   niveau?: number;
   createdAt?: string;
 }
@@ -94,11 +96,14 @@ export interface Client {
   reference: string;
   nom: string;
   raisonSociale?: string;
-  siret?: string;
-  tvaIntra?: string;
+  idu?: string;
+  ncc?: string;
+  rccm?: string;
+  codeActivite?: string;
   email: string;
   telephone?: string;
   mobile?: string;
+  fax?: string;
   siteWeb?: string;
   status: 'PROSPECT' | 'ACTIF' | 'INACTIF' | 'SUSPENDU' | 'ARCHIVE' | 'LEAD_CHAUD' | 'LEAD_FROID';
   priorite: 'BASSE' | 'MOYENNE' | 'HAUTE' | 'CRITIQUE';
@@ -262,7 +267,7 @@ export interface DocumentsExpiring {
 
 export interface SecteurTreeItem {
   id: string;
-  codeNAF?: string;
+  codeActivite?: string;
   libelle: string;
   niveau?: number;
   enfants?: SecteurTreeItem[];

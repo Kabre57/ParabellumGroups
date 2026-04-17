@@ -58,7 +58,10 @@ export default function ClientsPage() {
         client.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (client.raisonSociale || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (client.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (client.reference || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (client.reference || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.idu || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.ncc || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.rccm || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -115,7 +118,7 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Clients</h1>
-        <p className="text-muted-foreground">Gerez vos clients et leurs informations</p>
+        <p className="text-muted-foreground">Gerez vos clients et leurs informations pour le contexte ivoirien</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -167,7 +170,7 @@ export default function ClientsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par nom, email, reference..."
+                placeholder="Rechercher par nom, reference, IDU, NCC, RCCM..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
@@ -211,6 +214,11 @@ export default function ClientsPage() {
                         <span>{client.nom}</span>
                         {client.raisonSociale && (
                           <span className="text-xs text-muted-foreground">{client.raisonSociale}</span>
+                        )}
+                        {(client.idu || client.rccm) && (
+                          <span className="text-xs text-muted-foreground">
+                            {[client.idu, client.rccm].filter(Boolean).join(' | ')}
+                          </span>
                         )}
                       </div>
                     </td>

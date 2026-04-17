@@ -13,7 +13,7 @@ const createValidation = [
   body('dateDebut').isISO8601().withMessage('Date de début invalide'),
   body('montantHT').isFloat({ min: 0 }).withMessage('Le montant HT doit être un nombre positif'),
   body('tauxTVA').optional().isFloat({ min: 0, max: 100 }).withMessage('Le taux de TVA doit être compris entre 0 et 100'),
-  body('devise').optional().isLength({ min: 3, max: 3 }).withMessage('La devise doit être sur 3 caractères (ex: EUR)')
+  body('devise').optional().isLength({ min: 3, max: 3 }).withMessage('La devise doit être sur 3 caractères (ex: XOF)')
 ];
 
 const statusValidation = [
