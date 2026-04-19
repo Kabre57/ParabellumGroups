@@ -86,6 +86,13 @@ const normalizeSource = (value) => {
   if (!normalized) return undefined;
   if (normalized.includes('linkedin') || normalized.includes('reseau') || normalized.includes('social')) return 'RESEAUX_SOCIAUX';
   if (normalized.includes('salon')) return 'SALON';
+  if (
+    normalized.includes('terrain') ||
+    normalized.includes('demarch') ||
+    normalized.includes('porte a porte')
+  ) {
+    return 'CAMPAGNE';
+  }
   if (normalized.includes('recommand') || normalized.includes('reference') || normalized.includes('referral')) return 'RECOMMANDATION';
   if (normalized.includes('partenaire') || normalized.includes('partner')) return 'PARTENAIRE';
   if (normalized.includes('site') || normalized.includes('web')) return 'SITE_WEB';

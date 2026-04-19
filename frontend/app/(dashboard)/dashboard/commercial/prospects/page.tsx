@@ -177,7 +177,7 @@ export default function ProspectionWorkflowPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Prospection commerciale</h1>
-          <p className="text-muted-foreground">Suivez vos prospects avec les reperes du marche ivoirien.</p>
+          <p className="text-muted-foreground">Suivez vos prospects.</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreateModal(true)}>

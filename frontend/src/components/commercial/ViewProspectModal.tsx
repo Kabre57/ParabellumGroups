@@ -34,18 +34,24 @@ const formatDate = (value?: string) => {
 };
 
 const formatCurrency = (value?: number) => {
-  if (!value) return 'Non defini';
+  if (value == null) return 'Non defini';
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(value);
 };
 
 const renderAddress = (prospect: Prospect) => {
+  const postalBox = prospect.postalCode
+    ? /(^|\b)bp\b/i.test(prospect.postalCode)
+      ? prospect.postalCode
+      : `BP ${prospect.postalCode}`
+    : null;
+
   return [
     prospect.address,
     prospect.address2,
     prospect.address3,
     prospect.city,
     prospect.region,
-    prospect.postalCode ? `BP ${prospect.postalCode}` : null,
+    postalBox,
     prospect.country,
   ]
     .filter(Boolean)
@@ -110,7 +116,7 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
               <section>
                 <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
                   <FileBadge2 className="mr-2 h-5 w-5 text-amber-600" />
-                  Identifiants ivoiriens
+                  Identifiants
                 </h4>
                 <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-3">
                   <Row label="IDU" value={prospect.idu} />
@@ -125,6 +131,7 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                   Contact principal
                 </h4>
                 <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                  <Row label="Civilite" value={prospect.civilite} />
                   <Row label="Nom du contact" value={prospect.contactName} />
                   <Row label="Poste" value={prospect.position} />
                   <div>
@@ -133,6 +140,17 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                       <a href={`mailto:${prospect.email}`} className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline">
                         <Mail className="mr-1 h-3 w-3" />
                         {prospect.email}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-gray-500">Email secondaire</p>
+                    {prospect.emailSecondaire ? (
+                      <a href={`mailto:${prospect.emailSecondaire}`} className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline">
+                        <Mail className="mr-1 h-3 w-3" />
+                        {prospect.emailSecondaire}
                       </a>
                     ) : (
                       <p className="text-sm font-medium text-gray-900">Non renseigne</p>
@@ -161,6 +179,22 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                     )}
                   </div>
                   <Row label="Fax" value={prospect.fax} />
+                  <div className="sm:col-span-2">
+                    <p className="mb-1 text-xs text-gray-500">LinkedIn</p>
+                    {prospect.linkedin ? (
+                      <a
+                        href={prospect.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        <Globe className="mr-1 h-3 w-3" />
+                        {prospect.linkedin}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
+                    )}
+                  </div>
                 </div>
               </section>
 
@@ -188,7 +222,10 @@ export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewPro
                   <Row label="Etape actuelle" value={stageLabelMap[prospect.stage]} />
                   <Row label="Priorite" value={priorityLabelMap[prospect.priority]} />
                   <Row label="Source" value={prospect.source} />
-                  <Row label="Probabilite de closing" value={prospect.closingProbability ? `${prospect.closingProbability}%` : undefined} />
+                  <Row
+                    label="Probabilite de closing"
+                    value={prospect.closingProbability == null ? undefined : `${prospect.closingProbability}%`}
+                  />
                   <Row label="Potentiel estime" value={formatCurrency(prospect.potentialValue)} />
                   <Row label="Cree le" value={formatDate(prospect.createdAt)} />
                 </div>

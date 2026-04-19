@@ -414,7 +414,7 @@ export function HRExecutiveDashboard() {
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Synthèse conformité CI</h2>
             <p className="text-sm text-muted-foreground">
-              Contrôle paie , obligations sociales et exports.
+              Controle paie ivoirienne, obligations sociales et exports.
             </p>
           </div>
           <div className="space-y-3">

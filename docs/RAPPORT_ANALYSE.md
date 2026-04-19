@@ -125,12 +125,12 @@ Le module RH repose sur le modèle **LOGIPAIE_RH** permettant une gestion fine d
 - **Workflows** : Processus d'embauche -> Saisie mensuelle -> Calcul -> Validation -> Paiement (Virement/Espèces).
 
 ### 8.2. Système de gestion des Achats (procurement-service)
-- **Circuit d'approbation** : Flow de validation multi-niveaux pour les Demandes d'Achat.
-- **Comparaison de Proformas** : Analyse comparative des offres fournisseurs avant validation du Bon de Commande.
-
-### 8.3. Système CRM (customer-service)
+- **Circuit d'approbation** : Flow de validation multi-niveaux pour les Demandes d'### 8.3. Système CRM (customer-service)
 - **Cycle de Vente** : Pipeline visuel des opportunités.
+- **Localisation Côte d'Ivoire** : Adaptation des fiches clients avec les identifiants locaux (**IDU, NCC, RCCM**) et codes d'activité (**Code NAF**).
+- **Gestion des Adresses (CI)** : Prise en compte de la structure locale (Commune, Quartier, Repère visuel, BP, District).
 - **360° Client** : Historique complet des interactions (appels, emails, réunions) et documents liés.
+- **Paramétrage** : Localisation des fuseaux horaires (Africa/Abidjan) et devise par défaut (XOF).
 
 ### 8.4. Comptabilité, Budget et Analytique (billing-service)
 - **Modèle Budgétaire** : Allocation par centres analytiques (`AnalyticCenter`) et suivi des versions de budget.
@@ -174,7 +174,3 @@ L'ERP est structuré en modules indépendants communiquant via des APIs REST syn
 
 ### 9.2. Analyse des processus "support"
 Chaque processus (Comptabilité, Budget, Patrimoine) possède son propre schéma de données isolé, garantissant l'intégrité et la confidentialité des informations sensibles.
-
-git add -A 
-git commit -m "adaptation du modèle et du flux client sur le backend et le frontend: Client utilise désormais idu, ncc, rccm, codeActivite et fax, SecteurActivite passe en codeActivite @map('codeNAF'), et l’adresse client est pensée CI avec quartier, rue/résidence, repère visuel, BP, commune, district, GPS et infos d’accès. J’ai aussi ajouté la migration migration.sql et aligné les defaults CRM dans schema.prisma sur Africa/Abidjan et XOF."
-git push origin main
