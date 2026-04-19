@@ -127,9 +127,11 @@ export function CreateDecaissementDialog({
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
-  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) =>
-    acc.type === 'EXPENSE' || acc.code.startsWith('6')
-  );
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => {
+    const normalizedType = String(acc?.type || '').toLowerCase();
+    const normalizedCode = String(acc?.code || '');
+    return normalizedType === 'expense' || normalizedCode.startsWith('6');
+  });
   const enterprises = enterprisesResponse?.data ?? [];
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
@@ -277,9 +279,13 @@ export function CreateDecaissementDialog({
                   <SelectValue placeholder="Sélectionner le compte de dépense" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accountingAccounts.map((acc: any) => (
-                    <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
-                  ))}
+                  {accountingAccounts.length === 0 ? (
+                    <SelectItem value="__no-expense-account__" disabled>Aucun compte de charge disponible</SelectItem>
+                  ) : (
+                    accountingAccounts.map((acc: any) => (
+                      <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

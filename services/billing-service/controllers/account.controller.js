@@ -4,6 +4,7 @@ const {
   accountTypeFromInput,
   ensureAccountingReadAccess,
   ensureAccountingWriteAccess,
+  ensureDefaultAccounts,
   getDynamicAccountTemplate,
   serializeAccountingAccount,
 } = require('../utils/accounting');
@@ -16,6 +17,8 @@ exports.getAllAccounts = async (req, res) => {
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }
+
+    await ensureDefaultAccounts(prisma, req.user);
 
     const accounts = await prisma.accountingAccount.findMany({
       where: { isActive: true },

@@ -125,9 +125,11 @@ export function CreateEncaissementDialog({
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
-  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) =>
-    acc.type === 'REVENUE' || acc.code.startsWith('7')
-  );
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => {
+    const normalizedType = String(acc?.type || '').toLowerCase();
+    const normalizedCode = String(acc?.code || '');
+    return normalizedType === 'revenue' || normalizedCode.startsWith('7');
+  });
   const enterprises = enterprisesResponse?.data ?? [];
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
@@ -265,9 +267,13 @@ export function CreateEncaissementDialog({
                 <SelectValue placeholder="Sélectionner le compte de produit" />
               </SelectTrigger>
               <SelectContent>
-                {accountingAccounts.map((acc: any) => (
-                  <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
-                ))}
+                {accountingAccounts.length === 0 ? (
+                  <SelectItem value="__no-revenue-account__" disabled>Aucun compte de produit disponible</SelectItem>
+                ) : (
+                  accountingAccounts.map((acc: any) => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
