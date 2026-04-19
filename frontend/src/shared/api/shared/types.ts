@@ -381,13 +381,15 @@ export type ProspectStage =
   | 'contact'
   | 'discovery'
   | 'proposal'
+  | 'negotiation'
+  | 'on_hold'
   | 'won'
   | 'lost';
 
 /**
  * Priorités des prospects
  */
-export type ProspectPriority = 'A' | 'B' | 'C';
+export type ProspectPriority = 'A' | 'B' | 'C' | 'D';
 
 /**
  * Types d'activité de prospection
@@ -407,17 +409,31 @@ export interface Prospect {
   id: string;
   companyName: string;
   contactName: string;
+  civilite?: string;
   position?: string;
   email?: string;
+  emailSecondaire?: string;
   phone?: string;
+  mobile?: string;
+  fax?: string;
+  linkedin?: string;
   website?: string;
   sector?: string;
+  idu?: string;
+  ncc?: string;
+  rccm?: string;
+  codeActivite?: string;
   employees?: number;
   revenue?: number;
   address?: string;
+  address2?: string;
+  address3?: string;
   city?: string;
   postalCode?: string;
+  region?: string;
   country: string;
+  gpsCoordinates?: string;
+  accessNotes?: string;
   stage: ProspectStage;
   priority: ProspectPriority;
   score: number;
@@ -474,17 +490,31 @@ export interface ProspectionStats {
 export interface CreateProspectRequest {
   companyName: string;
   contactName: string;
+  civilite?: string;
   position?: string;
   email?: string;
+  emailSecondaire?: string;
   phone?: string;
+  mobile?: string;
+  fax?: string;
+  linkedin?: string;
   website?: string;
   sector?: string;
+  idu?: string;
+  ncc?: string;
+  rccm?: string;
+  codeActivite?: string;
   employees?: number;
   revenue?: number;
   address?: string;
+  address2?: string;
+  address3?: string;
   city?: string;
   postalCode?: string;
+  region?: string;
   country?: string;
+  gpsCoordinates?: string;
+  accessNotes?: string;
   stage?: ProspectStage;
   priority?: ProspectPriority;
   source?: string;

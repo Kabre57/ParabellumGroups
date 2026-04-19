@@ -176,5 +176,5 @@ L'ERP est structuré en modules indépendants communiquant via des APIs REST syn
 Chaque processus (Comptabilité, Budget, Patrimoine) possède son propre schéma de données isolé, garantissant l'intégrité et la confidentialité des informations sensibles.
 
 git add -A 
-git commit -m "adaptation du modèle et du flux client sur le backend et le frontend: Client utilise désormais idu, ncc, rccm, codeActivite et fax, SecteurActivite passe en codeActivite @map("codeNAF"), et l’adresse client est pensée CI avec quartier, rue/résidence, repère visuel, BP, commune, district, GPS et infos d’accès. J’ai aussi ajouté la migration migration.sql et aligné les defaults CRM dans schema.prisma sur Africa/Abidjan et XOF."
+git commit -m "adaptation du modèle et du flux client sur le backend et le frontend: Client utilise désormais idu, ncc, rccm, codeActivite et fax, SecteurActivite passe en codeActivite @map('codeNAF'), et l’adresse client est pensée CI avec quartier, rue/résidence, repère visuel, BP, commune, district, GPS et infos d’accès. J’ai aussi ajouté la migration migration.sql et aligné les defaults CRM dans schema.prisma sur Africa/Abidjan et XOF."
 git push origin main

@@ -27,14 +27,34 @@ const setupLeafletIcons = () => {
   });
 };
 
+const parseGpsCoordinates = (value?: string) => {
+  if (!value) return null;
+  const [lat, lng] = value.split(',').map((item) => Number(item.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+};
+
+const buildAddressLabel = (prospect: Prospect) =>
+  [prospect.address, prospect.address2, prospect.address3, prospect.city, prospect.region, prospect.country]
+    .filter(Boolean)
+    .join(', ');
+
 const buildQuery = (prospect: Prospect) => {
-  const parts = [prospect.address, prospect.city, prospect.country].filter(Boolean);
+  const parts = [
+    prospect.address,
+    prospect.address2,
+    prospect.address3,
+    prospect.city,
+    prospect.region,
+    prospect.country,
+  ].filter(Boolean);
   return parts.join(', ');
 };
 
 const resolveZoneLabel = (prospect: Prospect, address?: Record<string, string>) => {
   return (
     prospect.city ||
+    prospect.region ||
     address?.city_district ||
     address?.suburb ||
     address?.neighbourhood ||
@@ -80,6 +100,17 @@ const useProspectLocations = (prospects: Prospect[]) => {
   const locations = useMemo<ProspectLocation[]>(() => {
     return prospects
       .map((prospect) => {
+        const gps = parseGpsCoordinates(prospect.gpsCoordinates);
+        if (gps) {
+          return {
+            id: prospect.id,
+            name: prospect.companyName,
+            zone: prospect.city || prospect.region || prospect.country || 'Zone inconnue',
+            address: buildAddressLabel(prospect),
+            lat: gps.lat,
+            lng: gps.lng,
+          };
+        }
         const cached = cachedLocations[prospect.id];
         if (!cached) return null;
         return {

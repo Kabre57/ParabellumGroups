@@ -289,7 +289,7 @@ export default function CustomerForm({ customer, onSuccess, onCancel }: Customer
       </Card>
 
       <Card className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Identification ivoirienne</h3>
+        <h3 className="mb-4 text-lg font-semibold">Identification</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="idu">IDU</Label>

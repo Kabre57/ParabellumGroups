@@ -261,7 +261,7 @@ export default function PaiePage() {
           <div>
             <h1 className="text-3xl font-bold">Paie</h1>
             <p className="mt-2 text-muted-foreground">
-              Gérez la paie ivoirienne, les bulletins, les obligations CNPS/DGI/CMU/ITS et les exports RH.
+              Gérez la paie , les bulletins, les obligations CNPS/DGI/CMU/ITS et les exports RH.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

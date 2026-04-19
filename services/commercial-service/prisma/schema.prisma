@@ -74,10 +74,11 @@ model Prospect {
   
   // ===== INFORMATIONS ENTREPRISE =====
   companyName       String
-  siret             String?             @unique
-  tvaIntra          String?             @unique
+  idu               String?             @unique @map("siret")
+  ncc               String?             @unique @map("tvaIntra")
+  rccm              String?             @unique
   secteurActivite   String?
-  codeNAF           String?
+  codeActivite      String?             @map("codeNAF")
   
   // ===== INFORMATIONS CONTACT =====
   contactName       String
@@ -87,15 +88,19 @@ model Prospect {
   emailSecondaire   String?
   phone             String?
   mobile            String?
+  fax               String?
   linkedin          String?
   
   // ===== INFORMATIONS GEOGRAPHIQUES =====
   address           String?
   address2          String?
+  address3          String?
   postalCode        String?
   city              String?
   region            String?
-  country           String              @default("Côte d'Ivoire")
+  country           String              @default("Cote d'Ivoire")
+  gpsCoordinates    String?
+  accessNotes       String?
   
   // ===== INFORMATIONS ENTREPRISE =====
   website           String?

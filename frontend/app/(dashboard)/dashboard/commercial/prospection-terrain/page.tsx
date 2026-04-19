@@ -49,6 +49,8 @@ export default function ProspectionTerrainPage() {
     const resolveZone = (prospect: Prospect) => {
       const city = (prospect.city || '').trim();
       if (city) return city;
+      const region = (prospect.region || '').trim();
+      if (region) return region;
       const address = (prospect.address || '').trim();
       if (address) return address.split(',')[0].trim();
       return (prospect.country || 'Non defini').trim();
@@ -203,7 +205,7 @@ export default function ProspectionTerrainPage() {
         <CardHeader>
           <CardTitle>Carte des zones</CardTitle>
           <CardDescription>
-            Planifiez les visites et regroupez les prospects par zone.
+            Planifiez les visites par quartier, commune et repere terrain.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -248,10 +250,10 @@ export default function ProspectionTerrainPage() {
                 <div key={id} className="grid gap-3 rounded-lg border px-4 py-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_auto] md:items-center">
                   <div>
                     <div className="text-sm font-medium">{prospect.companyName}</div>
-                    <div className="text-xs text-muted-foreground">{prospect.city || 'Zone a definir'}</div>
+                    <div className="text-xs text-muted-foreground">{prospect.city || prospect.region || 'Zone a definir'}</div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {prospect.address || 'Adresse non renseignee'}
+                    {[prospect.address, prospect.address2, prospect.address3].filter(Boolean).join(', ') || 'Adresse non renseignee'}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Visite: {scheduledAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -401,7 +403,7 @@ export default function ProspectionTerrainPage() {
               <Textarea
                 value={newVisit.note}
                 onChange={(event) => setNewVisit((prev) => ({ ...prev, note: event.target.value }))}
-                placeholder="Ajouter un contexte terrain..."
+                placeholder="Repere, objectif de passage, personne a voir..."
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">

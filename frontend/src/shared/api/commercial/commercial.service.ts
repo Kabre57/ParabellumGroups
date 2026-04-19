@@ -45,9 +45,18 @@ const normalizePriority = (value?: string): Prospect['priority'] => {
 const normalizeProspect = (prospect: any): Prospect => ({
   ...prospect,
   sector: prospect?.sector || prospect?.secteurActivite || '',
+  idu: prospect?.idu || prospect?.siret || '',
+  ncc: prospect?.ncc || prospect?.tvaIntra || '',
+  rccm: prospect?.rccm || '',
+  codeActivite: prospect?.codeActivite || prospect?.codeNAF || '',
+  address2: prospect?.address2 || '',
+  address3: prospect?.address3 || '',
+  region: prospect?.region || '',
+  gpsCoordinates: prospect?.gpsCoordinates || prospect?.coordonneesGps || '',
+  accessNotes: prospect?.accessNotes || prospect?.informationsAcces || '',
   priority: normalizePriority(prospect?.priority || prospect?.priorite),
   stage: normalizeStage(prospect?.stage),
-  country: prospect?.country || "Côte d'Ivoire",
+  country: prospect?.country || "Cote d'Ivoire",
   tags: Array.isArray(prospect?.tags) ? prospect.tags : [],
 });
 

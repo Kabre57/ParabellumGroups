@@ -1,59 +1,72 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { commercialService } from '@/shared/api/commercial';
-import type { CreateProspectRequest, ProspectStage, ProspectPriority } from '@/shared/api/commercial';
+import type { CreateProspectRequest, ProspectPriority, ProspectStage } from '@/shared/api/commercial';
 
 interface CreateProspectModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const stages: { value: ProspectStage; label: string }[] = [
-  { value: 'preparation', label: 'Préparation' },
-  { value: 'research', label: 'Recherche & Qualification' },
-  { value: 'contact', label: 'Prise de Contact' },
-  { value: 'discovery', label: 'Entretien Découverte' },
-  { value: 'proposal', label: 'Proposition & Conclusion' },
-  { value: 'negotiation', label: 'Négociation' },
+const stages: Array<{ value: ProspectStage; label: string }> = [
+  { value: 'preparation', label: 'Preparation' },
+  { value: 'research', label: 'Recherche et qualification' },
+  { value: 'contact', label: 'Prise de contact' },
+  { value: 'discovery', label: 'Entretien de decouverte' },
+  { value: 'proposal', label: 'Proposition' },
+  { value: 'negotiation', label: 'Negociation' },
   { value: 'on_hold', label: 'En attente' },
-  { value: 'won', label: 'Client Converti' },
-  { value: 'lost', label: 'Perdu/Nurturing' }
+  { value: 'won', label: 'Converti en client' },
+  { value: 'lost', label: 'Perdu ou a nurturer' },
 ];
 
-const priorities: { value: ProspectPriority; label: string }[] = [
+const priorities: Array<{ value: ProspectPriority; label: string }> = [
   { value: 'A', label: 'Haute (A)' },
   { value: 'B', label: 'Moyenne (B)' },
   { value: 'C', label: 'Basse (C)' },
-  { value: 'D', label: 'Très basse (D)' }
+  { value: 'D', label: 'Tres basse (D)' },
 ];
+
+const defaultFormData = (): CreateProspectRequest => ({
+  companyName: '',
+  contactName: '',
+  position: '',
+  email: '',
+  phone: '',
+  mobile: '',
+  fax: '',
+  website: '',
+  sector: '',
+  codeActivite: '',
+  idu: '',
+  ncc: '',
+  rccm: '',
+  address: '',
+  address2: '',
+  address3: '',
+  postalCode: '',
+  city: '',
+  region: '',
+  country: "Cote d'Ivoire",
+  gpsCoordinates: '',
+  accessNotes: '',
+  stage: 'preparation',
+  priority: 'C',
+  source: '',
+  potentialValue: undefined,
+  closingProbability: undefined,
+  estimatedCloseDate: '',
+  notes: '',
+  tags: [],
+});
 
 export default function CreateProspectModal({ isOpen, onClose }: CreateProspectModalProps) {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState<CreateProspectRequest>({
-    companyName: '',
-    contactName: '',
-    position: '',
-    email: '',
-    phone: '',
-    website: '',
-    sector: '',
-    address: '',
-    city: '',
-    country: "Côte d'Ivoire",
-    stage: 'preparation',
-    priority: 'C',
-    source: '',
-    potentialValue: undefined,
-    closingProbability: undefined,
-    estimatedCloseDate: '',
-    notes: '',
-    tags: []
-  });
-
+  const [formData, setFormData] = useState<CreateProspectRequest>(defaultFormData);
   const [tagInput, setTagInput] = useState('');
 
   const createMutation = useMutation({
@@ -61,66 +74,48 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       queryClient.invalidateQueries({ queryKey: ['prospection-stats'] });
-      toast.success('Prospect créé avec succès');
+      toast.success('Prospect cree avec succes');
+      setFormData(defaultFormData());
+      setTagInput('');
       onClose();
-      resetForm();
     },
     onError: (error: any) => {
       toast.error(
         error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        'Nous n’avons pas pu créer ce prospect. Vérifiez les champs obligatoires puis réessayez.'
+          error?.response?.data?.error ||
+          'Impossible de creer ce prospect pour le moment.'
       );
-    }
+    },
   });
 
-  const resetForm = () => {
-    setFormData({
-      companyName: '',
-      contactName: '',
-      position: '',
-      email: '',
-      phone: '',
-      website: '',
-      sector: '',
-      address: '',
-      city: '',
-      country: "Côte d'Ivoire",
-      stage: 'preparation',
-      priority: 'C',
-      source: '',
-      potentialValue: undefined,
-      closingProbability: undefined,
-      estimatedCloseDate: '',
-      notes: '',
-      tags: []
-    });
-    setTagInput('');
+  const handleChange = <K extends keyof CreateProspectRequest>(field: K, value: CreateProspectRequest[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleChange = (field: keyof CreateProspectRequest, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleNumberChange = (field: 'potentialValue' | 'closingProbability', value: string) => {
+    handleChange(field, value ? Number(value) : undefined);
   };
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags?.includes(tagInput.trim())) {
-      handleChange('tags', [...(formData.tags || []), tagInput.trim()]);
-      setTagInput('');
-    }
+    const nextTag = tagInput.trim();
+    if (!nextTag || formData.tags?.includes(nextTag)) return;
+    handleChange('tags', [...(formData.tags || []), nextTag]);
+    setTagInput('');
   };
 
   const handleRemoveTag = (tag: string) => {
-    handleChange('tags', formData.tags?.filter(t => t !== tag) || []);
+    handleChange(
+      'tags',
+      (formData.tags || []).filter((item) => item !== tag)
+    );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!formData.companyName.trim() || !formData.contactName.trim() || !formData.source?.trim()) {
-      toast.error('Veuillez renseigner tous les champs obligatoires avant d’enregistrer.');
+      toast.error("Entreprise, contact principal et source sont obligatoires.");
       return;
     }
-
     createMutation.mutate(formData);
   };
 
@@ -128,38 +123,59 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
-
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Créer un nouveau prospect</h3>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-500"
-              >
+      <div className="flex min-h-screen items-center justify-center px-4 py-8 text-center">
+        <div className="fixed inset-0 bg-gray-500/75" onClick={onClose} />
+        <div className="relative inline-block w-full max-w-5xl overflow-hidden rounded-lg bg-white text-left shadow-xl">
+          <div className="px-4 pt-5 pb-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Nouveau prospect</h3>
+                <p className="text-sm text-gray-500">
+                  Renseignez l'identite du prospect avec les usages ivoiriens.
+                </p>
+              </div>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Informations de l'entreprise */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Informations de l'entreprise</h4>
+              <section>
+                <h4 className="mb-3 text-sm font-semibold text-gray-900">Entreprise</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Nom de l'entreprise <span className="text-red-500">*</span>
+                      Entreprise / raison sociale <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.companyName}
-                      onChange={(e) => handleChange('companyName', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      onChange={(event) => handleChange('companyName', event.target.value)}
+                      placeholder="Ex: Parabellum Energie CI"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Secteur d'activite</label>
+                    <input
+                      type="text"
+                      value={formData.sector || ''}
+                      onChange={(event) => handleChange('sector', event.target.value)}
+                      placeholder="BTP, distribution, services..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Code activite</label>
+                    <input
+                      type="text"
+                      value={formData.codeActivite || ''}
+                      onChange={(event) => handleChange('codeActivite', event.target.value)}
+                      placeholder="Code activite local"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
@@ -167,41 +183,62 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     <label className="block text-sm font-medium text-gray-700">Site web</label>
                     <input
                       type="url"
-                      value={formData.website}
-                      onChange={(e) => handleChange('website', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="https://example.com"
+                      value={formData.website || ''}
+                      onChange={(event) => handleChange('website', event.target.value)}
+                      placeholder="https://..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Secteur d'activité</label>
+                    <label className="block text-sm font-medium text-gray-700">IDU</label>
                     <input
                       type="text"
-                      value={formData.sector}
-                      onChange={(e) => handleChange('sector', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.idu || ''}
+                      onChange={(event) => handleChange('idu', event.target.value)}
+                      placeholder="CI-YYYY-XXXXXXXK"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
-                  {/* Champs supprimés: Nombre d'employés, Chiffre d'affaires */}
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">NCC</label>
+                    <input
+                      type="text"
+                      value={formData.ncc || ''}
+                      onChange={(event) => handleChange('ncc', event.target.value)}
+                      placeholder="Numero de compte contribuable"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
 
-              {/* Informations du contact */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Contact principal</h4>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">RCCM</label>
+                    <input
+                      type="text"
+                      value={formData.rccm || ''}
+                      onChange={(event) => handleChange('rccm', event.target.value)}
+                      placeholder="Ex: CI-ABJ-03-2026-B12-00001"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h4 className="mb-3 text-sm font-semibold text-gray-900">Contact principal</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Nom du prospect <span className="text-red-500">*</span>
+                      Nom du contact <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.contactName}
-                      onChange={(e) => handleChange('contactName', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      onChange={(event) => handleChange('contactName', event.target.value)}
+                      placeholder="Nom et prenoms"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
@@ -209,9 +246,10 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     <label className="block text-sm font-medium text-gray-700">Poste</label>
                     <input
                       type="text"
-                      value={formData.position}
-                      onChange={(e) => handleChange('position', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.position || ''}
+                      onChange={(event) => handleChange('position', event.target.value)}
+                      placeholder="DG, responsable achats..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
@@ -219,88 +257,180 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     <label className="block text-sm font-medium text-gray-700">Email</label>
                     <input
                       type="email"
-                      value={formData.email}
-                      onChange={(e) => handleChange('email', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.email || ''}
+                      onChange={(event) => handleChange('email', event.target.value)}
+                      placeholder="contact@entreprise.ci"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Téléphone</label>
+                    <label className="block text-sm font-medium text-gray-700">Telephone fixe</label>
                     <input
                       type="tel"
-                      value={formData.phone}
-                      onChange={(e) => handleChange('phone', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.phone || ''}
+                      onChange={(event) => handleChange('phone', event.target.value)}
+                      placeholder="+225 27 XX XX XX XX"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Mobile</label>
+                    <input
+                      type="tel"
+                      value={formData.mobile || ''}
+                      onChange={(event) => handleChange('mobile', event.target.value)}
+                      placeholder="+225 07 XX XX XX XX"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Fax</label>
+                    <input
+                      type="text"
+                      value={formData.fax || ''}
+                      onChange={(event) => handleChange('fax', event.target.value)}
+                      placeholder="Optionnel"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Adresse */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Adresse</h4>
+              <section>
+                <h4 className="mb-3 text-sm font-semibold text-gray-900">Adresse ivoirienne</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Adresse</label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Quartier</label>
                     <input
                       type="text"
-                      value={formData.address}
-                      onChange={(e) => handleChange('address', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.address || ''}
+                      onChange={(event) => handleChange('address', event.target.value)}
+                      placeholder="Ex: Angre 7e tranche"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Ville</label>
+                    <label className="block text-sm font-medium text-gray-700">Rue / residence</label>
                     <input
                       type="text"
-                      value={formData.city}
-                      onChange={(e) => handleChange('city', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.address2 || ''}
+                      onChange={(event) => handleChange('address2', event.target.value)}
+                      placeholder="Rue L125, Residence Soleil"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
-                  {/* Champ supprimé: Code postal */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Repere visuel</label>
+                    <input
+                      type="text"
+                      value={formData.address3 || ''}
+                      onChange={(event) => handleChange('address3', event.target.value)}
+                      placeholder="Pres de la pharmacie ou de l'allocodrome"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
 
-                  <div className="sm:col-span-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Boite postale (BP)</label>
+                    <input
+                      type="text"
+                      value={formData.postalCode || ''}
+                      onChange={(event) => handleChange('postalCode', event.target.value)}
+                      placeholder="01 BP 456 Abidjan 01"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Commune / ville</label>
+                    <input
+                      type="text"
+                      value={formData.city || ''}
+                      onChange={(event) => handleChange('city', event.target.value)}
+                      placeholder="Cocody, Marcory, Yamoussoukro..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">District / region</label>
+                    <input
+                      type="text"
+                      value={formData.region || ''}
+                      onChange={(event) => handleChange('region', event.target.value)}
+                      placeholder="District d'Abidjan"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Coordonnees GPS</label>
+                    <input
+                      type="text"
+                      value={formData.gpsCoordinates || ''}
+                      onChange={(event) => handleChange('gpsCoordinates', event.target.value)}
+                      placeholder="5.348,-4.030"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700">Pays</label>
                     <input
                       type="text"
-                      value={formData.country}
-                      onChange={(e) => handleChange('country', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.country || ''}
+                      onChange={(event) => handleChange('country', event.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Infos d'acces</label>
+                    <textarea
+                      rows={3}
+                      value={formData.accessNotes || ''}
+                      onChange={(event) => handleChange('accessNotes', event.target.value)}
+                      placeholder="Code portail, etage, reperes d'arrivee..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Informations commerciales */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Informations commerciales</h4>
+              <section>
+                <h4 className="mb-3 text-sm font-semibold text-gray-900">Suivi commercial</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Étape</label>
+                    <label className="block text-sm font-medium text-gray-700">Etape</label>
                     <select
                       value={formData.stage}
-                      onChange={(e) => handleChange('stage', e.target.value as ProspectStage)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      onChange={(event) => handleChange('stage', event.target.value as ProspectStage)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     >
-                      {stages.map(stage => (
-                        <option key={stage.value} value={stage.value}>{stage.label}</option>
+                      {stages.map((stage) => (
+                        <option key={stage.value} value={stage.value}>
+                          {stage.label}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Priorité</label>
+                    <label className="block text-sm font-medium text-gray-700">Priorite</label>
                     <select
                       value={formData.priority}
-                      onChange={(e) => handleChange('priority', e.target.value as ProspectPriority)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      onChange={(event) => handleChange('priority', event.target.value as ProspectPriority)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     >
-                      {priorities.map(priority => (
-                        <option key={priority.value} value={priority.value}>{priority.label}</option>
+                      {priorities.map((priority) => (
+                        <option key={priority.value} value={priority.value}>
+                          {priority.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -312,62 +442,80 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     <input
                       type="text"
                       required
-                      value={formData.source}
-                      onChange={(e) => handleChange('source', e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="LinkedIn, Salon, Référence..."
+                      value={formData.source || ''}
+                      onChange={(event) => handleChange('source', event.target.value)}
+                      placeholder="Terrain, recommandation, salon, site web..."
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
-                  {/* Champ supprimé: Valeur potentielle */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Potentiel estime (FCFA)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.potentialValue ?? ''}
+                      onChange={(event) => handleNumberChange('potentialValue', event.target.value)}
+                      placeholder="5000000"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Probabilité de closing (%)</label>
+                    <label className="block text-sm font-medium text-gray-700">Probabilite de closing (%)</label>
                     <input
                       type="number"
                       min="0"
                       max="100"
-                      value={formData.closingProbability || ''}
-                      onChange={(e) => handleChange('closingProbability', e.target.value ? parseFloat(e.target.value) : undefined)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.closingProbability ?? ''}
+                      onChange={(event) => handleNumberChange('closingProbability', event.target.value)}
+                      placeholder="35"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     />
                   </div>
 
-                  {/* Champ supprimé: Date de closing estimée */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Echeance estimee</label>
+                    <input
+                      type="date"
+                      value={formData.estimatedCloseDate || ''}
+                      onChange={(event) => handleChange('estimatedCloseDate', event.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Tags */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                <div className="flex items-center space-x-2">
+              <section>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Tags</label>
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
+                    onChange={(event) => setTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
                         handleAddTag();
                       }
                     }}
-                    className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Ajouter un tag..."
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   />
                   <button
                     type="button"
                     onClick={handleAddTag}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                    className="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300"
                   >
                     Ajouter
                   </button>
                 </div>
-                {formData.tags && formData.tags.length > 0 && (
+                {(formData.tags || []).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {formData.tags.map((tag, index) => (
+                    {(formData.tags || []).map((tag) => (
                       <span
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                        key={tag}
+                        className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
                       >
                         {tag}
                         <button
@@ -381,26 +529,24 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     ))}
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Notes */}
-              <div>
+              <section>
                 <label className="block text-sm font-medium text-gray-700">Notes</label>
                 <textarea
                   rows={4}
-                  value={formData.notes}
-                  onChange={(e) => handleChange('notes', e.target.value)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Notes internes sur ce prospect..."
+                  value={formData.notes || ''}
+                  onChange={(event) => handleChange('notes', event.target.value)}
+                  placeholder="Contexte, besoin, prochaine action..."
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                 />
-              </div>
+              </section>
 
-              {/* Actions */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+              <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Annuler
                 </button>
@@ -412,9 +558,9 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
                     !formData.contactName.trim() ||
                     !formData.source?.trim()
                   }
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {createMutation.isPending ? 'Création...' : 'Créer le prospect'}
+                  {createMutation.isPending ? 'Creation...' : 'Creer le prospect'}
                 </button>
               </div>
             </form>

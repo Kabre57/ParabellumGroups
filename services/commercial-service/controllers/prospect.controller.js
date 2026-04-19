@@ -128,19 +128,33 @@ const buildProspectPayload = (body, userId, oldProspect = null) => {
   const assignedChanged = nextAssignedToId && nextAssignedToId !== oldAssignedToId;
 
   return {
-    companyName: toNullableString(body.companyName),
-    contactName: toNullableString(body.contactName),
+    companyName: toNullableString(body.companyName || body.raisonSociale || body.nomEntreprise),
+    contactName: toNullableString(body.contactName || body.nomContact || body.contact),
+    civilite: toNullableString(body.civilite),
     position: toNullableString(body.position),
     email: toNullableString(body.email),
-    phone: toNullableString(body.phone),
+    emailSecondaire: toNullableString(body.emailSecondaire),
+    phone: toNullableString(body.phone || body.telephone),
+    mobile: toNullableString(body.mobile),
+    fax: toNullableString(body.fax),
+    linkedin: toNullableString(body.linkedin),
     website: toNullableString(body.website),
+    idu: toNullableString(body.idu || body.siret),
+    ncc: toNullableString(body.ncc || body.tvaIntra),
+    rccm: toNullableString(body.rccm),
     secteurActivite: toNullableString(body.sector || body.secteurActivite),
+    codeActivite: toNullableString(body.codeActivite || body.codeNAF),
     employees: toNullableNumber(body.employees),
     revenue: toNullableNumber(body.revenue),
-    address: toNullableString(body.address),
-    city: toNullableString(body.city),
-    postalCode: toNullableString(body.postalCode),
+    address: toNullableString(body.address || body.ligne1 || body.quartier),
+    address2: toNullableString(body.address2 || body.ligne2),
+    address3: toNullableString(body.address3 || body.ligne3 || body.repere),
+    city: toNullableString(body.city || body.ville || body.commune),
+    postalCode: toNullableString(body.postalCode || body.bp || body.boitePostale),
+    region: toNullableString(body.region || body.district),
     country: toNullableString(body.country),
+    gpsCoordinates: toNullableString(body.gpsCoordinates || body.coordonneesGps),
+    accessNotes: toNullableString(body.accessNotes || body.informationsAcces),
     stage: normalizeStage(body.stage),
     priorite: normalizePriority(body.priority || body.priorite),
     source: normalizeSource(body.source),
@@ -221,8 +235,13 @@ exports.getAll = async (req, res) => {
         { contactName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
+        { mobile: { contains: search, mode: 'insensitive' } },
         { reference: { contains: search, mode: 'insensitive' } },
-        { siret: { contains: search, mode: 'insensitive' } }
+        { idu: { contains: search, mode: 'insensitive' } },
+        { ncc: { contains: search, mode: 'insensitive' } },
+        { rccm: { contains: search, mode: 'insensitive' } },
+        { codeActivite: { contains: search, mode: 'insensitive' } },
+        { secteurActivite: { contains: search, mode: 'insensitive' } }
       ];
     }
     
@@ -332,10 +351,14 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    if (!toNullableString(req.body.companyName) || !toNullableString(req.body.contactName) || !toNullableString(req.body.source)) {
+    if (
+      !toNullableString(req.body.companyName || req.body.raisonSociale || req.body.nomEntreprise) ||
+      !toNullableString(req.body.contactName || req.body.nomContact || req.body.contact) ||
+      !toNullableString(req.body.source)
+    ) {
       return res.status(400).json({
         success: false,
-        error: "Le nom de l entreprise, le nom du prospect et la source sont obligatoires",
+        error: "L'entreprise, le contact principal et la source sont obligatoires",
       });
     }
 

@@ -937,7 +937,7 @@ export default function CustomerDetailPage() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingAddress ? "Modifier l'adresse" : 'Ajouter une adresse CI'}</DialogTitle>
-            <DialogDescription>On capture ici une adresse adaptee au contexte ivoirien.</DialogDescription>
+            <DialogDescription>On capture ici une adresse</DialogDescription>
           </DialogHeader>
           <form onSubmit={submitAddress} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

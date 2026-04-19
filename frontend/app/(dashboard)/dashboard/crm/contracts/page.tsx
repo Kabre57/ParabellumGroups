@@ -254,8 +254,8 @@ export default function ContractsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Contrats</h1>
-        <p className="text-muted-foreground">Suivi et gestion des contrats clients</p>
+        <h1 className="text-3xl font-bold">Contrats clients</h1>
+        <p className="text-muted-foreground">Suivi contractuel avec montants exprimes en FCFA (XOF).</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -300,14 +300,14 @@ export default function ContractsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Liste des contrats</CardTitle>
-          <CardDescription>Filtrez et gerez vos contrats</CardDescription>
+          <CardDescription>Filtrez et gerez vos contrats, echeances et renouvellements.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par reference, titre, client..."
+                placeholder="Rechercher par reference, titre ou client..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
@@ -357,7 +357,7 @@ export default function ContractsPage() {
                     <th className="text-left p-4 font-medium">Titre</th>
                     <th className="text-left p-4 font-medium">Client</th>
                     <th className="text-left p-4 font-medium">Type</th>
-                    <th className="text-left p-4 font-medium">Montant TTC</th>
+                    <th className="text-left p-4 font-medium">Montant TTC (FCFA)</th>
                     <th className="text-left p-4 font-medium">Statut</th>
                     <th className="text-left p-4 font-medium">Fin de contrat</th>
                     {canUpdate && <th className="text-left p-4 font-medium">Actions</th>}
@@ -409,7 +409,7 @@ export default function ContractsPage() {
           <DialogHeader>
             <DialogTitle>Nouveau contrat</DialogTitle>
             <DialogDescription>
-              Renseignez les informations principales du contrat.
+              Renseignez les informations contractuelles. Les montants sont attendus en FCFA (XOF).
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -436,7 +436,7 @@ export default function ContractsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Type contrat *</label>
+                <label className="block text-sm font-medium mb-1">Type de contrat *</label>
                 <select className="w-full px-3 py-2 border rounded-md" {...form.register('typeContrat')}>
                   {TYPE_OPTIONS.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -454,7 +454,7 @@ export default function ContractsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Date debut *</label>
+                <label className="block text-sm font-medium mb-1">Date de debut *</label>
                 <Input type="date" {...form.register('dateDebut', { required: true })} />
                 {form.formState.errors.dateDebut && (
                   <p className="text-xs text-red-600">Date debut requise</p>
@@ -462,31 +462,31 @@ export default function ContractsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Date fin</label>
+                <label className="block text-sm font-medium mb-1">Date de fin</label>
                 <Input type="date" {...form.register('dateFin')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Date signature</label>
+                <label className="block text-sm font-medium mb-1">Date de signature</label>
                 <Input type="date" {...form.register('dateSignature')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Date effet</label>
+                <label className="block text-sm font-medium mb-1">Date de prise d'effet</label>
                 <Input type="date" {...form.register('dateEffet')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Montant HT *</label>
-                <Input type="number" step="0.01" {...form.register('montantHT', { required: true })} />
+                <label className="block text-sm font-medium mb-1">Montant HT (FCFA) *</label>
+                <Input type="number" step="0.01" placeholder="2500000" {...form.register('montantHT', { required: true })} />
                 {form.formState.errors.montantHT && (
                   <p className="text-xs text-red-600">Montant HT requis</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Montant TTC *</label>
-                <Input type="number" step="0.01" {...form.register('montantTTC', { required: true })} />
+                <label className="block text-sm font-medium mb-1">Montant TTC (FCFA) *</label>
+                <Input type="number" step="0.01" placeholder="2950000" {...form.register('montantTTC', { required: true })} />
                 {form.formState.errors.montantTTC && (
                   <p className="text-xs text-red-600">Montant TTC requis</p>
                 )}
@@ -494,59 +494,59 @@ export default function ContractsPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">Taux TVA (%)</label>
-                <Input type="number" step="0.01" {...form.register('tauxTVA')} />
+                <Input type="number" step="0.01" placeholder="18" {...form.register('tauxTVA')} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">Devise *</label>
-                <Input {...form.register('devise', { required: true })} />
+                <Input placeholder="XOF" {...form.register('devise', { required: true })} />
                 {form.formState.errors.devise && (
                   <p className="text-xs text-red-600">Devise requise</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Periodicite paiement</label>
-                <Input {...form.register('periodicitePaiement')} />
+                <label className="block text-sm font-medium mb-1">Periodicite de paiement</label>
+                <Input placeholder="Mensuel, trimestriel, annuel..." {...form.register('periodicitePaiement')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Jour de paiement</label>
-                <Input type="number" min="1" max="31" {...form.register('jourPaiement')} />
+                <label className="block text-sm font-medium mb-1">Jour d'echeance</label>
+                <Input type="number" min="1" max="31" placeholder="5" {...form.register('jourPaiement')} />
               </div>
 
               <div className="flex items-center gap-2">
                 <input type="checkbox" {...form.register('estRenouvelable')} />
-                <span className="text-sm">Renouvelable</span>
+                <span className="text-sm">Contrat renouvelable</span>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Periode renouvellement</label>
-                <Input {...form.register('periodeRenouvellement')} />
+                <label className="block text-sm font-medium mb-1">Periode de renouvellement</label>
+                <Input placeholder="12 mois" {...form.register('periodeRenouvellement')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Date prochain renouvellement</label>
+                <label className="block text-sm font-medium mb-1">Date du prochain renouvellement</label>
                 <Input type="date" {...form.register('dateProchainRenouvellement')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Preavis renouvellement (jours)</label>
-                <Input type="number" min="0" {...form.register('preavisRenouvellement')} />
+                <label className="block text-sm font-medium mb-1">Preavis de renouvellement (jours)</label>
+                <Input type="number" min="0" placeholder="30" {...form.register('preavisRenouvellement')} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Signataire ID</label>
-                <Input {...form.register('signataireId')} />
+                <label className="block text-sm font-medium mb-1">Identifiant du signataire</label>
+                <Input placeholder="Responsable signataire" {...form.register('signataireId')} />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="block text-sm font-medium mb-1">Description du contrat</label>
                 <textarea className="w-full px-3 py-2 border rounded-md" rows={3} {...form.register('description')} />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Conditions particulieres</label>
+                <label className="block text-sm font-medium mb-1">Clauses / conditions particulieres</label>
                 <textarea className="w-full px-3 py-2 border rounded-md" rows={3} {...form.register('conditionsParticulieres')} />
               </div>
             </div>
@@ -556,7 +556,7 @@ export default function ContractsPage() {
                 Annuler
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                Creer
+                Creer le contrat
               </Button>
             </div>
           </form>

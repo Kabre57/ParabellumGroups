@@ -129,7 +129,12 @@ export default function ProspectionWorkflowPage() {
         prospect.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         prospect.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         prospect.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prospect.phone?.toLowerCase().includes(searchQuery.toLowerCase());
+        prospect.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.mobile?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.idu?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.ncc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.rccm?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prospect.codeActivite?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStage = stageFilter === 'all' || prospect.stage === stageFilter;
       const matchesPriority = priorityFilter === 'all' || prospect.priority === priorityFilter;
@@ -171,8 +176,8 @@ export default function ProspectionWorkflowPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Prospection</h1>
-          <p className="text-muted-foreground">Pilotez votre prospection commerciale</p>
+          <h1 className="text-3xl font-bold">Prospection commerciale</h1>
+          <p className="text-muted-foreground">Suivez vos prospects avec les reperes du marche ivoirien.</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreateModal(true)}>
@@ -238,7 +243,7 @@ export default function ProspectionWorkflowPage() {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par entreprise, contact, email..."
+                placeholder="Rechercher par entreprise, contact, IDU, RCCM ou email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8"
@@ -278,11 +283,12 @@ export default function ProspectionWorkflowPage() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium">Entreprise</th>
-                    <th className="text-left p-4 font-medium">Contact</th>
+                    <th className="text-left p-4 font-medium">Contact principal</th>
                     <th className="text-left p-4 font-medium">Etape</th>
                     <th className="text-left p-4 font-medium">Priorite</th>
                     {/* Colonne supprimée: Valeur potentielle */}
-                    <th className="text-left p-4 font-medium">Derniere mise a jour</th>
+                    <th className="text-left p-4 font-medium">Commune</th>
+                    <th className="text-left p-4 font-medium">Mise a jour</th>
                     {(canUpdate || canDelete) && <th className="text-left p-4 font-medium">Actions</th>}
                   </tr>
                 </thead>
@@ -292,13 +298,22 @@ export default function ProspectionWorkflowPage() {
                     const priorityBadge = getPriorityBadge(prospect.priority);
                     return (
                       <tr key={prospect.id} className="border-t hover:bg-muted/50">
-                        <td className="p-4 font-medium">{prospect.companyName}</td>
+                        <td className="p-4">
+                          <div className="text-sm">
+                            <div className="font-medium">{prospect.companyName}</div>
+                            <div className="text-muted-foreground">
+                              {prospect.idu || prospect.rccm || prospect.ncc || 'Identifiant non renseigne'}
+                            </div>
+                          </div>
+                        </td>
                         <td className="p-4">
                           <div className="text-sm">
                             <div className="font-medium">{prospect.contactName}</div>
-                            <div className="text-muted-foreground">{prospect.email || prospect.phone || '-'}</div>
-                          </div>
-                        </td>
+                              <div className="text-muted-foreground">
+                                {prospect.email || prospect.mobile || prospect.phone || '-'}
+                              </div>
+                            </div>
+                          </td>
                         <td className="p-4">
                           <Badge className={stageBadge.className}>{stageBadge.label}</Badge>
                         </td>
@@ -306,9 +321,12 @@ export default function ProspectionWorkflowPage() {
                           <Badge className={priorityBadge.className}>{priorityBadge.label}</Badge>
                         </td>
                         {/* Valeur potentielle supprimée */}
-                        <td className="p-4 text-sm text-muted-foreground">
-                          {new Date(prospect.updatedAt).toLocaleDateString('fr-FR')}
-                        </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {prospect.city || prospect.region || 'A definir'}
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {new Date(prospect.updatedAt).toLocaleDateString('fr-FR')}
+                          </td>
                         {(canUpdate || canDelete) && (
                           <td className="p-4">
                             <div className="flex gap-2">
@@ -343,9 +361,10 @@ export default function ProspectionWorkflowPage() {
             )}
           </div>
 
+2
           {!isLoading && filteredProspects.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
-              Aucun prospect trouve
+              Aucun prospect trouve pour ces criteres
             </div>
           )}
         </CardContent>

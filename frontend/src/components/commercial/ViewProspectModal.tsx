@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Building2, User, Mail, Phone, Globe, MapPin, TrendingUp } from 'lucide-react';
+import { Building2, FileBadge2, Globe, Mail, MapPin, Phone, Smartphone, TrendingUp, User, X } from 'lucide-react';
 import type { Prospect } from '@/shared/api/commercial';
 
 interface ViewProspectModalProps {
@@ -9,237 +9,218 @@ interface ViewProspectModalProps {
   prospect: Prospect | null;
 }
 
+const stageLabelMap: Record<Prospect['stage'], string> = {
+  preparation: 'Preparation',
+  research: 'Recherche',
+  contact: 'Contact initial',
+  discovery: 'Decouverte',
+  proposal: 'Proposition',
+  negotiation: 'Negociation',
+  on_hold: 'En attente',
+  won: 'Converti',
+  lost: 'Perdu',
+};
+
+const priorityLabelMap: Record<Prospect['priority'], string> = {
+  A: 'Haute',
+  B: 'Moyenne',
+  C: 'Basse',
+  D: 'Tres basse',
+};
+
+const formatDate = (value?: string) => {
+  if (!value) return 'Non defini';
+  return new Date(value).toLocaleDateString('fr-FR');
+};
+
+const formatCurrency = (value?: number) => {
+  if (!value) return 'Non defini';
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF' }).format(value);
+};
+
+const renderAddress = (prospect: Prospect) => {
+  return [
+    prospect.address,
+    prospect.address2,
+    prospect.address3,
+    prospect.city,
+    prospect.region,
+    prospect.postalCode ? `BP ${prospect.postalCode}` : null,
+    prospect.country,
+  ]
+    .filter(Boolean)
+    .join(', ');
+};
+
+const Row = ({ label, value }: { label: string; value?: string | number | null }) => (
+  <div>
+    <p className="mb-1 text-xs text-gray-500">{label}</p>
+    <p className="text-sm font-medium text-gray-900">{value || 'Non renseigne'}</p>
+  </div>
+);
+
 export default function ViewProspectModal({ isOpen, onClose, prospect }: ViewProspectModalProps) {
   if (!isOpen || !prospect) return null;
 
-  const stageLabelMap: Record<Prospect['stage'], string> = {
-    preparation: 'Preparation',
-    research: 'Recherche',
-    contact: 'Contact',
-    discovery: 'Decouverte',
-    proposal: 'Proposition',
-    negotiation: 'Negociation',
-    on_hold: 'En attente',
-    won: 'Converti',
-    lost: 'Perdu',
-  };
-
-  const priorityLabelMap: Record<Prospect['priority'], string> = {
-    A: 'Haute',
-    B: 'Moyenne',
-    C: 'Basse',
-    D: 'Tres basse',
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Non définie';
-    return new Date(dateString).toLocaleDateString('fr-FR');
-  };
-
-  const formatCurrency = (value?: number) => {
-    if (!value) return 'Non définie';
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
-  };
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
-
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-medium text-gray-900">Détails du prospect</h3>
+      <div className="flex min-h-screen items-center justify-center px-4 py-8 text-center">
+        <div className="fixed inset-0 bg-gray-500/75" onClick={onClose} />
+        <div className="relative inline-block w-full max-w-4xl overflow-hidden rounded-lg bg-white text-left shadow-xl">
+          <div className="px-4 pt-5 pb-4 sm:p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Fiche prospect</h3>
+                <p className="text-sm text-gray-500">Vue detaillee du prospect et de ses informations locales.</p>
+              </div>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             <div className="space-y-6">
-              {/* Informations de l'entreprise */}
-              <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                  <Building2 className="h-5 w-5 mr-2 text-blue-600" />
-                  Informations de l'entreprise
+              <section>
+                <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
+                  <Building2 className="mr-2 h-5 w-5 text-blue-600" />
+                  Entreprise
                 </h4>
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                  <Row label="Entreprise / raison sociale" value={prospect.companyName} />
+                  <Row label="Secteur d'activite" value={prospect.sector} />
+                  <Row label="Code activite" value={prospect.codeActivite} />
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Nom de l'entreprise</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.companyName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Secteur</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.sector || 'Non spécifié'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Site web</p>
+                    <p className="mb-1 text-xs text-gray-500">Site web</p>
                     {prospect.website ? (
-                      <a href={prospect.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline flex items-center">
-                        <Globe className="h-3 w-3 mr-1" />
+                      <a
+                        href={prospect.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        <Globe className="mr-1 h-3 w-3" />
                         {prospect.website}
                       </a>
                     ) : (
-                      <p className="text-sm text-gray-400">Non spécifié</p>
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
                     )}
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Contact principal */}
-              <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                  <User className="h-5 w-5 mr-2 text-purple-600" />
+              <section>
+                <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
+                  <FileBadge2 className="mr-2 h-5 w-5 text-amber-600" />
+                  Identifiants ivoiriens
+                </h4>
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-3">
+                  <Row label="IDU" value={prospect.idu} />
+                  <Row label="NCC" value={prospect.ncc} />
+                  <Row label="RCCM" value={prospect.rccm} />
+                </div>
+              </section>
+
+              <section>
+                <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
+                  <User className="mr-2 h-5 w-5 text-purple-600" />
                   Contact principal
                 </h4>
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                  <Row label="Nom du contact" value={prospect.contactName} />
+                  <Row label="Poste" value={prospect.position} />
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Nom</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.contactName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Poste</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.position || 'Non spécifié'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Email</p>
+                    <p className="mb-1 text-xs text-gray-500">Email</p>
                     {prospect.email ? (
-                      <a href={`mailto:${prospect.email}`} className="text-sm text-blue-600 hover:underline flex items-center">
-                        <Mail className="h-3 w-3 mr-1" />
+                      <a href={`mailto:${prospect.email}`} className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline">
+                        <Mail className="mr-1 h-3 w-3" />
                         {prospect.email}
                       </a>
                     ) : (
-                      <p className="text-sm text-gray-400">Non spécifié</p>
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
                     )}
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Téléphone</p>
+                    <p className="mb-1 text-xs text-gray-500">Telephone fixe</p>
                     {prospect.phone ? (
-                      <a href={`tel:${prospect.phone}`} className="text-sm text-blue-600 hover:underline flex items-center">
-                        <Phone className="h-3 w-3 mr-1" />
+                      <a href={`tel:${prospect.phone}`} className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline">
+                        <Phone className="mr-1 h-3 w-3" />
                         {prospect.phone}
                       </a>
                     ) : (
-                      <p className="text-sm text-gray-400">Non spécifié</p>
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Adresse */}
-              {(prospect.address || prospect.city) && (
-                <div>
-                  <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                    <MapPin className="h-5 w-5 mr-2 text-green-600" />
-                    Adresse
-                  </h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-900">
-                      {prospect.address && <span>{prospect.address}<br /></span>}
-                      {prospect.city}<br />
-                      {prospect.country}
-                    </p>
+                  <div>
+                    <p className="mb-1 text-xs text-gray-500">Mobile</p>
+                    {prospect.mobile ? (
+                      <a href={`tel:${prospect.mobile}`} className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline">
+                        <Smartphone className="mr-1 h-3 w-3" />
+                        {prospect.mobile}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900">Non renseigne</p>
+                    )}
                   </div>
+                  <Row label="Fax" value={prospect.fax} />
                 </div>
-              )}
+              </section>
 
-              {/* Informations commerciales */}
-              <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2 text-orange-600" />
-                  Informations commerciales
+              <section>
+                <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
+                  <MapPin className="mr-2 h-5 w-5 text-green-600" />
+                  Adresse
                 </h4>
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Étape actuelle</p>
-                    <p className="text-sm font-medium text-gray-900">{stageLabelMap[prospect.stage]}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Priorité</p>
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                      prospect.priority === 'A' ? 'bg-red-100 text-red-800' :
-                      prospect.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                      prospect.priority === 'C' ? 'bg-green-100 text-green-800' :
-                      'bg-slate-100 text-slate-800'
-                    }`}>
-                      {priorityLabelMap[prospect.priority]}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Score</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.score}/100</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Source</p>
-                    <p className="text-sm font-medium text-gray-900">{prospect.source || 'Non spécifiée'}</p>
-                  </div>
-                  {/* Champ supprimé: Valeur potentielle */}
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Probabilité de closing</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {prospect.closingProbability ? `${prospect.closingProbability}%` : 'Non définie'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Créé le</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(prospect.createdAt)}</p>
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                  <Row label="Adresse complete" value={renderAddress(prospect)} />
+                  <Row label="Coordonnees GPS" value={prospect.gpsCoordinates} />
+                  <div className="sm:col-span-2">
+                    <p className="mb-1 text-xs text-gray-500">Infos d'acces</p>
+                    <p className="text-sm font-medium text-gray-900">{prospect.accessNotes || 'Non renseigne'}</p>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Tags */}
-              {prospect.tags && prospect.tags.length > 0 && (
-                <div>
-                  <h4 className="text-md font-semibold text-gray-900 mb-3">Tags</h4>
+              <section>
+                <h4 className="mb-3 flex items-center text-sm font-semibold text-gray-900">
+                  <TrendingUp className="mr-2 h-5 w-5 text-orange-600" />
+                  Suivi commercial
+                </h4>
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                  <Row label="Etape actuelle" value={stageLabelMap[prospect.stage]} />
+                  <Row label="Priorite" value={priorityLabelMap[prospect.priority]} />
+                  <Row label="Source" value={prospect.source} />
+                  <Row label="Probabilite de closing" value={prospect.closingProbability ? `${prospect.closingProbability}%` : undefined} />
+                  <Row label="Potentiel estime" value={formatCurrency(prospect.potentialValue)} />
+                  <Row label="Cree le" value={formatDate(prospect.createdAt)} />
+                </div>
+              </section>
+
+              {(prospect.tags || []).length > 0 && (
+                <section>
+                  <h4 className="mb-3 text-sm font-semibold text-gray-900">Tags</h4>
                   <div className="flex flex-wrap gap-2">
-                    {prospect.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
-                      >
+                    {(prospect.tags || []).map((tag) => (
+                      <span key={tag} className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800">
                         {tag}
                       </span>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Notes */}
               {prospect.notes && (
-                <div>
-                  <h4 className="text-md font-semibold text-gray-900 mb-3">Notes</h4>
-                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{prospect.notes}</p>
+                <section>
+                  <h4 className="mb-3 text-sm font-semibold text-gray-900">Notes</h4>
+                  <div className="rounded border-l-4 border-yellow-400 bg-yellow-50 p-4 text-sm text-gray-700">
+                    {prospect.notes}
                   </div>
-                </div>
-              )}
-
-              {/* Activités récentes */}
-              {prospect.activities && prospect.activities.length > 0 && (
-                <div>
-                  <h4 className="text-md font-semibold text-gray-900 mb-3">Activités récentes</h4>
-                  <div className="space-y-2">
-                    {prospect.activities.slice(0, 5).map((activity) => (
-                      <div key={activity.id} className="bg-gray-50 p-3 rounded border-l-2 border-blue-400">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900">{activity.subject}</p>
-                          <span className="text-xs text-gray-500">{formatDate(activity.createdAt)}</span>
-                        </div>
-                        {activity.description && (
-                          <p className="text-xs text-gray-600 mt-1">{activity.description}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </section>
               )}
             </div>
 
             <div className="mt-6 flex justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Fermer
               </button>

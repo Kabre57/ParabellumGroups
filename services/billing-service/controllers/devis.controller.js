@@ -165,7 +165,7 @@ const splitContactName = (fullName) => {
 const createContactFromProspect = async (req, clientId, prospect) => {
   if (!clientId || !prospect) return null;
   const contactName = prospect.contactName || prospect.nomContact || prospect.contact || '';
-  if (!contactName && !prospect.email && !prospect.phone) return null;
+  if (!contactName && !prospect.email && !prospect.phone && !prospect.mobile) return null;
 
   const baseUrl = process.env.CUSTOMERS_SERVICE_URL || 'http://customer-service:4008';
   const authHeader = buildServiceAuthHeader(req);
@@ -178,7 +178,7 @@ const createContactFromProspect = async (req, clientId, prospect) => {
     nom,
     prenom,
     email: prospect.email || null,
-    telephone: prospect.phone || null,
+    telephone: prospect.mobile || prospect.phone || null,
     poste: prospect.position || null,
     principal: true,
     type: 'COMMERCIAL',
@@ -212,8 +212,14 @@ const createClientFromProspect = async (req, prospect, devis) => {
     nom: prospect.companyName || prospect.contactName || 'Prospect',
     raisonSociale: prospect.companyName || prospect.contactName || null,
     email: prospect.email,
-    telephone: prospect.phone || null,
+    telephone: prospect.phone || prospect.mobile || null,
+    mobile: prospect.mobile || null,
+    fax: prospect.fax || null,
     siteWeb: prospect.website || null,
+    idu: prospect.idu || prospect.siret || null,
+    ncc: prospect.ncc || prospect.tvaIntra || null,
+    rccm: prospect.rccm || null,
+    codeActivite: prospect.codeActivite || prospect.codeNAF || null,
     typeClientId,
     source: prospect.source || null,
     prospectId: devis.prospectId || prospect.id,
