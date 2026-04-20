@@ -70,7 +70,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     enabled: isOpen,
     staleTime: 3 * 60 * 1000,
   });
-  // selectedService logic removed
+  const createMutation = useMutation({
     mutationFn: (payload: Parameters<typeof billingService.createQuote>[0]) => billingService.createQuote(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commercial-quotes'] });
