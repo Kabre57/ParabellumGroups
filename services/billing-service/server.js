@@ -1,7 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('./middleware/auth');
+
+const prisma = new PrismaClient();
 
 const app = express();
 const PORT = process.env.PORT || 4010;
@@ -84,23 +87,41 @@ app.use((req, res) => {
 
 // Gestion des erreurs globales
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Erreur interne du serveur' });
+  console.error('[Global Error]', err.stack);
+  res.status(500).json({ 
+    success: false, 
+    message: err.message || 'Erreur interne du serveur',
+    details: process.env.NODE_ENV !== 'production' ? err.stack : undefined 
+  });
 });
 
-// Démarrage du serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Billing Service démarré sur le port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`📄 API Factures: http://localhost:${PORT}/api/factures`);
-  console.log(`💰 API Paiements: http://localhost:${PORT}/api/paiements`);
-  console.log(`📝 API Devis: http://localhost:${PORT}/api/devis`);
-  console.log(`📥 API Encaissements: http://localhost:${PORT}/api/encaissements`);
-  console.log(`📤 API Décaissements: http://localhost:${PORT}/api/decaissements`);
-  console.log(`🧾 API Factures Fournisseurs: http://localhost:${PORT}/api/factures-fournisseurs`);
-  console.log(`🏦 API Comptes de trésorerie: http://localhost:${PORT}/api/treasury-accounts`);
-  console.log(`🧾 API Clôtures de caisse: http://localhost:${PORT}/api/treasury-closures`);
-  console.log(`📚 API Comptable: http://localhost:${PORT}/api/accounting/overview`);
-});
+// Démarrage du serveur avec vérification BDD
+const startServer = async () => {
+  try {
+    console.log('🔄 Tentative de connexion à la base de données...');
+    await prisma.$connect();
+    console.log('✅ Connexion à la base de données réussie.');
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Billing Service démarré sur le port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`📄 API Factures: http://localhost:${PORT}/api/factures`);
+      console.log(`💰 API Paiements: http://localhost:${PORT}/api/paiements`);
+      console.log(`📝 API Devis: http://localhost:${PORT}/api/devis`);
+      console.log(`📥 API Encaissements: http://localhost:${PORT}/api/encaissements`);
+      console.log(`📤 API Décaissements: http://localhost:${PORT}/api/decaissements`);
+      console.log(`🧾 API Factures Fournisseurs: http://localhost:${PORT}/api/factures-fournisseurs`);
+      console.log(`🏦 API Comptes de trésorerie: http://localhost:${PORT}/api/treasury-accounts`);
+      console.log(`🧾 API Clôtures de caisse: http://localhost:${PORT}/api/treasury-closures`);
+      console.log(`📚 API Comptable: http://localhost:${PORT}/api/accounting/overview`);
+    });
+  } catch (error) {
+    console.error('❌ Échec critique lors de la connexion à la base de données:', error.message);
+    console.error('Vérifiez votre variable DATABASE_URL et le réseau.');
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = app;
