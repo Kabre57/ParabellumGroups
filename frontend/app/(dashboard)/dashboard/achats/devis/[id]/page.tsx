@@ -591,7 +591,7 @@ export default function PurchaseQuoteDetailPage() {
   const submitMutation = useMutation({
     mutationFn: () => procurementService.submitRequest(id, 'Soumis depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('Le devis interne a été soumis au DG pour validation.');
+      toast.success('Le devis interne a été soumis au PDG pour validation.');
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-approval-history', id] });
