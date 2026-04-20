@@ -132,11 +132,7 @@ async function buildOrderCreateInput({
   notes,
   createdByUserId,
 }) {
-  const dateDepart = intervention?.dateDebut || mission?.dateDebut || null;
-
-  if (!dateDepart) {
-    throw new Error('La date de debut de la mission est obligatoire pour generer un ordre de mission.');
-  }
+  const dateDepart = intervention?.dateDebut || mission?.dateDebut || new Date();
 
   return {
     numeroOrdre: await getNextMissionOrderNumber(new Date(), client),
@@ -351,7 +347,7 @@ exports.create = async (req, res) => {
     console.error('Error in create ordre mission:', error);
     res.status(500).json({
       success: false,
-      error: 'Erreur lors de la generation de l ordre de mission',
+      error: error.message || 'Erreur lors de la generation de l ordre de mission',
     });
   }
 };
@@ -456,7 +452,7 @@ exports.createBatch = async (req, res) => {
     console.error('Error in createBatch ordres mission:', error);
     res.status(500).json({
       success: false,
-      error: 'Erreur lors de la generation en lot des ordres de mission',
+      error: error.message || 'Erreur lors de la generation en lot des ordres de mission',
     });
   }
 };
@@ -615,7 +611,7 @@ exports.getPdf = async (req, res) => {
     console.error('Error in getPdf ordre mission:', error);
     res.status(500).json({
       success: false,
-      error: 'Erreur lors de la generation du PDF de l ordre de mission',
+      error: error.message || 'Erreur lors de la generation du PDF de l ordre de mission',
     });
   }
 };

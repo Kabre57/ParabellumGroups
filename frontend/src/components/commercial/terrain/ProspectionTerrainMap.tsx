@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
 import L, { LatLngBounds } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Prospect } from '@/shared/api/commercial/types';
@@ -208,7 +207,7 @@ export default function ProspectionTerrainMap({ prospects }: { prospects: Prospe
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapBounds locations={locations} />
-        <MarkerClusterGroup chunkedLoading>
+        <>
           {locations.map((location) => (
             <Marker key={location.id} position={[location.lat, location.lng]}>
               <Popup>
@@ -218,7 +217,7 @@ export default function ProspectionTerrainMap({ prospects }: { prospects: Prospe
               </Popup>
             </Marker>
           ))}
-        </MarkerClusterGroup>
+        </>
       </MapContainer>
     </div>
   );

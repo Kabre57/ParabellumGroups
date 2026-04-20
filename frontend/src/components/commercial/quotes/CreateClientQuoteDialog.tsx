@@ -200,7 +200,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
       return;
     }
 
-    if ((!clientId && !prospectId) || !objet.trim() || !dateValidite || lignes.length === 0 || !(selectedServiceId || userServiceId)) {
+    if ((!clientId && !prospectId) || !objet.trim() || !dateValidite || lignes.length === 0) {
       return;
     }
 
@@ -502,7 +502,6 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                 disabled={
                   (!clientId && !prospectId) ||
                   !objet.trim() ||
-                  !(selectedServiceId || userServiceId) ||
                   createMutation.isPending ||
                   updateMutation.isPending
                 }
