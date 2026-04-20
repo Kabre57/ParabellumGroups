@@ -313,37 +313,7 @@ exports.getAccountingOverview = async (req, res) => {
       };
     });
 
-        {
-          id: 'account-512',
-          code: '512',
-          label: 'Banque',
-          type: 'asset',
-          balance: bankInflows - bankOutflows,
-          lastTransaction: context.lastBankTransaction,
-          movementCount: context.bankMovementCount,
-        },
-        {
-          id: 'account-531',
-          code: '531',
-          label: 'Caisse',
-          type: 'asset',
-          balance: cashInflows - cashOutflows,
-          lastTransaction: context.lastCashTransaction,
-          movementCount: context.cashMovementCount,
-        },
-        // ... (system accounts 411, 401, 4456, 4457, 706, 607, 618, 101)
-        { id: 'account-411', code: '411', label: 'Clients', type: 'asset', balance: clientReceivables, lastTransaction: context.lastInvoiceDate, movementCount: context.invoiceCount },
-        { id: 'account-401', code: '401', label: 'Fournisseurs', type: 'liability', balance: supplierLiabilities, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length + commitments.length },
-        { id: 'account-4456', code: '4456', label: 'TVA déductible', type: 'asset', balance: totalDeductibleVat, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
-        { id: 'account-4457', code: '4457', label: 'TVA collectée', type: 'liability', balance: totalCollectedVat, lastTransaction: context.lastInvoiceDate, movementCount: factures.length },
-        { id: 'account-706', code: '706', label: 'Prestations de services', type: 'revenue', balance: totalRevenue, lastTransaction: context.lastInvoiceDate, movementCount: factures.length },
-        { id: 'account-607', code: '607', label: 'Achats et approvisionnements', type: 'expense', balance: context.purchasesExpense, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
-        { id: 'account-618', code: '618', label: 'Autres charges d exploitation', type: 'expense', balance: context.otherExpense, lastTransaction: context.lastDecaissementDate, movementCount: decaissements.length },
-        { id: 'account-101', code: '101', label: 'Capital et résultat', type: 'equity', balance: context.netResult, lastTransaction: context.today, movementCount: 1 }
-      ];
-    }
-
-    dynamicAccounts = evaluatedDynamicAccounts;
+const dynamicAccounts = evaluatedDynamicAccounts;
     const mergedAccounts = mergeAccounts(
       persistedAccounts.filter((account) => !account.isDynamic),
       evaluatedDynamicAccounts
