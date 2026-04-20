@@ -55,7 +55,6 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     isAdminRole(user) || hasAnyPermission(user, ['services.read_all', 'services.read']);
   const [clientId, setClientId] = useState('');
   const [prospectId, setProspectId] = useState('');
-  const [selectedServiceId, setSelectedServiceId] = useState(userServiceId);
   const [objet, setObjet] = useState('');
   const [dateValidite, setDateValidite] = useState(buildDefaultValidityDate());
   const [notes, setNotes] = useState('');
@@ -71,30 +70,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     enabled: isOpen,
     staleTime: 3 * 60 * 1000,
   });
-  const { data: servicesResponse } = useQuery({
-    queryKey: ['commercial-quote-service-options'],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen && (canChooseService || !userServiceId),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const clientsArray: Client[] = Array.isArray(clients) ? clients : [];
-  const prospectsArray: Prospect[] = Array.isArray(prospects) ? prospects : [];
-  const services = servicesResponse?.data ?? [];
-  const selectedService = services.find((service: Service) => String(service.id) === String(selectedServiceId));
-  const serviceLabel =
-    selectedService?.name ||
-    user?.service?.name ||
-    user?.department ||
-    'Service commercial';
-
-  useEffect(() => {
-    if (!selectedServiceId && userServiceId) {
-      setSelectedServiceId(userServiceId);
-    }
-  }, [selectedServiceId, userServiceId]);
-
-  const createMutation = useMutation({
+  // selectedService logic removed
     mutationFn: (payload: Parameters<typeof billingService.createQuote>[0]) => billingService.createQuote(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commercial-quotes'] });
@@ -143,7 +119,6 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
   const resetForm = () => {
     setClientId('');
     setProspectId('');
-    setSelectedServiceId(userServiceId);
     setObjet('');
     setDateValidite(buildDefaultValidityDate());
     setNotes('');
@@ -165,7 +140,6 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
 
     setClientId(initialQuote.clientId || '');
     setProspectId(initialQuote.prospectId || '');
-    setSelectedServiceId(String(initialQuote.serviceId || userServiceId || ''));
     setObjet(initialQuote.objet || '');
     setDateValidite(initialQuote.dateValidite?.split('T')[0] || buildDefaultValidityDate());
     setNotes(initialQuote.notes || '');
@@ -207,8 +181,6 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     const payload = {
       clientId: clientId || undefined,
       prospectId: prospectId || undefined,
-      serviceId: selectedServiceId || userServiceId || undefined,
-      serviceName: serviceLabel,
       commercialId: user?.id || undefined,
       commercialName: [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined,
       commercialEmail: user?.email || undefined,
@@ -265,27 +237,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
             </div>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Service interne associé</label>
-              {canChooseService || !userServiceId ? (
-                <select
-                  value={selectedServiceId}
-                  onChange={(event) => setSelectedServiceId(event.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Sélectionner un service</option>
-                  {services.map((service: Service) => (
-                    <option key={service.id} value={String(service.id)}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input value={serviceLabel} readOnly />
-              )}
-            </div>
-
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Client / prospect</label>
               <select
@@ -316,7 +268,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
               <Input value={objet} onChange={(event) => setObjet(event.target.value)} placeholder="Fourniture équipements / prestation / abonnement..." />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 lg:col-span-2">
               <label className="text-sm font-medium">Date de validité</label>
               <Input type="date" value={dateValidite} onChange={(event) => setDateValidite(event.target.value)} />
             </div>
