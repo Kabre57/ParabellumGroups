@@ -11,3 +11,6 @@ test/
 coverage/
 dist/
 build/
+.next/
+.turbo/
+.cache/
