@@ -1,5 +1,53 @@
+'use client';
 
-const city = (prospect.city || '').trim();
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { useMemo, useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MapPin, PhoneCall, Users } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { commercialService } from '@/shared/api/commercial/commercial.service';
+import type { Prospect, TerrainVisit, TerrainVisitStatus } from '@/shared/api/commercial/types';
+
+const ProspectionTerrainMap = dynamic(
+  () => import('@/components/commercial/terrain/TerrainMapRender'),
+  { ssr: false }
+);
+
+export default function ProspectionTerrainPage() {
+  const queryClient = useQueryClient();
+  const { data, isLoading, error: queryError } = useQuery<Prospect[]>({
+    queryKey: ['prospects-terrain'],
+    queryFn: () => commercialService.getProspects({ limit: 50 }),
+  });
+  const {
+    data: visitData,
+    isLoading: visitsLoading,
+    error: visitsError,
+  } = useQuery<TerrainVisit[]>({
+    queryKey: ['terrain-visits'],
+    queryFn: () => commercialService.getTerrainVisits(),
+  });
+  const { data: dueVisitsData } = useQuery<TerrainVisit[]>({
+    queryKey: ['terrain-visits-due'],
+    queryFn: () => commercialService.getTerrainVisits({ due: true }),
+  });
+  const prospects = Array.isArray(data) ? data : [];
+
+  const terrainProspects = useMemo(
+    () => prospects.filter((prospect) => !prospect.isConverted),
+    [prospects]
+  );
+  const visitsToPlan = terrainProspects.slice(0, 6);
+  const zoneStats = useMemo(() => {
+    const resolveZone = (prospect: Prospect) => {
+      const city = (prospect.city || '').trim();
       if (city) return city;
       const region = (prospect.region || '').trim();
       if (region) return region;
@@ -78,6 +126,7 @@ const city = (prospect.city || '').trim();
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
   };
+
 
   const createVisitMutation = useMutation({
     mutationFn: commercialService.createTerrainVisit,
