@@ -156,13 +156,13 @@ export default function CashVoucherPrint({
       </style>
       
       <div className="print-sheet">
-        {renderVoucher('EXEMPLAIRE SOUCHE')}
+        {renderVoucher('SOUCHE')}
         
         <div style={{ height: '20px', borderBottom: '1px dashed #444', marginBottom: '40px', textAlign: 'center' }}>
           <span style={{ backgroundColor: 'white', padding: '0 10px', fontSize: 10, color: '#666', position: 'relative', top: '10px' }}>DÉCOUPER ICI</span>
         </div>
 
-        {renderVoucher('EXEMPLAIRE BÉNÉFICIAIRE')}
+        {renderVoucher('BÉNÉFICIAIRE')}
       </div>
     </PrintLayout>
   );

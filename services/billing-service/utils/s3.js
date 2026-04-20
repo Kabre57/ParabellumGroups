@@ -55,11 +55,20 @@ async function uploadToS3(buffer, mimetype, prefix = 'quotes') {
 
   const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
 
+  let publicUrl = '';
   if (PUBLIC_ENDPOINT && !PUBLIC_ENDPOINT.includes('.amazonaws.com')) {
     const base = PUBLIC_ENDPOINT.endsWith('/') ? PUBLIC_ENDPOINT.slice(0, -1) : PUBLIC_ENDPOINT;
-    return `${base}/${BUCKET}/${key}`;
+    publicUrl = `${base}/${BUCKET}/${key}`;
+  } else {
+    publicUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
   }
-  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+  
+  // Hack to ensure internal network URL doesn't leak to clients on production
+  if (publicUrl.includes('minio:9000')) {
+    publicUrl = publicUrl.replace('http://minio:9000', 'https://parabellum-erp.online/storage');
+  }
+
+  return publicUrl;
 }
 
 async function deleteFromS3(url) {

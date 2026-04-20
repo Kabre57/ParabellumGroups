@@ -733,7 +733,8 @@ exports.createDevis = async (req, res) => {
     }
 
     const totaux = buildTotals(lignesData);
-    const serviceId = normalizeText(req.body.serviceId) || normalizeText(req.user?.serviceId) || null;
+    const serviceIdRaw = normalizeText(req.body.serviceId) || normalizeText(req.user?.serviceId) || null;
+    const serviceId = serviceIdRaw ? parseInt(serviceIdRaw, 10) : null;
     const serviceMeta = await fetchServiceMeta(req, serviceId);
 
     const commercialId = normalizeText(req.body.commercialId) || normalizeText(req.user?.id) || null;
@@ -778,7 +779,7 @@ exports.createDevis = async (req, res) => {
           montantHT: totaux.totalHT,
           montantTVA: totaux.totalTVA,
           montantTTC: totaux.totalTTC,
-          serviceId,
+          serviceId: serviceId !== null && !isNaN(serviceId) ? serviceId : null,
           serviceName: normalizeText(req.body.serviceName) || serviceMeta.serviceName,
           serviceLogoUrl: serviceMeta.serviceLogoUrl,
           commercialId,
