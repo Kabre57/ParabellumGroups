@@ -70,6 +70,9 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     enabled: isOpen,
     staleTime: 3 * 60 * 1000,
   });
+
+  const clientsArray: any[] = Array.isArray(clients) ? clients : [];
+  const prospectsArray: any[] = Array.isArray(prospects) ? prospects : [];
   const createMutation = useMutation({
     mutationFn: (payload: Parameters<typeof billingService.createQuote>[0]) => billingService.createQuote(payload),
     onSuccess: () => {
