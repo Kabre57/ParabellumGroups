@@ -106,10 +106,10 @@ type CommissionDecisionRow = {
 const statusLabels: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
   SOUMISE: 'Soumise',
-  APPROUVEE: 'Validée DG',
+  APPROUVEE: 'Validée PDG',
   REJETEE: 'Rejetee',
   PROFORMAS_EN_COURS: 'Proformas en préparation',
-  PROFORMA_SOUMISE: 'Proforma soumise DG',
+  PROFORMA_SOUMISE: 'Proforma soumise PDG',
   PROFORMA_APPROUVEE: 'Proforma validée',
   COMMANDEE: 'Convertie en BC',
 };

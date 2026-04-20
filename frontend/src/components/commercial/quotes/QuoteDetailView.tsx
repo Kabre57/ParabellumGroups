@@ -30,6 +30,8 @@ import {
   isQuoteReadyForClientApproval,
 } from './quote-status';
 import { CreateClientQuoteDialog } from './CreateClientQuoteDialog';
+import QuotePrint from '@/components/printComponents/QuotePrint';
+import InvoicePrint from '@/components/printComponents/InvoicePrint';
 
 interface Props {
   quoteId: string;
@@ -123,6 +125,8 @@ export function QuoteDetailView({ quoteId }: Props) {
   const [actionType, setActionType] = useState<QuoteActionType>(null);
   const [actionComment, setActionComment] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [isPrintQuoteOpen, setIsPrintQuoteOpen] = useState(false);
+  const [isPrintInvoiceOpen, setIsPrintInvoiceOpen] = useState(false);
   const { canUpdate, canExport, canApprove } = getCrudVisibility(user, {
     read: ['quotes.read', 'quotes.read_all', 'quotes.read_own'],
     update: ['quotes.update', 'quotes.approve'],
@@ -270,17 +274,11 @@ export function QuoteDetailView({ quoteId }: Props) {
   };
 
   const handlePrint = async () => {
-    const blob = await billingService.getQuotePDF(quoteId);
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    setIsPrintQuoteOpen(true);
   };
 
   const handlePrintInvoice = async () => {
-    const invoiceId = quote?.convertedInvoiceId;
-    if (!invoiceId) return;
-    const blob = await billingService.getInvoicePDF(invoiceId);
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    setIsPrintInvoiceOpen(true);
   };
 
   const actionPending =
@@ -593,6 +591,23 @@ export function QuoteDetailView({ quoteId }: Props) {
         onClose={() => setEditOpen(false)}
         initialQuote={quote}
       />
+
+      {isPrintQuoteOpen && (
+        <QuotePrint quote={quote} onClose={() => setIsPrintQuoteOpen(false)} />
+      )}
+
+      {isPrintInvoiceOpen && quote.convertedInvoiceId && (
+        <InvoicePrint
+          invoice={{
+            ...quote,
+            id: quote.convertedInvoiceId,
+            numeroFacture: quote.convertedInvoiceNumber,
+            dateFacture: quote.updatedAt,
+            dateEcheance: quote.dateValidite,
+          }}
+          onClose={() => setIsPrintInvoiceOpen(false)}
+        />
+      )}
     </>
   );
 }

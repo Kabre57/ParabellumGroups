@@ -344,23 +344,23 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                 accept="image/*"
                 className="hidden"
                 disabled={uploadingIndex !== null}
-                onChange={async (event) => {
+                onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
                   setUploadingIndex(index);
-                  try {
-                    const response = await billingService.uploadQuoteLineImage(file);
-                    if (!response?.url) {
-                      throw new Error('URL manquante');
-                    }
-                    updateLine(index, { imageUrl: response.url });
-                    toast.success('Image uploadée');
-                  } catch (error: any) {
-                    toast.error(error?.response?.data?.error || error?.message || 'Upload impossible');
-                  } finally {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    updateLine(index, { imageUrl: String(reader.result || '') });
+                    toast.success('Image téléchargée avec succès');
                     setUploadingIndex(null);
                     event.target.value = '';
-                  }
+                  };
+                  reader.onerror = () => {
+                    toast.error('Erreur lors de la lecture de l\'image');
+                    setUploadingIndex(null);
+                    event.target.value = '';
+                  };
+                  reader.readAsDataURL(file);
                 }}
               />
             </label>

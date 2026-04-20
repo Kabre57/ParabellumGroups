@@ -26,8 +26,8 @@ type FlattenedProforma = {
 
 const statusLabels: Record<string, string> = {
   BROUILLON: 'Brouillon',
-  SOUMISE: 'Soumise DG',
-  APPROUVEE: 'Validée DG',
+  SOUMISE: 'Soumise PDG',
+  APPROUVEE: 'Validée PDG',
   REJETEE: 'Rejetée',
 };
 
@@ -164,8 +164,8 @@ export default function PurchaseProformasPage() {
             >
               <option value="ALL">Tous les statuts</option>
               <option value="BROUILLON">Brouillon</option>
-              <option value="SOUMISE">Soumise DG</option>
-              <option value="APPROUVEE">Validée DG</option>
+              <option value="SOUMISE">Soumise PDG</option>
+              <option value="APPROUVEE">Validée PDG</option>
             </select>
           </div>
 

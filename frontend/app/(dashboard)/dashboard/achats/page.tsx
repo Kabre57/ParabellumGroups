@@ -38,8 +38,8 @@ import { billingService, type PurchaseCommitment } from '@/shared/api/billing';
 
 const REQUEST_STATUS_LABELS: Record<PurchaseRequestStatus, string> = {
   BROUILLON: 'Brouillon',
-  SOUMISE: 'Soumise DG',
-  APPROUVEE: 'Validée DG',
+  SOUMISE: 'Soumise PDG',
+  APPROUVEE: 'Validée PDG',
   REJETEE: 'Rejetée',
   PROFORMAS_EN_COURS: 'Proformas en cours',
   PROFORMA_SOUMISE: 'Proforma soumise',
