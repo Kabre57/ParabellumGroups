@@ -185,7 +185,7 @@ export default function TerrainMapRender({ prospects }: { prospects: Prospect[] 
   const center = [locations[0].lat, locations[0].lng] as [number, number];
 
   return (
-    <div className="h-[360px] w-full overflow-hidden rounded-md border">
+    <div className="relative z-0 h-[360px] w-full overflow-hidden rounded-md border">
       <MapContainer center={center} zoom={11} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

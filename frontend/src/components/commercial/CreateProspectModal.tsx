@@ -128,7 +128,7 @@ export default function CreateProspectModal({ isOpen, onClose }: CreateProspectM
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center px-4 py-8 text-center">
         <div className="fixed inset-0 bg-gray-500/75" onClick={onClose} />
-        <div className="relative inline-block w-full max-w-5xl overflow-hidden rounded-lg bg-white text-left shadow-xl">
+        <div className="relative inline-block w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg bg-white text-left shadow-xl">
           <div className="px-4 pt-5 pb-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>

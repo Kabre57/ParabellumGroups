@@ -330,7 +330,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
             <label className="inline-flex items-center gap-3">
               {line.imageUrl ? (
                 <img
-                  src={line.imageUrl}
+                  src={line.imageUrl?.replace('http://minio:9000', 'https://parabellum-erp.online/storage')}
                   alt={line.description || `Ligne ${index + 1}`}
                   className="h-12 w-12 rounded-md border object-cover"
                 />
