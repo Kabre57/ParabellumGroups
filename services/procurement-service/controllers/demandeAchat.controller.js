@@ -153,21 +153,13 @@ const ensureServiceContext = async (req, fallbackName = null, requestedServiceId
     requestedServiceId !== undefined && requestedServiceId !== null && requestedServiceId !== ''
       ? Number(requestedServiceId)
       : null;
-  const serviceId = req.user?.serviceId ?? parsedRequestedServiceId ?? null;
+  const rawServiceId = req.user?.serviceId ?? parsedRequestedServiceId ?? null;
+  const serviceId = rawServiceId != null && Number.isFinite(Number(rawServiceId)) ? Number(rawServiceId) : null;
 
-  if (!serviceId || !Number.isFinite(Number(serviceId))) {
-    return {
-      error: {
-        status: 422,
-        body: {
-          success: false,
-          message: 'Le service demandeur est obligatoire pour cette operation',
-        },
-      },
-    };
-  }
+  const serviceMeta = serviceId
+    ? await fetchServiceMeta(req, serviceId, req.user?.serviceName || fallbackName)
+    : { serviceName: req.user?.serviceName || fallbackName || null };
 
-  const serviceMeta = await fetchServiceMeta(req, serviceId, req.user?.serviceName || fallbackName);
   return {
     serviceId,
     serviceName: serviceMeta.serviceName || req.user?.serviceName || fallbackName || null,

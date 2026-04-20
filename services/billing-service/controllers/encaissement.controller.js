@@ -1,5 +1,5 @@
 const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
-const { nextEntryNumber, computeSignedDelta, amount, ensureDefaultAccounts } = require('../utils/accounting');
+const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 
 const prisma = new PrismaClient();
 
@@ -33,8 +33,6 @@ exports.create = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await ensureDefaultAccounts(tx, req.user);
-
       const revenueAccount = await tx.accountingAccount.findUnique({
         where: { id: String(accountingAccountId) },
       });

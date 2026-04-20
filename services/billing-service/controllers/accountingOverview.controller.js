@@ -313,11 +313,6 @@ exports.getAccountingOverview = async (req, res) => {
       };
     });
 
-    // 3. Fallback to hardcoded if DB is empty (safety migration)
-    let dynamicAccounts = evaluatedDynamicAccounts;
-    if (dynamicAccounts.length === 0) {
-      console.log('[DEBUG] No dynamic accounts found in DB, using hardcoded fallback');
-      dynamicAccounts = [
         {
           id: 'account-512',
           code: '512',
@@ -349,7 +344,10 @@ exports.getAccountingOverview = async (req, res) => {
     }
 
     dynamicAccounts = evaluatedDynamicAccounts;
-    const mergedAccounts = mergeAccounts(persistedAccounts.filter(a => !a.isDynamic), dynamicAccounts);
+    const mergedAccounts = mergeAccounts(
+      persistedAccounts.filter((account) => !account.isDynamic),
+      evaluatedDynamicAccounts
+    );
 
     const manualEntries = manualJournalEntries.map(serializeJournalEntry);
     const manualEntrySourceKeys = new Set(

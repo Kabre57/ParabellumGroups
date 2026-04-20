@@ -201,7 +201,7 @@ export const CreateTechnicienModal: React.FC<CreateTechnicienModalProps> = ({ is
               {errors.matricule && <p className="mt-1 text-sm text-red-600">{errors.matricule.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'Embauche *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
               <input
                 {...register('dateEmbauche')}
                 type="date"

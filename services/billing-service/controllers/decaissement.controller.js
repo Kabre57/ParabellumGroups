@@ -1,6 +1,6 @@
 const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const { recordPayment } = require('../utils/accountingWorkflow');
-const { nextEntryNumber, computeSignedDelta, amount, ensureDefaultAccounts } = require('../utils/accounting');
+const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 
 const prisma = new PrismaClient();
 
@@ -35,8 +35,6 @@ exports.create = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await ensureDefaultAccounts(tx, req.user);
-
       const decaissement = await tx.decaissement.create({
         data: {
           numeroPiece: `DEC-${Date.now()}`,

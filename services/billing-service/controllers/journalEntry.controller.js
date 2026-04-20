@@ -3,7 +3,6 @@ const {
   amount,
   ensureAccountingReadAccess,
   ensureAccountingWriteAccess,
-  ensureDefaultAccounts,
   parseDate,
   resolveDateRange,
   nextEntryNumber,
@@ -57,8 +56,6 @@ exports.getAllJournalEntries = async (req, res) => {
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }
-
-    await ensureDefaultAccounts(prisma, req.user);
 
     const { startDate, endDate } = resolveDateRange({
       period: req.query.period,
@@ -137,8 +134,6 @@ exports.createJournalEntry = async (req, res) => {
         message: 'Les comptes débit et crédit doivent être différents',
       });
     }
-
-    await ensureDefaultAccounts(prisma, req.user);
 
     const [debitAccount, creditAccount] = await Promise.all([
       prisma.accountingAccount.findUnique({ where: { id: normalizedDebitAccountId } }),

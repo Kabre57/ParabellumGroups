@@ -99,8 +99,12 @@ export default function DepensesPage() {
 
   const createEncaissementMutation = useMutation({
     mutationFn: billingService.createEncaissement,
-    onSuccess: () => {
+    onSuccess: (response) => {
       toast.success('Bon d\'encaissement créé avec succès.');
+      setPrintVoucher({
+        ...response.data,
+        flowType: 'ENCAISSEMENT',
+      });
       setEncaissementOpen(false);
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
@@ -111,8 +115,12 @@ export default function DepensesPage() {
 
   const createDecaissementMutation = useMutation({
     mutationFn: billingService.createDecaissement,
-    onSuccess: () => {
+    onSuccess: (response) => {
       toast.success('Bon de décaissement créé avec succès.');
+      setPrintVoucher({
+        ...response.data,
+        flowType: 'DECAISSEMENT',
+      });
       setDecaissementOpen(false);
       setSelectedCommitment(null);
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });

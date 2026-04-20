@@ -46,7 +46,7 @@ export function DpaFormFields({
   onNotesChange,
   description,
   onDescriptionChange,
-  servicePlaceholder = 'Sélectionner un service associé',
+  servicePlaceholder = 'Selectionner un service associe',
   disabled = false,
 }: DpaFormFieldsProps) {
   const hasServices = services.length > 0;
@@ -56,15 +56,15 @@ export function DpaFormFields({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showServiceSelector ? (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Service interne associé</label>
+            <label className="text-sm font-medium">Service interne associe (optionnel)</label>
             <select
               value={selectedServiceId}
               onChange={(event) => onServiceChange(event.target.value)}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              disabled={disabled || (!hasServices && !selectedServiceId)}
+              disabled={disabled}
             >
               <option value="">
-                {hasServices ? servicePlaceholder : 'Aucun service disponible pour cette entreprise'}
+                {hasServices ? servicePlaceholder : 'Aucun service disponible - continuer sans service'}
               </option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
@@ -74,7 +74,7 @@ export function DpaFormFields({
             </select>
             {!hasServices ? (
               <p className="text-xs text-muted-foreground">
-                La liste des services renvoyee par l&apos;API est vide pour l&apos;entreprise rattachee a ce compte.
+                Aucun service n&apos;a ete remonte pour cette entreprise. Le devis peut quand meme etre enregistre.
               </p>
             ) : null}
           </div>
@@ -85,7 +85,7 @@ export function DpaFormFields({
           <Input
             value={title}
             onChange={(event) => onTitleChange(event.target.value)}
-            placeholder="Achat équipements réseau"
+            placeholder="Achat equipements reseau"
             disabled={disabled}
           />
         </div>

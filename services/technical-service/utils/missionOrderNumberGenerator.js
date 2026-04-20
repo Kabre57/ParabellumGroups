@@ -7,10 +7,10 @@ function generateMissionOrderPrefix(date = new Date()) {
   return `OM-${year}`;
 }
 
-async function getNextMissionOrderNumber(date = new Date()) {
+async function getNextMissionOrderNumber(date = new Date(), client = prisma) {
   const prefix = generateMissionOrderPrefix(date);
 
-  const lastOrder = await prisma.ordreMission.findFirst({
+  const lastOrder = await client.ordreMission.findFirst({
     where: {
       numeroOrdre: {
         startsWith: prefix,

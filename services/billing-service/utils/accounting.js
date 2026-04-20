@@ -209,77 +209,9 @@ const DYNAMIC_ACCOUNT_TEMPLATES = {
   },
 };
 
-const DEFAULT_ACCOUNT_CATALOG = [
-  { code: '101', label: 'Capital social', type: AccountingAccountType.EQUITY },
-  { code: '121', label: 'Resultat net', type: AccountingAccountType.EQUITY },
-  { code: '161', label: 'Emprunts obligataires', type: AccountingAccountType.LIABILITY },
-  { code: '211', label: 'Frais de developpement', type: AccountingAccountType.ASSET },
-  { code: '241', label: 'Materiel et outillage', type: AccountingAccountType.ASSET },
-  { code: '244', label: 'Materiel de transport', type: AccountingAccountType.ASSET },
-  { code: '245', label: 'Materiel de bureau', type: AccountingAccountType.ASSET },
-  { code: '311', label: 'Marchandises', type: AccountingAccountType.ASSET },
-  { code: '401', label: 'Fournisseurs', type: AccountingAccountType.LIABILITY },
-  { code: '411', label: 'Clients', type: AccountingAccountType.ASSET },
-  { code: '422', label: 'Personnel, remunerations dues', type: AccountingAccountType.LIABILITY },
-  { code: '431', label: 'CNPS', type: AccountingAccountType.LIABILITY },
-  { code: '442', label: 'Etat, impots et taxes', type: AccountingAccountType.LIABILITY },
-  { code: '445', label: 'Etat, TVA', type: AccountingAccountType.LIABILITY },
-  { code: '4456', label: 'TVA deductible', type: AccountingAccountType.ASSET },
-  { code: '4457', label: 'TVA collectee', type: AccountingAccountType.LIABILITY },
-  { code: '512', label: 'Banques', type: AccountingAccountType.ASSET },
-  { code: '521', label: 'Instruments de tresorerie', type: AccountingAccountType.ASSET },
-  { code: '531', label: 'Caisse', type: AccountingAccountType.ASSET },
-  { code: '601', label: 'Achats de matieres premieres', type: AccountingAccountType.EXPENSE },
-  { code: '607', label: 'Achats de marchandises', type: AccountingAccountType.EXPENSE },
-  { code: '611', label: 'Transports', type: AccountingAccountType.EXPENSE },
-  { code: '615', label: 'Entretien et maintenance', type: AccountingAccountType.EXPENSE },
-  { code: '618', label: 'Autres charges externes', type: AccountingAccountType.EXPENSE },
-  { code: '625', label: 'Deplacements et missions', type: AccountingAccountType.EXPENSE },
-  { code: '631', label: 'Impots et taxes directs', type: AccountingAccountType.EXPENSE },
-  { code: '661', label: 'Charges de personnel', type: AccountingAccountType.EXPENSE },
-  { code: '701', label: 'Ventes de produits finis', type: AccountingAccountType.REVENUE },
-  { code: '706', label: 'Services vendus / Prestations', type: AccountingAccountType.REVENUE },
-  { code: '707', label: 'Ventes de marchandises', type: AccountingAccountType.REVENUE },
-  { code: '811', label: 'Valeurs comptables des cessions', type: AccountingAccountType.EXPENSE },
-];
-
 const getDynamicAccountTemplate = (code) => {
   const normalizedCode = String(code || '').trim();
   return DYNAMIC_ACCOUNT_TEMPLATES[normalizedCode] || null;
-};
-
-const ensureDefaultAccounts = async (client, user) => {
-  const createdByUserId = user?.userId ? String(user.userId) : null;
-  const createdByEmail = user?.email || null;
-
-  for (const account of DEFAULT_ACCOUNT_CATALOG) {
-    const dynamicTemplate = getDynamicAccountTemplate(account.code);
-
-    await client.accountingAccount.upsert({
-      where: { code: account.code },
-      update: {
-        label: account.label,
-        type: account.type,
-        isSystem: true,
-        isActive: true,
-        isDynamic: Boolean(dynamicTemplate),
-        formula: dynamicTemplate?.formula || null,
-      },
-      create: {
-        code: account.code,
-        label: account.label,
-        type: account.type,
-        isSystem: true,
-        isActive: true,
-        openingBalance: 0,
-        currentBalance: 0,
-        isDynamic: Boolean(dynamicTemplate),
-        formula: dynamicTemplate?.formula || null,
-        createdByUserId,
-        createdByEmail,
-      },
-    });
-  }
 };
 
 const serializeAccountingAccount = (account) => ({
@@ -375,7 +307,6 @@ module.exports = {
   accountTypeToView,
   accountTypeFromInput,
   getDynamicAccountTemplate,
-  ensureDefaultAccounts,
   serializeAccountingAccount,
   nextEntryNumber,
   sideFromInput,

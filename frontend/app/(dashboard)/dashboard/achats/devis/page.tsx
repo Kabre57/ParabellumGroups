@@ -480,7 +480,7 @@ export default function PurchaseQuotesPage() {
         onSelectArticle={updateLineArticle}
         totalTTC={draftTotals.montantTTC}
         isPending={createMutation.isPending}
-        canSubmit={Boolean(title && selectedServiceId && (supplierId || manualSupplierName.trim()))}
+        canSubmit={Boolean(title && (supplierId || manualSupplierName.trim()))}
         onSubmit={() => createMutation.mutate()}
       />
 

@@ -118,6 +118,7 @@ const includeOrderRelations = {
 };
 
 async function buildOrderCreateInput({
+  client,
   mission,
   intervention,
   technicien,
@@ -131,8 +132,14 @@ async function buildOrderCreateInput({
   notes,
   createdByUserId,
 }) {
+  const dateDepart = intervention?.dateDebut || mission?.dateDebut || null;
+
+  if (!dateDepart) {
+    throw new Error('La date de debut de la mission est obligatoire pour generer un ordre de mission.');
+  }
+
   return {
-    numeroOrdre: await getNextMissionOrderNumber(),
+    numeroOrdre: await getNextMissionOrderNumber(new Date(), client),
     missionId: mission.id,
     interventionId: intervention?.id || null,
     technicienId: technicien.id,
@@ -143,7 +150,7 @@ async function buildOrderCreateInput({
     vehiculeLabel: vehiculeLabel?.trim() || formatVehicleLabel(vehiculeType),
     destination: destination?.trim() || getMissionDestination(mission),
     objetMission: objetMission?.trim() || getMissionObject(mission, intervention),
-    dateDepart: intervention?.dateDebut || mission.dateDebut,
+    dateDepart,
     dateRetour: intervention?.dateFin || mission.dateFin || null,
     notes: notes?.trim() || null,
     createdByUserId: createdByUserId || null,
@@ -312,24 +319,27 @@ exports.create = async (req, res) => {
       }
     }
 
-    const data = await buildOrderCreateInput({
-      mission,
-      intervention,
-      technicien,
-      vehiculeType,
-      vehiculeLabel,
-      pieceIdentite,
-      fonction,
-      qualite,
-      destination,
-      objetMission,
-      notes,
-      createdByUserId: req.user?.id,
-    });
+    const order = await prisma.$transaction(async (tx) => {
+      const data = await buildOrderCreateInput({
+        client: tx,
+        mission,
+        intervention,
+        technicien,
+        vehiculeType,
+        vehiculeLabel,
+        pieceIdentite,
+        fonction,
+        qualite,
+        destination,
+        objetMission,
+        notes,
+        createdByUserId: req.user?.id,
+      });
 
-    const order = await prisma.ordreMission.create({
-      data,
-      include: includeOrderRelations,
+      return tx.ordreMission.create({
+        data,
+        include: includeOrderRelations,
+      });
     });
 
     res.status(201).json({
@@ -409,27 +419,33 @@ exports.createBatch = async (req, res) => {
       });
     }
 
-    const createdOrders = [];
-    for (const assignment of assignments) {
-      const data = await buildOrderCreateInput({
-        mission: intervention.mission,
-        intervention,
-        technicien: assignment.technicien,
-        vehiculeType,
-        vehiculeLabel,
-        qualite,
-        destination,
-        objetMission,
-        notes,
-        createdByUserId: req.user?.id,
-      });
+    const createdOrders = await prisma.$transaction(async (tx) => {
+      const orders = [];
 
-      const order = await prisma.ordreMission.create({
-        data,
-        include: includeOrderRelations,
-      });
-      createdOrders.push(order);
-    }
+      for (const assignment of assignments) {
+        const data = await buildOrderCreateInput({
+          client: tx,
+          mission: intervention.mission,
+          intervention,
+          technicien: assignment.technicien,
+          vehiculeType,
+          vehiculeLabel,
+          qualite,
+          destination,
+          objetMission,
+          notes,
+          createdByUserId: req.user?.id,
+        });
+
+        const order = await tx.ordreMission.create({
+          data,
+          include: includeOrderRelations,
+        });
+        orders.push(order);
+      }
+
+      return orders;
+    });
 
     res.status(201).json({
       success: true,
