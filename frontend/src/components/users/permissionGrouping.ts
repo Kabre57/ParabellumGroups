@@ -156,7 +156,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
   {
     id: 'procurement',
     label: 'Achats & Logistique',
-    description: 'Demandes internes d’achat, validation DG, chiffrage achat, commandes et stock.',
+    description: 'Demandes internes d’achat, validation PDG, chiffrage achat, commandes et stock.',
     order: 80,
     categories: ['procurement', 'purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
     prefixes: ['purchases', 'products', 'suppliers', 'purchase_orders', 'purchase_requests', 'inventory'],
@@ -164,7 +164,7 @@ export const serviceDefinitions: ServiceDefinition[] = [
       purchases: 'Demandes d achat internes',
       products: 'Produits',
       suppliers: 'Fournisseurs',
-      purchase_requests: 'Devis internes, commission achat et validation DG',
+      purchase_requests: 'Devis internes, commission achat et validation PDG',
       purchase_orders: 'Commandes d\'achat & réceptions',
       inventory: 'Stocks',
     },

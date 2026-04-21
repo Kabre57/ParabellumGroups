@@ -39,3 +39,23 @@ test('auth routes expose the expected public and private flows', () => {
   assert.match(content, /refreshLimiter/);
   assert.match(content, /authenticate/);
 });
+
+test('permission routes enforce role-based access and bounded validation rules', () => {
+  const permissionsContent = read('src', 'routes', 'permission.routes.js');
+  const workflowContent = read('src', 'routes', 'permissionChange.routes.js');
+
+  assert.match(permissionsContent, /router\.use\(authenticate\)/);
+  assert.match(permissionsContent, /router\.get\('\/categories', checkRole\(\['ADMIN', 'GENERAL_DIRECTOR'\]\), getPermissionCategories\)/);
+  assert.match(permissionsContent, /checkRole\('ADMIN'\)/);
+  assert.match(permissionsContent, /withMessage\('Permission name must not exceed 100 characters'\)/);
+  assert.match(permissionsContent, /withMessage\('Description must not exceed 500 characters'\)/);
+  assert.match(permissionsContent, /router\.put\(\s*'\/roles\/:role\/:permissionId'/);
+  assert.match(permissionsContent, /canApprove must be a boolean/);
+
+  assert.match(workflowContent, /router\.use\(authenticate\)/);
+  assert.match(workflowContent, /router\.get\('\/', checkRole\(\['ADMIN'\]\), listRequests\)/);
+  assert.match(workflowContent, /router\.patch\('\/:id\/approve', checkRole\(\['ADMIN','GENERAL_DIRECTOR'\]\), approveRequest\)/);
+  assert.match(workflowContent, /router\.patch\('\/:id\/reject', checkRole\(\['ADMIN','GENERAL_DIRECTOR'\]\), \[body\('reason'\)\.optional\(\)\.isString\(\)\], rejectRequest\)/);
+  assert.match(workflowContent, /Valid email required/);
+  assert.match(workflowContent, /Message required/);
+});

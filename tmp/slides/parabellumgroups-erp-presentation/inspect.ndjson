@@ -1,0 +1,269 @@
+{"kind":"deck","id":"parabellumgroups-erp-presentation","slideCount":8,"slideSize":{"width":1280,"height":720}}
+{"kind":"slide","slide":1,"id":"upqj1c"}
+{"kind":"slide","slide":2,"id":"jx3p1t"}
+{"kind":"slide","slide":3,"id":"yzbovl"}
+{"kind":"slide","slide":4,"id":"mio3sl"}
+{"kind":"slide","slide":5,"id":"f1c9fi"}
+{"kind":"slide","slide":6,"id":"t2p05t"}
+{"kind":"slide","slide":7,"id":"3m5j7a"}
+{"kind":"slide","slide":8,"id":"qxh9pl"}
+{"kind":"shape","slide":1,"id":"2","role":"cover glow","shapeType":"ellipse","bbox":[842,-86,520,520]}
+{"kind":"shape","slide":1,"id":"3","role":"cover glow","shapeType":"ellipse","bbox":[922,312,440,440]}
+{"kind":"shape","slide":1,"id":"4","role":"cover glow","shapeType":"ellipse","bbox":[-180,488,420,420]}
+{"kind":"shape","slide":1,"id":"5","role":"cover edge accent","shapeType":"rect","bbox":[0,0,8,720]}
+{"kind":"shape","slide":1,"id":"6","role":"hero logo frame","shapeType":"roundRect","bbox":[770,122,396,396]}
+{"kind":"image","slide":1,"id":"7","role":"hero logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[808,152,320,320]}
+{"kind":"shape","slide":1,"id":"8","role":"cover accent rule","shapeType":"rect","bbox":[72,104,7,458]}
+{"kind":"textbox","slide":1,"id":"9","role":"kicker","text":"Presentation projet","textPreview":"Presentation projet","textChars":19,"textLines":1,"bbox":[96,108,520,26]}
+{"kind":"textbox","slide":1,"id":"10","role":"cover title","text":"ParabellumGroups ERP","textPreview":"ParabellumGroups ERP","textChars":20,"textLines":1,"bbox":[92,154,580,172]}
+{"kind":"textbox","slide":1,"id":"11","role":"cover subtitle","text":"Plateforme ERP modulaire pour centraliser, securiser et piloter l'activite de l'entreprise.","textPreview":"Plateforme ERP modulaire pour centraliser, securiser et piloter l'activite de l'entreprise.","textChars":91,"textLines":1,"bbox":[96,338,566,86]}
+{"kind":"shape","slide":1,"id":"12","role":"cover moment panel","shapeType":"roundRect","bbox":[96,468,520,94]}
+{"kind":"textbox","slide":1,"id":"13","role":"cover moment","text":"Une plateforme unique pour relier commercial, operations et finance.","textPreview":"Une plateforme unique pour relier commercial, operations et finance.","textChars":68,"textLines":1,"bbox":[124,495,462,36]}
+{"kind":"shape","slide":2,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":2,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":2,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":2,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":2,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":2,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":2,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":2,"id":"9","role":"header","text":"PROBLEME","textPreview":"PROBLEME","textChars":8,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":2,"id":"10","role":"header","text":"02 / 08","textPreview":"02 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":2,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":2,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":2,"id":"13","role":"title","text":"Un probleme simple : l'information est dispersee","textPreview":"Un probleme simple : l'information est dispersee","textChars":48,"textLines":1,"bbox":[64,86,760,142]}
+{"kind":"textbox","slide":2,"id":"14","role":"subtitle","text":"Sans plateforme unifiee, les equipes travaillent en silos et le pilotage devient lent.","textPreview":"Sans plateforme unifiee, les equipes travaillent en silos et le pilotage devient lent.","textChars":86,"textLines":1,"bbox":[66,234,720,70]}
+{"kind":"shape","slide":2,"id":"15","role":"card panel: Silos metier","shapeType":"roundRect","bbox":[84,356,355.3333333333333,236]}
+{"kind":"shape","slide":2,"id":"16","role":"card accent: Silos metier","shapeType":"rect","bbox":[84,356,8,236]}
+{"kind":"shape","slide":2,"id":"17","role":"icon badge","shapeType":"ellipse","bbox":[106,380,54,54]}
+{"kind":"shape","slide":2,"id":"18","role":"icon glyph","shapeType":"rect","bbox":[122,409,6,12]}
+{"kind":"shape","slide":2,"id":"19","role":"icon glyph","shapeType":"rect","bbox":[131,401,6,20]}
+{"kind":"shape","slide":2,"id":"20","role":"icon glyph","shapeType":"rect","bbox":[140,394,6,27]}
+{"kind":"textbox","slide":2,"id":"21","role":"card label","text":"Silos metier","textPreview":"Silos metier","textChars":12,"textLines":1,"bbox":[172,378,247.33333333333331,28]}
+{"kind":"textbox","slide":2,"id":"22","role":"card body: Silos metier","text":"Commercial, RH, achats,\ntechnique et finance\ns'appuient souvent sur des\noutils separes.","textPreview":"Commercial, RH, achats, | technique et finance | s'appuient souvent sur des | outils separes.","textChars":87,"textLines":4,"bbox":[108,442,307.3333333333333,128]}
+{"kind":"shape","slide":2,"id":"23","role":"card panel: Taches manuelles","shapeType":"roundRect","bbox":[463.3333333333333,356,355.3333333333333,236]}
+{"kind":"shape","slide":2,"id":"24","role":"card accent: Taches manuelles","shapeType":"rect","bbox":[463.3333333333333,356,8,236]}
+{"kind":"shape","slide":2,"id":"25","role":"icon badge","shapeType":"ellipse","bbox":[485.3333333333333,380,54,54]}
+{"kind":"shape","slide":2,"id":"26","role":"icon glyph","shapeType":"ellipse","bbox":[498.3333333333333,398,10,10]}
+{"kind":"shape","slide":2,"id":"27","role":"icon glyph","shapeType":"ellipse","bbox":[516.3333333333333,407,10,10]}
+{"kind":"shape","slide":2,"id":"28","role":"icon glyph","shapeType":"rect","bbox":[507.3333333333333,405,19,3]}
+{"kind":"textbox","slide":2,"id":"29","role":"card label","text":"Taches manuelles","textPreview":"Taches manuelles","textChars":16,"textLines":1,"bbox":[551.3333333333333,378,247.33333333333331,28]}
+{"kind":"textbox","slide":2,"id":"30","role":"card body: Taches manuelles","text":"Excel, ressaisies et\nvalidations hors flux\naugmentent les erreurs et\nles retards.","textPreview":"Excel, ressaisies et | validations hors flux | augmentent les erreurs et | les retards.","textChars":81,"textLines":4,"bbox":[487.3333333333333,442,307.3333333333333,128]}
+{"kind":"shape","slide":2,"id":"31","role":"card panel: Visibilite limitee","shapeType":"roundRect","bbox":[842.6666666666666,356,355.3333333333333,236]}
+{"kind":"shape","slide":2,"id":"32","role":"card accent: Visibilite limitee","shapeType":"rect","bbox":[842.6666666666666,356,8,236]}
+{"kind":"shape","slide":2,"id":"33","role":"icon badge","shapeType":"ellipse","bbox":[864.6666666666666,380,54,54]}
+{"kind":"shape","slide":2,"id":"34","role":"icon glyph","shapeType":"roundRect","bbox":[877.6666666666666,395,26,13]}
+{"kind":"shape","slide":2,"id":"35","role":"icon glyph","shapeType":"roundRect","bbox":[882.6666666666666,404,26,13]}
+{"kind":"shape","slide":2,"id":"36","role":"icon glyph","shapeType":"roundRect","bbox":[887.6666666666666,413,20,10]}
+{"kind":"textbox","slide":2,"id":"37","role":"card label","text":"Visibilite limitee","textPreview":"Visibilite limitee","textChars":18,"textLines":1,"bbox":[930.6666666666666,378,247.33333333333331,28]}
+{"kind":"textbox","slide":2,"id":"38","role":"card body: Visibilite limitee","text":"Les indicateurs restent\ndisperses, ce qui complique\nla decision et le suivi en\ntemps reel.","textPreview":"Les indicateurs restent | disperses, ce qui complique | la decision et le suivi en | temps reel.","textChars":90,"textLines":4,"bbox":[866.6666666666666,442,307.3333333333333,128]}
+{"kind":"shape","slide":3,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":3,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":3,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":3,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":3,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":3,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":3,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":3,"id":"9","role":"header","text":"SOLUTION","textPreview":"SOLUTION","textChars":8,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":3,"id":"10","role":"header","text":"03 / 08","textPreview":"03 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":3,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":3,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":3,"id":"13","role":"title","text":"La reponse : un ERP transversal et modulaire","textPreview":"La reponse : un ERP transversal et modulaire","textChars":44,"textLines":1,"bbox":[64,86,700,142]}
+{"kind":"textbox","slide":3,"id":"14","role":"subtitle","text":"Le projet relie les fonctions critiques dans un seul systeme, avec une architecture separee par domaines.","textPreview":"Le projet relie les fonctions critiques dans un seul systeme, avec une architecture separee par domaines.","textChars":105,"textLines":1,"bbox":[66,234,700,70]}
+{"kind":"shape","slide":3,"id":"15","role":"metric panel: plateforme unique","shapeType":"roundRect","bbox":[92,392,330,182]}
+{"kind":"shape","slide":3,"id":"16","role":"metric accent: plateforme unique","shapeType":"rect","bbox":[92,392,330,7]}
+{"kind":"textbox","slide":3,"id":"17","role":"metric value","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[114,416,286,54]}
+{"kind":"textbox","slide":3,"id":"18","role":"metric label","text":"plateforme unique","textPreview":"plateforme unique","textChars":17,"textLines":1,"bbox":[116,474,282,38]}
+{"kind":"textbox","slide":3,"id":"19","role":"metric note","text":"Acces centralise et parcours unifie","textPreview":"Acces centralise et parcours unifie","textChars":35,"textLines":1,"bbox":[116,532,282,22]}
+{"kind":"shape","slide":3,"id":"20","role":"metric panel: microservices metier","shapeType":"roundRect","bbox":[462,392,330,182]}
+{"kind":"shape","slide":3,"id":"21","role":"metric accent: microservices metier","shapeType":"rect","bbox":[462,392,330,7]}
+{"kind":"textbox","slide":3,"id":"22","role":"metric value","text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[484,416,286,54]}
+{"kind":"textbox","slide":3,"id":"23","role":"metric label","text":"microservices metier","textPreview":"microservices metier","textChars":20,"textLines":1,"bbox":[486,474,282,38]}
+{"kind":"textbox","slide":3,"id":"24","role":"metric note","text":"Domaines separes et evolutifs","textPreview":"Domaines separes et evolutifs","textChars":29,"textLines":1,"bbox":[486,532,282,22]}
+{"kind":"shape","slide":3,"id":"25","role":"metric panel: vision activite","shapeType":"roundRect","bbox":[832,392,330,182]}
+{"kind":"shape","slide":3,"id":"26","role":"metric accent: vision activite","shapeType":"rect","bbox":[832,392,330,7]}
+{"kind":"textbox","slide":3,"id":"27","role":"metric value","text":"360°","textPreview":"360°","textChars":4,"textLines":1,"bbox":[854,416,286,54]}
+{"kind":"textbox","slide":3,"id":"28","role":"metric label","text":"vision activite","textPreview":"vision activite","textChars":15,"textLines":1,"bbox":[856,474,282,38]}
+{"kind":"textbox","slide":3,"id":"29","role":"metric note","text":"Du prospect au reporting","textPreview":"Du prospect au reporting","textChars":24,"textLines":1,"bbox":[856,532,282,22]}
+{"kind":"shape","slide":4,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":4,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":4,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":4,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":4,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":4,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":4,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":4,"id":"9","role":"header","text":"MODULES","textPreview":"MODULES","textChars":7,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":4,"id":"10","role":"header","text":"04 / 08","textPreview":"04 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":4,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":4,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":4,"id":"13","role":"title","text":"Une couverture fonctionnelle tres large","textPreview":"Une couverture fonctionnelle tres large","textChars":39,"textLines":1,"bbox":[64,86,760,142]}
+{"kind":"textbox","slide":4,"id":"14","role":"subtitle","text":"La plateforme accompagne l'entreprise sur les fonctions support comme sur les activites operationnelles.","textPreview":"La plateforme accompagne l'entreprise sur les fonctions support comme sur les activites operationnelles.","textChars":104,"textLines":1,"bbox":[66,234,720,70]}
+{"kind":"shape","slide":4,"id":"15","role":"card panel: Gestion & controle","shapeType":"roundRect","bbox":[84,356,355.3333333333333,236]}
+{"kind":"shape","slide":4,"id":"16","role":"card accent: Gestion & controle","shapeType":"rect","bbox":[84,356,8,236]}
+{"kind":"shape","slide":4,"id":"17","role":"icon badge","shapeType":"ellipse","bbox":[106,380,54,54]}
+{"kind":"shape","slide":4,"id":"18","role":"icon glyph","shapeType":"rect","bbox":[122,409,6,12]}
+{"kind":"shape","slide":4,"id":"19","role":"icon glyph","shapeType":"rect","bbox":[131,401,6,20]}
+{"kind":"shape","slide":4,"id":"20","role":"icon glyph","shapeType":"rect","bbox":[140,394,6,27]}
+{"kind":"textbox","slide":4,"id":"21","role":"card label","text":"Gestion & controle","textPreview":"Gestion & controle","textChars":18,"textLines":1,"bbox":[172,378,247.33333333333331,28]}
+{"kind":"textbox","slide":4,"id":"22","role":"card body: Gestion & controle","text":"Authentification, roles,\npermissions, audit,\nnotifications et tableaux de\nbord.","textPreview":"Authentification, roles, | permissions, audit, | notifications et tableaux de | bord.","textChars":79,"textLines":4,"bbox":[108,442,307.3333333333333,128]}
+{"kind":"shape","slide":4,"id":"23","role":"card panel: Developpement business","shapeType":"roundRect","bbox":[463.3333333333333,356,355.3333333333333,236]}
+{"kind":"shape","slide":4,"id":"24","role":"card accent: Developpement business","shapeType":"rect","bbox":[463.3333333333333,356,8,236]}
+{"kind":"shape","slide":4,"id":"25","role":"icon badge","shapeType":"ellipse","bbox":[485.3333333333333,380,54,54]}
+{"kind":"shape","slide":4,"id":"26","role":"icon glyph","shapeType":"ellipse","bbox":[498.3333333333333,398,10,10]}
+{"kind":"shape","slide":4,"id":"27","role":"icon glyph","shapeType":"ellipse","bbox":[516.3333333333333,407,10,10]}
+{"kind":"shape","slide":4,"id":"28","role":"icon glyph","shapeType":"rect","bbox":[507.3333333333333,405,19,3]}
+{"kind":"textbox","slide":4,"id":"29","role":"card label","text":"Developpement business","textPreview":"Developpement business","textChars":22,"textLines":1,"bbox":[551.3333333333333,378,247.33333333333331,28]}
+{"kind":"textbox","slide":4,"id":"30","role":"card body: Developpement business","text":"Prospection, CRM, devis,\nprojets et suivi de la\nrelation client.","textPreview":"Prospection, CRM, devis, | projets et suivi de la | relation client.","textChars":64,"textLines":3,"bbox":[487.3333333333333,442,307.3333333333333,128]}
+{"kind":"shape","slide":4,"id":"31","role":"card panel: Operations & support","shapeType":"roundRect","bbox":[842.6666666666666,356,355.3333333333333,236]}
+{"kind":"shape","slide":4,"id":"32","role":"card accent: Operations & support","shapeType":"rect","bbox":[842.6666666666666,356,8,236]}
+{"kind":"shape","slide":4,"id":"33","role":"icon badge","shapeType":"ellipse","bbox":[864.6666666666666,380,54,54]}
+{"kind":"shape","slide":4,"id":"34","role":"icon glyph","shapeType":"roundRect","bbox":[877.6666666666666,395,26,13]}
+{"kind":"shape","slide":4,"id":"35","role":"icon glyph","shapeType":"roundRect","bbox":[882.6666666666666,404,26,13]}
+{"kind":"shape","slide":4,"id":"36","role":"icon glyph","shapeType":"roundRect","bbox":[887.6666666666666,413,20,10]}
+{"kind":"textbox","slide":4,"id":"37","role":"card label","text":"Operations & support","textPreview":"Operations & support","textChars":20,"textLines":1,"bbox":[930.6666666666666,378,247.33333333333331,28]}
+{"kind":"textbox","slide":4,"id":"38","role":"card body: Operations & support","text":"Achats, stock, technique,\nRH, paie, comptabilite et\ntresorerie.","textPreview":"Achats, stock, technique, | RH, paie, comptabilite et | tresorerie.","textChars":63,"textLines":3,"bbox":[866.6666666666666,442,307.3333333333333,128]}
+{"kind":"shape","slide":5,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":5,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":5,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":5,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":5,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":5,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":5,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":5,"id":"9","role":"header","text":"ARCHITECTURE","textPreview":"ARCHITECTURE","textChars":12,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":5,"id":"10","role":"header","text":"05 / 08","textPreview":"05 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":5,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":5,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":5,"id":"13","role":"title","text":"Une architecture moderne, modulaire et evolutive","textPreview":"Une architecture moderne, modulaire et evolutive","textChars":48,"textLines":1,"bbox":[64,86,760,142]}
+{"kind":"textbox","slide":5,"id":"14","role":"subtitle","text":"Le choix technique privilegie la separation des responsabilites et la maintenabilite.","textPreview":"Le choix technique privilegie la separation des responsabilites et la maintenabilite.","textChars":85,"textLines":1,"bbox":[66,234,720,70]}
+{"kind":"shape","slide":5,"id":"15","role":"card panel: Experience utilisateur","shapeType":"roundRect","bbox":[84,356,355.3333333333333,236]}
+{"kind":"shape","slide":5,"id":"16","role":"card accent: Experience utilisateur","shapeType":"rect","bbox":[84,356,8,236]}
+{"kind":"shape","slide":5,"id":"17","role":"icon badge","shapeType":"ellipse","bbox":[106,380,54,54]}
+{"kind":"shape","slide":5,"id":"18","role":"icon glyph","shapeType":"rect","bbox":[122,409,6,12]}
+{"kind":"shape","slide":5,"id":"19","role":"icon glyph","shapeType":"rect","bbox":[131,401,6,20]}
+{"kind":"shape","slide":5,"id":"20","role":"icon glyph","shapeType":"rect","bbox":[140,394,6,27]}
+{"kind":"textbox","slide":5,"id":"21","role":"card label","text":"Experience utilisateur","textPreview":"Experience utilisateur","textChars":22,"textLines":1,"bbox":[172,378,247.33333333333331,28]}
+{"kind":"textbox","slide":5,"id":"22","role":"card body: Experience utilisateur","text":"Frontend Next.js 16, React\n19 et TypeScript pour une\ninterface unique.","textPreview":"Frontend Next.js 16, React | 19 et TypeScript pour une | interface unique.","textChars":70,"textLines":3,"bbox":[108,442,307.3333333333333,128]}
+{"kind":"shape","slide":5,"id":"23","role":"card panel: Orchestration API","shapeType":"roundRect","bbox":[463.3333333333333,356,355.3333333333333,236]}
+{"kind":"shape","slide":5,"id":"24","role":"card accent: Orchestration API","shapeType":"rect","bbox":[463.3333333333333,356,8,236]}
+{"kind":"shape","slide":5,"id":"25","role":"icon badge","shapeType":"ellipse","bbox":[485.3333333333333,380,54,54]}
+{"kind":"shape","slide":5,"id":"26","role":"icon glyph","shapeType":"ellipse","bbox":[498.3333333333333,398,10,10]}
+{"kind":"shape","slide":5,"id":"27","role":"icon glyph","shapeType":"ellipse","bbox":[516.3333333333333,407,10,10]}
+{"kind":"shape","slide":5,"id":"28","role":"icon glyph","shapeType":"rect","bbox":[507.3333333333333,405,19,3]}
+{"kind":"textbox","slide":5,"id":"29","role":"card label","text":"Orchestration API","textPreview":"Orchestration API","textChars":17,"textLines":1,"bbox":[551.3333333333333,378,247.33333333333331,28]}
+{"kind":"textbox","slide":5,"id":"30","role":"card body: Orchestration API","text":"Un API Gateway centralise le\nroutage, l'authentification\net les controles\ntransverses.","textPreview":"Un API Gateway centralise le | routage, l'authentification | et les controles | transverses.","textChars":86,"textLines":4,"bbox":[487.3333333333333,442,307.3333333333333,128]}
+{"kind":"shape","slide":5,"id":"31","role":"card panel: Donnees & infra","shapeType":"roundRect","bbox":[842.6666666666666,356,355.3333333333333,236]}
+{"kind":"shape","slide":5,"id":"32","role":"card accent: Donnees & infra","shapeType":"rect","bbox":[842.6666666666666,356,8,236]}
+{"kind":"shape","slide":5,"id":"33","role":"icon badge","shapeType":"ellipse","bbox":[864.6666666666666,380,54,54]}
+{"kind":"shape","slide":5,"id":"34","role":"icon glyph","shapeType":"roundRect","bbox":[877.6666666666666,395,26,13]}
+{"kind":"shape","slide":5,"id":"35","role":"icon glyph","shapeType":"roundRect","bbox":[882.6666666666666,404,26,13]}
+{"kind":"shape","slide":5,"id":"36","role":"icon glyph","shapeType":"roundRect","bbox":[887.6666666666666,413,20,10]}
+{"kind":"textbox","slide":5,"id":"37","role":"card label","text":"Donnees & infra","textPreview":"Donnees & infra","textChars":15,"textLines":1,"bbox":[930.6666666666666,378,247.33333333333331,28]}
+{"kind":"textbox","slide":5,"id":"38","role":"card body: Donnees & infra","text":"PostgreSQL, Prisma, Redis,\nMinIO, Docker Compose et\nNginx soutiennent\nl'ensemble.","textPreview":"PostgreSQL, Prisma, Redis, | MinIO, Docker Compose et | Nginx soutiennent | l'ensemble.","textChars":81,"textLines":4,"bbox":[866.6666666666666,442,307.3333333333333,128]}
+{"kind":"shape","slide":6,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":6,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":6,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":6,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":6,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":6,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":6,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":6,"id":"9","role":"header","text":"DIFFERENCIATION","textPreview":"DIFFERENCIATION","textChars":15,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":6,"id":"10","role":"header","text":"06 / 08","textPreview":"06 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":6,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":6,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":6,"id":"13","role":"title","text":"Ce qui rend le projet differenciant","textPreview":"Ce qui rend le projet differenciant","textChars":35,"textLines":1,"bbox":[64,86,760,142]}
+{"kind":"textbox","slide":6,"id":"14","role":"subtitle","text":"La solution ne s'arrete pas a des ecrans de gestion ; elle integre de vraies logiques metier.","textPreview":"La solution ne s'arrete pas a des ecrans de gestion ; elle integre de vraies logiques metier.","textChars":93,"textLines":1,"bbox":[66,234,720,70]}
+{"kind":"shape","slide":6,"id":"15","role":"card panel: Workflows complets","shapeType":"roundRect","bbox":[84,356,355.3333333333333,236]}
+{"kind":"shape","slide":6,"id":"16","role":"card accent: Workflows complets","shapeType":"rect","bbox":[84,356,8,236]}
+{"kind":"shape","slide":6,"id":"17","role":"icon badge","shapeType":"ellipse","bbox":[106,380,54,54]}
+{"kind":"shape","slide":6,"id":"18","role":"icon glyph","shapeType":"rect","bbox":[122,409,6,12]}
+{"kind":"shape","slide":6,"id":"19","role":"icon glyph","shapeType":"rect","bbox":[131,401,6,20]}
+{"kind":"shape","slide":6,"id":"20","role":"icon glyph","shapeType":"rect","bbox":[140,394,6,27]}
+{"kind":"textbox","slide":6,"id":"21","role":"card label","text":"Workflows complets","textPreview":"Workflows complets","textChars":18,"textLines":1,"bbox":[172,378,247.33333333333331,28]}
+{"kind":"textbox","slide":6,"id":"22","role":"card body: Workflows complets","text":"Achats jusqu'au stock,\nprospect jusqu'a la facture,\nemploye jusqu'au bulletin.","textPreview":"Achats jusqu'au stock, | prospect jusqu'a la facture, | employe jusqu'au bulletin.","textChars":78,"textLines":3,"bbox":[108,442,307.3333333333333,128]}
+{"kind":"shape","slide":6,"id":"23","role":"card panel: Contexte local","shapeType":"roundRect","bbox":[463.3333333333333,356,355.3333333333333,236]}
+{"kind":"shape","slide":6,"id":"24","role":"card accent: Contexte local","shapeType":"rect","bbox":[463.3333333333333,356,8,236]}
+{"kind":"shape","slide":6,"id":"25","role":"icon badge","shapeType":"ellipse","bbox":[485.3333333333333,380,54,54]}
+{"kind":"shape","slide":6,"id":"26","role":"icon glyph","shapeType":"ellipse","bbox":[498.3333333333333,398,10,10]}
+{"kind":"shape","slide":6,"id":"27","role":"icon glyph","shapeType":"ellipse","bbox":[516.3333333333333,407,10,10]}
+{"kind":"shape","slide":6,"id":"28","role":"icon glyph","shapeType":"rect","bbox":[507.3333333333333,405,19,3]}
+{"kind":"textbox","slide":6,"id":"29","role":"card label","text":"Contexte local","textPreview":"Contexte local","textChars":14,"textLines":1,"bbox":[551.3333333333333,378,247.33333333333331,28]}
+{"kind":"textbox","slide":6,"id":"30","role":"card body: Contexte local","text":"RH et paie adaptees a la\nCote d'Ivoire avec CNPS,\nITS, FDFP, DISA et DASC.","textPreview":"RH et paie adaptees a la | Cote d'Ivoire avec CNPS, | ITS, FDFP, DISA et DASC.","textChars":74,"textLines":3,"bbox":[487.3333333333333,442,307.3333333333333,128]}
+{"kind":"shape","slide":6,"id":"31","role":"card panel: Gouvernance","shapeType":"roundRect","bbox":[842.6666666666666,356,355.3333333333333,236]}
+{"kind":"shape","slide":6,"id":"32","role":"card accent: Gouvernance","shapeType":"rect","bbox":[842.6666666666666,356,8,236]}
+{"kind":"shape","slide":6,"id":"33","role":"icon badge","shapeType":"ellipse","bbox":[864.6666666666666,380,54,54]}
+{"kind":"shape","slide":6,"id":"34","role":"icon glyph","shapeType":"roundRect","bbox":[877.6666666666666,395,26,13]}
+{"kind":"shape","slide":6,"id":"35","role":"icon glyph","shapeType":"roundRect","bbox":[882.6666666666666,404,26,13]}
+{"kind":"shape","slide":6,"id":"36","role":"icon glyph","shapeType":"roundRect","bbox":[887.6666666666666,413,20,10]}
+{"kind":"textbox","slide":6,"id":"37","role":"card label","text":"Gouvernance","textPreview":"Gouvernance","textChars":11,"textLines":1,"bbox":[930.6666666666666,378,247.33333333333331,28]}
+{"kind":"textbox","slide":6,"id":"38","role":"card body: Gouvernance","text":"Permissions fines, audit\nlogs et gestion structuree\ndes acces.","textPreview":"Permissions fines, audit | logs et gestion structuree | des acces.","textChars":62,"textLines":3,"bbox":[866.6666666666666,442,307.3333333333333,128]}
+{"kind":"shape","slide":7,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":7,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":7,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":7,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":7,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":7,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":7,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":7,"id":"9","role":"header","text":"AMPLEUR","textPreview":"AMPLEUR","textChars":7,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":7,"id":"10","role":"header","text":"07 / 08","textPreview":"07 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":7,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":7,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":7,"id":"13","role":"title","text":"Une base applicative deja structurante","textPreview":"Une base applicative deja structurante","textChars":38,"textLines":1,"bbox":[64,86,700,142]}
+{"kind":"textbox","slide":7,"id":"14","role":"subtitle","text":"L'analyse du depot montre une application de taille significative. Le projet compte aussi 12 microservices et 84 controllers backend.","textPreview":"L'analyse du depot montre une application de taille significative. Le projet compte aussi 12 microservices et 84 controllers backend.","textChars":133,"textLines":1,"bbox":[66,234,700,70]}
+{"kind":"shape","slide":7,"id":"15","role":"metric panel: pages frontend","shapeType":"roundRect","bbox":[84,356,444,150]}
+{"kind":"shape","slide":7,"id":"16","role":"metric accent: pages frontend","shapeType":"rect","bbox":[84,356,444,7]}
+{"kind":"textbox","slide":7,"id":"17","role":"metric value","text":"155","textPreview":"155","textChars":3,"textLines":1,"bbox":[106,380,400,54]}
+{"kind":"textbox","slide":7,"id":"18","role":"metric label","text":"pages frontend","textPreview":"pages frontend","textChars":14,"textLines":1,"bbox":[108,438,396,38]}
+{"kind":"textbox","slide":7,"id":"19","role":"metric note","text":"fichiers page.tsx detectes","textPreview":"fichiers page.tsx detectes","textChars":26,"textLines":1,"bbox":[108,464,396,22]}
+{"kind":"shape","slide":7,"id":"20","role":"metric panel: composants React","shapeType":"roundRect","bbox":[596,356,444,150]}
+{"kind":"shape","slide":7,"id":"21","role":"metric accent: composants React","shapeType":"rect","bbox":[596,356,444,7]}
+{"kind":"textbox","slide":7,"id":"22","role":"metric value","text":"186","textPreview":"186","textChars":3,"textLines":1,"bbox":[618,380,400,54]}
+{"kind":"textbox","slide":7,"id":"23","role":"metric label","text":"composants React","textPreview":"composants React","textChars":16,"textLines":1,"bbox":[620,438,396,38]}
+{"kind":"textbox","slide":7,"id":"24","role":"metric note","text":"dans frontend/src/components","textPreview":"dans frontend/src/components","textChars":28,"textLines":1,"bbox":[620,464,396,22]}
+{"kind":"shape","slide":7,"id":"25","role":"metric panel: routes backend","shapeType":"roundRect","bbox":[84,546,444,150]}
+{"kind":"shape","slide":7,"id":"26","role":"metric accent: routes backend","shapeType":"rect","bbox":[84,546,444,7]}
+{"kind":"textbox","slide":7,"id":"27","role":"metric value","text":"92","textPreview":"92","textChars":2,"textLines":1,"bbox":[106,570,400,54]}
+{"kind":"textbox","slide":7,"id":"28","role":"metric label","text":"routes backend","textPreview":"routes backend","textChars":14,"textLines":1,"bbox":[108,628,396,38]}
+{"kind":"textbox","slide":7,"id":"29","role":"metric note","text":"fichiers *.routes.js","textPreview":"fichiers *.routes.js","textChars":20,"textLines":1,"bbox":[108,654,396,22]}
+{"kind":"shape","slide":7,"id":"30","role":"metric panel: schemas Prisma","shapeType":"roundRect","bbox":[596,546,444,150]}
+{"kind":"shape","slide":7,"id":"31","role":"metric accent: schemas Prisma","shapeType":"rect","bbox":[596,546,444,7]}
+{"kind":"textbox","slide":7,"id":"32","role":"metric value","text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[618,570,400,54]}
+{"kind":"textbox","slide":7,"id":"33","role":"metric label","text":"schemas Prisma","textPreview":"schemas Prisma","textChars":14,"textLines":1,"bbox":[620,628,396,38]}
+{"kind":"textbox","slide":7,"id":"34","role":"metric note","text":"structures de donnees detectees","textPreview":"structures de donnees detectees","textChars":31,"textLines":1,"bbox":[620,654,396,22]}
+{"kind":"shape","slide":8,"id":"2","role":"side band","shapeType":"rect","bbox":[1102,0,178,720]}
+{"kind":"shape","slide":8,"id":"3","role":"band glow","shapeType":"ellipse","bbox":[1030,-52,260,260]}
+{"kind":"shape","slide":8,"id":"4","role":"band glow","shapeType":"ellipse","bbox":[1080,470,220,220]}
+{"kind":"shape","slide":8,"id":"5","role":"canvas accent","shapeType":"ellipse","bbox":[-110,560,240,240]}
+{"kind":"shape","slide":8,"id":"6","role":"top guide","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":8,"id":"7","role":"logo chip","shapeType":"roundRect","bbox":[1119,82,94,94]}
+{"kind":"image","slide":8,"id":"8","role":"brand logo","path":"c:\\Users\\Theo\\Documents\\GitHub\\ParabellumGroups\\frontend\\public\\parabellum.jpg","bbox":[1128,91,76,76]}
+{"kind":"textbox","slide":8,"id":"9","role":"header","text":"PERSPECTIVES","textPreview":"PERSPECTIVES","textChars":12,"textLines":1,"bbox":[64,34,430,24]}
+{"kind":"textbox","slide":8,"id":"10","role":"header","text":"08 / 08","textPreview":"08 / 08","textChars":7,"textLines":1,"bbox":[1114,34,104,24]}
+{"kind":"shape","slide":8,"id":"11","role":"header rule","shapeType":"rect","bbox":[64,64,1010,2]}
+{"kind":"shape","slide":8,"id":"12","role":"header marker","shapeType":"ellipse","bbox":[56,56,18,18]}
+{"kind":"textbox","slide":8,"id":"13","role":"title","text":"Prochaine etape : passer d'une base solide a une solution encore plus robuste","textPreview":"Prochaine etape : passer d'une base solide a une solution encore plus robuste","textChars":77,"textLines":1,"bbox":[64,86,760,142]}
+{"kind":"textbox","slide":8,"id":"14","role":"subtitle","text":"Les fondations sont posees ; la priorite est maintenant l'industrialisation.","textPreview":"Les fondations sont posees ; la priorite est maintenant l'industrialisation.","textChars":76,"textLines":1,"bbox":[66,234,720,70]}
+{"kind":"shape","slide":8,"id":"15","role":"card panel: Fiabiliser","shapeType":"roundRect","bbox":[84,356,355.3333333333333,236]}
+{"kind":"shape","slide":8,"id":"16","role":"card accent: Fiabiliser","shapeType":"rect","bbox":[84,356,8,236]}
+{"kind":"shape","slide":8,"id":"17","role":"icon badge","shapeType":"ellipse","bbox":[106,380,54,54]}
+{"kind":"shape","slide":8,"id":"18","role":"icon glyph","shapeType":"rect","bbox":[122,409,6,12]}
+{"kind":"shape","slide":8,"id":"19","role":"icon glyph","shapeType":"rect","bbox":[131,401,6,20]}
+{"kind":"shape","slide":8,"id":"20","role":"icon glyph","shapeType":"rect","bbox":[140,394,6,27]}
+{"kind":"textbox","slide":8,"id":"21","role":"card label","text":"Fiabiliser","textPreview":"Fiabiliser","textChars":10,"textLines":1,"bbox":[172,378,247.33333333333331,28]}
+{"kind":"textbox","slide":8,"id":"22","role":"card body: Fiabiliser","text":"Renforcer les tests, la\nvalidation continue et la\nqualite globale.","textPreview":"Renforcer les tests, la | validation continue et la | qualite globale.","textChars":66,"textLines":3,"bbox":[108,442,307.3333333333333,128]}
+{"kind":"shape","slide":8,"id":"23","role":"card panel: Harmoniser","shapeType":"roundRect","bbox":[463.3333333333333,356,355.3333333333333,236]}
+{"kind":"shape","slide":8,"id":"24","role":"card accent: Harmoniser","shapeType":"rect","bbox":[463.3333333333333,356,8,236]}
+{"kind":"shape","slide":8,"id":"25","role":"icon badge","shapeType":"ellipse","bbox":[485.3333333333333,380,54,54]}
+{"kind":"shape","slide":8,"id":"26","role":"icon glyph","shapeType":"ellipse","bbox":[498.3333333333333,398,10,10]}
+{"kind":"shape","slide":8,"id":"27","role":"icon glyph","shapeType":"ellipse","bbox":[516.3333333333333,407,10,10]}
+{"kind":"shape","slide":8,"id":"28","role":"icon glyph","shapeType":"rect","bbox":[507.3333333333333,405,19,3]}
+{"kind":"textbox","slide":8,"id":"29","role":"card label","text":"Harmoniser","textPreview":"Harmoniser","textChars":10,"textLines":1,"bbox":[551.3333333333333,378,247.33333333333331,28]}
+{"kind":"textbox","slide":8,"id":"30","role":"card body: Harmoniser","text":"Normaliser les conventions,\nla documentation et les\nparcours inter-modules.","textPreview":"Normaliser les conventions, | la documentation et les | parcours inter-modules.","textChars":75,"textLines":3,"bbox":[487.3333333333333,442,307.3333333333333,128]}
+{"kind":"shape","slide":8,"id":"31","role":"card panel: Monter en gamme","shapeType":"roundRect","bbox":[842.6666666666666,356,355.3333333333333,236]}
+{"kind":"shape","slide":8,"id":"32","role":"card accent: Monter en gamme","shapeType":"rect","bbox":[842.6666666666666,356,8,236]}
+{"kind":"shape","slide":8,"id":"33","role":"icon badge","shapeType":"ellipse","bbox":[864.6666666666666,380,54,54]}
+{"kind":"shape","slide":8,"id":"34","role":"icon glyph","shapeType":"roundRect","bbox":[877.6666666666666,395,26,13]}
+{"kind":"shape","slide":8,"id":"35","role":"icon glyph","shapeType":"roundRect","bbox":[882.6666666666666,404,26,13]}
+{"kind":"shape","slide":8,"id":"36","role":"icon glyph","shapeType":"roundRect","bbox":[887.6666666666666,413,20,10]}
+{"kind":"textbox","slide":8,"id":"37","role":"card label","text":"Monter en gamme","textPreview":"Monter en gamme","textChars":15,"textLines":1,"bbox":[930.6666666666666,378,247.33333333333331,28]}
+{"kind":"textbox","slide":8,"id":"38","role":"card body: Monter en gamme","text":"Ameliorer l'observabilite,\nle monitoring et la\npreparation au passage a\nl'echelle.","textPreview":"Ameliorer l'observabilite, | le monitoring et la | preparation au passage a | l'echelle.","textChars":82,"textLines":4,"bbox":[866.6666666666666,442,307.3333333333333,128]}
+{"kind":"shape","slide":8,"id":"39","role":"footer note panel","shapeType":"roundRect","bbox":[84,620,964,60]}
+{"kind":"textbox","slide":8,"id":"40","role":"footer note","text":"ParabellumGroups ERP constitue deja une base credible pour une digitalisation durable.","textPreview":"ParabellumGroups ERP constitue deja une base credible pour une digitalisation durable.","textChars":86,"textLines":1,"bbox":[112,638,910,24]}

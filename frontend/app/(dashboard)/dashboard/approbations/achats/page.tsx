@@ -57,7 +57,7 @@ export default function PurchaseApprovalsPage() {
   );
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => procurementService.approveRequest(id, 'Validé depuis l’espace DG'),
+    mutationFn: (id: string) => procurementService.approveRequest(id, 'Validé depuis l’espace PDG'),
     onSuccess: () => {
       toast.success('La demande a été validée.');
       queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });
@@ -85,7 +85,7 @@ export default function PurchaseApprovalsPage() {
 
   const approveProformaMutation = useMutation({
     mutationFn: ({ requestId, proformaId }: { requestId: string; proformaId: string }) =>
-      procurementService.approveProforma(requestId, proformaId, 'Validée depuis l’espace DG'),
+      procurementService.approveProforma(requestId, proformaId, 'Validée depuis l’espace PDG'),
     onSuccess: () => {
       toast.success('La proforma a été validée.');
       queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });

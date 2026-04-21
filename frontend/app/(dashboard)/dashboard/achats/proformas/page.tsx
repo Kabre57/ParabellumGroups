@@ -139,7 +139,7 @@ export default function PurchaseProformasPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Total proformas</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">En attente DG</div><div className="text-2xl font-bold text-amber-600">{stats.pending}</div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">En attente PDG</div><div className="text-2xl font-bold text-amber-600">{stats.pending}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Validées</div><div className="text-2xl font-bold text-green-600">{stats.approved}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant cumulé</div><div className="text-2xl font-bold">{formatCurrency(stats.amount)}</div></CardContent></Card>
       </div>

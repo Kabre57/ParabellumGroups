@@ -365,7 +365,7 @@ const buildCommissionDecisionRows = (
       const justification = [
         committeeEvaluation?.decisionNote || null,
         proforma.recommendedForApproval ? 'Recommandée par le service achat' : null,
-        proforma.selectedForOrder ? 'Retenue après validation DG' : null,
+        proforma.selectedForOrder ? 'Retenue après validation PDG' : null,
         bestAmount > 0 && proforma.montantTTC === bestAmount ? 'Offre la moins-disante' : null,
         proforma.observationsAchat || null,
       ]
@@ -654,7 +654,7 @@ export default function PurchaseQuoteDetailPage() {
     mutationFn: (proformaId: string) =>
       procurementService.submitProforma(id, proformaId, 'Soumise depuis la fiche detaillee'),
     onSuccess: () => {
-      toast.success('La proforma a été soumise au DG.');
+      toast.success('La proforma a été soumise au PDG.');
       queryClient.invalidateQueries({ queryKey: ['purchase-quote-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-approvals-space'] });

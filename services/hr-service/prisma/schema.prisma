@@ -617,7 +617,7 @@ model Entretien {
   id              Int      @id @default(autoincrement())
   candidatureId   Int
   dateHeure       DateTime
-  type            String?  // RH, Technique, DG
+  type            String?  // RH, Technique, PDG
   intervieweurs   String?
   lieu            String?
   statut          String   @default("Planifié") // Planifié | Réalisé | Annulé

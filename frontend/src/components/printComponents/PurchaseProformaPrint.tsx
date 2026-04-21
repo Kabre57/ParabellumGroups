@@ -42,7 +42,7 @@ export default function PurchaseProformaPrint({
       deliveryLeadTime={
         proforma.delaiLivraisonJours ? `${proforma.delaiLivraisonJours} jour(s)` : request.dateBesoin || undefined
       }
-      paymentTerms="Selon proforma retenue et validation DG"
+      paymentTerms="Selon proforma retenue et validation PDG"
       recipient={{
         name: proforma.fournisseurNom || request.supplierName || request.manualSupplierName || '-',
       }}
@@ -72,7 +72,7 @@ export default function PurchaseProformaPrint({
           ? `Proforma retenue pour commande sur le devis interne ${request.number}.`
           : `Proforma associee au devis interne ${request.number}.`
       }
-      signatureLabel="Visa achat / DG"
+      signatureLabel="Visa achat / PDG"
       onClose={onClose}
     />
   );

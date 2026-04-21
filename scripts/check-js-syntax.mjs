@@ -1,6 +1,7 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { Script } from 'node:vm';
 
 const roots = process.argv.slice(2);
 
@@ -49,16 +50,46 @@ if (files.length === 0) {
 }
 
 const failures = [];
+let useInProcessFallback = false;
+
+const checkWithCurrentProcess = (file) => {
+  try {
+    const source = readFileSync(file, 'utf8');
+    new Script(source, { filename: file });
+    return { status: 0, output: '' };
+  } catch (error) {
+    return {
+      status: 1,
+      output: (error?.stack || error?.message || String(error)).trim(),
+    };
+  }
+};
 
 for (const file of files) {
-  const result = spawnSync(process.execPath, ['--check', file], {
-    encoding: 'utf8',
-  });
+  let result;
+
+  if (useInProcessFallback) {
+    result = checkWithCurrentProcess(file);
+  } else {
+    const child = spawnSync(process.execPath, ['--check', file], {
+      encoding: 'utf8',
+    });
+
+    if (child.error?.code === 'EPERM') {
+      useInProcessFallback = true;
+      result = checkWithCurrentProcess(file);
+    } else {
+      result = {
+        status: child.status,
+        output: (child.stderr || child.stdout || '').trim(),
+      };
+    }
+  }
 
   if (result.status !== 0) {
     failures.push({
       file,
-      output: (result.stderr || result.stdout || '').trim(),
+      output: result.output,
     });
   }
 }

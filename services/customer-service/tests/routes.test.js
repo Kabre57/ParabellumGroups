@@ -33,6 +33,20 @@ test('client routes protect client CRUD and business status transitions', () => 
   assert.match(content, /router\.delete\('\/:id\/archive', authMiddleware, requireManager, clientController\.archive\)/);
 });
 
+test('client validations keep local identifiers and business filters constrained', () => {
+  const content = read('routes', 'client.routes.js');
+
+  assert.match(content, /const isIdu = \(value\) => \/\^CI-\\d\{4\}-\[A-Z0-9\]\{6,12\}\$\/i\.test\(value\.trim\(\)\);/);
+  assert.match(content, /const isAlphanumericId = \(value\) => \/\^\[A-Z0-9\/-\]\{6,30\}\$\/i\.test\(value\.trim\(\)\);/);
+  assert.match(content, /IDU invalide \(format attendu: CI-YYYY-XXXXXXXK\)/);
+  assert.match(content, /NCC invalide/);
+  assert.match(content, /RCCM invalide/);
+  assert.match(content, /query\('sortBy'\)\.optional\(\)\.isIn\(\['nom', 'createdAt', 'updatedAt', 'scoreFidelite', 'chiffreAffaireAnnuel'\]\)/);
+  assert.match(content, /query\('sortOrder'\)\.optional\(\)\.isIn\(\['asc', 'desc'\]\)/);
+  assert.match(content, /body\('status'\)\.isIn\(\['PROSPECT', 'ACTIF', 'INACTIF', 'SUSPENDU', 'ARCHIVE', 'LEAD_CHAUD', 'LEAD_FROID'\]\)/);
+  assert.match(content, /body\('priorite'\)\.isIn\(\['BASSE', 'MOYENNE', 'HAUTE', 'CRITIQUE'\]\)/);
+});
+
 test('contract routes expose lifecycle and avenant workflows', () => {
   const content = read('routes', 'contrat.routes.js');
 

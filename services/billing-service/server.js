@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
-const { authenticateToken } = require('./middleware/auth');
 
 const prisma = new PrismaClient();
 
@@ -13,7 +12,6 @@ const PORT = process.env.PORT || 4010;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(authenticateToken);
 
 // Routes
 const factureRoutes = require('./routes/facture.routes');
@@ -32,9 +30,11 @@ const cashVoucherRoutes = require('./routes/cashVoucher.routes');
 const placementRoutes = require('./routes/placement.routes');
 const budgetRoutes = require('./routes/budget.routes');
 
+// Public routes
+app.use('/api/devis', devisRoutes);
+
 app.use('/api/factures', factureRoutes);
 app.use('/api/paiements', paiementRoutes);
-app.use('/api/devis', devisRoutes);
 app.use('/api/avoirs', avoirRoutes);
 app.use('/api/purchase-commitments', purchaseCommitmentRoutes);
 app.use('/api/encaissements', encaissementRoutes);

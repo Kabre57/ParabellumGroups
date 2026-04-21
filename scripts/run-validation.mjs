@@ -13,6 +13,7 @@ const steps = [
   { label: 'Notification service build', cwd: 'services/notification-service', command: npmRunner, args: wrapNpmArgs(['run', 'build']) },
   { label: 'Auth service tests', cwd: 'services/auth-service', command: npmRunner, args: wrapNpmArgs(['test']) },
   { label: 'API Gateway tests', cwd: 'services/api-gateway', command: npmRunner, args: wrapNpmArgs(['test']) },
+  { label: 'Billing service tests', cwd: 'services/billing-service', command: npmRunner, args: wrapNpmArgs(['test']) },
   { label: 'Customer service lint', cwd: 'services/customer-service', command: npmRunner, args: wrapNpmArgs(['run', 'lint']) },
   { label: 'Customer service tests', cwd: 'services/customer-service', command: npmRunner, args: wrapNpmArgs(['test']) },
 ];

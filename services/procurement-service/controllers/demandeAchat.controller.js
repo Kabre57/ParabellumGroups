@@ -256,7 +256,7 @@ const buildActorContext = async (req, fallbackName = null, fallbackServiceId = n
 
 const validateRequestForSubmission = (demande) => {
   if (!demande.fournisseurId && !String(demande.fournisseurNomLibre || '').trim()) {
-    return 'Le fournisseur est obligatoire avant la soumission au DG';
+    return 'Le fournisseur est obligatoire avant la soumission au PDG';
   }
 
   if (!Array.isArray(demande.lignes) || demande.lignes.length === 0) {
@@ -804,7 +804,7 @@ exports.submit = async (req, res) => {
     if (!canAccessQuote(req, existing) || !canSubmitQuotes(req.user)) {
       return res.status(403).json({
         success: false,
-        message: 'Vous n avez pas la permission de soumettre cette DPA au DG',
+        message: 'Vous n avez pas la permission de soumettre cette DPA au PDG',
       });
     }
 
@@ -836,7 +836,7 @@ exports.submit = async (req, res) => {
           actorEmail: actorContext.actorEmail,
           actorServiceId: actorContext.actorServiceId,
           actorServiceName: actorContext.actorServiceName,
-          commentaire: req.body?.commentaire || 'DPA soumise au DG pour validation',
+          commentaire: req.body?.commentaire || 'DPA soumise au PDG pour validation',
         },
       });
 
@@ -863,7 +863,7 @@ exports.submit = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'DPA soumise au DG pour validation',
+      message: 'DPA soumise au PDG pour validation',
       data: serializeQuote(updated),
     });
   } catch (error) {
@@ -916,7 +916,7 @@ exports.approve = async (req, res) => {
           actorEmail: actorContext.actorEmail,
           actorServiceId: actorContext.actorServiceId,
           actorServiceName: actorContext.actorServiceName,
-          commentaire: req.body?.commentaire || 'DPA validée par la DG',
+          commentaire: req.body?.commentaire || 'DPA validée par la PDG',
         },
       });
 
@@ -1294,7 +1294,7 @@ exports.submitProforma = async (req, res) => {
     if (!canManageProformas(req.user)) {
       return res.status(403).json({
         success: false,
-        message: 'Seul le service achat peut soumettre une proforma au DG',
+        message: 'Seul le service achat peut soumettre une proforma au PDG',
       });
     }
 
@@ -1336,7 +1336,7 @@ exports.submitProforma = async (req, res) => {
           actorEmail: actorContext.actorEmail,
           actorServiceId: actorContext.actorServiceId,
           actorServiceName: actorContext.actorServiceName,
-          commentaire: req.body?.commentaire || 'Proforma soumise au DG pour validation',
+          commentaire: req.body?.commentaire || 'Proforma soumise au PDG pour validation',
         },
       });
 
@@ -1386,7 +1386,7 @@ exports.submitProforma = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Proforma soumise au DG pour validation',
+      message: 'Proforma soumise au PDG pour validation',
       data: serializeProforma(updated),
     });
   } catch (error) {
@@ -1444,7 +1444,7 @@ exports.approveProforma = async (req, res) => {
           actorEmail: actorContext.actorEmail,
           actorServiceId: actorContext.actorServiceId,
           actorServiceName: actorContext.actorServiceName,
-          commentaire: req.body?.commentaire || 'Proforma validée par la DG',
+          commentaire: req.body?.commentaire || 'Proforma validée par la PDG',
         },
       });
 

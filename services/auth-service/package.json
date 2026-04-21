@@ -10,7 +10,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "sync:roles": "node scripts/sync-system-roles.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node ../../scripts/run-node-tests.mjs tests"
   },
   "keywords": [
     "auth",

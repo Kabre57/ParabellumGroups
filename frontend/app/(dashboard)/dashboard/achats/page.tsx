@@ -393,7 +393,7 @@ export default function ProcurementDashboardPage() {
   const modules = [
     {
       title: 'Devis internes',
-      description: 'Saisie des besoins, validation DG et révisions de la demande.',
+      description: 'Saisie des besoins, validation PDG et révisions de la demande.',
       href: '/dashboard/achats/devis',
       icon: FileText,
     },
@@ -696,7 +696,7 @@ export default function ProcurementDashboardPage() {
             <div>
               <h2 className="text-xl font-semibold">Décisions à prendre</h2>
               <p className="text-sm text-muted-foreground">
-                Devis internes et proformas encore en attente d’arbitrage DG.
+                Devis internes et proformas encore en attente d’arbitrage PDG.
               </p>
             </div>
             <Button variant="outline" size="sm" asChild>

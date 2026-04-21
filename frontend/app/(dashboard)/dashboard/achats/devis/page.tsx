@@ -29,7 +29,7 @@ const statusLabels: Record<PurchaseRequestStatus, string> = {
   APPROUVEE: 'Validée PDG',
   REJETEE: 'Rejetée',
   PROFORMAS_EN_COURS: 'Proformas en préparation',
-  PROFORMA_SOUMISE: 'Proforma soumise DG',
+  PROFORMA_SOUMISE: 'Proforma soumise PDG',
   PROFORMA_APPROUVEE: 'Proforma validée',
   COMMANDEE: 'Convertie en BC',
 };
@@ -341,7 +341,7 @@ export default function PurchaseQuotesPage() {
               <option value="APPROUVEE">Validée PDG</option>
               <option value="REJETEE">Rejetée</option>
               <option value="PROFORMAS_EN_COURS">Proformas en préparation</option>
-              <option value="PROFORMA_SOUMISE">Proforma soumise DG</option>
+              <option value="PROFORMA_SOUMISE">Proforma soumise PDG</option>
               <option value="PROFORMA_APPROUVEE">Proforma validée</option>
               <option value="COMMANDEE">Convertie en BC</option>
             </select>

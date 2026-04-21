@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const cashVoucherController = require('../controllers/cashVoucher.controller');
+const { authenticateToken } = require('../middleware/auth');
+
+router.use(authenticateToken);
 
 // Liste et filtres
 router.get('/', cashVoucherController.getAllCashVouchers);
