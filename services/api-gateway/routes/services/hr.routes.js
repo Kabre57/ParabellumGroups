@@ -67,7 +67,16 @@ const rewriteHrPath = (path) => {
     const employeeId = employeeContractsMatch[1];
     const query = employeeContractsMatch[2] || '';
     const queryPrefix = query ? `${query}&` : '?';
-    const rewritten = `/contracts${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
+    const rewritten = `/api/contrats${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  const bareEmployeeContractsMatch = normalizedPath.match(/^\/employees\/([^\/]+)\/contracts(\?.*)?$/);
+  if (bareEmployeeContractsMatch) {
+    const employeeId = bareEmployeeContractsMatch[1];
+    const query = bareEmployeeContractsMatch[2] || '';
+    const queryPrefix = query ? `${query}&` : '?';
+    const rewritten = `/api/contrats${queryPrefix}employeeId=${encodeURIComponent(employeeId)}`;
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
@@ -92,32 +101,62 @@ const rewriteHrPath = (path) => {
     return rewritten;
   }
   if (normalizedPath.startsWith('/hr/contracts')) {
-    const rewritten = normalizedPath.replace('/hr/contracts', '/contracts');
+    const rewritten = normalizedPath.replace('/hr/contracts', '/api/contrats');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (normalizedPath.startsWith('/hr/payroll')) {
-    const rewritten = normalizedPath.replace('/hr/payroll', '/payroll');
+    const rewritten = normalizedPath.replace('/hr/payroll', '/api/paie');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (normalizedPath.startsWith('/hr/loans')) {
-    const rewritten = normalizedPath.replace('/hr/loans', '/api/loans');
+    const rewritten = normalizedPath.replace('/hr/loans', '/api/prets');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (normalizedPath.startsWith('/payrolls')) {
-    const rewritten = normalizedPath.replace('/payrolls', '/payroll');
+    const rewritten = normalizedPath.replace('/payrolls', '/api/paie/bulletins');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (normalizedPath.startsWith('/api/payrolls')) {
-    const rewritten = normalizedPath.replace('/api/payrolls', '/payroll');
+    const rewritten = normalizedPath.replace('/api/payrolls', '/api/paie/bulletins');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll/overview')) {
+    const rewritten = normalizedPath.replace('/payroll/overview', '/api/paie/overview');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll/calculate')) {
+    const rewritten = normalizedPath.replace('/payroll/calculate', '/api/paie/bulletins/calculer');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll/generate-all')) {
+    const rewritten = normalizedPath.replace('/payroll/generate-all', '/api/paie/traitement-masse');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll/generate')) {
+    const rewritten = normalizedPath.replace('/payroll/generate', '/api/paie/bulletins/calculer');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll/exports')) {
+    const rewritten = normalizedPath.replace('/payroll/exports', '/api/exports');
+    console.log('[HR Path Rewrite] Rewritten to:', rewritten);
+    return rewritten;
+  }
+  if (normalizedPath.startsWith('/payroll')) {
+    const rewritten = normalizedPath.replace('/payroll', '/api/paie');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }
   if (normalizedPath.startsWith('/api/payroll')) {
-    const rewritten = normalizedPath.replace('/api/payroll', '/payroll');
+    const rewritten = normalizedPath.replace('/api/payroll', '/api/paie');
     console.log('[HR Path Rewrite] Rewritten to:', rewritten);
     return rewritten;
   }

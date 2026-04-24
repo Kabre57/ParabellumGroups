@@ -28,6 +28,10 @@ app.get('/api/ping', (req, res) => {
   res.json({ message: 'HR Service is running' });
 });
 
+app.get('/api/timesheets', (req, res) => {
+  res.json([]);
+});
+
 // Importer les routers
 const employeRoutes = require('./routes/employe.routes');
 const contractRoutes = require('./routes/contract.routes');

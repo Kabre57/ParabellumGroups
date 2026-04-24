@@ -2,6 +2,8 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  HeadBucketCommand,
+  CreateBucketCommand,
 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 
@@ -11,6 +13,7 @@ const ENDPOINT = process.env.S3_ENDPOINT;
 const FORCE_PATH_STYLE = process.env.S3_FORCE_PATH_STYLE !== 'false';
 
 let client = null;
+let bucketReadyPromise = null;
 
 function getS3Client() {
   if (!client) {
@@ -36,6 +39,50 @@ function isS3Configured() {
   return !!(BUCKET && process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY);
 }
 
+async function ensureBucketExists() {
+  if (!isS3Configured()) return false;
+
+  if (!bucketReadyPromise) {
+    bucketReadyPromise = (async () => {
+      const s3 = getS3Client();
+
+      try {
+        await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
+        return true;
+      } catch (err) {
+        const statusCode = err?.$metadata?.httpStatusCode;
+        const errorName = err?.name || err?.Code;
+        const bucketMissing = statusCode === 404 || ['NoSuchBucket', 'NotFound', 'NotFoundException'].includes(errorName);
+
+        if (!bucketMissing) {
+          throw err;
+        }
+
+        const createParams = { Bucket: BUCKET };
+        if (!ENDPOINT && REGION !== 'us-east-1') {
+          createParams.CreateBucketConfiguration = { LocationConstraint: REGION };
+        }
+
+        try {
+          await s3.send(new CreateBucketCommand(createParams));
+          return true;
+        } catch (createErr) {
+          const createErrorName = createErr?.name || createErr?.Code;
+          if (['BucketAlreadyExists', 'BucketAlreadyOwnedByYou'].includes(createErrorName)) {
+            return true;
+          }
+          throw createErr;
+        }
+      }
+    })().catch((err) => {
+      bucketReadyPromise = null;
+      throw err;
+    });
+  }
+
+  return bucketReadyPromise;
+}
+
 /**
  * Upload file buffer to S3
  * @param {Buffer} buffer
@@ -49,6 +96,8 @@ async function uploadToS3(buffer, mimetype, prefix = 'services') {
   const ext = mimetype.split('/')[1] || 'jpg';
   const key = `${prefix}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
   const s3 = getS3Client();
+
+  await ensureBucketExists();
 
   await s3.send(
     new PutObjectCommand({
@@ -107,4 +156,5 @@ module.exports = {
   uploadToS3,
   deleteFromS3,
   isS3Configured,
+  ensureBucketExists,
 };

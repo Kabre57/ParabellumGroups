@@ -17,8 +17,14 @@ const validateConge = [
 
 router.use(authenticateUser);
 
+router.get('/calendrier', congeController.getCalendrier);
+router.get('/solde/:employeId', congeController.getSolde);
 router.get('/', congeController.getAllConges);
 router.post('/', validateConge, congeController.createConge);
+router.put('/:id', congeController.updateConge);
+router.patch('/:id', congeController.updateConge);
+router.patch('/:id/approve', congeController.approuverConge);
+router.patch('/:id/reject', congeController.refuserConge);
 router.get('/:id', congeController.getConge);
 router.delete('/:id', congeController.deleteConge);
 

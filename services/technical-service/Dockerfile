@@ -10,6 +10,11 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Download Prisma engines from a mirror when the default CDN is unreachable.
+ARG PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
+ENV PRISMA_ENGINES_MIRROR=${PRISMA_ENGINES_MIRROR} \
+    PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
 # Copy package files
 COPY package*.json ./
 

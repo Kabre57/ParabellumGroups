@@ -1,10 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const getUserId = (req) => String(req.user?.id || req.user?.userId || req.headers['x-user-id'] || 'anonymous');
+
 exports.createDashboard = async (req, res) => {
   try {
     const { nom, description, config, actif, parDefaut } = req.body;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     if (parDefaut) {
       await prisma.dashboard.updateMany({
@@ -34,7 +36,7 @@ exports.createDashboard = async (req, res) => {
 
 exports.getAllDashboards = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const { actif } = req.query;
 
     const where = { userId };
@@ -61,7 +63,7 @@ exports.getAllDashboards = async (req, res) => {
 exports.getDashboardById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     const dashboard = await prisma.dashboard.findFirst({
       where: { id, userId },
@@ -82,7 +84,7 @@ exports.getDashboardById = async (req, res) => {
 exports.updateDashboard = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const { nom, description, config, actif, parDefaut } = req.body;
 
     const existing = await prisma.dashboard.findFirst({
@@ -122,7 +124,7 @@ exports.updateDashboard = async (req, res) => {
 exports.deleteDashboard = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     const existing = await prisma.dashboard.findFirst({
       where: { id, userId }
@@ -146,7 +148,7 @@ exports.deleteDashboard = async (req, res) => {
 exports.getDashboardData = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     const dashboard = await prisma.dashboard.findFirst({
       where: { id, userId },
@@ -178,7 +180,7 @@ exports.getDashboardData = async (req, res) => {
 exports.duplicateDashboard = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     const original = await prisma.dashboard.findFirst({
       where: { id, userId },
@@ -220,7 +222,7 @@ exports.duplicateDashboard = async (req, res) => {
 exports.setDefault = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = getUserId(req);
 
     const existing = await prisma.dashboard.findFirst({
       where: { id, userId }
