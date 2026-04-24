@@ -11,6 +11,8 @@ model Facture {
   id             String          @id @default(uuid())
   numeroFacture  String          @unique
   clientId       String
+  enterpriseId   Int?
+  enterpriseName String?
   serviceId      Int?
   serviceName    String?
   serviceLogoUrl String?
@@ -29,6 +31,7 @@ model Facture {
   avoirs         Avoir[]
 
   @@index([clientId])
+  @@index([enterpriseId])
   @@index([status])
   @@index([dateEmission])
   @@map("factures")
@@ -57,6 +60,8 @@ model LigneFacture {
 model Paiement {
   id               String          @id @default(uuid())
   factureId        String
+  enterpriseId     Int?
+  enterpriseName   String?
   montant          Float
   datePaiement     DateTime        @default(now())
   methodePaiement  MethodePaiement
@@ -72,6 +77,7 @@ model Paiement {
   treasuryAccount  TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
 
   @@index([factureId])
+  @@index([enterpriseId])
   @@index([datePaiement])
   @@index([treasuryAccountId])
   @@map("paiements")
@@ -83,6 +89,8 @@ model Avoir {
   factureId        String
   factureNumero    String
   clientId         String
+  enterpriseId     Int?
+  enterpriseName   String?
   serviceId        String?
   serviceName      String?
   serviceLogoUrl   String?
@@ -100,6 +108,7 @@ model Avoir {
 
   @@index([factureId])
   @@index([clientId])
+  @@index([enterpriseId])
   @@index([status])
   @@index([createdAt])
   @@map("avoirs")
@@ -128,6 +137,8 @@ model Devis {
   id            String       @id @default(uuid())
   numeroDevis   String       @unique
   clientId      String
+  enterpriseId  Int?
+  enterpriseName String?
   objet         String?
   notes         String?
   serviceId     Int?
@@ -163,6 +174,7 @@ model Devis {
   evenements    DevisEvent[]
 
   @@index([clientId])
+  @@index([enterpriseId])
   @@index([prospectId])
   @@index([opportuniteId])
   @@index([status])
@@ -214,6 +226,8 @@ model PurchaseCommitment {
   sourceType     String
   sourceId       String
   sourceNumber   String
+  enterpriseId   Int?
+  enterpriseName String?
   serviceId      Int?
   serviceName    String?
   supplierId     String?
@@ -231,6 +245,7 @@ model PurchaseCommitment {
   decaissements        Decaissement[]
 
   @@unique([sourceType, sourceId])
+  @@index([enterpriseId])
   @@index([status])
   @@map("purchase_commitments")
 }
@@ -238,6 +253,8 @@ model PurchaseCommitment {
 model FactureFournisseur {
   id             String   @id @default(uuid())
   numeroFacture  String   @unique
+  enterpriseId   Int?
+  enterpriseName String?
   fournisseurId  String?
   fournisseurNom String?
   dateFacture    DateTime @default(now())
@@ -255,6 +272,7 @@ model FactureFournisseur {
   commitment     PurchaseCommitment[]
   decaissements  Decaissement[]
 
+  @@index([enterpriseId])
   @@index([fournisseurId])
   @@index([status])
   @@map("factures_fournisseurs")
@@ -266,6 +284,8 @@ model Encaissement {
   clientId          String?
   clientName        String
   description       String
+  enterpriseId      Int?
+  enterpriseName    String?
   serviceId         Int?
   serviceName       String?
   amountHT          Float    @default(0)
@@ -285,6 +305,7 @@ model Encaissement {
   treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
   factureClientId   String?
 
+  @@index([enterpriseId])
   @@index([dateEncaissement])
   @@index([treasuryAccountId])
   @@map("encaissements")
@@ -295,6 +316,8 @@ model Decaissement {
   numeroPiece       String   @unique
   beneficiaryName   String
   description       String
+  enterpriseId      Int?
+  enterpriseName    String?
   amountHT          Float    @default(0)
   amountTVA         Float    @default(0)
   amountTTC         Float
@@ -320,6 +343,7 @@ model Decaissement {
   commitmentId         String?
   commitment           PurchaseCommitment? @relation(fields: [commitmentId], references: [id])
 
+  @@index([enterpriseId])
   @@index([dateDecaissement])
   @@index([treasuryAccountId])
   @@map("decaissements")
@@ -435,6 +459,8 @@ model AccountingJournalEntry {
   reference       String?
   sourceType      String?
   sourceId        String?
+  enterpriseId    Int?
+  enterpriseName  String?
   createdByUserId String?
   createdByEmail  String?
   createdAt       DateTime                @default(now())
@@ -443,6 +469,7 @@ model AccountingJournalEntry {
   lines           AccountingJournalLine[]
 
   @@index([entryDate])
+  @@index([enterpriseId])
   @@index([journalCode])
   @@map("accounting_journal_entries")
 }
@@ -544,6 +571,8 @@ model CashVoucher {
   sourceId          String?
   sourceNumber      String?
   expenseCategory   String?
+  enterpriseId      Int?
+  enterpriseName    String?
   serviceId         Int?
   serviceName       String?
   supplierId        String?
@@ -572,6 +601,7 @@ model CashVoucher {
 
   treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
 
+  @@index([enterpriseId])
   @@index([issueDate])
   @@index([status])
   @@index([treasuryAccountId])

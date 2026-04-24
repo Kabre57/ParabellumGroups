@@ -69,9 +69,22 @@ export interface Enterprise {
   code?: string;
   logoUrl?: string;
   isActive: boolean;
+  parentEnterpriseId?: string | number | null;
+  parentEnterprise?: {
+    id: string | number;
+    name: string;
+    code?: string;
+  } | null;
+  childEnterprises?: Array<{
+    id: string | number;
+    name: string;
+    code?: string;
+    isActive?: boolean;
+    logoUrl?: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
-  _count?: { users: number; services: number };
+  _count?: { users: number; services: number; childEnterprises?: number };
 }
 
 export interface PaginatedResponse<T> {
@@ -353,11 +366,12 @@ export const enterpriseApi = {
   },
 
   create: async (enterpriseData: FormData | {
-    name: string;
-    description?: string;
-    code?: string;
-    isActive?: boolean;
-  }): Promise<{ success: boolean; data: Enterprise }> => {
+      name: string;
+      description?: string;
+      code?: string;
+      parentEnterpriseId?: string | number | null;
+      isActive?: boolean;
+    }): Promise<{ success: boolean; data: Enterprise }> => {
     // Determine headers based on whether we're sending FormData (file upload) or JSON
     const isFormData = enterpriseData instanceof FormData;
     const response = await api.post('/auth/enterprises', enterpriseData, {
@@ -367,9 +381,9 @@ export const enterpriseApi = {
   },
 
   update: async (
-    id: string | number,
-    enterpriseData: FormData | Partial<{ name: string; description: string; code: string; isActive: boolean; removeLogo: boolean }>
-  ): Promise<{ success: boolean; data: Enterprise }> => {
+      id: string | number,
+      enterpriseData: FormData | Partial<{ name: string; description: string; code: string; parentEnterpriseId: string | number | null; isActive: boolean; removeLogo: boolean }>
+    ): Promise<{ success: boolean; data: Enterprise }> => {
     const isFormData = enterpriseData instanceof FormData;
     const response = await api.put(`/auth/enterprises/${id}`, enterpriseData, {
        headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}

@@ -226,6 +226,8 @@ const normalizePurchaseRequest = (request: any): PurchaseRequest => {
     description: request?.description || '',
     requesterId: String(request?.requesterId ?? request?.demandeurId ?? request?.demandeurUserId ?? ''),
     requesterEmail: request?.requesterEmail || request?.demandeurEmail || null,
+    enterpriseId: request?.enterpriseId != null ? Number(request.enterpriseId) : null,
+    enterpriseName: request?.enterpriseName || null,
     serviceId: request?.serviceId != null ? Number(request.serviceId) : null,
     serviceName: request?.serviceName || null,
     supplierId: request?.supplierId || request?.fournisseurId || null,
@@ -295,6 +297,8 @@ const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
   id: String(order?.id ?? ''),
   number: order?.number || order?.numeroBon || '',
   numeroBon: order?.numeroBon || order?.number || '',
+  enterpriseId: order?.enterpriseId != null ? Number(order.enterpriseId) : null,
+  enterpriseName: order?.enterpriseName || null,
   supplierId: order?.supplierId || order?.fournisseurId || undefined,
   supplier: order?.supplier || order?.fournisseurNom || order?.fournisseur?.nom || undefined,
   fournisseurNom: order?.fournisseurNom || order?.supplier || order?.fournisseur?.nom || undefined,
@@ -491,6 +495,7 @@ export const procurementService = {
     limit?: number;
     status?: PurchaseRequestStatus;
     requesterId?: string;
+    enterpriseId?: string | number;
     startDate?: string;
     endDate?: string;
     search?: string;
@@ -543,13 +548,12 @@ export const procurementService = {
     titre: string;
     description?: string;
     objet?: string;
+    enterpriseId?: string | number;
     fournisseurId?: string;
     fournisseurNomLibre?: string;
     dateBesoin?: string;
     notes?: string;
     devise?: string;
-    serviceId?: number;
-    serviceName?: string;
       lignes?: Array<{
         articleId?: string;
         referenceArticle?: string;
@@ -574,13 +578,12 @@ export const procurementService = {
       titre: data.title,
       objet: data.objet,
       description: data.description,
+      enterpriseId: data.enterpriseId,
       fournisseurId: data.supplierId,
       fournisseurNomLibre: data.manualSupplierName,
       dateBesoin: data.dateBesoin,
       notes: data.notes,
       devise: data.devise,
-      serviceId: data.serviceId,
-      serviceName: data.serviceName,
       lignes: data.lines,
     });
     const normalized = normalizeDetailResponse<PurchaseRequest>(response.data);

@@ -63,8 +63,7 @@ router.post(
       .isInt({ min: 1 })
       .withMessage('Manager ID must be a positive integer'),
     body('enterpriseId')
-      .notEmpty()
-      .withMessage('Enterprise ID is required')
+      .optional({ values: 'falsy' })
       .isInt({ min: 1 })
       .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')

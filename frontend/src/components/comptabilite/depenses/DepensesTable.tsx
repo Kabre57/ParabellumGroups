@@ -74,7 +74,7 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={8}>
+                    <td className="px-4 py-8 text-center" colSpan={9}>
                       Chargement...
                     </td>
                   </tr>
@@ -90,7 +90,7 @@ export function DepensesTable({
                       <td className="whitespace-nowrap px-4 py-3">{formatDate(row.date)}</td>
                       <td className="whitespace-nowrap px-4 py-3 font-medium">{row.number || '-'}</td>
                       <td className="px-4 py-3">{row.label}</td>
-                      <td className="px-4 py-3">{row.serviceName}</td>
+                      <td className="px-4 py-3">{row.enterpriseName || '-'}</td>
                       <td className="px-4 py-3">{row.thirdParty}</td>
                       <td className="px-4 py-3">
                         {row.kind === 'voucher'
@@ -184,7 +184,7 @@ export function DepensesTable({
                       <td className="px-4 py-3">
                         <div>{voucher.beneficiaryName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {voucher.serviceName || voucher.supplierName || '-'}
+                          {voucher.enterpriseName || voucher.serviceName || voucher.supplierName || '-'}
                         </div>
                       </td>
                       <td className="px-4 py-3">{voucher.paymentMethod}</td>
@@ -228,6 +228,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Piece</th>
+                  <th className="px-4 py-3">Entreprise / Entite</th>
                   <th className="px-4 py-3">Beneficiaire</th>
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Reference</th>
@@ -239,13 +240,13 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={8}>
+                    <td className="px-4 py-8 text-center" colSpan={9}>
                       Chargement...
                     </td>
                   </tr>
                 ) : filteredDecaissements.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={8}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={9}>
                       Aucun decaissement direct.
                     </td>
                   </tr>
@@ -254,6 +255,7 @@ export function DepensesTable({
                     <tr key={decaissement.id} className="border-b hover:bg-muted/50">
                       <td className="px-4 py-3">{formatDate(decaissement.dateDecaissement)}</td>
                       <td className="px-4 py-3 font-medium">{decaissement.numeroPiece}</td>
+                      <td className="px-4 py-3">{decaissement.enterpriseName || decaissement.serviceName || '-'}</td>
                       <td className="px-4 py-3">{decaissement.beneficiaryName}</td>
                       <td className="px-4 py-3">{decaissement.paymentMethod}</td>
                       <td className="px-4 py-3">{decaissement.reference || '-'}</td>
@@ -294,6 +296,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Piece</th>
+                  <th className="px-4 py-3">Entreprise / Entite</th>
                   <th className="px-4 py-3">Client/Tiers</th>
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Reference</th>
@@ -311,7 +314,7 @@ export function DepensesTable({
                   </tr>
                 ) : filteredEncaissements.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={8}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={9}>
                       Aucun encaissement direct.
                     </td>
                   </tr>
@@ -320,6 +323,7 @@ export function DepensesTable({
                     <tr key={encaissement.id} className="border-b hover:bg-muted/50">
                       <td className="px-4 py-3">{formatDate(encaissement.dateEncaissement)}</td>
                       <td className="px-4 py-3 font-medium">{encaissement.numeroPiece}</td>
+                      <td className="px-4 py-3">{encaissement.enterpriseName || encaissement.serviceName || '-'}</td>
                       <td className="px-4 py-3">{encaissement.clientName}</td>
                       <td className="px-4 py-3">{encaissement.paymentMethod}</td>
                       <td className="px-4 py-3">{encaissement.reference || '-'}</td>
@@ -388,7 +392,7 @@ export function DepensesTable({
                         <div className="text-xs text-muted-foreground">{formatDate(commitment.createdAt)}</div>
                       </td>
                       <td className="px-4 py-3">{sourceLabels[commitment.sourceType] || commitment.sourceType}</td>
-                      <td className="px-4 py-3">{commitment.serviceName || '-'}</td>
+                      <td className="px-4 py-3">{commitment.enterpriseName || commitment.serviceName || '-'}</td>
                       <td className="px-4 py-3">{commitment.supplierName || '-'}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatCurrency(commitment.amountTTC)}</td>
                       <td className="px-4 py-3">

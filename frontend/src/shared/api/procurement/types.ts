@@ -88,6 +88,8 @@ export interface PurchaseOrder {
   id: string;
   number: string;
   numeroBon?: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   supplierId?: string;
   supplier?: string;
   fournisseurNom?: string;
@@ -283,6 +285,8 @@ export interface PurchaseRequest {
   description?: string;
   requesterId: string;
   requesterEmail?: string | null;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: number | null;
   serviceName?: string | null;
   supplierId?: string | null;

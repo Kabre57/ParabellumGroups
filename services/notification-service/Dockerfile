@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Generate Prisma client if prisma directory exists
-RUN if [ -d "./prisma" ]; then npx prisma generate; fi
+RUN if [ -d "./prisma" ]; then npx prisma generate || echo "Prisma generate failed due to network issues, will retry at runtime"; fi
 
 # The port will be set via environment variable
 EXPOSE 3000

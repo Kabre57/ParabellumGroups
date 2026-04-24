@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { enterpriseApi } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import {
   Table,
   TableBody,
@@ -32,8 +34,18 @@ export default function PaiementsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [enterpriseFilter, setEnterpriseFilter] = useState<string>('all');
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['enterprise-filter-options', 'paiements'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+  });
+
+  const accessibleEnterprises = React.useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
 
   const { canCreate } = getCrudVisibility(user, {
     read: ['payments.read', 'payments.read_all', 'payments.read_own'],
@@ -60,11 +72,12 @@ export default function PaiementsPage() {
   }, [period]);
 
   const { data: paymentsResponse, isLoading } = useQuery({
-    queryKey: ['payments', searchQuery, methodFilter, period],
+    queryKey: ['payments', searchQuery, methodFilter, period, enterpriseFilter],
     queryFn: async () => {
       const params: Record<string, any> = { ...range };
-      if (searchQuery) params.query = searchQuery;
+      if (searchQuery) params.search = searchQuery;
       if (methodFilter !== 'all') params.modePaiement = methodFilter;
+      if (enterpriseFilter !== 'all') params.enterpriseId = enterpriseFilter;
       return billingService.getPayments(params);
     },
   });
@@ -104,7 +117,7 @@ export default function PaiementsPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Input
             placeholder="Rechercher par numero, facture..."
             value={searchQuery}
@@ -131,6 +144,18 @@ export default function PaiementsPage() {
             <option value="CHEQUE">Cheque</option>
             <option value="CARTE">Carte bancaire</option>
           </select>
+          <select
+            className="w-full h-10 px-3 rounded-md border border-input bg-background"
+            value={enterpriseFilter}
+            onChange={(e) => setEnterpriseFilter(e.target.value)}
+          >
+            <option value="all">Toutes les entreprises</option>
+            {accessibleEnterprises.map((enterprise) => (
+              <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                {enterprise.name}
+              </option>
+            ))}
+          </select>
         </div>
       </Card>
 
@@ -143,6 +168,7 @@ export default function PaiementsPage() {
               <TableRow>
                 <TableHead>Numero</TableHead>
                 <TableHead>Facture</TableHead>
+                <TableHead>Entreprise</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Methode</TableHead>
                 <TableHead>Compte</TableHead>
@@ -168,6 +194,7 @@ export default function PaiementsPage() {
                       </Button>
                     ) : '-'}
                   </TableCell>
+                  <TableCell>{payment.enterpriseName || payment.facture?.enterpriseName || '-'}</TableCell>
                   <TableCell>{formatDate(payment.datePaiement)}</TableCell>
                   <TableCell>{getMethodBadge(payment.modePaiement)}</TableCell>
                   <TableCell>{payment.treasuryAccountName || '-'}</TableCell>

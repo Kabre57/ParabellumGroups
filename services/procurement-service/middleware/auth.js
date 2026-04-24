@@ -33,6 +33,8 @@ const authenticateToken = (req, res, next) => {
       role: decoded.role || decoded.roleCode || null,
       serviceId: decoded.serviceId || null,
       serviceName: decoded.serviceName || null,
+      enterpriseId: decoded.enterpriseId || null,
+      enterpriseName: decoded.enterpriseName || null,
       permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),
     };
     req.userId = req.user.id;

@@ -1,10 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { recordLiquidation } = require('../utils/accountingWorkflow');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 exports.getAll = async (req, res) => {
   try {
     const factures = await prisma.factureFournisseur.findMany({
+      where: await applyEnterpriseScope({
+        req,
+        where: {},
+      }),
       include: {
         commitment: true,
       },
@@ -31,10 +36,27 @@ exports.create = async (req, res) => {
       notes,
     } = req.body;
 
+    const commitment = commitmentId
+      ? await prisma.purchaseCommitment.findUnique({
+          where: { id: commitmentId },
+        })
+      : null;
+    const resolvedEnterpriseId = commitment?.enterpriseId ?? (req.user?.enterpriseId ? Number(req.user.enterpriseId) : null);
+    const resolvedEnterpriseName = commitment?.enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour cette facture fournisseur."
+    );
+
     const result = await prisma.$transaction(async (tx) => {
+
       const facture = await tx.factureFournisseur.create({
         data: {
           numeroFacture,
+          enterpriseId: resolvedEnterpriseId,
+          enterpriseName: resolvedEnterpriseName,
           fournisseurId,
           fournisseurNom,
           dateFacture: dateFacture ? new Date(dateFacture) : new Date(),
@@ -48,10 +70,6 @@ exports.create = async (req, res) => {
       });
 
       if (commitmentId) {
-        const commitment = await tx.purchaseCommitment.findUnique({
-          where: { id: commitmentId },
-        });
-
         if (commitment) {
           await recordLiquidation(tx, { commitment, invoice: facture, user: req.user });
         }

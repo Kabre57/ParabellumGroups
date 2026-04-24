@@ -62,6 +62,10 @@ router.post(
       .trim()
       .isLength({ max: 10 })
       .withMessage('Enterprise code must not exceed 10 characters'),
+    body('parentEnterpriseId')
+      .optional({ values: 'falsy' })
+      .isInt({ min: 1 })
+      .withMessage('parentEnterpriseId must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')
@@ -102,6 +106,10 @@ router.put(
       .trim()
       .isLength({ max: 10 })
       .withMessage('Enterprise code must not exceed 10 characters'),
+    body('parentEnterpriseId')
+      .optional({ values: 'falsy' })
+      .isInt({ min: 1 })
+      .withMessage('parentEnterpriseId must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')

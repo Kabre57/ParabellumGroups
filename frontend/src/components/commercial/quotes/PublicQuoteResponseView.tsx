@@ -126,8 +126,8 @@ export function PublicQuoteResponseView({ token }: Props) {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Service associé</div>
-            <div className="mt-2 font-semibold">{quote.serviceName || '-'}</div>
+            <div className="text-sm text-muted-foreground">Entreprise</div>
+            <div className="mt-2 font-semibold">{quote.enterpriseName || '-'}</div>
           </CardContent>
         </Card>
         <Card>

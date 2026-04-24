@@ -389,7 +389,7 @@ export function QuoteDetailView({ quoteId }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground">Client</div>
@@ -400,6 +400,12 @@ export function QuoteDetailView({ quoteId }: Props) {
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground">Montant TTC</div>
               <div className="mt-2 text-xl font-semibold">{formatCurrency(quote.montantTTC)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Entreprise</div>
+              <div className="mt-2 text-xl font-semibold">{quote.enterpriseName || '-'}</div>
             </CardContent>
           </Card>
           <Card>
@@ -428,7 +434,7 @@ export function QuoteDetailView({ quoteId }: Props) {
               <Card>
                 <CardHeader>
                   <CardTitle>Informations générales</CardTitle>
-                  <CardDescription>Client, service associé, validité et commentaires.</CardDescription>
+                  <CardDescription>Entreprise, client, validité et commentaires.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-5 md:grid-cols-2">
                   <div>
@@ -436,8 +442,8 @@ export function QuoteDetailView({ quoteId }: Props) {
                     <div className="mt-1 font-medium">{quote.objet || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Service associé</div>
-                    <div className="mt-1 font-medium">{quote.serviceName || '-'}</div>
+                    <div className="text-sm text-muted-foreground">Entreprise</div>
+                    <div className="mt-1 font-medium">{quote.enterpriseName || '-'}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Client</div>

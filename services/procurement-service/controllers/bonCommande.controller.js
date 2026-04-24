@@ -7,6 +7,11 @@ const { enqueueProcurementEvent } = require('../utils/outbox');
 const prisma = new PrismaClient();
 
 const getCorrelationId = (req) => req.headers['x-correlation-id'] || null;
+const withEnterpriseContext = (req, payload = {}) => ({
+  ...payload,
+  enterpriseId: req.user?.enterpriseId ? Number(req.user.enterpriseId) : null,
+  enterpriseName: req.user?.enterpriseName || null,
+});
 
 const purchaseOrderCreatedPayload = (order) => ({
   purchaseOrderId: order.id,
@@ -216,7 +221,7 @@ exports.create = async (req, res) => {
         aggregateType: 'PURCHASE_ORDER',
         aggregateId: created.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseOrderCreatedPayload(serializeOrder(created)),
+        payload: withEnterpriseContext(req, purchaseOrderCreatedPayload(serializeOrder(created))),
       });
 
       return created;
@@ -343,7 +348,7 @@ exports.createFromProforma = async (req, res) => {
         aggregateType: 'PURCHASE_ORDER',
         aggregateId: created.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseOrderCreatedPayload(serializeOrder(created)),
+        payload: withEnterpriseContext(req, purchaseOrderCreatedPayload(serializeOrder(created))),
       });
 
       return created;
@@ -544,7 +549,7 @@ exports.updateStatus = async (req, res) => {
           aggregateType: 'PURCHASE_ORDER',
           aggregateId: updated.id,
           correlationId: getCorrelationId(req),
-          payload: purchaseOrderStatusChangedPayload(serializeOrder(updated), existing.status),
+          payload: withEnterpriseContext(req, purchaseOrderStatusChangedPayload(serializeOrder(updated), existing.status)),
         });
       }
 

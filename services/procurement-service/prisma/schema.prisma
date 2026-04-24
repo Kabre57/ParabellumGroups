@@ -68,6 +68,8 @@ model DemandeAchat {
   description           String?
   demandeurId           String
   demandeurEmail        String?
+  enterpriseId          Int?
+  enterpriseName        String?
   serviceId             Int?
   serviceName           String?
   fournisseurId         String?
@@ -98,6 +100,7 @@ model DemandeAchat {
   proformas             Proforma[]
 
   @@map("demandes_achat")
+  @@index([enterpriseId])
 }
 
 model BonCommande {
@@ -106,6 +109,8 @@ model BonCommande {
   demandeAchatId  String?
   proformaId      String?            @unique
   fournisseurId   String
+  enterpriseId    Int?
+  enterpriseName  String?
   serviceId       Int?
   serviceName     String?
   dateCommande    DateTime           @default(now())
@@ -125,6 +130,7 @@ model BonCommande {
   validationLogs  BonCommandeValidationLog[]
 
   @@map("bons_commande")
+  @@index([enterpriseId])
 }
 
 model BonCommandeValidationLog {

@@ -40,7 +40,7 @@ export default function PurchaseOrderPrint({
     <ProcurementDocumentPrint
       documentLabel="Commande d'achat"
       documentNumber={order.number || order.numeroBon || order.id}
-      serviceName={order.serviceName || undefined}
+      serviceName={order.enterpriseName || undefined}
       issueDate={order.date}
       deliveryLeadTime={order.deliveryDate || undefined}
       paymentTerms="Selon bon de commande"

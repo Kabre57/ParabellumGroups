@@ -31,6 +31,8 @@ import { getCrudVisibility } from '@/shared/action-visibility';
 import { useClients } from '@/hooks/useCrm';
 import InvoicePrint from '@/components/printComponents/InvoicePrint';
 import type { Invoice } from '@/shared/api/billing';
+import { enterpriseApi } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 export default function FacturesPage() {
   const router = useRouter();
@@ -38,18 +40,29 @@ export default function FacturesPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [enterpriseFilter, setEnterpriseFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<any | null>(null);
   const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
   const [printLoading, setPrintLoading] = useState(false);
   const { data: clients = [] } = useClients({ pageSize: 200 });
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['enterprise-filter-options', 'factures'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+  });
+
+  const accessibleEnterprises = React.useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
 
   const { data: invoicesResponse, isLoading } = useQuery({
-    queryKey: ['invoices', searchQuery, statusFilter],
+    queryKey: ['invoices', searchQuery, statusFilter, enterpriseFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
-      if (searchQuery) params.query = searchQuery;
+      if (searchQuery) params.search = searchQuery;
       if (statusFilter !== 'all') params.status = statusFilter;
+      if (enterpriseFilter !== 'all') params.enterpriseId = enterpriseFilter;
       const data = await billingService.getInvoices(params);
       return data;
     },
@@ -145,7 +158,7 @@ export default function FacturesPage() {
 
       {/* Filtres */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div>
             <Input
               placeholder="Rechercher par numéro, client..."
@@ -168,6 +181,21 @@ export default function FacturesPage() {
               <option value="ANNULEE">Annulée</option>
             </select>
           </div>
+
+          <div>
+            <select
+              className="w-full h-10 px-3 rounded-md border border-input bg-background"
+              value={enterpriseFilter}
+              onChange={(e) => setEnterpriseFilter(e.target.value)}
+            >
+              <option value="all">Toutes les entreprises</option>
+              {accessibleEnterprises.map((enterprise) => (
+                <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                  {enterprise.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </Card>
 
@@ -183,6 +211,7 @@ export default function FacturesPage() {
               <TableRow>
                 <TableHead>Numéro</TableHead>
                 <TableHead>Client</TableHead>
+                <TableHead>Entreprise</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Échéance</TableHead>
                 <TableHead>Montant</TableHead>
@@ -197,6 +226,7 @@ export default function FacturesPage() {
                     {invoice.numeroFacture}
                   </TableCell>
                   <TableCell>{invoice.client?.nom || clientMap.get(invoice.clientId)?.nom || invoice.clientId || 'Client'}</TableCell>
+                  <TableCell>{invoice.enterpriseName || '-'}</TableCell>
                   <TableCell>{formatDate(invoice.dateFacture)}</TableCell>
                   <TableCell>{formatDate(invoice.dateEcheance)}</TableCell>
                   <TableCell>{formatCurrency(invoice.montantTTC || 0)}</TableCell>

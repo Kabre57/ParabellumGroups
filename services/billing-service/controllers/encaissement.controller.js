@@ -1,5 +1,6 @@
 const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -16,6 +17,8 @@ exports.create = async (req, res) => {
       amountTTC,
       paymentMethod,
       treasuryAccountId,
+      enterpriseId,
+      enterpriseName,
       serviceId,
       serviceName,
       dateEncaissement,
@@ -31,6 +34,15 @@ exports.create = async (req, res) => {
         message: 'Veuillez sélectionner un compte de produit pour l imputation comptable.',
       });
     }
+
+    const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
+    const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour cet encaissement."
+    );
 
     const result = await prisma.$transaction(async (tx) => {
       const revenueAccount = await tx.accountingAccount.findUnique({
@@ -56,6 +68,8 @@ exports.create = async (req, res) => {
           numeroPiece: `ENC-${Date.now()}`,
           clientName,
           description,
+          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+          enterpriseName: resolvedEnterpriseName,
           amountHT: amount(amountHT),
           amountTVA: amount(amountTVA),
           amountTTC: amount(amountTTC),
@@ -83,6 +97,8 @@ exports.create = async (req, res) => {
           reference: encaissement.reference || encaissement.numeroPiece,
           sourceType: 'ENCAISSEMENT',
           sourceId: encaissement.id,
+          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+          enterpriseName: resolvedEnterpriseName,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
           lines: {
@@ -135,6 +151,10 @@ exports.create = async (req, res) => {
 exports.getAll = async (req, res) => {
   try {
     const encaissements = await prisma.encaissement.findMany({
+      where: await applyEnterpriseScope({
+        req,
+        where: {},
+      }),
       include: { treasuryAccount: true },
       orderBy: { dateEncaissement: 'desc' },
     });

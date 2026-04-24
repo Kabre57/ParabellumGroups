@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import billingService from '@/shared/api/billing';
 
-export function useEcritures(enabled = true) {
+export function useEcritures(enabled = true, enterpriseId?: string) {
   return useQuery({
-    queryKey: ['accounting-entries'],
-    queryFn: () => billingService.getAccountingOverview('all'),
+    queryKey: ['accounting-entries', enterpriseId || 'all'],
+    queryFn: () =>
+      billingService.getAccountingOverview('all', enterpriseId ? { enterpriseId } : undefined),
     enabled,
   });
 }

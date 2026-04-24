@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { enterpriseApi } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 const lineItemSchema = z.object({
   description: z.string().min(1, 'La description est requise'),
@@ -20,6 +23,7 @@ const lineItemSchema = z.object({
 
 const invoiceSchema = z.object({
   customer_id: z.string().min(1, 'Le client est requis'),
+  enterprise_id: z.string().min(1, "L'entreprise est requise"),
   issue_date: z.string().min(1, 'La date d\'émission est requise'),
   due_date: z.string().min(1, 'La date d\'échéance est requise'),
   status: z.string().default('BROUILLON'),
@@ -39,6 +43,8 @@ interface InvoiceFormProps {
 export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!invoice;
+  const { user } = useAuth();
+  const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
 
   const { data: customersResponse } = useQuery({
     queryKey: ['customers'],
@@ -46,6 +52,11 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
       const response = await crmService.getClients({ limit: 100 });
       return response.data;
     },
+  });
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['invoice-form-enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    staleTime: 5 * 60 * 1000,
   });
 
   const mapLineItems = (
@@ -68,11 +79,13 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     control,
     watch,
     setValue,
+    getValues,
   } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: invoice
       ? {
           customer_id: (invoice.clientId || invoice.customerId || invoice.customer_id || '').toString(),
+          enterprise_id: (invoice.enterpriseId || '').toString() || userEnterpriseId,
           issue_date: invoice.dateFacture || invoice.issueDate || invoice.issue_date || invoice.date || '',
           due_date: invoice.dateEcheance || invoice.dueDate || invoice.due_date || '',
           status: invoice.status,
@@ -82,6 +95,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
         }
       : {
           customer_id: '',
+          enterprise_id: userEnterpriseId,
           issue_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           status: 'BROUILLON',
@@ -95,6 +109,26 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
     control,
     name: 'line_items',
   });
+
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
+  useEffect(() => {
+    if (getValues('enterprise_id')) return;
+    if (invoice?.enterpriseId) {
+      setValue('enterprise_id', String(invoice.enterpriseId));
+      return;
+    }
+    if (userEnterpriseId) {
+      setValue('enterprise_id', userEnterpriseId);
+      return;
+    }
+    if (accessibleEnterprises.length === 1) {
+      setValue('enterprise_id', String(accessibleEnterprises[0].id));
+    }
+  }, [accessibleEnterprises, getValues, invoice?.enterpriseId, setValue, userEnterpriseId]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => billingService.createInvoice(data),
@@ -137,6 +171,7 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
 
     const createPayload = {
       clientId: data.customer_id,
+      enterpriseId: data.enterprise_id,
       dateFacture: data.issue_date,
       dateEcheance: data.due_date,
       lignes,
@@ -168,6 +203,29 @@ export default function InvoiceForm({ invoice, onSuccess, onCancel }: InvoiceFor
       <Card className="rounded-xl border p-5 shadow-sm">
         <h3 className="mb-4 text-lg font-semibold">Informations générales</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="xl:col-span-2">
+            <Label htmlFor="enterprise_id">Entreprise *</Label>
+            <select
+              id="enterprise_id"
+              {...register('enterprise_id')}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
+            >
+              <option value="">
+                {accessibleEnterprises.length > 0
+                  ? 'Selectionner une entreprise'
+                  : 'Aucune entreprise disponible'}
+              </option>
+              {accessibleEnterprises.map((enterprise) => (
+                <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                  {enterprise.name}
+                </option>
+              ))}
+            </select>
+            {errors.enterprise_id && (
+              <p className="text-sm text-red-500 mt-1">{errors.enterprise_id.message}</p>
+            )}
+          </div>
+
           <div className="xl:col-span-2">
             <Label htmlFor="customer_id">Client *</Label>
             <select

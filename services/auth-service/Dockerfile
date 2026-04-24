@@ -5,6 +5,12 @@ RUN apt-get update -y && apt-get install -y openssl postgresql-client
 
 WORKDIR /app
 
+# Configure npm for better network reliability
+RUN npm config set fetch-timeout 60000 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5
+
 # Copy package files
 COPY package*.json ./
 
@@ -14,8 +20,10 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Generate Prisma client if prisma directory exists
-RUN if [ -d "./prisma" ]; then npx prisma generate; fi
+# Try to generate Prisma client during build. In restricted networks the Prisma
+# binary CDN can be unavailable; the runtime entrypoint has a SQL fallback for
+# local auth bootstrap in that case.
+RUN npx prisma generate --schema=prisma/schema.prisma || (echo "Prisma generate failed; auth-service will use SQL fallback if needed" && touch /app/.prisma-generate-failed)
 
 # Copy and make entrypoint executable
 COPY docker-entrypoint.sh /usr/local/bin/

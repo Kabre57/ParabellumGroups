@@ -1,5 +1,6 @@
 const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
 const { recordEngagement } = require('../utils/accountingWorkflow');
+const { applyEnterpriseScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -62,6 +63,8 @@ const processProcurementEvent = async (event) => {
           sourceType: 'PURCHASE_QUOTE',
           sourceId: String(payload.purchaseQuoteId),
           sourceNumber: payload.purchaseQuoteNumber || 'N/A',
+          enterpriseId: payload.enterpriseId != null ? Number(payload.enterpriseId) : null,
+          enterpriseName: payload.enterpriseName || null,
           serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
           serviceName: payload.serviceName || null,
           supplierId: payload.supplierId || null,
@@ -80,6 +83,8 @@ const processProcurementEvent = async (event) => {
           sourceType: 'PURCHASE_ORDER',
           sourceId: String(payload.purchaseOrderId),
           sourceNumber: payload.purchaseOrderNumber || 'N/A',
+          enterpriseId: payload.enterpriseId != null ? Number(payload.enterpriseId) : null,
+          enterpriseName: payload.enterpriseName || null,
           serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
           serviceName: payload.serviceName || null,
           supplierId: payload.supplierId || null,
@@ -117,6 +122,8 @@ const processProcurementEvent = async (event) => {
               status: (payload.toStatus || payload.status || 'BROUILLON') === 'CONFIRME' 
                 ? PurchaseCommitmentStatus.ENGAGE 
                 : (payload.toStatus || payload.status || 'BROUILLON'),
+              enterpriseId: payload.enterpriseId != null ? Number(payload.enterpriseId) : null,
+              enterpriseName: payload.enterpriseName || null,
               serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
               serviceName: payload.serviceName || null,
               amountTTC: normalizeNumber(payload.amountTTC, 0),
@@ -167,7 +174,13 @@ exports.ingestProcurementEvent = async (req, res) => {
 
 exports.getAllPurchaseCommitments = async (req, res) => {
   try {
+    const scopedWhere = await applyEnterpriseScope({
+      req,
+      where: {},
+      requestedEnterpriseId: req.query.enterpriseId,
+    });
     const commitments = await prisma.purchaseCommitment.findMany({
+      where: scopedWhere,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -186,7 +199,13 @@ exports.getAllPurchaseCommitments = async (req, res) => {
 
 exports.getPurchaseCommitmentsStats = async (req, res) => {
   try {
-    const commitments = await prisma.purchaseCommitment.findMany();
+    const commitments = await prisma.purchaseCommitment.findMany({
+      where: await applyEnterpriseScope({
+        req,
+        where: {},
+        requestedEnterpriseId: req.query.enterpriseId,
+      }),
+    });
 
     const orders = commitments.filter((item) => item.sourceType === 'PURCHASE_ORDER');
     const quotes = commitments.filter((item) => item.sourceType === 'PURCHASE_QUOTE');

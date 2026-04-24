@@ -156,28 +156,28 @@ export default function ProcurementDashboardPage() {
   const availableServices = useMemo(() => {
     const names = new Set<string>();
     [...requests, ...orders, ...commitments].forEach((item: any) => {
-      const serviceName = String(item?.serviceName || '').trim();
-      if (serviceName) names.add(serviceName);
+      const enterpriseName = String(item?.enterpriseName || '').trim();
+      if (enterpriseName) names.add(enterpriseName);
     });
     return ['ALL', ...Array.from(names).sort((a, b) => a.localeCompare(b, 'fr'))];
   }, [requests, orders, commitments]);
 
   const filteredRequests = useMemo(
     () =>
-      requests.filter((request) => serviceFilter === 'ALL' || (request.serviceName || 'Non attribué') === serviceFilter),
+      requests.filter((request) => serviceFilter === 'ALL' || (request.enterpriseName || 'Non attribuée') === serviceFilter),
     [requests, serviceFilter]
   );
 
   const filteredOrders = useMemo(
     () =>
-      orders.filter((order) => serviceFilter === 'ALL' || (order.serviceName || 'Non attribué') === serviceFilter),
+      orders.filter((order) => serviceFilter === 'ALL' || (order.enterpriseName || 'Non attribuée') === serviceFilter),
     [orders, serviceFilter]
   );
 
   const filteredCommitments = useMemo(
     () =>
       commitments.filter(
-        (commitment) => serviceFilter === 'ALL' || (commitment.serviceName || 'Non attribué') === serviceFilter
+        (commitment) => serviceFilter === 'ALL' || (commitment.enterpriseName || 'Non attribuée') === serviceFilter
       ),
     [commitments, serviceFilter]
   );
@@ -319,7 +319,7 @@ export default function ProcurementDashboardPage() {
 
   const serviceExposureData = useMemo(() => {
     const grouped = filteredCommitments.reduce<Record<string, number>>((accumulator, commitment) => {
-      const key = commitment.serviceName || 'Non attribué';
+      const key = commitment.enterpriseName || 'Non attribuée';
       accumulator[key] = (accumulator[key] || 0) + Number(commitment.amountTTC || 0);
       return accumulator;
     }, {});
@@ -374,7 +374,7 @@ export default function ProcurementDashboardPage() {
       overdueOrders.slice(0, 4).map((order) => ({
         id: order.id,
         number: order.number,
-        serviceName: order.serviceName || 'Non attribué',
+        enterpriseName: order.enterpriseName || 'Non attribuée',
         supplierName: order.supplier || order.fournisseurNom || '-',
         amount: order.montantTotal || order.amount || 0,
         overdueDays: daysBetween(order.deliveryDate),
@@ -451,7 +451,7 @@ export default function ProcurementDashboardPage() {
           >
             {availableServices.map((serviceName) => (
               <option key={serviceName} value={serviceName}>
-                {serviceName === 'ALL' ? 'Tous les services' : serviceName}
+                {serviceName === 'ALL' ? 'Toutes les entreprises' : serviceName}
               </option>
             ))}
           </select>
@@ -514,9 +514,9 @@ export default function ProcurementDashboardPage() {
 
         <Card className="p-6">
           <div className="mb-4">
-            <h2 className="text-xl font-semibold">Exposition par service</h2>
+            <h2 className="text-xl font-semibold">Exposition par entreprise</h2>
             <p className="text-sm text-muted-foreground">
-              Montants engagés par service pour arbitrer les besoins et la pression budgétaire.
+              Montants engagés par entreprise pour arbitrer les besoins et la pression budgétaire.
             </p>
           </div>
           <ResponsiveContainer width="100%" height={320}>
@@ -667,7 +667,7 @@ export default function ProcurementDashboardPage() {
                     <div>
                       <p className="font-semibold">{alert.number}</p>
                       <p className="text-sm text-muted-foreground">
-                        {alert.serviceName} · {alert.supplierName}
+                        {alert.enterpriseName} · {alert.supplierName}
                       </p>
                     </div>
                     <Badge variant="destructive">
@@ -718,7 +718,7 @@ export default function ProcurementDashboardPage() {
                   </div>
                   <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
                     <span>
-                      {request.serviceName || 'Non attribué'} · {daysBetween(request.submittedAt || request.date)} jour(s)
+                      {request.enterpriseName || 'Non attribuée'} · {daysBetween(request.submittedAt || request.date)} jour(s)
                     </span>
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/dashboard/achats/devis/${request.id}`}>Ouvrir</Link>

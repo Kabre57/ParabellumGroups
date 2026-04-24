@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import billingService, { type Decaissement, type PurchaseCommitment } from '@/sh
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 interface CreateDecaissementDialogProps {
   open: boolean;
@@ -35,7 +36,7 @@ type FormState = {
   amountTTC: string;
   paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
   treasuryAccountId: string;
-  serviceId: string;
+  enterpriseId: string;
   dateDecaissement: string;
   reference: string;
   notes: string;
@@ -45,14 +46,14 @@ type FormState = {
 const buildInitialState = (commitment?: PurchaseCommitment | null, enterpriseId = ''): FormState => ({
   beneficiaryName: commitment?.supplierName || '',
   description: commitment?.sourceNumber
-    ? `Règlement lié à ${commitment.sourceNumber}`
-    : 'Décaissement de fonds',
+    ? `Reglement lie a ${commitment.sourceNumber}`
+    : 'Decaissement de fonds',
   amountHT: String(commitment?.amountHT ?? 0),
   amountTVA: String(commitment?.amountTVA ?? 0),
   amountTTC: String(commitment?.amountTTC ?? 0),
   paymentMethod: 'CHEQUE',
   treasuryAccountId: '',
-  serviceId: commitment?.serviceId ? String(commitment.serviceId) : enterpriseId,
+  enterpriseId: commitment?.enterpriseId ? String(commitment.enterpriseId) : enterpriseId,
   dateDecaissement: new Date().toISOString().slice(0, 10),
   reference: '',
   notes: '',
@@ -88,6 +89,16 @@ export function CreateDecaissementDialog({
     enabled: open && (canChooseEnterprise || !userEnterpriseId),
   });
 
+  const enterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
+  const selectedEnterprise = useMemo(
+    () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
+    [enterprises, form.enterpriseId]
+  );
+
   useEffect(() => {
     if (open) {
       setForm(buildInitialState(defaultCommitment, userEnterpriseId));
@@ -106,8 +117,6 @@ export function CreateDecaissementDialog({
   };
 
   const handleSubmit = async () => {
-    const selectedEnterprise = enterprisesResponse?.data?.find((enterprise: any) => String(enterprise.id) === form.serviceId);
-
     await onSubmit({
       beneficiaryName: form.beneficiaryName,
       description: form.description,
@@ -116,8 +125,8 @@ export function CreateDecaissementDialog({
       amountTTC: Number(form.amountTTC),
       paymentMethod: form.paymentMethod,
       treasuryAccountId: form.treasuryAccountId || undefined,
-      serviceId: form.serviceId ? Number(form.serviceId) : undefined,
-      serviceName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
+      enterpriseId: form.enterpriseId ? Number(form.enterpriseId) : undefined,
+      enterpriseName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
       dateDecaissement: new Date(form.dateDecaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
@@ -132,31 +141,30 @@ export function CreateDecaissementDialog({
     const normalizedCode = String(acc?.code || '');
     return normalizedType === 'expense' || normalizedCode.startsWith('6');
   });
-  const enterprises = enterprisesResponse?.data ?? [];
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-rose-100">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden flex flex-col border-rose-100">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-rose-700 font-serif">Nouveau Bon de Décaissement</DialogTitle>
+          <DialogTitle className="font-serif text-xl font-bold text-rose-700">Nouveau Bon de Decaissement</DialogTitle>
           <DialogDescription>
             Enregistrez une sortie de fonds.
           </DialogDescription>
         </DialogHeader>
 
-        {user?.enterprise?.name && (
+        {(selectedEnterprise?.name || user?.enterprise?.name) && (
           <div className="rounded-md border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-            Ce bon sera émis au nom de l&apos;entreprise <strong>{user.enterprise.name}</strong>.
+            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise?.name || user?.enterprise?.name}</strong>.
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Bénéficiaire</Label>
+              <Label>Beneficiaire</Label>
               <Input
                 value={form.beneficiaryName}
                 onChange={(e) => updateField('beneficiaryName', e.target.value)}
@@ -164,15 +172,17 @@ export function CreateDecaissementDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Entreprise / Entité</Label>
+              <Label>Entreprise / Entite</Label>
               {canChooseEnterprise || !userEnterpriseId ? (
-                <Select value={form.serviceId} onValueChange={(v) => updateField('serviceId', v)}>
+                <Select value={form.enterpriseId} onValueChange={(v) => updateField('enterpriseId', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner l'entreprise" />
+                    <SelectValue placeholder="Selectionner l'entreprise" />
                   </SelectTrigger>
                   <SelectContent>
                     {enterprises.map((enterprise: any) => (
-                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>{enterprise.name}</SelectItem>
+                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>
+                        {enterprise.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -184,7 +194,7 @@ export function CreateDecaissementDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Date de Paiement</Label>
+              <Label>Date de paiement</Label>
               <Input
                 type="date"
                 value={form.dateDecaissement}
@@ -192,11 +202,11 @@ export function CreateDecaissementDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>N° Pièce / Référence</Label>
+              <Label>N° piece / reference</Label>
               <Input
                 value={form.reference}
                 onChange={(e) => updateField('reference', e.target.value)}
-                placeholder="Chèque n°, Virement n°"
+                placeholder="Cheque n°, virement n°"
               />
             </div>
           </div>
@@ -206,30 +216,30 @@ export function CreateDecaissementDialog({
             <Input
               value={form.description}
               onChange={(e) => updateField('description', e.target.value)}
-              placeholder="Objet de la dépense"
+              placeholder="Objet de la depense"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Mode de Règlement</Label>
+              <Label>Mode de reglement</Label>
               <Select value={form.paymentMethod} onValueChange={(v) => updateField('paymentMethod', v as any)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CHEQUE">Chèque</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
                   <SelectItem value="VIREMENT">Virement</SelectItem>
-                  <SelectItem value="ESPECES">Espèces</SelectItem>
+                  <SelectItem value="ESPECES">Especes</SelectItem>
                   <SelectItem value="CARTE">Carte</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Compte de Trésorerie</Label>
+              <Label>Compte de tresorerie</Label>
               <Select value={form.treasuryAccountId} onValueChange={(v) => updateField('treasuryAccountId', v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner le compte source" />
+                  <SelectValue placeholder="Selectionner le compte source" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredAccounts.map((acc) => (
@@ -242,7 +252,7 @@ export function CreateDecaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 rounded-lg bg-rose-50 p-4 border border-rose-100 shadow-sm">
+          <div className="grid grid-cols-3 gap-4 rounded-lg border border-rose-100 bg-rose-50 p-4 shadow-sm">
             <div className="space-y-2">
               <Label>Montant HT</Label>
               <Input type="number" value={form.amountHT} onChange={(e) => updateField('amountHT', e.target.value)} />
@@ -252,38 +262,42 @@ export function CreateDecaissementDialog({
               <Input type="number" value={form.amountTVA} onChange={(e) => updateField('amountTVA', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label className="text-rose-700 font-bold">Total TTC</Label>
+              <Label className="font-bold text-rose-700">Total TTC</Label>
               <Input
                 type="number"
                 value={form.amountTTC}
                 readOnly
-                className="bg-white border-rose-200 text-rose-900 font-bold text-lg"
+                className="border-rose-200 bg-white text-lg font-bold text-rose-900"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>ID Engagement (Facultatif)</Label>
+              <Label>ID engagement (facultatif)</Label>
               <Input
                 value={form.commitmentId}
                 readOnly
-                placeholder="Lié automatiquement via BC"
+                placeholder="Lie automatiquement via BC"
                 className="bg-slate-50 text-slate-500"
               />
             </div>
             <div className="space-y-2">
-              <Label>Imputation Comptable (Compte de Charge)</Label>
+              <Label>Imputation comptable (compte de charge)</Label>
               <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
                 <SelectTrigger className="border-rose-200 focus:ring-rose-500">
-                  <SelectValue placeholder="Sélectionner le compte de dépense" />
+                  <SelectValue placeholder="Selectionner le compte de depense" />
                 </SelectTrigger>
                 <SelectContent>
                   {accountingAccounts.length === 0 ? (
-                    <SelectItem value="__no-expense-account__" disabled>Aucun compte de charge disponible</SelectItem>
+                    <SelectItem value="__no-expense-account__" disabled>
+                      Aucun compte de charge disponible
+                    </SelectItem>
                   ) : (
                     accountingAccounts.map((acc: any) => (
-                      <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.code} - {acc.label}
+                      </SelectItem>
                     ))
                   )}
                 </SelectContent>
@@ -292,7 +306,7 @@ export function CreateDecaissementDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Notes Comptables</Label>
+            <Label>Notes comptables</Label>
             <Textarea
               value={form.notes}
               onChange={(e) => updateField('notes', e.target.value)}
@@ -301,21 +315,23 @@ export function CreateDecaissementDialog({
           </div>
         </div>
 
-        <DialogFooter className="bg-slate-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Annuler</Button>
+        <DialogFooter className="-mx-6 -mb-6 rounded-b-lg border-t bg-slate-50 p-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Annuler
+          </Button>
           <Button
-            className="bg-rose-600 hover:bg-rose-700 text-white"
+            className="bg-rose-600 text-white hover:bg-rose-700"
             onClick={handleSubmit}
             disabled={
               isSubmitting ||
               !form.beneficiaryName ||
               Number(form.amountTTC) <= 0 ||
               !form.treasuryAccountId ||
-              !form.serviceId ||
+              !form.enterpriseId ||
               (!form.commitmentId && !accountingAccountId)
             }
           >
-            {isSubmitting ? 'Enregistrement...' : 'Confirmer le Décaissement'}
+            {isSubmitting ? 'Enregistrement...' : 'Confirmer le decaissement'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
+import { enterpriseApi } from '@/lib/api';
 import type {
   PurchaseProforma,
   PurchaseRequest,
@@ -26,8 +27,8 @@ import type {
 } from '@/services/procurement';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
-import { adminServicesService, type Service } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -163,6 +164,13 @@ const computeAvailabilityScore = (availability?: string | null) => {
   return 8;
 };
 
+const parseEnterpriseId = (value: string): number | null => {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const normalizeTimeline = (
   request: PurchaseRequest | undefined,
   approvalHistory: PurchaseRequestApprovalLog[]
@@ -173,7 +181,7 @@ const normalizeTimeline = (
     {
       id: `created-${request.id}`,
       title: 'Devis interne créé',
-      description: `Creation du devis interne ${request.number} pour le service ${request.serviceName || 'Non attribue'}.`,
+      description: `Creation du devis interne ${request.number}.`,
       createdAt: request.date,
       tone: 'neutral',
     },
@@ -402,9 +410,9 @@ export default function PurchaseQuoteDetailPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [enterpriseId, setEnterpriseId] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [manualSupplierName, setManualSupplierName] = useState('');
-  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DpaDraftLine[]>([createEmptyDpaDraftLine()]);
   const [isDirty, setIsDirty] = useState(false);
@@ -413,7 +421,6 @@ export default function PurchaseQuoteDetailPage() {
   const [rejectProformaTarget, setRejectProformaTarget] = useState<PurchaseProforma | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [isCommissionPrintOpen, setIsCommissionPrintOpen] = useState(false);
-  const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const hasDirectPermission = (...permissions: string[]) =>
     permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
@@ -422,7 +429,6 @@ export default function PurchaseQuoteDetailPage() {
   const canApprove =
     isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
   const canReject = canApprove;
-  const canChooseService = isAdminRole(user) || hasDirectPermission('services.read_all');
   const canCreateOrder =
     isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
   const canReadCommittee =
@@ -458,6 +464,11 @@ export default function PurchaseQuoteDetailPage() {
     queryKey: ['procurement-suppliers-for-quote-detail'],
     queryFn: () => procurementService.getSuppliers({ limit: 200 }),
   });
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['purchase-quote-detail-enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: articlesResponse } = useQuery({
     queryKey: ['inventory-articles-for-quote-detail'],
@@ -465,22 +476,14 @@ export default function PurchaseQuoteDetailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: servicesResponse } = useQuery({
-    queryKey: ['procurement-service-options-detail'],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: canChooseService || !userServiceId,
-    staleTime: 5 * 60 * 1000,
-  });
-
   const request = requestResponse?.data;
   const suppliers = suppliersResponse?.data ?? [];
   const articles = articlesResponse?.data ?? [];
-  const services = servicesResponse?.data ?? [];
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
   const approvalHistory = approvalHistoryResponse?.data ?? request?.approvalHistory ?? [];
-  const selectedService = services.find((service) => String(service.id) === selectedServiceId);
-  const serviceForPrint =
-    selectedService ||
-    services.find((service) => String(service.id) === String(request?.serviceId ?? ''));
   const supplierRatings = useMemo(
     () =>
       new Map(
@@ -495,9 +498,15 @@ export default function PurchaseQuoteDetailPage() {
     setTitle(request.objet || request.title || '');
     setDescription(request.description || '');
     setNotes(request.notes || '');
+    setEnterpriseId(
+      request.enterpriseId != null
+        ? String(request.enterpriseId)
+        : user?.enterpriseId != null
+        ? String(user.enterpriseId)
+        : ''
+    );
     setSupplierId(request.supplierId || '');
     setManualSupplierName(request.manualSupplierName || (!request.supplierId ? request.supplierName || '' : ''));
-    setSelectedServiceId(String(request.serviceId ?? userServiceId ?? ''));
     setDateBesoin(request.dateBesoin ? request.dateBesoin.slice(0, 10) : '');
     setLines(
       request.lines && request.lines.length > 0
@@ -556,10 +565,9 @@ export default function PurchaseQuoteDetailPage() {
         title,
         objet: title,
         description,
+        enterpriseId: parseEnterpriseId(enterpriseId),
         supplierId: supplierId || null,
         manualSupplierName: supplierId ? null : manualSupplierName || null,
-        serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
-        serviceName: selectedService?.name || request?.serviceName || null,
         dateBesoin: dateBesoin || null,
         notes,
         lines: lines
@@ -881,8 +889,7 @@ export default function PurchaseQuoteDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Service</div><div className="text-lg font-semibold">{request.serviceName || 'Non attribue'}</div></CardContent></Card>
+      <div className="grid gap-4 md:grid-cols-3">
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Fournisseur du devis</div><div className="text-lg font-semibold">{selectedSupplier?.name || request.supplierName || request.manualSupplierName || 'A définir'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Montant TTC du devis</div><div className="text-lg font-semibold">{(request.montantTTC || request.estimatedAmount || 0) > 0 ? formatCurrency(request.montantTTC || request.estimatedAmount || 0) : '0 F CFA'}</div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="text-sm text-muted-foreground">Derniere etape</div><div className="text-lg font-semibold">{timeline[timeline.length - 1]?.title || 'Creation'}</div></CardContent></Card>
@@ -901,23 +908,22 @@ export default function PurchaseQuoteDetailPage() {
             <CardHeader>
               <CardTitle>Informations du devis interne</CardTitle>
               <CardDescription>
-                Gérez le devis interne, son service, son fournisseur, ses lignes et ses montants.
+                Gérez le devis interne, son fournisseur, ses lignes et ses montants.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <EditDpaCard
                 canEdit={canEditRequest}
-                showServiceSelector={canChooseService || !request.serviceId}
-                selectedServiceId={selectedServiceId}
-                services={services}
-                onServiceChange={(value) => {
-                  setIsDirty(true);
-                  setSelectedServiceId(value);
-                }}
                 title={title}
                 onTitleChange={(value) => {
                   setIsDirty(true);
                   setTitle(value);
+                }}
+                enterpriseId={enterpriseId}
+                enterprises={accessibleEnterprises}
+                onEnterpriseChange={(value) => {
+                  setIsDirty(true);
+                  setEnterpriseId(value);
                 }}
                 dateBesoin={dateBesoin}
                 onDateBesoinChange={(value) => {
@@ -1162,7 +1168,6 @@ export default function PurchaseQuoteDetailPage() {
           }}
           supplier={selectedSupplier}
           articles={articles}
-          serviceLogoUrl={serviceForPrint?.imageUrl}
           onClose={() => setIsPrintOpen(false)}
         />
       )}
@@ -1171,7 +1176,6 @@ export default function PurchaseQuoteDetailPage() {
         <PurchaseCommissionPrint
           request={request}
           rows={commissionDecisionRows}
-          serviceLogoUrl={serviceForPrint?.imageUrl}
           onClose={() => setIsCommissionPrintOpen(false)}
         />
       )}

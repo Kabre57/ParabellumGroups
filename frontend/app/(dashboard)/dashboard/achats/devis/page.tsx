@@ -6,10 +6,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Send, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
+import { enterpriseApi } from '@/lib/api';
 import { inventoryService } from '@/shared/api/inventory/inventory.service';
 import type { PurchaseRequest, PurchaseRequestStatus } from '@/services/procurement';
-import { adminServicesService } from '@/shared/api/admin';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,13 @@ const statusColors: Record<PurchaseRequestStatus, string> = {
   COMMANDEE: 'bg-green-100 text-green-800',
 };
 
+const parseEnterpriseId = (value: string): number | undefined => {
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export default function PurchaseQuotesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -54,15 +62,13 @@ export default function PurchaseQuotesPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [enterpriseId, setEnterpriseId] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [manualSupplierName, setManualSupplierName] = useState('');
-  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DpaDraftLine[]>([createEmptyDpaDraftLine()]);
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
-  const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
-  const enterpriseLabel = user?.enterprise?.name || 'Entreprise non attribuée';
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const hasDirectPermission = (...permissions: string[]) =>
     permissions.some((permission) => permissionSet.has(permission.toLowerCase()));
@@ -92,19 +98,11 @@ export default function PurchaseQuotesPage() {
   const canApprove =
     isAdminRole(user) || hasDirectPermission('purchase_requests.approve');
   const canReject = canApprove;
-  const canChooseService =
-    isAdminRole(user) || hasDirectPermission('services.read_all', 'services.read');
   const canCreateOrder =
     isAdminRole(user) || hasDirectPermission('purchase_orders.create', 'purchase_orders.update');
   const canSubmit =
     isAdminRole(user) ||
     (hasDirectPermission('purchases.submit') && canCreateOrder);
-
-  useEffect(() => {
-    if (!selectedServiceId && userServiceId) {
-      setSelectedServiceId(userServiceId);
-    }
-  }, [selectedServiceId, userServiceId]);
 
   const { data: requestsResponse, isLoading } = useQuery({
     queryKey: ['purchase-quotes', statusFilter, search, user?.id, canReadOwnQuotesOnly],
@@ -121,17 +119,15 @@ export default function PurchaseQuotesPage() {
     queryKey: ['procurement-suppliers-for-quotes'],
     queryFn: () => procurementService.getSuppliers({ limit: 200 }),
   });
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['purchase-quotes-enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: articlesResponse } = useQuery({
     queryKey: ['inventory-articles-for-quotes'],
     queryFn: () => inventoryService.getArticles(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: servicesResponse } = useQuery({
-    queryKey: ['procurement-service-options'],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -140,58 +136,26 @@ export default function PurchaseQuotesPage() {
   );
   const suppliers = suppliersResponse?.data ?? [];
   const articles = articlesResponse?.data ?? [];
-  const rawServices = Array.isArray(servicesResponse)
-    ? servicesResponse
-    : Array.isArray(servicesResponse?.data)
-      ? servicesResponse.data
-      : [];
-  const services = useMemo(() => {
-    const merged = [...rawServices];
-    const fallbackServiceId = user?.serviceId ?? user?.service?.id;
-    const fallbackServiceName = user?.service?.name || user?.department;
-
-    if (
-      fallbackServiceId != null &&
-      fallbackServiceName &&
-      !merged.some((service) => String(service.id) === String(fallbackServiceId))
-    ) {
-      merged.unshift({
-        id: Number(fallbackServiceId),
-        name: fallbackServiceName,
-        code: null,
-        description: null,
-        parentId: null,
-        managerId: null,
-        isActive: true,
-        imageUrl: null,
-        createdAt: '',
-        updatedAt: '',
-      });
-    }
-
-    return merged;
-  }, [rawServices, user?.department, user?.service?.id, user?.service?.name, user?.serviceId]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (selectedServiceId) return;
-    if (userServiceId) return;
-    if (services.length > 0) {
-      setSelectedServiceId(String(services[0].id));
-    }
-  }, [open, selectedServiceId, services, userServiceId]);
-
-  const selectedService = services.find((service) => String(service.id) === selectedServiceId);
-  const requestServiceName =
-    selectedService?.name ||
-    user?.service?.name ||
-    user?.department ||
-    undefined;
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
   const draftTotals = useMemo(() => {
     const montantHT = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire, 0);
     const montantTTC = lines.reduce((sum, line) => sum + line.quantite * line.prixUnitaire * (1 + line.tva / 100), 0);
     return { montantHT, montantTTC };
   }, [lines]);
+
+  useEffect(() => {
+    if (enterpriseId) return;
+    if (user?.enterpriseId != null && user?.enterpriseId !== '') {
+      setEnterpriseId(String(user.enterpriseId));
+      return;
+    }
+    if (accessibleEnterprises.length === 1) {
+      setEnterpriseId(String(accessibleEnterprises[0].id));
+    }
+  }, [accessibleEnterprises, enterpriseId, user?.enterpriseId]);
 
   const stats = useMemo(() => ({
     total: requests.length,
@@ -206,12 +170,11 @@ export default function PurchaseQuotesPage() {
         titre: title,
         objet: title,
         description,
+        enterpriseId: parseEnterpriseId(enterpriseId),
         fournisseurId: supplierId || undefined,
         fournisseurNomLibre: supplierId ? undefined : manualSupplierName || undefined,
         dateBesoin: dateBesoin || undefined,
         notes: notes || undefined,
-        serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
-        serviceName: requestServiceName,
         lignes: lines
           .filter((line) => line.designation && line.quantite > 0)
           .map((line) => ({
@@ -230,9 +193,9 @@ export default function PurchaseQuotesPage() {
       setTitle('');
       setDescription('');
       setNotes('');
+      setEnterpriseId(user?.enterpriseId != null ? String(user.enterpriseId) : '');
       setSupplierId('');
       setManualSupplierName('');
-      setSelectedServiceId(userServiceId);
       setDateBesoin('');
       setLines([createEmptyDpaDraftLine()]);
     },
@@ -248,7 +211,7 @@ export default function PurchaseQuotesPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: string) =>
-      procurementService.approveRequest(id, `Approuvé pour ${requestServiceName || 'le service demandeur'}`),
+      procurementService.approveRequest(id, 'Approuve pour le besoin demandeur'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-quotes'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
@@ -356,7 +319,6 @@ export default function PurchaseQuotesPage() {
                   <tr>
                     <th className="px-4 py-3 font-medium">Numéro</th>
                     <th className="px-4 py-3 font-medium">Objet</th>
-                    <th className="px-4 py-3 font-medium">Service</th>
                     <th className="px-4 py-3 font-medium">Fournisseur</th>
                     <th className="px-4 py-3 font-medium">Montant</th>
                     <th className="px-4 py-3 font-medium">Statut</th>
@@ -368,7 +330,6 @@ export default function PurchaseQuotesPage() {
                     <tr key={request.id} className="border-b last:border-0">
                       <td className="px-4 py-3 font-medium">{request.number}</td>
                       <td className="px-4 py-3">{request.objet || request.title}</td>
-                      <td className="px-4 py-3">{request.serviceName || '-'}</td>
                       <td className="px-4 py-3">{supplierName(request.supplierId) || request.supplierName || request.manualSupplierName || '-'}</td>
                       <td className="px-4 py-3 font-medium">
                         {(request.montantTTC || request.estimatedAmount || 0) > 0
@@ -438,13 +399,11 @@ export default function PurchaseQuotesPage() {
       <CreateDpaDialog
         open={open}
         onOpenChange={setOpen}
-        enterpriseLabel={enterpriseLabel}
-        showServiceSelector={canChooseService || !userServiceId}
-        selectedServiceId={selectedServiceId}
-        services={services}
-        onServiceChange={setSelectedServiceId}
         title={title}
         onTitleChange={setTitle}
+        enterpriseId={enterpriseId}
+        enterprises={accessibleEnterprises}
+        onEnterpriseChange={setEnterpriseId}
         dateBesoin={dateBesoin}
         onDateBesoinChange={setDateBesoin}
         supplierId={supplierId}
@@ -480,7 +439,7 @@ export default function PurchaseQuotesPage() {
         onSelectArticle={updateLineArticle}
         totalTTC={draftTotals.montantTTC}
         isPending={createMutation.isPending}
-        canSubmit={Boolean(title && (supplierId || manualSupplierName.trim()))}
+        canSubmit={Boolean(title && enterpriseId && (supplierId || manualSupplierName.trim()))}
         onSubmit={() => createMutation.mutate()}
       />
 

@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
+import type { Enterprise } from '@/lib/api';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import type { Supplier } from '@/services/procurement';
-import type { Service } from '@/shared/api/admin';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,13 +20,11 @@ import type { DpaDraftLine } from './types';
 interface CreateDpaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  enterpriseLabel: string;
-  showServiceSelector: boolean;
-  selectedServiceId: string;
-  services: Service[];
-  onServiceChange: (value: string) => void;
   title: string;
   onTitleChange: (value: string) => void;
+  enterpriseId: string;
+  enterprises: Enterprise[];
+  onEnterpriseChange: (value: string) => void;
   dateBesoin: string;
   onDateBesoinChange: (value: string) => void;
   supplierId: string;
@@ -54,13 +52,11 @@ interface CreateDpaDialogProps {
 export function CreateDpaDialog({
   open,
   onOpenChange,
-  enterpriseLabel,
-  showServiceSelector,
-  selectedServiceId,
-  services,
-  onServiceChange,
   title,
   onTitleChange,
+  enterpriseId,
+  enterprises,
+  onEnterpriseChange,
   dateBesoin,
   onDateBesoinChange,
   supplierId,
@@ -95,19 +91,12 @@ export function CreateDpaDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          {enterpriseLabel ? (
-            <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              Ce devis interne sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
-            </div>
-          ) : null}
-
           <DpaFormFields
-            showServiceSelector={showServiceSelector}
-            selectedServiceId={selectedServiceId}
-            services={services}
-            onServiceChange={onServiceChange}
             title={title}
             onTitleChange={onTitleChange}
+            enterpriseId={enterpriseId}
+            enterprises={enterprises}
+            onEnterpriseChange={onEnterpriseChange}
             dateBesoin={dateBesoin}
             onDateBesoinChange={onDateBesoinChange}
             supplierId={supplierId}
@@ -119,7 +108,6 @@ export function CreateDpaDialog({
             onNotesChange={onNotesChange}
             description={description}
             onDescriptionChange={onDescriptionChange}
-            servicePlaceholder="Sélectionner un service associé"
           />
 
           <PurchaseLinesGrid

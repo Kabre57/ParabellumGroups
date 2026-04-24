@@ -40,7 +40,7 @@ export default function PurchaseRequestPrint({
     <ProcurementDocumentPrint
       documentLabel="Devis d'achat"
       documentNumber={request.number}
-      serviceName={request.serviceName || undefined}
+      serviceName={request.enterpriseName || undefined}
       issueDate={request.date}
       issuedBy={request.requesterEmail || undefined}
       deliveryLeadTime={request.dateBesoin || undefined}

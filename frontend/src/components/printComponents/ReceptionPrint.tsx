@@ -42,7 +42,7 @@ export default function ReceptionPrint({
     <ProcurementDocumentPrint
       documentLabel="Bon de réception"
       documentNumber={reception.numero}
-      serviceName={order?.serviceName || undefined}
+      serviceName={order?.enterpriseName || undefined}
       issueDate={reception.dateReception}
       deliveryLeadTime="Réception effectuée"
       paymentTerms={reception.status}

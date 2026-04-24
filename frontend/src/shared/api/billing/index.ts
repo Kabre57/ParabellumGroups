@@ -23,6 +23,8 @@ export interface Invoice {
   id: string;
   numeroFacture: string;
   clientId: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: string;
   serviceName?: string;
   serviceLogoUrl?: string;
@@ -54,6 +56,8 @@ export interface Quote {
   numeroDevis: string;
   clientId?: string | null;
   prospectId?: string | null;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   objet?: string | null;
   notes?: string | null;
   serviceId?: string;
@@ -117,6 +121,8 @@ export interface Payment {
   id: string;
   factureId: string;
   facture?: Invoice;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   montant: number;
   datePaiement: string;
   modePaiement: 'VIREMENT' | 'CHEQUE' | 'ESPECES' | 'CARTE' | 'PRELEVEMENT';
@@ -144,6 +150,8 @@ export interface CreditNote {
   factureId: string;
   factureNumero: string;
   clientId: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: string | null;
   serviceName?: string | null;
   serviceLogoUrl?: string | null;
@@ -183,6 +191,8 @@ export interface PurchaseCommitment {
   sourceType: 'PURCHASE_QUOTE' | 'PURCHASE_ORDER';
   sourceId: string;
   sourceNumber: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: number | null;
   serviceName?: string | null;
   supplierId?: string | null;
@@ -198,6 +208,8 @@ export interface PurchaseCommitment {
 export interface FactureFournisseur {
   id: string;
   numeroFacture: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   fournisseurId?: string | null;
   fournisseurNom?: string | null;
   dateFacture: string;
@@ -218,6 +230,8 @@ export interface Encaissement {
   clientId?: string | null;
   clientName: string;
   description: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: number | null;
   serviceName?: string | null;
   amountHT: number;
@@ -238,6 +252,8 @@ export interface Decaissement {
   numeroPiece: string;
   beneficiaryName: string;
   description: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   serviceId?: number | null;
   serviceName?: string | null;
   amountHT: number;
@@ -372,6 +388,8 @@ export interface AccountingMovement {
   description: string;
   amount: number;
   balance: number;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   reference?: string | null;
   sourceType?: string | null;
   paymentMethod?: string | null;
@@ -386,6 +404,8 @@ export interface AccountingEntry {
   date: string;
   journalCode: string;
   journalLabel: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
   accountDebit: string;
   accountDebitId?: string | null;
   accountDebitLabel: string;
@@ -595,10 +615,17 @@ export const billingService = {
     startDate?: string;
     endDate?: string;
     search?: string;
+    query?: string;
+    enterpriseId?: string | number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Invoice>> {
-    const response = await apiClient.get('/billing/invoices', { params });
+    const queryParams = {
+      ...params,
+      search: params?.search || params?.query,
+    };
+    delete (queryParams as any).query;
+    const response = await apiClient.get('/billing/invoices', { params: queryParams });
     return normalizeListResponse<Invoice>(response.data);
   },
 
@@ -619,6 +646,7 @@ export const billingService = {
 
   async createInvoice(data: {
     clientId: string;
+    enterpriseId?: string | number;
     dateFacture?: string;
     dateEcheance?: string;
     lignes: InvoiceItem[];
@@ -658,7 +686,11 @@ export const billingService = {
     return response.data;
   },
 
-  async getCreditNotes(params?: { factureId?: string; status?: string }): Promise<ListResponse<CreditNote>> {
+  async getCreditNotes(params?: {
+    factureId?: string;
+    status?: string;
+    enterpriseId?: string | number;
+  }): Promise<ListResponse<CreditNote>> {
     const response = await apiClient.get('/billing/credit-notes', { params });
     return normalizeListResponse<CreditNote>(response.data);
   },
@@ -692,6 +724,7 @@ export const billingService = {
     startDate?: string;
     endDate?: string;
     search?: string;
+    enterpriseId?: string | number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<ListResponse<Quote>> {
@@ -707,6 +740,7 @@ export const billingService = {
   async createQuote(data: {
     clientId?: string;
     prospectId?: string;
+    enterpriseId?: string | number;
     serviceId?: string;
     serviceName?: string;
     commercialId?: string;
@@ -825,14 +859,19 @@ export const billingService = {
     modePaiement?: string;
     startDate?: string;
     endDate?: string;
+    search?: string;
+    query?: string;
+    enterpriseId?: string | number;
   }): Promise<ListResponse<Payment>> {
     const queryParams = {
       ...params,
       dateDebut: params?.startDate,
       dateFin: params?.endDate,
+      search: params?.search || params?.query,
     };
     delete (queryParams as any).startDate;
     delete (queryParams as any).endDate;
+    delete (queryParams as any).query;
     const response = await apiClient.get('/billing/payments', { params: queryParams });
     return normalizeListResponse<Payment>(response.data);
   },
@@ -865,13 +904,17 @@ export const billingService = {
     return response.data;
   },
 
-  async getPurchaseCommitments(): Promise<ListResponse<PurchaseCommitment>> {
-    const response = await apiClient.get('/billing/purchase-commitments');
+  async getPurchaseCommitments(params?: {
+    enterpriseId?: string | number;
+  }): Promise<ListResponse<PurchaseCommitment>> {
+    const response = await apiClient.get('/billing/purchase-commitments', { params });
     return normalizeListResponse<PurchaseCommitment>(response.data);
   },
 
-  async getPurchaseCommitmentsStats(): Promise<{ success: boolean; data: PurchaseCommitmentStats }> {
-    const response = await apiClient.get('/billing/purchase-commitments/stats');
+  async getPurchaseCommitmentsStats(params?: {
+    enterpriseId?: string | number;
+  }): Promise<{ success: boolean; data: PurchaseCommitmentStats }> {
+    const response = await apiClient.get('/billing/purchase-commitments/stats', { params });
     return normalizeStatsResponse<PurchaseCommitmentStats>(response.data);
   },
 
@@ -918,14 +961,18 @@ export const billingService = {
     return normalizeDetailResponse<CashVoucher>(response.data);
   },
 
-  async getSpendingOverview(params?: { startDate?: string; endDate?: string }): Promise<{ success: boolean; data: SpendingOverview }> {
+  async getSpendingOverview(params?: {
+    startDate?: string;
+    endDate?: string;
+    enterpriseId?: string | number;
+  }): Promise<{ success: boolean; data: SpendingOverview }> {
     const response = await apiClient.get('/billing/cash-vouchers/spending-overview', { params });
     return normalizeStatsResponse<SpendingOverview>(response.data);
   },
 
   async getAccountingOverview(
     period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all',
-    params?: { startDate?: string; endDate?: string }
+    params?: { startDate?: string; endDate?: string; enterpriseId?: string | number }
   ): Promise<{ success: boolean; data: AccountingOverview }> {
     const response = await apiClient.get('/billing/accounting/overview', {
       params: {
@@ -1057,6 +1104,7 @@ export const billingService = {
     startDate?: string;
     endDate?: string;
     search?: string;
+    enterpriseId?: string | number;
   }): Promise<ListResponse<AccountingEntry>> {
     const response = await apiClient.get('/billing/accounting/entries', { params });
     return normalizeListResponse<AccountingEntry>(response.data);

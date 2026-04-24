@@ -154,7 +154,7 @@ export default function PurchaseApprovalsPage() {
                 <TableRow>
                   <TableHead>Numéro</TableHead>
                   <TableHead>Objet</TableHead>
-                  <TableHead>Service</TableHead>
+                  <TableHead>Entreprise</TableHead>
                   <TableHead>Demandeur</TableHead>
                   <TableHead>Date de besoin</TableHead>
                   <TableHead>Statut</TableHead>
@@ -166,7 +166,7 @@ export default function PurchaseApprovalsPage() {
                   <TableRow key={request.id}>
                     <TableCell className="font-medium">{request.number}</TableCell>
                     <TableCell>{request.objet || request.title}</TableCell>
-                    <TableCell>{request.serviceName || '-'}</TableCell>
+                    <TableCell>{request.enterpriseName || '-'}</TableCell>
                     <TableCell>{request.requesterEmail || '-'}</TableCell>
                     <TableCell>{formatDate(request.dateBesoin)}</TableCell>
                     <TableCell>

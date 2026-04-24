@@ -15,8 +15,19 @@ const {
   serializeProforma,
 } = require('../utils/purchaseQuoteHelpers');
 const { enqueueProcurementEvent } = require('../utils/outbox');
+const {
+  applyEnterpriseScope,
+  assertEnterpriseInScope,
+  resolveEnterpriseContext,
+} = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
+
+const withEnterpriseContext = (payload = {}, entity = null) => ({
+  ...payload,
+  enterpriseId: entity?.enterpriseId ?? payload.enterpriseId ?? null,
+  enterpriseName: entity?.enterpriseName || payload.enterpriseName || null,
+});
 
 const proformaInclude = {
   fournisseur: true,
@@ -180,6 +191,16 @@ const canAccessQuote = (req, demande) => {
   return String(demande.demandeurId || '') === String(req.user?.id || '');
 };
 
+const assertQuoteAccess = async (req, demande) => {
+  await assertEnterpriseInScope(req, demande?.enterpriseId, "Vous n'avez pas acces a cette DPA");
+
+  if (!canAccessQuote(req, demande)) {
+    const error = new Error('Acces refuse a cette DPA');
+    error.statusCode = 403;
+    throw error;
+  }
+};
+
 const buildQuoteWhere = (req) => {
   const { status, demandeurId, serviceId, fournisseurId, search } = req.query;
   const where = {};
@@ -207,6 +228,7 @@ const buildQuoteWhere = (req) => {
       { titre: { contains: String(search), mode: 'insensitive' } },
       { objet: { contains: String(search), mode: 'insensitive' } },
       { numeroDemande: { contains: String(search), mode: 'insensitive' } },
+      { enterpriseName: { contains: String(search), mode: 'insensitive' } },
       { fournisseurNomLibre: { contains: String(search), mode: 'insensitive' } },
       { fournisseur: { is: { nom: { contains: String(search), mode: 'insensitive' } } } },
       {
@@ -522,7 +544,11 @@ exports.getAll = async (req, res) => {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 200);
     const skip = (page - 1) * limit;
-    const where = buildQuoteWhere(req);
+    const where = await applyEnterpriseScope({
+      req,
+      where: buildQuoteWhere(req),
+      requestedEnterpriseId: req.query.enterpriseId,
+    });
 
     const [demandes, total] = await Promise.all([
       prisma.demandeAchat.findMany({
@@ -547,7 +573,7 @@ exports.getAll = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching demandes achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la récupération des DPA',
     });
@@ -579,18 +605,12 @@ exports.create = async (req, res) => {
       notes,
       devise,
       lignes = [],
-      serviceId,
-      serviceName,
     } = req.body;
-
-    const serviceContext = await ensureServiceContext(req, serviceName, serviceId);
-    if (serviceContext.error) {
-      return res.status(serviceContext.error.status).json(serviceContext.error.body);
-    }
 
     const normalizedLines = normalizeQuoteLines(lignes);
     const totals = calculateTotals(normalizedLines);
     const numeroDemande = await generateDemandeAchatNumber(prisma);
+    const enterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
 
     const created = await prisma.$transaction(async (tx) => {
       const demande = await tx.demandeAchat.create({
@@ -601,8 +621,10 @@ exports.create = async (req, res) => {
           description: description || null,
           demandeurId: String(req.user.id),
           demandeurEmail: req.user?.email || null,
-          serviceId: serviceContext.serviceId,
-          serviceName: serviceContext.serviceName,
+          enterpriseId: enterprise.enterpriseId,
+          enterpriseName: enterprise.enterpriseName,
+          serviceId: null,
+          serviceName: null,
           fournisseurId: fournisseurId || null,
           fournisseurNomLibre: fournisseurId ? null : String(fournisseurNomLibre || '').trim() || null,
           devise: devise || 'XOF',
@@ -632,7 +654,10 @@ exports.create = async (req, res) => {
         aggregateType: 'PURCHASE_QUOTE',
         aggregateId: demande.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseQuoteCreatedPayload(serializeQuote(demande)),
+        payload: withEnterpriseContext(
+          purchaseQuoteCreatedPayload(serializeQuote(demande)),
+          serializeQuote(demande)
+        ),
       });
 
       return demande;
@@ -645,7 +670,7 @@ exports.create = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la création de la DPA',
     });
@@ -663,12 +688,7 @@ exports.getById = async (req, res) => {
       });
     }
 
-    if (!canAccessQuote(req, demande)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Accès refusé à cette DPA',
-      });
-    }
+    await assertQuoteAccess(req, demande);
 
     res.json({
       success: true,
@@ -676,7 +696,7 @@ exports.getById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la récupération de la DPA',
     });
@@ -695,7 +715,9 @@ exports.update = async (req, res) => {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
 
-    if (!canAccessQuote(req, existing) || !canUpdateRequests(req.user)) {
+    await assertQuoteAccess(req, existing);
+
+    if (!canUpdateRequests(req.user)) {
       return res.status(403).json({ success: false, message: 'Accès refusé à cette DPA' });
     }
 
@@ -715,22 +737,19 @@ exports.update = async (req, res) => {
       dateBesoin,
       notes,
       devise,
+      enterpriseId,
       lignes,
-      serviceId,
-      serviceName,
     } = req.body;
-
-    const serviceContext = await ensureServiceContext(
-      req,
-      serviceName || existing.serviceName,
-      serviceId || existing.serviceId
-    );
-    if (serviceContext.error) {
-      return res.status(serviceContext.error.status).json(serviceContext.error.body);
-    }
 
     const normalizedLines = Array.isArray(lignes) ? normalizeQuoteLines(lignes) : null;
     const totals = normalizedLines ? calculateTotals(normalizedLines) : null;
+    const enterprise =
+      enterpriseId !== undefined
+        ? await resolveEnterpriseContext(req, enterpriseId)
+        : {
+            enterpriseId: existing.enterpriseId || null,
+            enterpriseName: existing.enterpriseName || null,
+          };
 
     const updated = await prisma.$transaction(async (tx) => {
       if (normalizedLines) {
@@ -755,8 +774,10 @@ exports.update = async (req, res) => {
           dateBesoin: dateBesoin !== undefined ? toDateOrNull(dateBesoin) : undefined,
           notes: notes !== undefined ? notes || null : undefined,
           devise: devise !== undefined ? devise || 'XOF' : undefined,
-          serviceId: serviceContext.serviceId,
-          serviceName: serviceContext.serviceName,
+          enterpriseId: enterprise.enterpriseId,
+          enterpriseName: enterprise.enterpriseName,
+          serviceId: null,
+          serviceName: null,
           ...(totals
             ? {
                 montantEstime: totals.montantTTC,
@@ -786,7 +807,7 @@ exports.update = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la mise à jour de la DPA',
     });
@@ -801,12 +822,14 @@ exports.submit = async (req, res) => {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
 
-    if (!canAccessQuote(req, existing) || !canSubmitQuotes(req.user)) {
+    if (!canSubmitQuotes(req.user)) {
       return res.status(403).json({
         success: false,
         message: 'Vous n avez pas la permission de soumettre cette DPA au PDG',
       });
     }
+
+    await assertQuoteAccess(req, existing);
 
     if (!['BROUILLON', 'REJETEE'].includes(existing.status)) {
       return res.status(409).json({
@@ -855,7 +878,10 @@ exports.submit = async (req, res) => {
         aggregateType: 'PURCHASE_QUOTE',
         aggregateId: demande.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseQuoteSubmittedPayload(serializeQuote(demande)),
+        payload: withEnterpriseContext(
+          purchaseQuoteSubmittedPayload(serializeQuote(demande)),
+          serializeQuote(demande)
+        ),
       });
 
       return demande;
@@ -868,7 +894,7 @@ exports.submit = async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la soumission de la DPA',
     });
@@ -938,7 +964,10 @@ exports.approve = async (req, res) => {
         aggregateType: 'PURCHASE_QUOTE',
         aggregateId: demande.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseQuoteApprovedPayload(serializeQuote(demande)),
+        payload: withEnterpriseContext(
+          purchaseQuoteApprovedPayload(serializeQuote(demande)),
+          serializeQuote(demande)
+        ),
       });
 
       return demande;
@@ -951,7 +980,7 @@ exports.approve = async (req, res) => {
     });
   } catch (error) {
     console.error('Error approving demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de l approbation de la DPA',
     });
@@ -1017,7 +1046,10 @@ exports.reject = async (req, res) => {
         aggregateType: 'PURCHASE_QUOTE',
         aggregateId: demande.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseQuoteRejectedPayload(serializeQuote(demande)),
+        payload: withEnterpriseContext(
+          purchaseQuoteRejectedPayload(serializeQuote(demande)),
+          serializeQuote(demande)
+        ),
       });
 
       return demande;
@@ -1030,7 +1062,7 @@ exports.reject = async (req, res) => {
     });
   } catch (error) {
     console.error('Error rejecting demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors du rejet de la DPA',
     });
@@ -1050,6 +1082,8 @@ exports.createProforma = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     if (!['APPROUVEE', 'PROFORMAS_EN_COURS', 'PROFORMA_SOUMISE', 'PROFORMA_APPROUVEE'].includes(demande.status)) {
       return res.status(409).json({
@@ -1134,7 +1168,7 @@ exports.createProforma = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating proforma:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la création de la proforma',
     });
@@ -1154,6 +1188,8 @@ exports.recommendProforma = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     const existing = await ensureProformaExists(demande.id, req.params.proformaId);
     if (!existing) {
@@ -1194,7 +1230,7 @@ exports.recommendProforma = async (req, res) => {
     });
   } catch (error) {
     console.error('Error recommending proforma:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la sélection de la proforma recommandée',
     });
@@ -1223,6 +1259,8 @@ exports.saveProformaCommitteeEvaluation = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     const existing = await ensureProformaExists(demande.id, req.params.proformaId);
     if (!existing) {
@@ -1282,7 +1320,7 @@ exports.saveProformaCommitteeEvaluation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error saving proforma committee evaluation:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: "Erreur lors de l'enregistrement de l'évaluation de commission",
     });
@@ -1391,7 +1429,7 @@ exports.submitProforma = async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting proforma:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la soumission de la proforma',
     });
@@ -1411,6 +1449,8 @@ exports.approveProforma = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     const existing = await ensureProformaExists(demande.id, req.params.proformaId);
     if (!existing) {
@@ -1508,7 +1548,7 @@ exports.approveProforma = async (req, res) => {
     });
   } catch (error) {
     console.error('Error approving proforma:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de l approbation de la proforma',
     });
@@ -1528,6 +1568,8 @@ exports.rejectProforma = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     const existing = await ensureProformaExists(demande.id, req.params.proformaId);
     if (!existing) {
@@ -1606,7 +1648,7 @@ exports.rejectProforma = async (req, res) => {
     });
   } catch (error) {
     console.error('Error rejecting proforma:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors du rejet de la proforma',
     });
@@ -1626,6 +1668,8 @@ exports.generateOrder = async (req, res) => {
     if (!demande) {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
+
+    await assertQuoteAccess(req, demande);
 
     if (demande.bonsCommande?.length) {
       return res.status(409).json({
@@ -1664,6 +1708,8 @@ exports.generateOrder = async (req, res) => {
           demandeAchatId: demande.id,
           proformaId: selectedProforma.id,
           fournisseurId: selectedProforma.fournisseurId,
+          enterpriseId: demande.enterpriseId || null,
+          enterpriseName: demande.enterpriseName || null,
           serviceId: demande.serviceId,
           serviceName: demande.serviceName,
           dateCommande: new Date(),
@@ -1758,7 +1804,10 @@ exports.generateOrder = async (req, res) => {
         aggregateType: 'PURCHASE_ORDER',
         aggregateId: purchaseOrder.id,
         correlationId: getCorrelationId(req),
-        payload: purchaseOrderCreatedPayload(serializeOrder(purchaseOrder)),
+        payload: withEnterpriseContext(
+          purchaseOrderCreatedPayload(serializeOrder(purchaseOrder)),
+          serializeOrder(purchaseOrder)
+        ),
       });
 
       return { purchaseOrder, purchaseQuote };
@@ -1778,7 +1827,7 @@ exports.generateOrder = async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating purchase order:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la génération du bon de commande',
     });
@@ -1792,6 +1841,7 @@ exports.getApprovalHistory = async (req, res) => {
       select: {
         id: true,
         demandeurId: true,
+        enterpriseId: true,
       },
     });
 
@@ -1799,9 +1849,7 @@ exports.getApprovalHistory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
 
-    if (!canAccessQuote(req, demande)) {
-      return res.status(403).json({ success: false, message: 'Accès refusé à cette DPA' });
-    }
+    await assertQuoteAccess(req, demande);
 
     const logs = await prisma.demandeAchatApprovalLog.findMany({
       where: { demandeAchatId: req.params.id },
@@ -1825,7 +1873,7 @@ exports.getApprovalHistory = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching approval history:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la récupération de l historique DPA',
     });
@@ -1834,7 +1882,16 @@ exports.getApprovalHistory = async (req, res) => {
 
 exports.getStats = async (req, res) => {
   try {
-    const where = buildQuoteWhere(req);
+    const where = await applyEnterpriseScope({
+      req,
+      where: buildQuoteWhere(req),
+      requestedEnterpriseId: req.query.enterpriseId,
+    });
+    const scopedOrderWhere = await applyEnterpriseScope({
+      req,
+      where: {},
+      requestedEnterpriseId: req.query.enterpriseId,
+    });
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -1874,14 +1931,14 @@ exports.getStats = async (req, res) => {
       }),
       prisma.bonCommande.count({
         where: {
+          ...scopedOrderWhere,
           createdAt: { gte: startOfMonth },
-          ...(where.serviceId ? { serviceId: where.serviceId } : {}),
         },
       }),
       prisma.bonCommande.count({
         where: {
+          ...scopedOrderWhere,
           status: { in: ['BROUILLON', 'ENVOYE'] },
-          ...(where.serviceId ? { serviceId: where.serviceId } : {}),
         },
       }),
     ]);
@@ -1902,7 +1959,7 @@ exports.getStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching demande achat stats:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la récupération des statistiques achats',
     });
@@ -1917,9 +1974,11 @@ exports.delete = async (req, res) => {
       return res.status(404).json({ success: false, message: 'DPA non trouvée' });
     }
 
-    if (!canAccessQuote(req, existing) || !canUpdateRequests(req.user)) {
+    if (!canUpdateRequests(req.user)) {
       return res.status(403).json({ success: false, message: 'Accès refusé à cette DPA' });
     }
+
+    await assertQuoteAccess(req, existing);
 
     if (existing.bonsCommande?.length) {
       return res.status(409).json({
@@ -1945,7 +2004,7 @@ exports.delete = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting demande achat:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: 'Erreur lors de la suppression de la DPA',
     });

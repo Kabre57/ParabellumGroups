@@ -52,8 +52,15 @@ const downloadBlob = (blob: Blob, filename: string) => {
 
 const openBlob = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
-  const tab = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!tab) {
+  const tab = window.open('', '_blank');
+  if (tab) {
+    tab.location.href = url;
+    if (window.location.protocol === 'https:') {
+      window.setTimeout(() => {
+        downloadBlob(blob, filename);
+      }, 1200);
+    }
+  } else {
     downloadBlob(blob, filename);
   }
   window.setTimeout(() => {
@@ -115,28 +122,6 @@ export default function PaiePage() {
     onError: () => toast.error('Mise à jour impossible'),
   });
 
-  const normalizeDeductions = (value: any) => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-    if (value && typeof value === 'object') {
-      return Object.entries(value).map(([label, amount]) => ({
-        label,
-        amount: Number(amount || 0),
-      }));
-    }
-    if (typeof value === 'number') {
-      return [{ label: 'Retenues', amount: value }];
-    }
-    return [];
-  };
-
   const handlePrint = (payroll: Payroll) => {
     const employeeAny = payroll.employee as any;
     const printData = {
@@ -156,7 +141,7 @@ export default function PaiePage() {
       overtime: payroll.heuresSup || 0,
       bonuses: payroll.bonuses || 0,
       allowances: payroll.indemnite || 0,
-      deductions: normalizeDeductions(payroll.deductions),
+      deductions: payroll.deductions || [],
       netSalary: payroll.netSalary || 0,
       createdAt: payroll.createdAt || new Date().toISOString(),
     };
@@ -261,7 +246,7 @@ export default function PaiePage() {
           <div>
             <h1 className="text-3xl font-bold">Paie</h1>
             <p className="mt-2 text-muted-foreground">
-              Gerez la paie ivoirienne, les bulletins, les obligations CNPS/DGI/CMU/ITS et les exports RH.
+              Gérez la paie, les bulletins, les obligations CNPS/DGI/CMU/ITS et les exports RH.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

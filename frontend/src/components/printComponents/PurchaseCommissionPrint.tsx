@@ -54,12 +54,12 @@ export default function PurchaseCommissionPrint({
   serviceLogoUrl,
   onClose,
 }: PurchaseCommissionPrintProps) {
-  const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
+  const { companyName: companyNameFromBranding, logoSrc: enterpriseLogo } = useEnterpriseLogo();
   const selectedRow = rows.find((row) => row.selectedForOrder) || null;
   const recommendedRow = rows.find((row) => row.recommendedForApproval) || null;
   const bestRow = [...rows].sort((left, right) => left.montantTTC - right.montantTTC)[0] || null;
   const logoSrc = resolvePrintLogo(serviceLogoUrl ?? enterpriseLogo);
-  const resolvedCompanyName = enterpriseName || 'Parabellum Groups';
+  const resolvedCompanyName = request.enterpriseName || companyNameFromBranding || 'Parabellum Groups';
   const criteriaProfile = resolveProcurementCriteriaProfile(request);
 
   return (
@@ -71,7 +71,7 @@ export default function PurchaseCommissionPrint({
       orientation="landscape"
       companyName={resolvedCompanyName}
       logoSrc={logoSrc}
-      logoAlt={request.serviceName || resolvedCompanyName}
+      logoAlt={request.enterpriseName || resolvedCompanyName}
     >
       <div className="print-sheet">
         <div className="section-title">Contexte du devis interne</div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import billingService, { type Encaissement } from '@/shared/api/billing';
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 interface CreateEncaissementDialogProps {
   open: boolean;
@@ -34,7 +35,7 @@ type FormState = {
   amountTTC: string;
   paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
   treasuryAccountId: string;
-  serviceId: string;
+  enterpriseId: string;
   dateEncaissement: string;
   reference: string;
   notes: string;
@@ -48,7 +49,7 @@ const initialState: FormState = {
   amountTTC: '0',
   paymentMethod: 'ESPECES',
   treasuryAccountId: '',
-  serviceId: '',
+  enterpriseId: '',
   dateEncaissement: new Date().toISOString().slice(0, 10),
   reference: '',
   notes: '',
@@ -82,11 +83,21 @@ export function CreateEncaissementDialog({
     enabled: open && (canChooseEnterprise || !userEnterpriseId),
   });
 
+  const enterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
+  const selectedEnterprise = useMemo(
+    () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
+    [enterprises, form.enterpriseId]
+  );
+
   useEffect(() => {
     if (open) {
       setForm({
         ...initialState,
-        serviceId: userEnterpriseId,
+        enterpriseId: userEnterpriseId,
       });
       setAccountingAccountId('');
     }
@@ -105,8 +116,6 @@ export function CreateEncaissementDialog({
   };
 
   const handleSubmit = async () => {
-    const selectedEnterprise = enterprisesResponse?.data?.find((enterprise: any) => String(enterprise.id) === form.serviceId);
-
     await onSubmit({
       clientName: form.clientName,
       description: form.description,
@@ -115,8 +124,8 @@ export function CreateEncaissementDialog({
       amountTTC: Number(form.amountTTC),
       paymentMethod: form.paymentMethod,
       treasuryAccountId: form.treasuryAccountId || undefined,
-      serviceId: form.serviceId ? Number(form.serviceId) : undefined,
-      serviceName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
+      enterpriseId: form.enterpriseId ? Number(form.enterpriseId) : undefined,
+      enterpriseName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
       dateEncaissement: new Date(form.dateEncaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
@@ -130,24 +139,23 @@ export function CreateEncaissementDialog({
     const normalizedCode = String(acc?.code || '');
     return normalizedType === 'revenue' || normalizedCode.startsWith('7');
   });
-  const enterprises = enterprisesResponse?.data ?? [];
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-emerald-700">Nouveau Bon d&apos;Encaissement</DialogTitle>
           <DialogDescription>
-            Enregistrez une entrée de fonds dans la trésorerie.
+            Enregistrez une entree de fonds dans la tresorerie.
           </DialogDescription>
         </DialogHeader>
 
-        {user?.enterprise?.name && (
+        {(selectedEnterprise?.name || user?.enterprise?.name) && (
           <div className="rounded-md border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Ce bon sera émis au nom de l&apos;entreprise <strong>{user.enterprise.name}</strong>.
+            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise?.name || user?.enterprise?.name}</strong>.
           </div>
         )}
 
@@ -162,15 +170,17 @@ export function CreateEncaissementDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Entreprise / Entité</Label>
+              <Label>Entreprise / Entite</Label>
               {canChooseEnterprise || !userEnterpriseId ? (
-                <Select value={form.serviceId} onValueChange={(v) => updateField('serviceId', v)}>
+                <Select value={form.enterpriseId} onValueChange={(v) => updateField('enterpriseId', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner l'entreprise" />
+                    <SelectValue placeholder="Selectionner l'entreprise" />
                   </SelectTrigger>
                   <SelectContent>
                     {enterprises.map((enterprise: any) => (
-                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>{enterprise.name}</SelectItem>
+                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>
+                        {enterprise.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -182,7 +192,7 @@ export function CreateEncaissementDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Date d&apos;Encaissement</Label>
+              <Label>Date d&apos;encaissement</Label>
               <Input
                 type="date"
                 value={form.dateEncaissement}
@@ -190,7 +200,7 @@ export function CreateEncaissementDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Référence (N° Chèque / Virement)</Label>
+              <Label>Reference (N° cheque / virement)</Label>
               <Input
                 value={form.reference}
                 onChange={(e) => updateField('reference', e.target.value)}
@@ -210,24 +220,24 @@ export function CreateEncaissementDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Mode de Règlement</Label>
+              <Label>Mode de reglement</Label>
               <Select value={form.paymentMethod} onValueChange={(v) => updateField('paymentMethod', v as any)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ESPECES">Espèces</SelectItem>
-                  <SelectItem value="CHEQUE">Chèque</SelectItem>
+                  <SelectItem value="ESPECES">Especes</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
                   <SelectItem value="VIREMENT">Virement</SelectItem>
                   <SelectItem value="CARTE">Carte</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Compte de Trésorerie</Label>
+              <Label>Compte de tresorerie</Label>
               <Select value={form.treasuryAccountId} onValueChange={(v) => updateField('treasuryAccountId', v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un compte" />
+                  <SelectValue placeholder="Selectionner un compte" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredAccounts.map((acc) => (
@@ -240,7 +250,7 @@ export function CreateEncaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 rounded-lg bg-slate-50 p-4 border border-slate-200">
+          <div className="grid grid-cols-3 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="space-y-2">
               <Label>Montant HT</Label>
               <Input type="number" value={form.amountHT} onChange={(e) => updateField('amountHT', e.target.value)} />
@@ -250,28 +260,32 @@ export function CreateEncaissementDialog({
               <Input type="number" value={form.amountTVA} onChange={(e) => updateField('amountTVA', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label className="text-emerald-700 font-bold">Total TTC</Label>
+              <Label className="font-bold text-emerald-700">Total TTC</Label>
               <Input
                 type="number"
                 value={form.amountTTC}
                 readOnly
-                className="bg-emerald-50 border-emerald-200 text-emerald-900 font-bold"
+                className="border-emerald-200 bg-emerald-50 font-bold text-emerald-900"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Imputation Comptable (Compte de Produit)</Label>
+            <Label>Imputation comptable (compte de produit)</Label>
             <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
               <SelectTrigger className="border-emerald-200 focus:ring-emerald-500">
-                <SelectValue placeholder="Sélectionner le compte de produit" />
+                <SelectValue placeholder="Selectionner le compte de produit" />
               </SelectTrigger>
               <SelectContent>
                 {accountingAccounts.length === 0 ? (
-                  <SelectItem value="__no-revenue-account__" disabled>Aucun compte de produit disponible</SelectItem>
+                  <SelectItem value="__no-revenue-account__" disabled>
+                    Aucun compte de produit disponible
+                  </SelectItem>
                 ) : (
                   accountingAccounts.map((acc: any) => (
-                    <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.label}</SelectItem>
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.code} - {acc.label}
+                    </SelectItem>
                   ))
                 )}
               </SelectContent>
@@ -289,7 +303,9 @@ export function CreateEncaissementDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Annuler</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Annuler
+          </Button>
           <Button
             className="bg-emerald-600 hover:bg-emerald-700"
             onClick={handleSubmit}
@@ -299,10 +315,10 @@ export function CreateEncaissementDialog({
               Number(form.amountTTC) <= 0 ||
               !form.treasuryAccountId ||
               !accountingAccountId ||
-              !form.serviceId
+              !form.enterpriseId
             }
           >
-            {isSubmitting ? 'Enregistrement...' : 'Valider l\'Encaissement'}
+            {isSubmitting ? 'Enregistrement...' : "Valider l'encaissement"}
           </Button>
         </DialogFooter>
       </DialogContent>

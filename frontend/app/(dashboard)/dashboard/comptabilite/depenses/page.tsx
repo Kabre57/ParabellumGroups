@@ -6,23 +6,23 @@ import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
-import billingService, { 
-  type PurchaseCommitment, 
+import billingService, {
+  type PurchaseCommitment,
 } from '@/shared/api/billing';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import { CreateEncaissementDialog } from '@/components/accounting/CreateEncaissementDialog';
 import { CreateDecaissementDialog } from '@/components/accounting/CreateDecaissementDialog';
 import { CreateFactureFournisseurDialog } from '@/components/accounting/CreateFactureFournisseurDialog';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import CashVoucherPrint from '@/components/printComponents/CashVoucherPrint';
 import { formatFCFA } from '@/components/printComponents/printUtils';
-
-// Import modular components
-import { 
-  DepensesHeader, 
-  DepensesStats, 
-  DepensesTable 
+import {
+  DepensesHeader,
+  DepensesStats,
+  DepensesTable,
 } from '@/components/comptabilite/depenses';
 
 const formatCurrency = (value: number) =>
@@ -43,10 +43,10 @@ const formatDate = (value?: string | null) => {
 
 const sourceLabels: Record<string, string> = {
   PURCHASE_ORDER: 'Bon de commande',
-  PURCHASE_QUOTE: 'Demande validée',
+  PURCHASE_QUOTE: 'Demande validee',
   SUPPLIER_INVOICE: 'Facture fournisseur',
-  EXPENSE: 'Dépense diverse',
-  OTHER: 'Autre dépense',
+  EXPENSE: 'Depense diverse',
+  OTHER: 'Autre depense',
 };
 
 export default function DepensesPage() {
@@ -64,6 +64,7 @@ export default function DepensesPage() {
 
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+  const [enterpriseFilter, setEnterpriseFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
   const [encaissementOpen, setEncaissementOpen] = useState(false);
   const [decaissementOpen, setDecaissementOpen] = useState(false);
@@ -91,16 +92,37 @@ export default function DepensesPage() {
     return { startDate: start.toISOString(), endDate: end.toISOString() };
   }, [period]);
 
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['enterprise-filter-options', 'depenses'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: canRead,
+  });
+
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
+  const selectedEnterpriseLabel =
+    enterpriseFilter === 'all'
+      ? null
+      : accessibleEnterprises.find((enterprise) => String(enterprise.id) === enterpriseFilter)?.name || null;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['billing-spending-overview', period],
-    queryFn: () => billingService.getSpendingOverview(range),
+    queryKey: ['billing-spending-overview', period, enterpriseFilter],
+    queryFn: () =>
+      billingService.getSpendingOverview(
+        enterpriseFilter !== 'all'
+          ? { ...range, enterpriseId: enterpriseFilter }
+          : range
+      ),
     enabled: canRead,
   });
 
   const createEncaissementMutation = useMutation({
     mutationFn: billingService.createEncaissement,
     onSuccess: (response) => {
-      toast.success('Bon d\'encaissement créé avec succès.');
+      toast.success("Bon d'encaissement cree avec succes.");
       setPrintVoucher({
         ...response.data,
         flowType: 'ENCAISSEMENT',
@@ -109,14 +131,14 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la création de l\'encaissement.');
+      toast.error(error?.response?.data?.message || "Erreur lors de la creation de l'encaissement.");
     },
   });
 
   const createDecaissementMutation = useMutation({
     mutationFn: billingService.createDecaissement,
     onSuccess: (response) => {
-      toast.success('Bon de décaissement créé avec succès.');
+      toast.success('Bon de decaissement cree avec succes.');
       setPrintVoucher({
         ...response.data,
         flowType: 'DECAISSEMENT',
@@ -126,14 +148,14 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la création du décaissement.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la creation du decaissement.');
     },
   });
 
   const createLiquidationMutation = useMutation({
     mutationFn: billingService.createFactureFournisseur,
     onSuccess: () => {
-      toast.success('Facture fournisseur (Liquidation) enregistrée.');
+      toast.success('Facture fournisseur (liquidation) enregistree.');
       setLiquidationOpen(false);
       setSelectedCommitment(null);
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
@@ -149,15 +171,15 @@ export default function DepensesPage() {
     onSuccess: (_, variables) => {
       const label =
         variables.status === 'VALIDE'
-          ? 'Bon de caisse validé.'
+          ? 'Bon de caisse valide.'
           : variables.status === 'DECAISSE'
-          ? 'Décaissement enregistré.'
-          : 'Bon de caisse mis à jour.';
+            ? 'Decaissement enregistre.'
+            : 'Bon de caisse mis a jour.';
       toast.success(label);
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour du bon de caisse.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour du bon de caisse.');
     },
   });
 
@@ -169,7 +191,7 @@ export default function DepensesPage() {
   const filteredCommitments = useMemo(() => {
     const query = search.trim().toLowerCase();
     return commitments.filter((item: any) =>
-      [item.sourceNumber, item.serviceName, item.supplierName]
+      [item.sourceNumber, item.enterpriseName, item.serviceName, item.supplierName]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query))
     );
@@ -187,7 +209,7 @@ export default function DepensesPage() {
   const filteredEncaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
     return encaissements.filter((item: any) =>
-      [item.numeroPiece, item.clientName, item.description, item.serviceName]
+      [item.numeroPiece, item.clientName, item.description, item.enterpriseName, item.serviceName]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query))
     );
@@ -196,7 +218,7 @@ export default function DepensesPage() {
   const filteredDecaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
     return decaissements.filter((item: any) =>
-      [item.numeroPiece, item.beneficiaryName, item.description, item.serviceName]
+      [item.numeroPiece, item.beneficiaryName, item.description, item.enterpriseName, item.serviceName]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query))
     );
@@ -209,7 +231,7 @@ export default function DepensesPage() {
       date: item.createdAt || null,
       number: item.sourceNumber,
       label: sourceLabels[item.sourceType] || item.sourceType,
-      serviceName: item.serviceName || '-',
+      enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.supplierName || '-',
       amount: item.amountTTC,
       status: item.status,
@@ -221,7 +243,7 @@ export default function DepensesPage() {
       date: item.issueDate,
       number: item.voucherNumber,
       label: 'Bon de caisse',
-      serviceName: item.serviceName || '-',
+      enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
       status: item.status,
@@ -233,7 +255,7 @@ export default function DepensesPage() {
       date: item.dateEncaissement,
       number: item.numeroPiece,
       label: 'Encaissement direct',
-      serviceName: item.serviceName || '-',
+      enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.clientName,
       amount: item.amountTTC,
       status: 'RECU',
@@ -244,8 +266,8 @@ export default function DepensesPage() {
       kind: 'decaissement' as const,
       date: item.dateDecaissement,
       number: item.numeroPiece,
-      label: 'Décaissement réalisé',
-      serviceName: item.serviceName || '-',
+      label: 'Decaissement realise',
+      enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
       status: item.status || 'DECAISSE',
@@ -261,14 +283,14 @@ export default function DepensesPage() {
   if (!canRead) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900">
-        Vous n&apos;avez pas accès au module comptable des dépenses et bons de caisse.
+        Vous n&apos;avez pas acces au module comptable des depenses et bons de caisse.
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <DepensesHeader 
+      <DepensesHeader
         period={period}
         onPeriodChange={setPeriod}
         onPrintList={() => setPrintListOpen(true)}
@@ -280,7 +302,7 @@ export default function DepensesPage() {
         canCreate={canCreateVoucher}
       />
 
-      <DepensesStats 
+      <DepensesStats
         totalCommitted={data?.data?.totals?.totalCommitted || 0}
         totalVouchered={data?.data?.totals?.totalVouchered || 0}
         totalDisbursed={data?.data?.totals?.totalDisbursed || 0}
@@ -288,18 +310,40 @@ export default function DepensesPage() {
       />
 
       <Card className="p-4 shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Rechercher par numéro, bénéficiaire, fournisseur ou service..."
-            className="pl-9"
-          />
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher par numero, beneficiaire, fournisseur ou entreprise..."
+              className="pl-9"
+            />
+          </div>
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3"
+            value={enterpriseFilter}
+            onChange={(event) => setEnterpriseFilter(event.target.value)}
+          >
+            <option value="all">Toutes les entreprises</option>
+            {accessibleEnterprises.map((enterprise) => (
+              <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                {enterprise.name}
+              </option>
+            ))}
+          </select>
         </div>
       </Card>
 
-      <DepensesTable 
+      {accessibleEnterprises.length > 1 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {enterpriseFilter === 'all'
+            ? `Vue consolidee groupe : ${accessibleEnterprises.length} entreprises visibles pour cette entreprise mere.`
+            : `Filtre actif : ${selectedEnterpriseLabel || 'Entreprise selectionnee'}.`}
+        </div>
+      )}
+
+      <DepensesTable
         isLoading={isLoading}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -324,12 +368,13 @@ export default function DepensesPage() {
         }}
       />
 
-      {/* Dialogs */}
       <CreateEncaissementDialog
         open={encaissementOpen}
         onOpenChange={setEncaissementOpen}
         isSubmitting={createEncaissementMutation.isPending}
-        onSubmit={async (payload) => { await createEncaissementMutation.mutateAsync(payload); }}
+        onSubmit={async (payload) => {
+          await createEncaissementMutation.mutateAsync(payload);
+        }}
       />
 
       <CreateDecaissementDialog
@@ -337,7 +382,9 @@ export default function DepensesPage() {
         onOpenChange={setDecaissementOpen}
         defaultCommitment={selectedCommitment}
         isSubmitting={createDecaissementMutation.isPending}
-        onSubmit={async (payload) => { await createDecaissementMutation.mutateAsync(payload); }}
+        onSubmit={async (payload) => {
+          await createDecaissementMutation.mutateAsync(payload);
+        }}
       />
 
       {selectedCommitment && (
@@ -346,7 +393,9 @@ export default function DepensesPage() {
           onOpenChange={setLiquidationOpen}
           commitment={selectedCommitment}
           isSubmitting={createLiquidationMutation.isPending}
-          onSubmit={async (payload) => { await createLiquidationMutation.mutateAsync(payload); }}
+          onSubmit={async (payload) => {
+            await createLiquidationMutation.mutateAsync(payload);
+          }}
         />
       )}
 
@@ -357,7 +406,11 @@ export default function DepensesPage() {
       {printListOpen && (
         <TabularListPrint
           title="Bons de caisse"
-          subtitle="Liste des mouvements financiers"
+          subtitle={
+            enterpriseFilter === 'all'
+              ? 'Liste consolidee des mouvements financiers'
+              : `Liste des mouvements financiers - ${selectedEnterpriseLabel || 'Entreprise'}`
+          }
           columns={[
             { key: 'number', label: 'N° Piece' },
             { key: 'date', label: 'Date' },
@@ -380,11 +433,11 @@ export default function DepensesPage() {
               value: formatFCFA(data?.data?.totals?.totalReceived || 0),
             },
             {
-              label: 'Total Décaissements',
+              label: 'Total Decaissements',
               value: formatFCFA(data?.data?.totals?.totalDisbursed || 0),
             },
             {
-              label: 'Net Trésorerie',
+              label: 'Net Tresorerie',
               value: formatFCFA((data?.data?.totals?.totalReceived || 0) - (data?.data?.totals?.totalDisbursed || 0)),
             },
           ]}

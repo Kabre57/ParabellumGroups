@@ -2,16 +2,66 @@ const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { uploadToS3, deleteFromS3, isS3Configured } = require('../utils/s3');
 
+const parseEnterpriseId = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const parseBool = (value) => value === true || value === 'true';
+
+const wouldCreateEnterpriseCycle = async (enterpriseId, candidateParentId) => {
+  let currentParentId = candidateParentId;
+
+  while (currentParentId) {
+    if (currentParentId === enterpriseId) {
+      return true;
+    }
+
+    const currentParent = await prisma.enterprise.findUnique({
+      where: { id: currentParentId },
+      select: { parentEnterpriseId: true },
+    });
+
+    currentParentId = currentParent?.parentEnterpriseId || null;
+  }
+
+  return false;
+};
+
 /**
  * Get all enterprises
  * GET /api/enterprises
  */
 const getAllEnterprises = async (req, res) => {
   try {
+    const where = {};
+
+    if (req.query.isActive !== undefined) {
+      where.isActive = parseBool(req.query.isActive);
+    }
+
     const enterprises = await prisma.enterprise.findMany({
+      where,
       include: {
+        parentEnterprise: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        childEnterprises: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+          },
+          orderBy: { name: 'asc' },
+        },
         _count: {
-          select: { users: true, services: true },
+          select: { users: true, services: true, childEnterprises: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -42,6 +92,24 @@ const getEnterpriseById = async (req, res) => {
     const enterprise = await prisma.enterprise.findUnique({
       where: { id: parseInt(id) },
       include: {
+        parentEnterprise: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+          },
+        },
+        childEnterprises: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+            logoUrl: true,
+          },
+          orderBy: { name: 'asc' },
+        },
         services: {
           select: {
             id: true,
@@ -50,7 +118,7 @@ const getEnterpriseById = async (req, res) => {
           },
         },
         _count: {
-          select: { users: true, services: true },
+          select: { users: true, services: true, childEnterprises: true },
         },
       },
     });
@@ -91,7 +159,8 @@ const createEnterprise = async (req, res) => {
       });
     }
 
-    const { name, description, code, isActive } = req.body;
+    const { name, description, code, isActive, parentEnterpriseId } = req.body;
+    const normalizedParentEnterpriseId = parseEnterpriseId(parentEnterpriseId);
 
     let logoUrl = null;
     if (req.file && isS3Configured()) {
@@ -130,7 +199,22 @@ const createEnterprise = async (req, res) => {
       }
     }
 
-    const parseBool = (v) => v === true || v === 'true';
+    if (normalizedParentEnterpriseId) {
+      const parentEnterprise = await prisma.enterprise.findUnique({
+        where: { id: normalizedParentEnterpriseId },
+        select: { id: true, name: true },
+      });
+
+      if (!parentEnterprise) {
+        if (req.file && isS3Configured() && logoUrl) {
+          await deleteFromS3(logoUrl);
+        }
+        return res.status(404).json({
+          success: false,
+          message: 'Parent enterprise not found',
+        });
+      }
+    }
 
     // Create enterprise
     const enterprise = await prisma.enterprise.create({
@@ -139,7 +223,17 @@ const createEnterprise = async (req, res) => {
         description: description || null,
         code: code || null,
         isActive: isActive !== undefined ? parseBool(isActive) : true,
+        parentEnterpriseId: normalizedParentEnterpriseId,
         logoUrl,
+      },
+      include: {
+        parentEnterprise: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -189,7 +283,7 @@ const updateEnterprise = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, description, code, isActive, removeLogo } = req.body;
+    const { name, description, code, isActive, removeLogo, parentEnterpriseId } = req.body;
 
     // Check if enterprise exists
     const existingEnterprise = await prisma.enterprise.findUnique({
@@ -203,6 +297,11 @@ const updateEnterprise = async (req, res) => {
       });
     }
 
+    const normalizedParentEnterpriseId =
+      parentEnterpriseId === undefined
+        ? existingEnterprise.parentEnterpriseId ?? null
+        : parseEnterpriseId(parentEnterpriseId);
+
     let logoUrl = existingEnterprise.logoUrl;
     if (req.file && isS3Configured()) {
       if (existingEnterprise.logoUrl) {
@@ -215,8 +314,6 @@ const updateEnterprise = async (req, res) => {
       }
       logoUrl = null;
     }
-
-    const parseBool = (v) => v === true || v === 'true';
 
     // If name is being updated, check for duplicates
     if (name && name !== existingEnterprise.name) {
@@ -246,6 +343,38 @@ const updateEnterprise = async (req, res) => {
       }
     }
 
+    if (parentEnterpriseId !== undefined) {
+      if (normalizedParentEnterpriseId === existingEnterprise.id) {
+        return res.status(400).json({
+          success: false,
+          message: 'An enterprise cannot be its own parent',
+        });
+      }
+
+      if (normalizedParentEnterpriseId) {
+        const parentEnterprise = await prisma.enterprise.findUnique({
+          where: { id: normalizedParentEnterpriseId },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!parentEnterprise) {
+          return res.status(404).json({
+            success: false,
+            message: 'Parent enterprise not found',
+          });
+        }
+
+        if (await wouldCreateEnterpriseCycle(existingEnterprise.id, normalizedParentEnterpriseId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Circular enterprise hierarchy is not allowed',
+          });
+        }
+      }
+    }
+
     // Update enterprise
     const updatedEnterprise = await prisma.enterprise.update({
       where: { id: parseInt(id) },
@@ -254,7 +383,17 @@ const updateEnterprise = async (req, res) => {
         description: description !== undefined ? description : existingEnterprise.description,
         code: code !== undefined ? code : existingEnterprise.code,
         isActive: isActive !== undefined ? parseBool(isActive) : existingEnterprise.isActive,
+        parentEnterpriseId: normalizedParentEnterpriseId,
         logoUrl: logoUrl !== undefined ? logoUrl : existingEnterprise.logoUrl,
+      },
+      include: {
+        parentEnterprise: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
@@ -302,7 +441,7 @@ const deleteEnterprise = async (req, res) => {
       where: { id: parseInt(id) },
       include: {
         _count: {
-          select: { users: true, services: true },
+          select: { users: true, services: true, childEnterprises: true },
         },
       },
     });
@@ -315,13 +454,14 @@ const deleteEnterprise = async (req, res) => {
     }
 
     // Check if enterprise has users or services
-    if (enterprise._count.users > 0 || enterprise._count.services > 0) {
+    if (enterprise._count.users > 0 || enterprise._count.services > 0 || enterprise._count.childEnterprises > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete enterprise with assigned users or services',
+        message: 'Cannot delete enterprise with assigned users, services or child enterprises',
         errors: {
           userCount: enterprise._count.users,
           serviceCount: enterprise._count.services,
+          childEnterpriseCount: enterprise._count.childEnterprises,
         },
       });
     }

@@ -49,7 +49,7 @@ function generateFacturePDF(facture, outputPath) {
 
       doc.pipe(stream);
 
-      // Logo du service
+      // Logo du document
       (async () => {
         if (facture.serviceLogoUrl) {
           try {
@@ -74,8 +74,10 @@ function generateFacturePDF(facture, outputPath) {
       doc.text(`Date d'émission: ${moment(facture.dateEmission).format('DD/MM/YYYY')}`, { align: 'right' });
       doc.text(`Date d'échéance: ${moment(facture.dateEcheance).format('DD/MM/YYYY')}`, { align: 'right' });
       doc.text(`Statut: ${facture.status}`, { align: 'right' });
-      if (facture.serviceName) {
-        doc.text(`Service émetteur: ${facture.serviceName}`, { align: 'right' });
+      if (facture.enterpriseName) {
+        doc.text(`Entreprise émettrice: ${facture.enterpriseName}`, { align: 'right' });
+      } else if (facture.serviceName) {
+        doc.text(`Entreprise émettrice: ${facture.serviceName}`, { align: 'right' });
       }
       doc.moveDown(2);
 
@@ -175,7 +177,7 @@ function generateDevisPDF(devis, outputPath) {
 
       doc.pipe(stream);
 
-      // Logo du service
+      // Logo du document
       (async () => {
         if (devis.serviceLogoUrl) {
           try {
@@ -200,8 +202,10 @@ function generateDevisPDF(devis, outputPath) {
       doc.text(`Date d'émission: ${moment(devis.dateEmission).format('DD/MM/YYYY')}`, { align: 'right' });
       doc.text(`Date de validité: ${moment(devis.dateValidite).format('DD/MM/YYYY')}`, { align: 'right' });
       doc.text(`Statut: ${devis.status}`, { align: 'right' });
-      if (devis.serviceName) {
-        doc.text(`Service émetteur: ${devis.serviceName}`, { align: 'right' });
+      if (devis.enterpriseName) {
+        doc.text(`Entreprise émettrice: ${devis.enterpriseName}`, { align: 'right' });
+      } else if (devis.serviceName) {
+        doc.text(`Entreprise émettrice: ${devis.serviceName}`, { align: 'right' });
       }
       doc.moveDown(2);
 

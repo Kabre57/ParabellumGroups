@@ -45,12 +45,16 @@ export interface Service {
   parentId: number | null;
   managerId: number | null;
   isActive: boolean;
-  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   parent?: Service;
   children?: Service[];
   manager?: AdminUser;
+  enterprise?: {
+    id: number;
+    name: string;
+    logoUrl?: string | null;
+  } | null;
   _count?: { members: number };
 }
 
@@ -218,9 +222,7 @@ export const adminUsersService = {
   getUsers: async (filters?: UserFilters): Promise<ApiListResponse<AdminUser>> => {
     const params = new URLSearchParams();
     
-    // Correction : utiliser roleId au lieu de role
     if (filters?.roleId) params.append('roleId', String(filters.roleId));
-    
     if (filters?.search) params.append('search', filters.search);
     if (filters?.serviceId) params.append('serviceId', String(filters.serviceId));
     if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
@@ -355,36 +357,12 @@ export const adminServicesService = {
     return response.data;
   },
 
-  createService: async (data: CreateServiceRequest, imageFile?: File): Promise<ApiDetailResponse<Service>> => {
-    if (imageFile) {
-      const formData = new FormData();
-      formData.append('name', data.name);
-      if (data.code) formData.append('code', data.code);
-      if (data.description) formData.append('description', data.description);
-      if (data.parentId) formData.append('parentId', String(data.parentId));
-      if (data.managerId) formData.append('managerId', String(data.managerId));
-      formData.append('image', imageFile);
-      const response = await apiClient.post<ApiDetailResponse<Service>>('/auth/services', formData);
-      return response.data;
-    }
+  createService: async (data: CreateServiceRequest): Promise<ApiDetailResponse<Service>> => {
     const response = await apiClient.post<ApiDetailResponse<Service>>('/auth/services', data);
     return response.data;
   },
 
-  updateService: async (id: number, data: UpdateServiceRequest, imageFile?: File | null, removeImage?: boolean): Promise<ApiDetailResponse<Service>> => {
-    if (imageFile || removeImage) {
-      const formData = new FormData();
-      formData.append('name', data.name ?? '');
-      formData.append('description', (data.description ?? '').toString());
-      formData.append('parentId', data.parentId ? String(data.parentId) : '');
-      formData.append('managerId', data.managerId ? String(data.managerId) : '');
-      formData.append('isActive', String(data.isActive ?? true));
-      if (data.code !== undefined) formData.append('code', data.code ?? '');
-      if (imageFile) formData.append('image', imageFile);
-      if (removeImage) formData.append('removeImage', 'true');
-      const response = await apiClient.put<ApiDetailResponse<Service>>(`/auth/services/${id}`, formData);
-      return response.data;
-    }
+  updateService: async (id: number, data: UpdateServiceRequest): Promise<ApiDetailResponse<Service>> => {
     const response = await apiClient.put<ApiDetailResponse<Service>>(`/auth/services/${id}`, data);
     return response.data;
   },

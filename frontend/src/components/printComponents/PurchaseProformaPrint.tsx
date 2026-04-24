@@ -36,7 +36,7 @@ export default function PurchaseProformaPrint({
     <ProcurementDocumentPrint
       documentLabel="Proforma fournisseur retenue"
       documentNumber={proforma.numeroProforma}
-      serviceName={request.serviceName || undefined}
+      serviceName={request.enterpriseName || undefined}
       issueDate={proforma.approvedAt || proforma.submittedAt || proforma.createdAt || request.date}
       issuedBy={request.requesterEmail || undefined}
       deliveryLeadTime={

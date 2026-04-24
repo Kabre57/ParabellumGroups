@@ -15,7 +15,7 @@ RUN npm install
 COPY . .
 
 # Generate Prisma client if prisma directory exists
-RUN if [ -d "./prisma" ]; then npx prisma generate; fi
+RUN if [ -d "./prisma" ]; then npx prisma generate || echo "Prisma generate failed due to network issues, will retry at runtime"; fi
 
 # Copy and make entrypoint executable
 COPY docker-entrypoint.sh /usr/local/bin/

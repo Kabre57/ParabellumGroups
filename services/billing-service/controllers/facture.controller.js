@@ -6,6 +6,11 @@ const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateFacturePDF } = require('../utils/pdfGenerator');
 const axios = require('axios');
 const path = require('path');
+const {
+  applyEnterpriseScope,
+  assertEnterpriseInScope,
+  resolveEnterpriseContext,
+} = require('../utils/enterpriseScope');
 
 const normalizeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -161,19 +166,35 @@ const sendInvoiceEmail = async (req, payload) => {
  */
 exports.getAllFactures = async (req, res) => {
   try {
-    const { clientId, status, dateDebut, dateFin } = req.query;
+    const { clientId, status, dateDebut, dateFin, search, query, enterpriseId } = req.query;
 
     const where = {};
     if (clientId) where.clientId = clientId;
     if (status) where.status = status;
+    const normalizedSearch = String(search || query || '').trim();
+    if (normalizedSearch) {
+      where.OR = [
+        { numeroFacture: { contains: normalizedSearch, mode: 'insensitive' } },
+        { notes: { contains: normalizedSearch, mode: 'insensitive' } },
+        { clientId: { contains: normalizedSearch, mode: 'insensitive' } },
+        { enterpriseName: { contains: normalizedSearch, mode: 'insensitive' } },
+        { serviceName: { contains: normalizedSearch, mode: 'insensitive' } },
+      ];
+    }
     if (dateDebut || dateFin) {
       where.dateEmission = {};
       if (dateDebut) where.dateEmission.gte = new Date(dateDebut);
       if (dateFin) where.dateEmission.lte = new Date(dateFin);
     }
 
-    const factures = await prisma.facture.findMany({
+    const scopedWhere = await applyEnterpriseScope({
+      req,
       where,
+      requestedEnterpriseId: enterpriseId,
+    });
+
+    const factures = await prisma.facture.findMany({
+      where: scopedWhere,
       include: {
         lignes: true,
         paiements: true,
@@ -223,6 +244,8 @@ exports.getFactureById = async (req, res) => {
       return res.status(404).json({ error: 'Facture non trouvee' });
     }
 
+    await assertEnterpriseInScope(req, facture.enterpriseId, "Vous n'avez pas acces a cette facture.");
+
     const clientMeta = await fetchClientMeta(req, facture.clientId);
 
     res.json({
@@ -245,22 +268,23 @@ exports.createFacture = async (req, res) => {
     const { clientId, notes } = req.body;
     const lignesData = normalizeLines(req.body.lignes);
     const totaux = buildTotals(lignesData);
-    const serviceId = req.user?.serviceId || null;
-    const serviceMeta = await fetchServiceMeta(req, serviceId);
+    const enterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
     const numeroFacture = await getNextFactureNumber(prisma);
 
     const facture = await prisma.facture.create({
       data: {
         numeroFacture,
         clientId,
+        enterpriseId: enterprise.enterpriseId,
+        enterpriseName: enterprise.enterpriseName,
         dateEcheance: getDefaultDate(req.body.dateEcheance, 30),
         montantHT: totaux.totalHT,
         montantTVA: totaux.totalTVA,
         montantTTC: totaux.totalTTC,
         notes,
-        serviceId,
-        serviceName: serviceMeta.serviceName,
-        serviceLogoUrl: serviceMeta.serviceLogoUrl,
+        serviceId: null,
+        serviceName: null,
+        serviceLogoUrl: null,
         lignes: lignesData.length
           ? {
               create: lignesData,
@@ -286,11 +310,34 @@ exports.updateFacture = async (req, res) => {
   try {
     const { id } = req.params;
     const { clientId, dateEcheance, status, notes } = req.body;
+    const existingFacture = await prisma.facture.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        enterpriseId: true,
+      },
+    });
+
+    if (!existingFacture) {
+      return res.status(404).json({ error: 'Facture non trouvee' });
+    }
+
+    await assertEnterpriseInScope(req, existingFacture.enterpriseId, "Vous n'avez pas acces a cette facture.");
+
+    const enterprise =
+      req.body.enterpriseId !== undefined
+        ? await resolveEnterpriseContext(req, req.body.enterpriseId)
+        : {
+            enterpriseId: existingFacture.enterpriseId || null,
+            enterpriseName: undefined,
+          };
 
     const facture = await prisma.facture.update({
       where: { id },
       data: {
         clientId,
+        enterpriseId: enterprise.enterpriseId,
+        ...(enterprise.enterpriseName !== undefined ? { enterpriseName: enterprise.enterpriseName } : {}),
         dateEcheance: dateEcheance ? new Date(dateEcheance) : undefined,
         status,
         notes,
@@ -313,6 +360,19 @@ exports.updateFacture = async (req, res) => {
 exports.deleteFacture = async (req, res) => {
   try {
     const { id } = req.params;
+    const existingFacture = await prisma.facture.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        enterpriseId: true,
+      },
+    });
+
+    if (!existingFacture) {
+      return res.status(404).json({ error: 'Facture non trouvee' });
+    }
+
+    await assertEnterpriseInScope(req, existingFacture.enterpriseId, "Vous n'avez pas acces a cette facture.");
 
     await prisma.facture.delete({
       where: { id },
@@ -331,6 +391,19 @@ exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
     const ligneData = buildBillingLine(req.body);
+    const factureBeforeUpdate = await prisma.facture.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        enterpriseId: true,
+      },
+    });
+
+    if (!factureBeforeUpdate) {
+      return res.status(404).json({ error: 'Facture non trouvee' });
+    }
+
+    await assertEnterpriseInScope(req, factureBeforeUpdate.enterpriseId, "Vous n'avez pas acces a cette facture.");
 
     await prisma.ligneFacture.create({
       data: {
@@ -370,6 +443,20 @@ exports.addLigne = async (req, res) => {
 exports.sendFacture = async (req, res) => {
   try {
     const { id } = req.params;
+    const existingFacture = await prisma.facture.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        enterpriseId: true,
+      },
+    });
+
+    if (!existingFacture) {
+      return res.status(404).json({ error: 'Facture non trouvee' });
+    }
+
+    await assertEnterpriseInScope(req, existingFacture.enterpriseId, "Vous n'avez pas acces a cette facture.");
+
     const facture = await prisma.facture.update({
       where: { id },
       data: {
@@ -437,7 +524,7 @@ exports.sendFacture = async (req, res) => {
  */
 exports.getStats = async (req, res) => {
   try {
-    const { dateDebut, dateFin } = req.query;
+    const { dateDebut, dateFin, enterpriseId } = req.query;
 
     const where = {};
     if (dateDebut || dateFin) {
@@ -446,7 +533,13 @@ exports.getStats = async (req, res) => {
       if (dateFin) where.dateEmission.lte = new Date(dateFin);
     }
 
-    const factures = await prisma.facture.findMany({ where });
+    const factures = await prisma.facture.findMany({
+      where: await applyEnterpriseScope({
+        req,
+        where,
+        requestedEnterpriseId: enterpriseId,
+      }),
+    });
 
     const chiffreAffaires = factures
       .filter((f) => !['ANNULEE'].includes(f.status))
@@ -483,14 +576,18 @@ exports.getStats = async (req, res) => {
 exports.getRetards = async (req, res) => {
   try {
     const today = new Date();
-
-    const factures = await prisma.facture.findMany({
+    const scopedWhere = await applyEnterpriseScope({
+      req,
       where: {
         status: { in: ['EMISE', 'EN_RETARD'] },
         dateEcheance: {
           lt: today,
         },
       },
+    });
+
+    const factures = await prisma.facture.findMany({
+      where: scopedWhere,
       include: {
         lignes: true,
         paiements: true,
@@ -532,6 +629,8 @@ exports.generatePDF = async (req, res) => {
     if (!facture) {
       return res.status(404).json({ error: 'Facture non trouvee' });
     }
+
+    await assertEnterpriseInScope(req, facture.enterpriseId, "Vous n'avez pas acces a cette facture.");
 
     const tempDir = ensureTempDir();
     const clientMeta = await fetchClientMeta(req, facture.clientId);

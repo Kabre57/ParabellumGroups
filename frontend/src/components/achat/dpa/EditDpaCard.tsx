@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
+import type { Enterprise } from '@/lib/api';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import type { Supplier } from '@/services/procurement';
-import type { Service } from '@/shared/api/admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { DpaFormFields } from './DpaFormFields';
 import { PurchaseLinesGrid } from '@/components/procurement/PurchaseLinesGrid';
@@ -11,12 +11,11 @@ import type { DpaDraftLine } from './types';
 
 interface EditDpaCardProps {
   canEdit: boolean;
-  showServiceSelector: boolean;
-  selectedServiceId: string;
-  services: Service[];
-  onServiceChange: (value: string) => void;
   title: string;
   onTitleChange: (value: string) => void;
+  enterpriseId: string;
+  enterprises: Enterprise[];
+  onEnterpriseChange: (value: string) => void;
   dateBesoin: string;
   onDateBesoinChange: (value: string) => void;
   supplierId: string;
@@ -45,12 +44,11 @@ interface EditDpaCardProps {
 
 export function EditDpaCard({
   canEdit,
-  showServiceSelector,
-  selectedServiceId,
-  services,
-  onServiceChange,
   title,
   onTitleChange,
+  enterpriseId,
+  enterprises,
+  onEnterpriseChange,
   dateBesoin,
   onDateBesoinChange,
   supplierId,
@@ -75,12 +73,11 @@ export function EditDpaCard({
   return (
     <>
       <DpaFormFields
-        showServiceSelector={showServiceSelector}
-        selectedServiceId={selectedServiceId}
-        services={services}
-        onServiceChange={onServiceChange}
         title={title}
         onTitleChange={onTitleChange}
+        enterpriseId={enterpriseId}
+        enterprises={enterprises}
+        onEnterpriseChange={onEnterpriseChange}
         dateBesoin={dateBesoin}
         onDateBesoinChange={onDateBesoinChange}
         supplierId={supplierId}
@@ -96,7 +93,7 @@ export function EditDpaCard({
       />
 
       <PurchaseLinesGrid
-        title="Lignes d achat"
+        title="Lignes d'achat"
         description="Présentation compacte type ERP pour garder les en-têtes visibles et travailler confortablement même avec beaucoup de lignes."
         lines={lines}
         articles={articles}

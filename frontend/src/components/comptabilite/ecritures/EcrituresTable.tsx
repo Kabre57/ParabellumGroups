@@ -1,5 +1,6 @@
 'use client';
-import { Eye, Plus, Download } from 'lucide-react';
+
+import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -23,8 +24,21 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
           <table className="w-full">
             <thead>
               <tr className="border-b dark:border-gray-700">
-                {['Date','Journal','Compte Débit','Compte Crédit','Libellé','Débit','Crédit','Référence','Actions'].map(h => (
-                  <th key={h} className="text-left py-3 px-4 font-semibold text-sm">{h}</th>
+                {[
+                  'Date',
+                  'Journal',
+                  'Entreprise',
+                  'Compte Debit',
+                  'Compte Credit',
+                  'Libelle',
+                  'Debit',
+                  'Credit',
+                  'Reference',
+                  'Actions',
+                ].map((header) => (
+                  <th key={header} className="text-left py-3 px-4 font-semibold text-sm">
+                    {header}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -36,6 +50,7 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
                     <Badge className="bg-blue-100 text-blue-800">{entry.journalCode}</Badge>
                     <div className="mt-1 text-xs text-gray-500">{entry.journalLabel}</div>
                   </td>
+                  <td className="py-3 px-4 text-sm text-gray-600">{entry.enterpriseName || '-'}</td>
                   <td className="py-3 px-4">
                     <code className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">{entry.accountDebit}</code>
                     <div className="mt-1 text-xs text-gray-500">{entry.accountDebitLabel}</div>
@@ -45,16 +60,26 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
                     <div className="mt-1 text-xs text-gray-500">{entry.accountCreditLabel}</div>
                   </td>
                   <td className="py-3 px-4 font-medium max-w-xs truncate">{entry.label}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-green-600">{formatAccountingCurrency(entry.debit)}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-red-600">{formatAccountingCurrency(entry.credit)}</td>
+                  <td className="py-3 px-4 text-right font-semibold text-green-600">
+                    {formatAccountingCurrency(entry.debit)}
+                  </td>
+                  <td className="py-3 px-4 text-right font-semibold text-red-600">
+                    {formatAccountingCurrency(entry.credit)}
+                  </td>
                   <td className="py-3 px-4 text-sm text-gray-600">{entry.reference}</td>
                   <td className="py-3 px-4">
-                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg"><Eye className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               ))}
               {!entries.length && (
-                <tr><td colSpan={9} className="py-8 px-4 text-center text-sm text-gray-500">Aucune écriture comptable disponible.</td></tr>
+                <tr>
+                  <td colSpan={10} className="py-8 px-4 text-center text-sm text-gray-500">
+                    Aucune ecriture comptable disponible.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -64,10 +89,10 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
               <div className="flex justify-between items-center font-bold">
                 <span className="text-lg">TOTAUX</span>
                 <div className="flex gap-8">
-                  <div className="text-green-600">Débit: {formatAccountingCurrency(totalDebit)}</div>
-                  <div className="text-red-600">Crédit: {formatAccountingCurrency(totalCredit)}</div>
+                  <div className="text-green-600">Debit: {formatAccountingCurrency(totalDebit)}</div>
+                  <div className="text-red-600">Credit: {formatAccountingCurrency(totalCredit)}</div>
                   <div className={totalDebit === totalCredit ? 'text-green-600' : 'text-red-600'}>
-                    Écart: {formatAccountingCurrency(Math.abs(totalDebit - totalCredit))}
+                    Ecart: {formatAccountingCurrency(Math.abs(totalDebit - totalCredit))}
                   </div>
                 </div>
               </div>

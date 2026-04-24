@@ -7,9 +7,11 @@ import { ArrowRight, FileDown, FileText, Search, Send, Trash2 } from 'lucide-rea
 import { toast } from 'sonner';
 import { billingService, type Quote } from '@/shared/api/billing';
 import { commercialService } from '@/shared/api/commercial';
+import { enterpriseApi } from '@/lib/api';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,6 +48,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [enterpriseFilter, setEnterpriseFilter] = useState<string>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [editQuote, setEditQuote] = useState<Quote | null>(null);
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
@@ -59,9 +62,23 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
     export: ['quotes.export', 'quotes.print'],
   });
 
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['enterprise-filter-options', 'commercial-quotes'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+  });
+
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
   const quotesQuery = useQuery({
-    queryKey: ['commercial-quotes'],
-    queryFn: () => billingService.getQuotes({ limit: 300 }),
+    queryKey: ['commercial-quotes', enterpriseFilter],
+    queryFn: () =>
+      billingService.getQuotes({
+        limit: 300,
+        ...(enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : {}),
+      }),
   });
 
   const { data: clients = [] } = useClients({ pageSize: 300 }, { enabled: true });
@@ -123,7 +140,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
         quote.numeroDevis?.toLowerCase().includes(text) ||
         quote.objet?.toLowerCase().includes(text) ||
         quote.clientDisplayName?.toLowerCase().includes(text) ||
-        quote.serviceName?.toLowerCase().includes(text);
+        quote.enterpriseName?.toLowerCase().includes(text);
 
       const matchStatus = statusFilter === 'all' || quote.status === statusFilter;
       return matchText && matchStatus;
@@ -226,7 +243,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
                 className="pl-9"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher par numéro, objet, client ou service..."
+                placeholder="Rechercher par numéro, objet, client ou entreprise..."
               />
             </div>
             <select
@@ -243,7 +260,24 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
               <option value="TRANSMIS_FACTURATION">Transmis facturation</option>
               <option value="FACTURE">Facturé</option>
             </select>
+            <select
+              value={enterpriseFilter}
+              onChange={(event) => setEnterpriseFilter(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Toutes les entreprises</option>
+              {accessibleEnterprises.map((enterprise) => (
+                <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                  {enterprise.name}
+                </option>
+              ))}
+            </select>
           </div>
+          {accessibleEnterprises.length > 1 && (
+            <p className="text-sm text-muted-foreground">
+              Vue consolidée disponible sur {accessibleEnterprises.length} entreprises accessibles.
+            </p>
+          )}
 
           <div className="overflow-x-auto rounded-xl border border-border">
             {quotesQuery.isLoading ? (
@@ -251,13 +285,13 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
                 <Spinner />
               </div>
             ) : (
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-muted/40 text-left text-sm text-muted-foreground">
                   <tr>
                     <th className="px-5 py-4">Numéro</th>
                     <th className="px-5 py-4">Objet</th>
                     <th className="px-5 py-4">Client</th>
-                    <th className="px-5 py-4">Service</th>
+                    <th className="px-5 py-4">Entreprise</th>
                     <th className="px-5 py-4">Montant TTC</th>
                     <th className="px-5 py-4">Statut</th>
                     <th className="px-5 py-4">Validité</th>
@@ -276,7 +310,7 @@ export function QuotesWorkspace({ showBillingHint = false }: Props) {
                         <div className="text-sm text-muted-foreground line-clamp-2">{quote.notes || 'Sans note'}</div>
                       </td>
                       <td className="px-5 py-4">{quote.clientDisplayName}</td>
-                      <td className="px-5 py-4">{quote.serviceName || '-'}</td>
+                      <td className="px-5 py-4">{quote.enterpriseName || '-'}</td>
                       <td className="px-5 py-4 font-semibold">{formatCurrency(quote.montantTTC)}</td>
                       <td className="px-5 py-4">
                         <QuoteStatusBadge status={quote.status} />

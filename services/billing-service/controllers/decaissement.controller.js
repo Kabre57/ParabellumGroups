@@ -1,6 +1,7 @@
 const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const { recordPayment } = require('../utils/accountingWorkflow');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -17,6 +18,8 @@ exports.create = async (req, res) => {
       amountTTC,
       paymentMethod,
       treasuryAccountId,
+      enterpriseId,
+      enterpriseName,
       serviceId,
       serviceName,
       dateDecaissement,
@@ -34,12 +37,23 @@ exports.create = async (req, res) => {
       });
     }
 
+    const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
+    const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour ce decaissement."
+    );
+
     const result = await prisma.$transaction(async (tx) => {
       const decaissement = await tx.decaissement.create({
         data: {
           numeroPiece: `DEC-${Date.now()}`,
           beneficiaryName,
           description,
+          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+          enterpriseName: resolvedEnterpriseName,
           amountHT: amount(amountHT),
           amountTVA: amount(amountTVA),
           amountTTC: amount(amountTTC),
@@ -99,6 +113,8 @@ exports.create = async (req, res) => {
           reference: decaissement.reference || decaissement.numeroPiece,
           sourceType: 'DECAISSEMENT',
           sourceId: decaissement.id,
+          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+          enterpriseName: resolvedEnterpriseName,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
           lines: {
@@ -155,6 +171,10 @@ exports.create = async (req, res) => {
 exports.getAll = async (req, res) => {
   try {
     const decaissements = await prisma.decaissement.findMany({
+      where: await applyEnterpriseScope({
+        req,
+        where: {},
+      }),
       include: { treasuryAccount: true },
       orderBy: { dateDecaissement: 'desc' },
     });

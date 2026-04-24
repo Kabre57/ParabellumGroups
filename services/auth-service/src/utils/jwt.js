@@ -27,7 +27,9 @@ const generateAccessToken = (user) => {
     roleCode,
     role: roleCode,
     serviceId: user.serviceId,
+    serviceName: user?.service?.name || user?.serviceName || null,
     enterpriseId: user.enterpriseId,
+    enterpriseName: user?.enterprise?.name || user?.enterpriseName || null,
   };
 
   const normalizedRole = String(roleCode || '').toUpperCase();

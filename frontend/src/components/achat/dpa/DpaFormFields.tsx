@@ -1,18 +1,17 @@
 'use client';
 
 import React from 'react';
-import type { Service } from '@/shared/api/admin';
 import type { Supplier } from '@/services/procurement';
+import type { Enterprise } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 interface DpaFormFieldsProps {
-  showServiceSelector: boolean;
-  selectedServiceId: string;
-  services: Service[];
-  onServiceChange: (value: string) => void;
   title: string;
   onTitleChange: (value: string) => void;
+  enterpriseId: string;
+  enterprises: Enterprise[];
+  onEnterpriseChange: (value: string) => void;
   dateBesoin: string;
   onDateBesoinChange: (value: string) => void;
   supplierId: string;
@@ -24,17 +23,15 @@ interface DpaFormFieldsProps {
   onNotesChange: (value: string) => void;
   description: string;
   onDescriptionChange: (value: string) => void;
-  servicePlaceholder?: string;
   disabled?: boolean;
 }
 
 export function DpaFormFields({
-  showServiceSelector,
-  selectedServiceId,
-  services,
-  onServiceChange,
   title,
   onTitleChange,
+  enterpriseId,
+  enterprises,
+  onEnterpriseChange,
   dateBesoin,
   onDateBesoinChange,
   supplierId,
@@ -46,40 +43,11 @@ export function DpaFormFields({
   onNotesChange,
   description,
   onDescriptionChange,
-  servicePlaceholder = 'Selectionner un service associe',
   disabled = false,
 }: DpaFormFieldsProps) {
-  const hasServices = services.length > 0;
-
   return (
     <div className="space-y-4 pb-2">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {showServiceSelector ? (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Service interne associe (optionnel)</label>
-            <select
-              value={selectedServiceId}
-              onChange={(event) => onServiceChange(event.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              disabled={disabled}
-            >
-              <option value="">
-                {hasServices ? servicePlaceholder : 'Aucun service disponible - continuer sans service'}
-              </option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
-                </option>
-              ))}
-            </select>
-            {!hasServices ? (
-              <p className="text-xs text-muted-foreground">
-                Aucun service n&apos;a ete remonte pour cette entreprise. Le devis peut quand meme etre enregistre.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="space-y-2 xl:col-span-1">
           <label className="text-sm font-medium">Objet</label>
           <Input
@@ -88,6 +56,25 @@ export function DpaFormFields({
             placeholder="Achat equipements reseau"
             disabled={disabled}
           />
+        </div>
+
+        <div className="space-y-2 xl:col-span-1">
+          <label className="text-sm font-medium">Entreprise</label>
+          <select
+            value={enterpriseId}
+            onChange={(event) => onEnterpriseChange(event.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            disabled={disabled}
+          >
+            <option value="">
+              {enterprises.length > 0 ? 'Selectionner une entreprise' : 'Aucune entreprise disponible'}
+            </option>
+            {enterprises.map((enterprise) => (
+              <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                {enterprise.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-2 xl:col-span-1">

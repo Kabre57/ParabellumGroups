@@ -63,7 +63,7 @@ export const PBL_PAYROLL_PROFILE: ProcurementCriteriaProfile = {
   ],
   technicalSpecifications: [
     'Conformité légale ivoirienne : Code du travail, CNPS, DGI, CMU, ITS.',
-    'Effectif initial de 25 à 30 salariés, évolutif jusqu’à 100.',
+    'Effectif initial de 25 à 50 salariés, évolutif jusqu’à 100.',
     'Calcul automatique, bulletins PDF, exports DISA/DGI, rapports RH.',
     'Hébergement cloud, SaaS recommandé.',
     'Formation de 2 à 4 utilisateurs, mises à jour légales automatiques et garantie de conformité.',

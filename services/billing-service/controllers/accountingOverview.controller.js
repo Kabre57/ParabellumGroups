@@ -14,6 +14,7 @@ const {
 } = require('../utils/treasury');
 const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 const MappingService = require('../core/services/AccountingMappingService');
+const { applyEnterpriseScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -25,6 +26,8 @@ const pushMovement = (bucket, movement) => {
     category: movement.category,
     description: movement.description,
     amount: movement.amount,
+    enterpriseId: movement.enterpriseId || null,
+    enterpriseName: movement.enterpriseName || null,
     reference: movement.reference || null,
     sourceType: movement.sourceType || null,
     paymentMethod: movement.paymentMethod || null,
@@ -107,11 +110,30 @@ exports.getAccountingOverview = async (req, res) => {
       endDate: req.query.endDate,
     });
 
-    const invoiceWhere = buildDateWhere('dateEmission', startDate, endDate);
-    const paymentWhere = buildDateWhere('datePaiement', startDate, endDate);
-    const commitmentWhere = buildDateWhere('createdAt', startDate, endDate);
-    const encaissementWhere = buildDateWhere('dateEncaissement', startDate, endDate);
-    const decaissementWhere =
+    const requestedEnterpriseId = req.query.enterpriseId;
+    const invoiceWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('dateEmission', startDate, endDate),
+      requestedEnterpriseId,
+    });
+    const paymentWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('datePaiement', startDate, endDate),
+      requestedEnterpriseId,
+    });
+    const commitmentWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('createdAt', startDate, endDate),
+      requestedEnterpriseId,
+    });
+    const encaissementWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('dateEncaissement', startDate, endDate),
+      requestedEnterpriseId,
+    });
+    const decaissementWhere = await applyEnterpriseScope({
+      req,
+      where:
       !startDate && !endDate
         ? {}
         : {
@@ -119,8 +141,14 @@ exports.getAccountingOverview = async (req, res) => {
               buildDateWhere('dateDecaissement', startDate, endDate),
               buildDateWhere('createdAt', startDate, endDate),
             ],
-          };
-    const journalEntryWhere = buildDateWhere('entryDate', startDate, endDate);
+          },
+      requestedEnterpriseId,
+    });
+    const journalEntryWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('entryDate', startDate, endDate),
+      requestedEnterpriseId,
+    });
 
     console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
     await MappingService.refreshCache();
@@ -354,6 +382,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
           ? `Paiement de la facture ${payment.facture.numeroFacture}`
           : 'Paiement client',
         amount: amount(payment.montant),
+        enterpriseId: payment.enterpriseId || payment.facture?.enterpriseId || null,
+        enterpriseName: payment.enterpriseName || payment.facture?.enterpriseName || null,
         reference: payment.reference || payment.facture?.numeroFacture || null,
         sourceType: 'PAYMENT',
         paymentMethod: payment.methodePaiement,
@@ -374,6 +404,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         category: 'Décaissement',
         description: `${d.numeroPiece} - ${d.description}`,
         amount: amount(d.amountTTC),
+        enterpriseId: d.enterpriseId || null,
+        enterpriseName: d.enterpriseName || null,
         reference: d.reference || d.numeroPiece,
         sourceType: 'DECAISSEMENT',
         paymentMethod: d.paymentMethod,
@@ -394,6 +426,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         category: 'Encaissement',
         description: `${e.numeroPiece} - ${e.description}`,
         amount: amount(e.amountTTC),
+        enterpriseId: e.enterpriseId || null,
+        enterpriseName: e.enterpriseName || null,
         reference: e.reference || e.numeroPiece,
         sourceType: 'ENCAISSEMENT',
         paymentMethod: e.paymentMethod,
@@ -419,6 +453,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
             category: line.account.code === '531' ? 'Mouvement de caisse' : 'Mouvement bancaire',
             description: `${entry.journalCode} - ${entry.label}`,
             amount: amount(line.amount),
+            enterpriseId: entry.enterpriseId || null,
+            enterpriseName: entry.enterpriseName || null,
             reference: entry.reference || entry.entryNumber,
             sourceType: entry.sourceType || 'MANUAL_ENTRY',
             paymentMethod: line.account.code === '531' ? 'ESPECES' : 'VIREMENT',
@@ -480,6 +516,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         date: invoice.dateEmission,
         journalCode: 'VT',
         journalLabel: 'Journal des ventes',
+        enterpriseId: invoice.enterpriseId || null,
+        enterpriseName: invoice.enterpriseName || null,
         accountDebit: clientAccount.code,
         accountDebitLabel: clientAccount.label,
         accountCredit: revenueAccount.code,
@@ -502,6 +540,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         date: payment.datePaiement,
         journalCode: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'CA' : 'BQ',
         journalLabel: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'Journal de caisse' : 'Journal de banque',
+        enterpriseId: payment.enterpriseId || payment.facture?.enterpriseId || null,
+        enterpriseName: payment.enterpriseName || payment.facture?.enterpriseName || null,
         accountDebit: treasuryAccount.code,
         accountDebitLabel: treasuryAccount.label,
         accountCredit: clientAccount.code,
@@ -527,6 +567,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         date: d.createdAt,
         journalCode: 'AC',
         journalLabel: 'Journal des achats',
+        enterpriseId: d.enterpriseId || null,
+        enterpriseName: d.enterpriseName || null,
         accountDebit: expenseAccount.code,
         accountDebitLabel: expenseAccount.label,
         accountCredit: supplierAccount.code,
@@ -548,6 +590,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
           date: d.dateDecaissement || d.createdAt,
           journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
           journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+          enterpriseId: d.enterpriseId || null,
+          enterpriseName: d.enterpriseName || null,
           accountDebit: supplierDebitAccount.code,
           accountDebitLabel: supplierDebitAccount.label,
           accountCredit: treasuryAccount.code,
@@ -572,6 +616,8 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         date: e.dateEncaissement || e.createdAt,
         journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
         journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+        enterpriseId: e.enterpriseId || null,
+        enterpriseName: e.enterpriseName || null,
         accountDebit: treasuryAccount.code,
         accountDebitLabel: treasuryAccount.label,
         accountCredit: incomeAccount.code,

@@ -8,6 +8,11 @@ const { generateDevisNumber, generateFactureNumber } = require('../utils/billing
 const { calculateMontants, calculateTotal } = require('../utils/tvaCalculator');
 const { generateDevisPDF } = require('../utils/pdfGenerator');
 const { uploadToS3, isS3Configured } = require('../utils/s3');
+const {
+  applyEnterpriseScope,
+  assertEnterpriseInScope,
+  resolveEnterpriseContext,
+} = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -596,6 +601,8 @@ const createInvoiceFromQuote = async (tx, devis, options = {}) => {
     data: {
       numeroFacture,
       clientId: devis.clientId,
+      enterpriseId: devis.enterpriseId || null,
+      enterpriseName: devis.enterpriseName || null,
       dateEcheance,
       montantHT: devis.montantHT,
       montantTVA: devis.montantTVA,
@@ -655,10 +662,21 @@ const getQuoteOrThrow = async (id, queryConfig = { include: QUOTE_READ_INCLUDE }
   return devis;
 };
 
+const getScopedQuoteOrThrow = async (
+  req,
+  id,
+  queryConfig = { include: QUOTE_READ_INCLUDE },
+  message = "Vous n'avez pas acces a ce devis."
+) => {
+  const devis = await getQuoteOrThrow(id, queryConfig);
+  await assertEnterpriseInScope(req, devis.enterpriseId, message);
+  return devis;
+};
+
 exports.getAllDevis = async (req, res) => {
   try {
-    const { clientId, status, dateDebut, dateFin, search, limit, page } = req.query;
-    const where = {};
+    const { clientId, status, dateDebut, dateFin, search, limit, page, enterpriseId } = req.query;
+    let where = {};
 
     if (clientId) where.clientId = clientId;
     if (status) where.status = status;
@@ -668,6 +686,7 @@ exports.getAllDevis = async (req, res) => {
         { objet: { contains: search, mode: 'insensitive' } },
         { notes: { contains: search, mode: 'insensitive' } },
         { clientId: { contains: search, mode: 'insensitive' } },
+        { enterpriseName: { contains: search, mode: 'insensitive' } },
         { serviceName: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -680,6 +699,11 @@ exports.getAllDevis = async (req, res) => {
     const take = Math.min(Math.max(Number(limit) || 200, 1), 500);
     const currentPage = Math.max(Number(page) || 1, 1);
     const skip = (currentPage - 1) * take;
+    where = await applyEnterpriseScope({
+      req,
+      where,
+      requestedEnterpriseId: enterpriseId,
+    });
 
     const [items, total] = await Promise.all([
       prisma.devis.findMany({
@@ -705,13 +729,13 @@ exports.getAllDevis = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
 exports.getDevisById = async (req, res) => {
   try {
-    const devis = await getQuoteOrThrow(req.params.id);
+    const devis = await getScopedQuoteOrThrow(req, req.params.id);
     res.json({ success: true, data: devis });
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message });
@@ -733,9 +757,6 @@ exports.createDevis = async (req, res) => {
     }
 
     const totaux = buildTotals(lignesData);
-    const serviceIdRaw = normalizeText(req.body.serviceId) || normalizeText(req.user?.serviceId) || null;
-    const serviceId = serviceIdRaw ? parseInt(serviceIdRaw, 10) : null;
-    const serviceMeta = await fetchServiceMeta(req, serviceId);
 
     const commercialId = normalizeText(req.body.commercialId) || normalizeText(req.user?.id) || null;
     const commercialName =
@@ -744,6 +765,7 @@ exports.createDevis = async (req, res) => {
       null;
     const commercialEmail = normalizeText(req.body.commercialEmail) || normalizeText(req.user?.email) || null;
     const opportuniteId = normalizeText(req.body.opportuniteId);
+    const enterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
 
     let resolvedClientId = clientId;
     let resolvedProspectId = prospectId;
@@ -773,15 +795,17 @@ exports.createDevis = async (req, res) => {
         data: {
           numeroDevis,
           clientId: resolvedClientId,
+          enterpriseId: enterprise.enterpriseId,
+          enterpriseName: enterprise.enterpriseName,
           objet: normalizeText(req.body.objet),
           notes: normalizeText(req.body.notes),
           dateValidite: getDefaultDate(req.body.dateValidite),
           montantHT: totaux.totalHT,
           montantTVA: totaux.totalTVA,
           montantTTC: totaux.totalTTC,
-          serviceId: serviceId !== null && !isNaN(serviceId) ? serviceId : null,
-          serviceName: normalizeText(req.body.serviceName) || serviceMeta.serviceName,
-          serviceLogoUrl: serviceMeta.serviceLogoUrl,
+          serviceId: null,
+          serviceName: null,
+          serviceLogoUrl: null,
           commercialId,
           commercialName,
           commercialEmail,
@@ -807,7 +831,7 @@ exports.createDevis = async (req, res) => {
 exports.updateDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
+    const current = await getScopedQuoteOrThrow(req, id, { include: { lignes: true } });
 
     if (current.status === 'FACTURE') {
       return res.status(400).json({ error: 'Un devis facture ne peut plus etre modifie' });
@@ -824,6 +848,13 @@ exports.updateDevis = async (req, res) => {
       }
 
       const totaux = lignesData ? buildTotals(lignesData) : buildTotals(current.lignes);
+      const enterprise =
+        req.body.enterpriseId !== undefined
+          ? await resolveEnterpriseContext(req, req.body.enterpriseId)
+          : {
+              enterpriseId: current.enterpriseId || null,
+              enterpriseName: current.enterpriseName || null,
+            };
       const nextStatus =
         req.body.status && req.body.status !== current.status && current.status === 'ACCEPTE'
           ? current.status
@@ -840,8 +871,11 @@ exports.updateDevis = async (req, res) => {
           montantHT: totaux.totalHT,
           montantTVA: totaux.totalTVA,
           montantTTC: totaux.totalTTC,
-          serviceId: normalizeText(req.body.serviceId) ?? undefined,
-          serviceName: normalizeText(req.body.serviceName) ?? undefined,
+          enterpriseId: enterprise.enterpriseId,
+          enterpriseName: enterprise.enterpriseName,
+          serviceId: null,
+          serviceName: null,
+          serviceLogoUrl: null,
           commercialId: normalizeText(req.body.commercialId) ?? undefined,
           commercialName: normalizeText(req.body.commercialName) ?? undefined,
           commercialEmail: normalizeText(req.body.commercialEmail) ?? undefined,
@@ -868,7 +902,9 @@ exports.updateDevis = async (req, res) => {
 exports.deleteDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    const devis = await getQuoteOrThrow(id, { select: { id: true, status: true } });
+    const devis = await getScopedQuoteOrThrow(req, id, {
+      select: { id: true, status: true, enterpriseId: true },
+    });
 
     if (['TRANSMIS_FACTURATION', 'FACTURE'].includes(devis.status)) {
       return res.status(400).json({ error: 'Impossible de supprimer un devis deja transmis ou facture' });
@@ -884,6 +920,7 @@ exports.deleteDevis = async (req, res) => {
 exports.addLigne = async (req, res) => {
   try {
     const { id } = req.params;
+    await getScopedQuoteOrThrow(req, id, { select: { id: true, enterpriseId: true } });
     const ligneData = buildBillingLine(req.body);
 
     await prisma.$transaction(async (tx) => {
@@ -909,17 +946,17 @@ exports.addLigne = async (req, res) => {
       await createQuoteEvent(tx, id, 'LINE_ADDED', req, 'Nouvelle ligne ajoutee au devis');
     });
 
-    const devis = await getQuoteOrThrow(id);
+    const devis = await getScopedQuoteOrThrow(req, id);
     res.status(201).json({ success: true, data: devis });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
 exports.sendDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
+    const current = await getScopedQuoteOrThrow(req, id, { include: { lignes: true } });
 
     if (!current.lignes.length) {
       return res.status(400).json({ error: 'Le devis doit contenir au moins une ligne avant envoi' });
@@ -1021,7 +1058,7 @@ exports.sendDevis = async (req, res) => {
 exports.acceptDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    const current = await getQuoteOrThrow(id, { include: { lignes: true } });
+    const current = await getScopedQuoteOrThrow(req, id, { include: { lignes: true } });
 
     if (!current.lignes.length) {
       return res.status(400).json({ error: 'Un devis doit contenir au moins une ligne avant validation' });
@@ -1076,7 +1113,9 @@ exports.acceptDevis = async (req, res) => {
 exports.requestModificationDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    await getQuoteOrThrow(id, { select: { id: true, status: true } });
+    await getScopedQuoteOrThrow(req, id, {
+      select: { id: true, status: true, enterpriseId: true },
+    });
 
     const devis = await prisma.$transaction(async (tx) => {
       const updated = await tx.devis.update({
@@ -1113,7 +1152,9 @@ exports.requestModificationDevis = async (req, res) => {
 exports.refuseDevis = async (req, res) => {
   try {
     const { id } = req.params;
-    await getQuoteOrThrow(id, { select: { id: true, status: true } });
+    await getScopedQuoteOrThrow(req, id, {
+      select: { id: true, status: true, enterpriseId: true },
+    });
 
     const devis = await prisma.$transaction(async (tx) => {
       const updated = await tx.devis.update({
@@ -1265,7 +1306,9 @@ exports.submitClientResponse = async (req, res) => {
 exports.forwardToBilling = async (req, res) => {
   try {
     const { id } = req.params;
-    const current = await getQuoteOrThrow(id, { select: { id: true, status: true } });
+    const current = await getScopedQuoteOrThrow(req, id, {
+      select: { id: true, status: true, enterpriseId: true },
+    });
 
     if (!BILLING_READY_STATUS.includes(current.status)) {
       return res.status(400).json({ error: 'Seul un devis valide client peut etre transmis a la facturation' });
@@ -1299,7 +1342,7 @@ exports.forwardToBilling = async (req, res) => {
 exports.convertToFacture = async (req, res) => {
   try {
     const { id } = req.params;
-    const devis = await getQuoteOrThrow(id, { include: { lignes: true } });
+    const devis = await getScopedQuoteOrThrow(req, id, { include: { lignes: true } });
 
     if (!BILLING_READY_STATUS.includes(devis.status)) {
       return res.status(400).json({ error: 'Le devis doit etre valide client puis transmis a la facturation' });
@@ -1372,7 +1415,7 @@ exports.uploadQuoteLineImage = async (req, res) => {
 exports.generatePDF = async (req, res) => {
   try {
     const { id } = req.params;
-    const devis = await getQuoteOrThrow(id, { include: { lignes: true } });
+    const devis = await getScopedQuoteOrThrow(req, id, { include: { lignes: true } });
 
     if (devis.clientId) {
       const clientMeta = await fetchClientMeta(req, devis.clientId);

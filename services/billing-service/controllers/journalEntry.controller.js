@@ -9,6 +9,7 @@ const {
   computeSignedDelta,
   serializeJournalEntry,
 } = require('../utils/accounting');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -27,14 +28,15 @@ const buildWhere = ({ startDate, endDate, search }) => {
 
   if (search) {
     const normalizedSearch = String(search).trim();
-    where.OR = [
-      { entryNumber: { contains: normalizedSearch, mode: 'insensitive' } },
-      { reference: { contains: normalizedSearch, mode: 'insensitive' } },
-      { label: { contains: normalizedSearch, mode: 'insensitive' } },
-      { journalCode: { contains: normalizedSearch, mode: 'insensitive' } },
-      {
-        lines: {
-          some: {
+      where.OR = [
+        { entryNumber: { contains: normalizedSearch, mode: 'insensitive' } },
+        { reference: { contains: normalizedSearch, mode: 'insensitive' } },
+        { label: { contains: normalizedSearch, mode: 'insensitive' } },
+        { journalCode: { contains: normalizedSearch, mode: 'insensitive' } },
+        { enterpriseName: { contains: normalizedSearch, mode: 'insensitive' } },
+        {
+          lines: {
+            some: {
             account: {
               OR: [
                 { code: { contains: normalizedSearch, mode: 'insensitive' } },
@@ -62,12 +64,17 @@ exports.getAllJournalEntries = async (req, res) => {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     });
+    const baseWhere = buildWhere({
+      startDate,
+      endDate,
+      search: req.query.search,
+    });
 
     const entries = await prisma.accountingJournalEntry.findMany({
-      where: buildWhere({
-        startDate,
-        endDate,
-        search: req.query.search,
+      where: await applyEnterpriseScope({
+        req,
+        where: baseWhere,
+        requestedEnterpriseId: req.query.enterpriseId,
       }),
       include: {
         lines: {
@@ -111,6 +118,8 @@ exports.createJournalEntry = async (req, res) => {
       amount: entryAmount,
       sourceType,
       sourceId,
+      enterpriseId,
+      enterpriseName,
     } = req.body;
 
     const normalizedLabel = String(label || '').trim();
@@ -120,6 +129,14 @@ exports.createJournalEntry = async (req, res) => {
     const normalizedCreditAccountId = String(creditAccountId || '').trim();
     const numericAmount = amount(entryAmount);
     const normalizedEntryDate = parseDate(entryDate) || new Date();
+    const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
+    const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour cette ecriture."
+    );
 
     if (!normalizedLabel || !normalizedDebitAccountId || !normalizedCreditAccountId || numericAmount <= 0) {
       return res.status(400).json({
@@ -160,6 +177,8 @@ exports.createJournalEntry = async (req, res) => {
           reference: reference ? String(reference).trim() : null,
           sourceType: sourceType ? String(sourceType).trim() : null,
           sourceId: sourceId ? String(sourceId).trim() : null,
+          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+          enterpriseName: resolvedEnterpriseName,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
           lines: {

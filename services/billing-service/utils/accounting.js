@@ -279,6 +279,8 @@ const serializeJournalEntry = (entry) => {
     date: entry.entryDate,
     journalCode: entry.journalCode,
     journalLabel: entry.journalLabel,
+    enterpriseId: entry.enterpriseId ?? null,
+    enterpriseName: entry.enterpriseName || null,
     accountDebit: debitLine?.account?.code || '',
     accountDebitId: debitLine?.account?.id || null,
     accountDebitLabel: debitLine?.account?.label || '',

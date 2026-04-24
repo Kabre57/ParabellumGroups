@@ -1,5 +1,6 @@
 const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -103,6 +104,8 @@ const serializeCashVoucher = (voucher) => ({
   sourceId: voucher.sourceId,
   sourceNumber: voucher.sourceNumber,
   expenseCategory: voucher.expenseCategory,
+  enterpriseId: voucher.enterpriseId || null,
+  enterpriseName: voucher.enterpriseName || null,
   serviceId: voucher.serviceId,
   serviceName: voucher.serviceName,
   supplierId: voucher.supplierId,
@@ -174,7 +177,11 @@ exports.getAllCashVouchers = async (req, res) => {
     }
 
     const vouchers = await prisma.cashVoucher.findMany({
-      where,
+      where: await applyEnterpriseScope({
+        req,
+        where,
+        requestedEnterpriseId: req.query.enterpriseId,
+      }),
       include: { treasuryAccount: true },
       orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
     });
@@ -256,6 +263,14 @@ exports.createCashVoucher = async (req, res) => {
       paymentMethod,
       user: req.user,
     });
+    const resolvedEnterpriseId = req.body.enterpriseId ? Number(req.body.enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
+    const resolvedEnterpriseName = req.body.enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour ce bon de caisse."
+    );
 
     const voucher = await prisma.cashVoucher.create({
       data: {
@@ -264,6 +279,8 @@ exports.createCashVoucher = async (req, res) => {
         sourceId: sourceId || null,
         sourceNumber: sourceNumber || null,
         expenseCategory: expenseCategory || null,
+        enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+        enterpriseName: resolvedEnterpriseName,
         serviceId: serviceId != null && serviceId !== '' ? Number(serviceId) : null,
         serviceName: serviceName || null,
         supplierId: supplierId || null,
@@ -328,6 +345,8 @@ exports.updateCashVoucherStatus = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(req, existing.enterpriseId, "Vous n'avez pas acces a ce bon de caisse.");
+
     const updated = await prisma.cashVoucher.update({
       where: { id },
       data: {
@@ -383,21 +402,37 @@ exports.getSpendingOverview = async (req, res) => {
 
     const [commitments, vouchers, encaissements, decaissements] = await Promise.all([
       prisma.purchaseCommitment.findMany({
-        where: commitmentWhere,
+        where: await applyEnterpriseScope({
+          req,
+          where: commitmentWhere,
+          requestedEnterpriseId: req.query.enterpriseId,
+        }),
         orderBy: { createdAt: 'desc' },
       }),
       prisma.cashVoucher.findMany({
-        where: voucherWhere,
+        where: await applyEnterpriseScope({
+          req,
+          where: voucherWhere,
+          requestedEnterpriseId: req.query.enterpriseId,
+        }),
         include: { treasuryAccount: true },
         orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.encaissement.findMany({
-        where: voucherWhere.issueDate ? { dateEncaissement: voucherWhere.issueDate } : {},
+        where: await applyEnterpriseScope({
+          req,
+          where: voucherWhere.issueDate ? { dateEncaissement: voucherWhere.issueDate } : {},
+          requestedEnterpriseId: req.query.enterpriseId,
+        }),
         include: { treasuryAccount: true },
         orderBy: { dateEncaissement: 'desc' },
       }),
       prisma.decaissement.findMany({
-        where: voucherWhere.issueDate ? { dateDecaissement: voucherWhere.issueDate } : {},
+        where: await applyEnterpriseScope({
+          req,
+          where: voucherWhere.issueDate ? { dateDecaissement: voucherWhere.issueDate } : {},
+          requestedEnterpriseId: req.query.enterpriseId,
+        }),
         include: { treasuryAccount: true },
         orderBy: { dateDecaissement: 'desc' },
       }),

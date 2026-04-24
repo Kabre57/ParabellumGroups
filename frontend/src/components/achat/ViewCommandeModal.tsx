@@ -6,7 +6,6 @@ import { X, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { procurementService } from "@/services/procurement";
 import PurchaseOrderPrint from "@/components/printComponents/PurchaseOrderPrint";
-import { adminServicesService } from "@/shared/api/admin/admin.service";
 import { inventoryService } from "@/shared/api/inventory/inventory.service";
 
 interface Props {
@@ -38,12 +37,6 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
     staleTime: 60 * 1000,
   });
   const effectiveOrder = fullOrderResponse?.data || order;
-  const { data: servicesResponse } = useQuery({
-    queryKey: ["purchase-order-print-services", effectiveOrder?.serviceName],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen,
-    staleTime: 5 * 60 * 1000,
-  });
   const { data: articlesResponse } = useQuery({
     queryKey: ["purchase-order-view-articles"],
     queryFn: () => inventoryService.getArticles(),
@@ -53,8 +46,6 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
   const lines = effectiveOrder?.itemsDetail || effectiveOrder?.lignes || [];
   const articleMap = new Map((articlesResponse?.data || []).map((article: any) => [article.id, article]));
   const supplierName = effectiveOrder?.supplier || effectiveOrder?.supplierName || "";
-  const serviceLogoUrl =
-    servicesResponse?.data?.find((service: any) => service.name === effectiveOrder?.serviceName)?.imageUrl || null;
 
   const handlePrint = () => {
     if (!effectiveOrder) return;
@@ -204,7 +195,6 @@ export function ViewCommandeModal({ isOpen, onClose, order }: Props) {
         <PurchaseOrderPrint
           order={effectiveOrder}
           articles={articlesResponse?.data || []}
-          serviceLogoUrl={serviceLogoUrl}
           onClose={() => setIsPrintOpen(false)}
         />
       )}

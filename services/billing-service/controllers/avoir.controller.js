@@ -2,6 +2,7 @@ const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { generateAvoirNumber } = require('../utils/billingNumberGenerator');
 const { generateAvoirPDF } = require('../utils/pdfGenerator');
+const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -27,13 +28,17 @@ const getNextAvoirNumber = async (tx = prisma) => {
 
 exports.getAllAvoirs = async (req, res) => {
   try {
-    const { factureId, status } = req.query;
+    const { factureId, status, enterpriseId } = req.query;
     const where = {};
     if (factureId) where.factureId = factureId;
     if (status) where.status = status;
 
     const avoirs = await prisma.avoir.findMany({
-      where,
+      where: await applyEnterpriseScope({
+        req,
+        where,
+        requestedEnterpriseId: enterpriseId,
+      }),
       include: {
         lignes: true,
       },
@@ -58,6 +63,8 @@ exports.getAvoirById = async (req, res) => {
     if (!avoir) {
       return res.status(404).json({ error: 'Avoir introuvable' });
     }
+
+    await assertEnterpriseInScope(req, avoir.enterpriseId, "Vous n'avez pas acces a cet avoir.");
 
     res.json({ success: true, data: avoir });
   } catch (error) {
@@ -90,6 +97,8 @@ exports.createAvoir = async (req, res) => {
       return res.status(404).json({ error: 'Facture introuvable' });
     }
 
+    await assertEnterpriseInScope(req, facture.enterpriseId, "Vous n'avez pas acces a cette facture.");
+
     const avoir = await prisma.$transaction(async (tx) => {
       const numeroAvoir = await getNextAvoirNumber(tx);
       return tx.avoir.create({
@@ -98,6 +107,8 @@ exports.createAvoir = async (req, res) => {
           factureId: facture.id,
           factureNumero: facture.numeroFacture,
           clientId: facture.clientId,
+          enterpriseId: facture.enterpriseId,
+          enterpriseName: facture.enterpriseName,
           serviceId: facture.serviceId,
           serviceName: facture.serviceName,
           serviceLogoUrl: facture.serviceLogoUrl,
@@ -147,6 +158,8 @@ exports.generatePDF = async (req, res) => {
     if (!avoir) {
       return res.status(404).json({ error: 'Avoir introuvable' });
     }
+
+    await assertEnterpriseInScope(req, avoir.enterpriseId, "Vous n'avez pas acces a cet avoir.");
 
     const outputPath = path.join(__dirname, '..', 'temp', `${avoir.numeroAvoir}.pdf`);
     await generateAvoirPDF(avoir, outputPath);

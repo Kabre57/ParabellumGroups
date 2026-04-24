@@ -215,18 +215,22 @@ model PermissionChangeRequest {
 }
 
 model Enterprise {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?
-  code        String?   @unique @map("enterprise_code") @db.VarChar(10)
-  logoUrl     String?   @map("logo_url")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id                 Int          @id @default(autoincrement())
+  name               String       @unique
+  description        String?
+  code               String?      @unique @map("enterprise_code") @db.VarChar(10)
+  logoUrl            String?      @map("logo_url")
+  isActive           Boolean      @default(true) @map("is_active")
+  parentEnterpriseId Int?         @map("parent_enterprise_id")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
   
-  users       User[]
-  services    Service[]
+  parentEnterprise   Enterprise?  @relation("EnterpriseHierarchy", fields: [parentEnterpriseId], references: [id])
+  childEnterprises   Enterprise[] @relation("EnterpriseHierarchy")
+  users              User[]
+  services           Service[]
 
   @@index([isActive])
+  @@index([parentEnterpriseId])
   @@map("enterprises")
 }

@@ -20,6 +20,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import { enterpriseApi } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import {
   Table,
   TableBody,
@@ -46,20 +48,38 @@ export default function AvoirsPage() {
   const [factureId, setFactureId] = useState('');
   const [motif, setMotif] = useState('');
   const [notes, setNotes] = useState('');
+  const [enterpriseFilter, setEnterpriseFilter] = useState('all');
 
   const { canCreate } = getCrudVisibility(user, {
     read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
     create: ['invoices.credit_note'],
   });
 
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['enterprise-filter-options', 'avoirs'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+  });
+
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
+
   const { data: creditNotesResponse, isLoading } = useQuery({
-    queryKey: ['creditNotes'],
-    queryFn: () => billingService.getCreditNotes(),
+    queryKey: ['creditNotes', enterpriseFilter],
+    queryFn: () =>
+      billingService.getCreditNotes(
+        enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : undefined
+      ),
   });
 
   const { data: invoicesResponse } = useQuery({
-    queryKey: ['invoices-for-credit-notes'],
-    queryFn: () => billingService.getInvoices({ limit: 200 }),
+    queryKey: ['invoices-for-credit-notes', enterpriseFilter],
+    queryFn: () =>
+      billingService.getInvoices({
+        limit: 200,
+        ...(enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : {}),
+      }),
   });
 
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -146,6 +166,20 @@ export default function AvoirsPage() {
         <div className="border-b p-6">
           <h2 className="text-xl font-semibold">Liste des avoirs</h2>
           <p className="mt-1 text-sm text-muted-foreground">Consulter, imprimer et rattacher les notes de credit aux factures clients.</p>
+          <div className="mt-4 max-w-sm">
+            <select
+              value={enterpriseFilter}
+              onChange={(event) => setEnterpriseFilter(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Toutes les entreprises</option>
+              {accessibleEnterprises.map((enterprise) => (
+                <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                  {enterprise.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {isLoading ? (
@@ -159,6 +193,7 @@ export default function AvoirsPage() {
                 <TableHead>Numero</TableHead>
                 <TableHead>Facture source</TableHead>
                 <TableHead>Client</TableHead>
+                <TableHead>Entreprise</TableHead>
                 <TableHead>Motif</TableHead>
                 <TableHead>Montant TTC</TableHead>
                 <TableHead>Statut</TableHead>
@@ -172,6 +207,7 @@ export default function AvoirsPage() {
                   <TableCell className="font-medium">{creditNote.numeroAvoir}</TableCell>
                   <TableCell>{creditNote.factureNumero}</TableCell>
                   <TableCell>{clientMap.get(creditNote.clientId)?.nom || creditNote.clientId}</TableCell>
+                  <TableCell>{creditNote.enterpriseName || '-'}</TableCell>
                   <TableCell>{creditNote.motif}</TableCell>
                   <TableCell>{formatCurrency(creditNote.montantTTC)}</TableCell>
                   <TableCell>{creditNote.status}</TableCell>

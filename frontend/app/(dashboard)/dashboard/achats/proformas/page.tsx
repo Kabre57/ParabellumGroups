@@ -8,7 +8,6 @@ import { Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { procurementService } from '@/services/procurement';
 import type { PurchaseProforma, PurchaseRequest } from '@/services/procurement';
-import { adminServicesService } from '@/shared/api/admin';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +19,7 @@ type FlattenedProforma = {
   requestId: string;
   requestNumber: string;
   requestObject: string;
-  requestService: string | null;
+  requestEnterprise: string | null;
   proforma: PurchaseProforma;
 };
 
@@ -50,22 +49,16 @@ export default function PurchaseProformasPage() {
       }),
   });
 
-  const { data: servicesResponse } = useQuery({
-    queryKey: ['purchase-proformas-service-logos'],
-    queryFn: () => adminServicesService.getServices(),
-    staleTime: 5 * 60 * 1000,
-  });
-
   const rows = useMemo<FlattenedProforma[]>(() => {
     const requests = data?.data ?? [];
     return requests.flatMap((request: PurchaseRequest) =>
-      (request.proformas || []).map((proforma) => ({
-        requestId: request.id,
-        requestNumber: request.number,
-        requestObject: request.objet || request.title,
-        requestService: request.serviceName || null,
-        proforma,
-      }))
+        (request.proformas || []).map((proforma) => ({
+          requestId: request.id,
+          requestNumber: request.number,
+          requestObject: request.objet || request.title,
+          requestEnterprise: request.enterpriseName || null,
+          proforma,
+        }))
     );
   }, [data]);
 
@@ -81,7 +74,7 @@ export default function PurchaseProformasPage() {
         const haystack = [
           row.requestNumber,
           row.requestObject,
-          row.requestService || '',
+          row.requestEnterprise || '',
           row.proforma.numeroProforma,
           row.proforma.fournisseurNom || '',
           row.proforma.notes || '',
@@ -93,8 +86,6 @@ export default function PurchaseProformasPage() {
       }),
     [visibleRows, search, status]
   );
-
-  const services = servicesResponse?.data ?? [];
 
   const stats = useMemo(
     () => ({
@@ -154,7 +145,7 @@ export default function PurchaseProformasPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher par proforma, devis interne, service ou fournisseur..."
+              placeholder="Rechercher par proforma, devis interne, entreprise ou fournisseur..."
               className="max-w-xl"
             />
             <select
@@ -180,7 +171,7 @@ export default function PurchaseProformasPage() {
                   <tr>
                     <th className="px-4 py-3 font-medium">Proforma</th>
                     <th className="px-4 py-3 font-medium">Devis source</th>
-                    <th className="px-4 py-3 font-medium">Service</th>
+                    <th className="px-4 py-3 font-medium">Entreprise</th>
                     <th className="px-4 py-3 font-medium">Fournisseur</th>
                     <th className="px-4 py-3 font-medium">Montant TTC</th>
                     <th className="px-4 py-3 font-medium">Statut</th>
@@ -198,7 +189,7 @@ export default function PurchaseProformasPage() {
                         <div className="font-medium">{row.requestNumber}</div>
                         <div className="text-xs text-muted-foreground">{row.requestObject}</div>
                       </td>
-                      <td className="px-4 py-3">{row.requestService || '-'}</td>
+                      <td className="px-4 py-3">{row.requestEnterprise || '-'}</td>
                       <td className="px-4 py-3">{row.proforma.fournisseurNom || '-'}</td>
                       <td className="px-4 py-3 font-medium">{formatCurrency(row.proforma.montantTTC)}</td>
                       <td className="px-4 py-3">
@@ -258,14 +249,11 @@ export default function PurchaseProformasPage() {
             requesterId: '',
             status: 'APPROUVEE',
             date: printingRow.proforma.approvedAt || printingRow.proforma.createdAt || new Date().toISOString(),
-            serviceName: printingRow.requestService,
+            enterpriseName: printingRow.requestEnterprise,
             supplierName: printingRow.proforma.fournisseurNom || undefined,
             proformas: [printingRow.proforma],
           }}
           proforma={printingRow.proforma}
-          serviceLogoUrl={
-            services.find((service) => service.name === printingRow.requestService)?.imageUrl || null
-          }
           onClose={() => setPrintingRow(null)}
         />
       ) : null}

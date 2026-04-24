@@ -11,10 +11,8 @@ import { billingService, type Quote } from '@/shared/api/billing';
 import { commercialService } from '@/shared/api/commercial';
 import { useClients } from '@/hooks/useCrm';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { adminServicesService, type Service } from '@/shared/api/admin/admin.service';
-import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
-import type { Client } from '@/shared/api/crm/types';
-import type { Prospect } from '@/shared/api/commercial';
+import { enterpriseApi } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 interface QuoteLineForm {
   description: string;
@@ -46,15 +44,20 @@ const buildDefaultValidityDate = () => {
   return date.toISOString().split('T')[0];
 };
 
+const parseEnterpriseId = (value: string): number | undefined => {
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const enterpriseLabel = user?.enterprise?.name || 'Entreprise non attribuée';
-  const userServiceId = String(user?.serviceId ?? user?.service?.id ?? '');
-  const canChooseService =
-    isAdminRole(user) || hasAnyPermission(user, ['services.read_all', 'services.read']);
+  const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
   const [clientId, setClientId] = useState('');
   const [prospectId, setProspectId] = useState('');
+  const [enterpriseId, setEnterpriseId] = useState(userEnterpriseId);
   const [objet, setObjet] = useState('');
   const [dateValidite, setDateValidite] = useState(buildDefaultValidityDate());
   const [notes, setNotes] = useState('');
@@ -70,9 +73,19 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     enabled: isOpen,
     staleTime: 3 * 60 * 1000,
   });
+  const { data: enterprisesResponse } = useQuery({
+    queryKey: ['commercial-quote-enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: isOpen,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const clientsArray: any[] = Array.isArray(clients) ? clients : [];
   const prospectsArray: any[] = Array.isArray(prospects) ? prospects : [];
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
+    [enterprisesResponse?.data, user?.enterpriseId]
+  );
   const createMutation = useMutation({
     mutationFn: (payload: Parameters<typeof billingService.createQuote>[0]) => billingService.createQuote(payload),
     onSuccess: () => {
@@ -122,6 +135,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
   const resetForm = () => {
     setClientId('');
     setProspectId('');
+    setEnterpriseId(userEnterpriseId);
     setObjet('');
     setDateValidite(buildDefaultValidityDate());
     setNotes('');
@@ -143,6 +157,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
 
     setClientId(initialQuote.clientId || '');
     setProspectId(initialQuote.prospectId || '');
+    setEnterpriseId(initialQuote.enterpriseId ? String(initialQuote.enterpriseId) : userEnterpriseId);
     setObjet(initialQuote.objet || '');
     setDateValidite(initialQuote.dateValidite?.split('T')[0] || buildDefaultValidityDate());
     setNotes(initialQuote.notes || '');
@@ -155,7 +170,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
       imageUrl: line.imageUrl || '',
     }));
     setLines(mappedLines.length ? mappedLines : [{ ...EMPTY_LINE }]);
-  }, [isOpen, initialQuote, userServiceId]);
+  }, [isOpen, initialQuote, userEnterpriseId]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -177,13 +192,14 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
       return;
     }
 
-    if ((!clientId && !prospectId) || !objet.trim() || !dateValidite || lignes.length === 0) {
+    if ((!clientId && !prospectId) || !enterpriseId || !objet.trim() || !dateValidite || lignes.length === 0) {
       return;
     }
 
     const payload = {
       clientId: clientId || undefined,
       prospectId: prospectId || undefined,
+      enterpriseId: parseEnterpriseId(enterpriseId),
       commercialId: user?.id || undefined,
       commercialName: [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined,
       commercialEmail: user?.email || undefined,
@@ -234,13 +250,27 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {enterpriseLabel && (
-            <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              Ce devis sera émis au nom de l&apos;entreprise <strong>{enterpriseLabel}</strong>.
-            </div>
-          )}
-
           <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Entreprise</label>
+              <select
+                value={enterpriseId}
+                onChange={(event) => setEnterpriseId(event.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">
+                  {accessibleEnterprises.length > 0
+                    ? 'Sélectionner une entreprise'
+                    : 'Aucune entreprise disponible'}
+                </option>
+                {accessibleEnterprises.map((enterprise) => (
+                  <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                    {enterprise.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Client / prospect</label>
               <select
@@ -456,6 +486,7 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
                 type="submit"
                 disabled={
                   (!clientId && !prospectId) ||
+                  !enterpriseId ||
                   !objet.trim() ||
                   createMutation.isPending ||
                   updateMutation.isPending

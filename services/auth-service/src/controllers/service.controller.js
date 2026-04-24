@@ -1,6 +1,17 @@
 const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 
+const parseBool = (value) => value === true || value === 'true';
+const parseNum = (value) =>
+  value !== undefined && value !== null && value !== '' && !Number.isNaN(parseInt(value, 10))
+    ? parseInt(value, 10)
+    : null;
+
+const attachEnterpriseContext = (service) => ({
+  ...service,
+  enterprise: service.enterprise || null,
+});
+
 /**
  * Get all services
  * GET /api/services
@@ -18,6 +29,7 @@ const getAllServices = async (req, res) => {
           select: {
             id: true,
             name: true,
+            logoUrl: true,
           },
         },
         manager: {
@@ -43,7 +55,7 @@ const getAllServices = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: services,
+      data: services.map(attachEnterpriseContext),
     });
   } catch (error) {
     console.error('Get all services error:', error);
@@ -68,11 +80,11 @@ const getServiceById = async (req, res) => {
       whereClause.enterpriseId = req.user.enterpriseId;
     }
 
-    const service = await prisma.service.findUnique({
+    const service = await prisma.service.findFirst({
       where: whereClause,
       include: {
         enterprise: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, logoUrl: true },
         },
         manager: {
           select: {
@@ -128,7 +140,7 @@ const getServiceById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: service,
+      data: attachEnterpriseContext(service),
     });
   } catch (error) {
     console.error('Get service by ID error:', error);
@@ -193,9 +205,6 @@ const createService = async (req, res) => {
       }
     }
 
-    const parseBool = (v) => v === true || v === 'true';
-    const parseNum = (v) => (v && !Number.isNaN(parseInt(v, 10)) ? parseInt(v, 10) : null);
-
     // Create service
     const service = await prisma.service.create({
       data: {
@@ -208,6 +217,13 @@ const createService = async (req, res) => {
         isActive: isActive !== undefined ? parseBool(isActive) : true,
       },
       include: {
+        enterprise: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+          },
+        },
         manager: {
           select: {
             id: true,
@@ -243,7 +259,7 @@ const createService = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Service created successfully',
-      data: service,
+      data: attachEnterpriseContext(service),
     });
   } catch (error) {
     console.error('Create service error:', error);
@@ -279,7 +295,7 @@ const updateService = async (req, res) => {
     }
 
     // Check if service exists
-    const existingService = await prisma.service.findUnique({
+    const existingService = await prisma.service.findFirst({
       where: whereClause,
     });
 
@@ -290,9 +306,8 @@ const updateService = async (req, res) => {
       });
     }
 
-    const parseNum = (v) => (v && !Number.isNaN(parseInt(v, 10)) ? parseInt(v, 10) : null);
-    
-    const finalEnterpriseId = req.user.enterpriseId || existingService.enterpriseId;
+    const requestedEnterpriseId = parseNum(enterpriseId);
+    const finalEnterpriseId = req.user.enterpriseId || requestedEnterpriseId || existingService.enterpriseId;
 
     // If name is being updated, check for duplicates
     if (name && name !== existingService.name) {
@@ -331,9 +346,17 @@ const updateService = async (req, res) => {
         code: code !== undefined ? code : existingService.code,
         parentId: parentId !== undefined ? parseNum(parentId) : existingService.parentId,
         managerId: managerId !== undefined ? parseNum(managerId) : existingService.managerId,
+        enterpriseId: finalEnterpriseId,
         isActive: isActive !== undefined ? parseBool(isActive) : existingService.isActive,
       },
       include: {
+        enterprise: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+          },
+        },
         manager: {
           select: {
             id: true,
@@ -370,7 +393,7 @@ const updateService = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Service updated successfully',
-      data: updatedService,
+      data: attachEnterpriseContext(updatedService),
     });
   } catch (error) {
     console.error('Update service error:', error);
@@ -396,11 +419,11 @@ const deleteService = async (req, res) => {
     }
 
     // Check if service exists
-    const service = await prisma.service.findUnique({
+    const service = await prisma.service.findFirst({
       where: whereClause,
       include: {
         _count: {
-          select: { users: true },
+          select: { members: true },
         },
       },
     });
