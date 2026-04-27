@@ -2,6 +2,20 @@
 
 import type { AccountingEntry, AccountingMovement, AccountingOverview } from '@/shared/api/billing';
 
+export interface AccountingBalanceExportRow {
+  enterpriseName?: string | null;
+  code: string;
+  label: string;
+  type: string;
+  openingDebit: number;
+  openingCredit: number;
+  debit: number;
+  credit: number;
+  balanceDebit: number;
+  balanceCredit: number;
+  lastTransaction?: string | null;
+}
+
 const escapeCell = (value: unknown) => {
   const normalized = String(value ?? '');
   if (/[",;\n]/.test(normalized)) {
@@ -83,6 +97,40 @@ export const exportAccountsCsv = (accounts: AccountingOverview['accounts'], file
       account.type,
       currency(account.balance),
       account.description || '',
+    ]),
+  ];
+
+  const csv = rows.map((row) => row.map(escapeCell).join(';')).join('\n');
+  downloadBlob(csv, fileName, 'text/csv;charset=utf-8');
+};
+
+export const exportBalanceCsv = (rowsToExport: AccountingBalanceExportRow[], fileName = 'balance-des-comptes.csv') => {
+  const rows = [
+    [
+      'Entreprise',
+      'Compte',
+      'Libelle',
+      'Type',
+      'A-nouveaux debit',
+      'A-nouveaux credit',
+      'Mouvements debit',
+      'Mouvements credit',
+      'Solde debit',
+      'Solde credit',
+      'Derniere ecriture',
+    ],
+    ...rowsToExport.map((row) => [
+      row.enterpriseName || 'Consolide',
+      row.code,
+      row.label,
+      row.type,
+      currency(row.openingDebit),
+      currency(row.openingCredit),
+      currency(row.debit),
+      currency(row.credit),
+      currency(row.balanceDebit),
+      currency(row.balanceCredit),
+      date(row.lastTransaction),
     ]),
   ];
 

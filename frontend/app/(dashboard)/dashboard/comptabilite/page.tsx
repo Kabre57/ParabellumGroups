@@ -21,6 +21,7 @@ import {
   BookOpen,
   Landmark,
   Receipt,
+  Scale,
   Wallet,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -157,6 +158,12 @@ export default function AccountingDashboardPage() {
       description: 'Plan comptable, soldes et variations des comptes.',
       href: '/dashboard/comptabilite/comptes',
       icon: BookOpen,
+    },
+    {
+      title: 'Balance',
+      description: 'Débits, crédits et soldes par compte, avec filtre mère et filiales.',
+      href: '/dashboard/comptabilite/balance',
+      icon: Scale,
     },
   ];
 

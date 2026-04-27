@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportAccountsCsv, printAccountingReport } from '@/components/accounting/accountingExport';
@@ -17,6 +18,9 @@ export function RapportsHeader({ period, onPeriodChange, canExport, overview }: 
         <p className="text-muted-foreground mt-2">Bilans, comptes de résultat et analyses financières</p>
       </div>
       <div className="flex gap-2">
+        <Button variant="outline" asChild>
+          <Link href="/dashboard/comptabilite/balance">Balance</Link>
+        </Button>
         <select value={period} onChange={(e) => onPeriodChange(e.target.value as any)} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
           <option value="month">Ce mois</option>
           <option value="quarter">Ce trimestre</option>

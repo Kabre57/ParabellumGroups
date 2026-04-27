@@ -33,6 +33,7 @@ import {
   Mail,
   BarChart,
   Shield,
+  Scale,
 } from 'lucide-react';
 
 export interface SidebarCategory {
@@ -107,6 +108,7 @@ export const sidebarItems: SidebarItem[] = [
   { name: 'Trésorerie', href: '/dashboard/comptabilite/tresorerie', icon: LineChart, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Comptes', href: '/dashboard/comptabilite/comptes', icon: BookOpen, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Écritures', href: '/dashboard/comptabilite/ecritures', icon: Receipt, permission: 'expenses.read', categoryId: 'accounting' },
+  { name: 'Balance des comptes', href: '/dashboard/comptabilite/balance', icon: Scale, permission: 'expenses.read', categoryId: 'accounting' },
   { name: 'Rapports comptables', href: '/dashboard/comptabilite/rapports', icon: BarChart, permission: 'reports.read_financial', categoryId: 'accounting' },
 
   { name: 'Dashboard Technique', href: '/dashboard/technical', icon: Home, permission: 'missions.read', categoryId: 'technical', isServiceDashboard: true },
