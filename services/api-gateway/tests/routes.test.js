@@ -47,3 +47,13 @@ test('technical route config keeps permission rules for key technical domains', 
   assert.match(content, /interventions\.create_report/);
   assert.match(content, /mission_orders\.read/);
 });
+
+test('storage route config proxies browser asset requests through auth service', () => {
+  const content = read('routes', 'services', 'storage.routes.js');
+
+  assert.match(content, /serviceName: 'AUTH_STORAGE'/);
+  assert.match(content, /basePath: config\.SERVICES\.AUTH/);
+  assert.match(content, /path: '\/storage\/\*'/);
+  assert.match(content, /\^\/storage': '\/api\/storage'/);
+  assert.match(content, /auth: false/);
+});

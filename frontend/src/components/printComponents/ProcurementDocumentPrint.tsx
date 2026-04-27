@@ -1,6 +1,9 @@
 'use client';
 
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { enterpriseApi } from '@/lib/api';
+import { Spinner } from '@/components/ui/spinner';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
@@ -26,8 +29,10 @@ type ProcurementLine = {
 interface ProcurementDocumentPrintProps {
   documentLabel: string;
   documentNumber: string;
+  enterpriseId?: string | number | null;
   serviceName?: string | null;
   companyName?: string;
+  companyLogoSrc?: string | null;
   issueDate?: string | null;
   issuedBy?: string | null;
   deliveryLeadTime?: string | null;
@@ -67,8 +72,10 @@ const tableBodyCellStyle: React.CSSProperties = {
 export default function ProcurementDocumentPrint({
   documentLabel,
   documentNumber,
+  enterpriseId,
   serviceName,
   companyName,
+  companyLogoSrc,
   issueDate,
   issuedBy,
   deliveryLeadTime,
@@ -82,7 +89,18 @@ export default function ProcurementDocumentPrint({
   onClose,
 }: ProcurementDocumentPrintProps) {
   const { companyName: enterpriseName, logoSrc: enterpriseLogo } = useEnterpriseLogo();
-  const effectiveCompanyName = companyName || enterpriseName;
+  const normalizedEnterpriseId =
+    enterpriseId !== undefined && enterpriseId !== null && String(enterpriseId).trim()
+      ? String(enterpriseId)
+      : null;
+  const { data: enterpriseResponse, isLoading: isEnterpriseLoading } = useQuery({
+    queryKey: ['procurement-print-enterprise', normalizedEnterpriseId],
+    queryFn: () => enterpriseApi.getById(normalizedEnterpriseId as string),
+    enabled: Boolean(normalizedEnterpriseId),
+    staleTime: 5 * 60 * 1000,
+  });
+  const documentEnterprise = enterpriseResponse?.data;
+  const effectiveCompanyName = companyName || documentEnterprise?.name || enterpriseName;
   const minimumVisualRows = 8;
   const enrichedLines = lines.map((line) => {
     const totalHT = line.totalHT ?? line.unitPrice * line.quantity;
@@ -100,7 +118,7 @@ export default function ProcurementDocumentPrint({
   const subtotalHT = enrichedLines.reduce((sum, line) => sum + line.totalHT, 0);
   const totalVAT = enrichedLines.reduce((sum, line) => sum + (line.totalTTC - line.totalHT), 0);
   const totalTTC = enrichedLines.reduce((sum, line) => sum + line.totalTTC, 0);
-  const logoSrc = resolvePrintLogo(enterpriseLogo);
+  const logoSrc = resolvePrintLogo(companyLogoSrc || documentEnterprise?.logoUrl || enterpriseLogo);
   const producerLabel = textOrDash(issuedBy || effectiveCompanyName);
   const blankRowCount = Math.max(0, minimumVisualRows - enrichedLines.length);
   const fillerHeightMm = blankRowCount > 0 ? Math.max(36, blankRowCount * 16) : 0;
@@ -117,6 +135,14 @@ export default function ProcurementDocumentPrint({
     { label: 'Mode de livraison', value: textOrDash(deliveryMode) },
     { label: 'Modalité de paiement', value: textOrDash(paymentTerms) },
   ];
+
+  if (normalizedEnterpriseId && isEnterpriseLoading && !companyLogoSrc) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <PrintLayout

@@ -10,7 +10,8 @@ export default function InvoicePrint({ invoice, onClose }: any) {
     <ProcurementDocumentPrint
       documentLabel="Facture"
       documentNumber={invoice.numeroFacture || invoice.id}
-      companyName={undefined} 
+      enterpriseId={invoice.enterpriseId}
+      companyName={invoice.enterpriseName || undefined}
       issueDate={invoice.dateFacture || invoice.dateEmission}
       deliveryLeadTime={invoice.dateEcheance ? `Date d'échéance: ${new Date(invoice.dateEcheance).toLocaleDateString('fr-FR')}` : null}
       paymentTerms={invoice.status || 'En attente'}

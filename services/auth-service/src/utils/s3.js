@@ -2,6 +2,7 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   CreateBucketCommand,
 } = require('@aws-sdk/client-s3');
@@ -152,9 +153,37 @@ async function deleteFromS3(url) {
   }
 }
 
+function extractObjectKeyFromUrl(url) {
+  if (!url) return null;
+
+  if (url.includes(`/${BUCKET}/`)) {
+    return url.split(`/${BUCKET}/`)[1] || null;
+  }
+
+  if (url.includes('.amazonaws.com/')) {
+    return url.split('.amazonaws.com/')[1] || null;
+  }
+
+  return null;
+}
+
+async function getObjectStreamFromS3(key) {
+  if (!isS3Configured() || !key) return null;
+
+  const s3 = getS3Client();
+  return s3.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  );
+}
+
 module.exports = {
   uploadToS3,
   deleteFromS3,
+  extractObjectKeyFromUrl,
+  getObjectStreamFromS3,
   isS3Configured,
   ensureBucketExists,
 };

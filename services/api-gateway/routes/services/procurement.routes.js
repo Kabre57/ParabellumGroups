@@ -109,7 +109,17 @@ const procurementPermissionRules = [
   {
     pattern: /^\/bons-commande/,
     permissions: {
-      GET: 'purchase_orders.read',
+      GET: [
+        'purchase_orders.read',
+        'purchase_orders.read_own',
+        'purchase_orders.read_all',
+        'purchases.read',
+        'purchases.read_own',
+        'purchases.read_all',
+        'quotes.read',
+        'quotes.read_own',
+        'quotes.read_all',
+      ],
       POST: 'purchase_orders.create',
       PUT: 'purchase_orders.update',
       PATCH: 'purchase_orders.update',

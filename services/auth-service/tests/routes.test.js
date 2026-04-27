@@ -17,6 +17,7 @@ test('auth route index mounts the expected top-level routers', () => {
   assert.match(content, /router\.use\('\/roles', roleRoutes\)/);
   assert.match(content, /router\.use\('\/audit-logs', auditLogRoutes\)/);
   assert.match(content, /router\.use\('\/permission-requests', permissionChangeRoutes\)/);
+  assert.match(content, /router\.use\('\/storage', storageRoutes\)/);
 });
 
 test('auth routes expose the expected public and private flows', () => {

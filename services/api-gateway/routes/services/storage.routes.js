@@ -1,13 +1,15 @@
+const config = require('../../utils/config');
+
 module.exports = {
-  serviceName: 'storage-service',
-  basePath: 'http://minio:9000',
+  serviceName: 'AUTH_STORAGE',
+  basePath: config.SERVICES.AUTH,
   routes: [
     {
       path: '/storage/*',
       method: 'use',
       auth: false,
       pathRewrite: {
-        '^/storage': ''
+        '^/storage': '/api/storage'
       }
     }
   ]
