@@ -2,11 +2,13 @@ const { PrismaClient, AccountingEntrySide, PurchaseCommitmentStatus } = require(
 const { recordEngagement, recordLiquidation, recordPayment } = require('../utils/accountingWorkflow');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const {
+  getTreasuryFamilyFromPaymentMethod,
+  getTreasuryJournalMeta,
+  resolveAccountingAccount,
+} = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
-
-const resolveTreasuryAccountingCode = (paymentMethod) =>
-  String(paymentMethod || '').toUpperCase() === 'ESPECES' ? '531' : '512';
 
 exports.create = async (req, res) => {
   try {
@@ -210,23 +212,22 @@ exports.updateStatus = async (req, res) => {
         throw new Error('Le compte de charge sélectionné est introuvable.');
       }
 
-      const treasuryAccountingAccount = await tx.accountingAccount.findUnique({
-        where: { code: resolveTreasuryAccountingCode(decaissement.paymentMethod) },
-      });
-
-      if (!treasuryAccountingAccount) {
-        throw new Error(
-          `Le compte comptable ${resolveTreasuryAccountingCode(decaissement.paymentMethod)} n est pas configuré dans le plan comptable.`
-        );
-      }
+      const treasuryAccountingAccount = await resolveAccountingAccount(
+        tx,
+        getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
+        {
+          user: req.user,
+        }
+      );
+      const treasuryJournal = getTreasuryJournalMeta(treasuryAccountingAccount);
 
       const entryNumber = await nextEntryNumber(tx);
       await tx.accountingJournalEntry.create({
         data: {
           entryNumber,
           entryDate: decaissement.dateDecaissement || new Date(),
-          journalCode: treasuryAccountingAccount.code === '531' ? 'CA' : 'BQ',
-          journalLabel: treasuryAccountingAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+          journalCode: treasuryJournal.journalCode,
+          journalLabel: treasuryJournal.journalLabel,
           label: `${decaissement.numeroPiece} - ${decaissement.description}`,
           reference: decaissement.reference || decaissement.numeroPiece,
           sourceType: 'DECAISSEMENT',

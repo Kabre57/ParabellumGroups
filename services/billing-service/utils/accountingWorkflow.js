@@ -1,17 +1,17 @@
 const { AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta } = require('./accounting');
+const {
+  getTreasuryFamilyFromPaymentMethod,
+  getTreasuryJournalMeta,
+  resolveAccountingAccount,
+} = require('./accountingAccountResolver');
 
 /**
- * Enregistre l'engagement comptable (D: 6xxx / C: 401)
+ * Enregistre l'engagement comptable (D: 6xxx / C: 401*)
  */
 async function recordEngagement(tx, { commitment, user }) {
-  const account401 = await tx.accountingAccount.findUnique({ where: { code: '401' } });
-  // Par défaut 607 (Achats), on pourra affiner selon la catégorie plus tard
-  const account607 = await tx.accountingAccount.findUnique({ where: { code: '607' } });
-
-  if (!account401 || !account607) {
-    throw new Error('Comptes comptables (401/607) non configurés');
-  }
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
+  const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { user });
 
   const entryNumber = await nextEntryNumber(tx);
   const label = `Engagement BC ${commitment.sourceNumber} - ${commitment.supplierName || 'Fournisseur'}`;
@@ -68,8 +68,8 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
 
   if (Math.abs(difference) > 0.01) {
     // Écriture de régularisation séparée
-    const account401 = await tx.accountingAccount.findUnique({ where: { code: '401' } });
-    const account607 = await tx.accountingAccount.findUnique({ where: { code: '607' } });
+    const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
+    const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { user });
 
     const entryNumber = await nextEntryNumber(tx);
     const label = `Régularisation Engagement BC ${commitment.sourceNumber} / Facture ${invoice.numeroFacture}`;
@@ -124,17 +124,18 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
 }
 
 /**
- * Enregistre le paiement (D: 401 / C: 512/531)
+ * Enregistre le paiement (débit fournisseur / crédit trésorerie)
  */
 async function recordPayment(tx, { commitment, decaissement, user }) {
-  const account401 = await tx.accountingAccount.findUnique({ where: { code: '401' } });
-  const treasuryAccount = await tx.treasuryAccount.findUnique({
-    where: { id: decaissement.treasuryAccountId },
-  });
-
-  // On cherche le compte comptable lié au compte de trésorerie (ex: 512 ou 531)
-  const treasuryCode = decaissement.paymentMethod === 'ESPECES' ? '531' : '512';
-  const accountTreasury = await tx.accountingAccount.findUnique({ where: { code: treasuryCode } });
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
+  const accountTreasury = await resolveAccountingAccount(
+    tx,
+    getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
+    {
+      user,
+    }
+  );
+  const treasuryJournal = getTreasuryJournalMeta(accountTreasury);
 
   if (!account401 || !accountTreasury) {
     throw new Error('Comptes comptables (401/Trésorerie) non configurés');
@@ -146,8 +147,8 @@ async function recordPayment(tx, { commitment, decaissement, user }) {
   await tx.accountingJournalEntry.create({
     data: {
       entryNumber,
-      journalCode: 'BQ', // ou CA pour caisse
-      journalLabel: decaissement.paymentMethod === 'ESPECES' ? 'Caisse' : 'Banque',
+      journalCode: treasuryJournal.journalCode,
+      journalLabel: treasuryJournal.journalLabel,
       label,
       reference: decaissement.numeroPiece,
       sourceType: 'DECAISSEMENT',

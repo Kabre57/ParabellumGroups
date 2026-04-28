@@ -25,11 +25,9 @@ export default function CashVoucherPrint({
   const isEncaissement = voucher.flowType === 'ENCAISSEMENT' || ('clientName' in voucher);
   const voucherNumber = 'numeroPiece' in voucher ? voucher.numeroPiece : (voucher as any).voucherNumber;
   const issueDate = 'dateEncaissement' in voucher ? voucher.dateEncaissement : ('dateDecaissement' in voucher ? voucher.dateDecaissement : (voucher as any).issueDate);
-  
-  const fullName = ('clientName' in voucher ? voucher.clientName : ('beneficiaryName' in voucher ? voucher.beneficiaryName : '')) || '';
-  const firstName = fullName.split(' ')[0] || '-';
-  const lastName = fullName.split(' ').slice(1).join(' ') || '-';
-  const nomComplet = `${firstName} ${lastName}`.trim();
+
+  const nomComplet =
+    ('clientName' in voucher ? voucher.clientName : ('beneficiaryName' in voucher ? voucher.beneficiaryName : '')) || '';
   const beneficiaryPhone = (voucher as any).beneficiaryPhone || (voucher as any).clientPhone || '-';
 
   const renderVoucher = (label: string) => (

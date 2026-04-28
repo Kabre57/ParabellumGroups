@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { fetchClientMeta } = require('../utils/encaissementEnrichment');
 
 const prisma = new PrismaClient();
 
@@ -45,6 +46,8 @@ exports.createPaiement = async (req, res) => {
       reference,
       notes,
       treasuryAccountId,
+      clientName,
+      clientPhone,
     } = req.body;
     const normalizedMethod = normalizeMethod(methodePaiement || modePaiement);
 
@@ -75,6 +78,7 @@ exports.createPaiement = async (req, res) => {
 
     const enterpriseId = facture.enterpriseId ?? (req.user?.enterpriseId ? Number(req.user.enterpriseId) : null);
     const enterpriseName = facture.enterpriseName || req.user?.enterpriseName || null;
+    const clientMeta = await fetchClientMeta(req, facture.clientId);
     const resolvedTreasuryAccountId = await resolveTreasuryAccountId(prisma, {
       treasuryAccountId,
       paymentMethod: normalizedMethod,
@@ -100,7 +104,7 @@ exports.createPaiement = async (req, res) => {
         data: {
           numeroPiece: `ENC-${Date.now()}`,
           clientId: facture.clientId || null,
-          clientName: facture.clientName || facture.numeroFacture || 'Client',
+          clientName: clientMeta.clientName || clientName || facture.numeroFacture || 'Client',
           description: `Encaissement facture ${facture.numeroFacture || facture.id}`,
           enterpriseId,
           enterpriseName,
@@ -110,9 +114,11 @@ exports.createPaiement = async (req, res) => {
           paymentMethod: normalizedMethod,
           treasuryAccountId: resolvedTreasuryAccountId,
           dateEncaissement: datePaiement ? new Date(datePaiement) : new Date(),
-          reference: reference || paiement.id,
+          reference: reference || null,
           notes:
-            [notes, buildPaymentEncaissementMarker(paiement.id)].filter(Boolean).join(' | ') ||
+            [clientPhone ? `clientPhone:${clientPhone}` : null, notes, buildPaymentEncaissementMarker(paiement.id)]
+              .filter(Boolean)
+              .join(' | ') ||
             buildPaymentEncaissementMarker(paiement.id),
           factureClientId: factureId,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,

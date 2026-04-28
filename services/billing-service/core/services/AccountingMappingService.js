@@ -1,19 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
+const {
+  getTreasuryFamilyFromPaymentMethod,
+  resolveAccountingReference,
+} = require('../../utils/accountingAccountResolver');
 const prisma = new PrismaClient();
 
 class AccountingMappingService {
   constructor() {
     this.mappings = null;
-    this.fallbackAccount = { code: '618', label: 'Autres charges d exploitation' };
-    
-    // Fallback matériel en cas d'absence totale de la table en DB
-    this.hardcodedRules = {
-      'INVOICE_REVENUE': { code: '706', label: 'Prestations de services' },
-      'INVOICE_DEBIT_CUSTOMER': { code: '411', label: 'Clients' },
-      'PAYMENT_CREDIT_CUSTOMER': { code: '411', label: 'Clients' },
-      'DECAISSEMENT_CREDIT_SUPPLIER': { code: '401', label: 'Fournisseurs' },
-      'DECAISSEMENT_DEBIT_SUPPLIER': { code: '401', label: 'Fournisseurs' }
-    };
   }
 
   /**
@@ -66,15 +60,61 @@ class AccountingMappingService {
       }
     }
 
-    // 2. Fallback sur les règles matérielles si DB absente ou règle non trouvée
-    const ruleKey = `${normalizedSource}_${normalizedCategory}`.toUpperCase();
-    if (this.hardcodedRules[ruleKey]) {
-      return this.hardcodedRules[ruleKey];
+    const semanticFamily = this.resolveSemanticFamily(normalizedSource, normalizedCategory);
+    if (semanticFamily) {
+      const resolved = await resolveAccountingReference(prisma, semanticFamily);
+      if (resolved) {
+        return resolved;
+      }
     }
 
     // 3. Fallback ultime
     console.log(`[AccountingMappingService] No mapping found for ${normalizedSource}:${normalizedCategory}. Using default fallback.`);
-    return this.fallbackAccount;
+    return { code: '618', label: 'Autres charges d exploitation', accountId: null };
+  }
+
+  resolveSemanticFamily(sourceType, category) {
+    if (sourceType === 'INVOICE' && category === 'REVENUE') {
+      return 'REVENUE';
+    }
+
+    if (sourceType === 'INVOICE' && category === 'DEBIT_CUSTOMER') {
+      return 'CUSTOMER_RECEIVABLE';
+    }
+
+    if (sourceType === 'PAYMENT' && category === 'CREDIT_CUSTOMER') {
+      return 'CUSTOMER_RECEIVABLE';
+    }
+
+    if (sourceType === 'PAYMENT' && category) {
+      return getTreasuryFamilyFromPaymentMethod(category);
+    }
+
+    if (sourceType === 'DECAISSEMENT' && ['CREDIT_SUPPLIER', 'DEBIT_SUPPLIER'].includes(category)) {
+      return 'SUPPLIER_PAYABLE';
+    }
+
+    if (sourceType === 'PURCHASE_ORDER' || sourceType === 'PURCHASE_QUOTE') {
+      return 'PURCHASE_EXPENSE';
+    }
+
+    if (sourceType === 'INVOICE' || sourceType === 'ENCAISSEMENT') {
+      return 'REVENUE';
+    }
+
+    if (sourceType === 'DECAISSEMENT' || sourceType === 'CASH_VOUCHER') {
+      const normalizedCategory = String(category || '').toLowerCase();
+      if (
+        normalizedCategory.includes('achat') ||
+        normalizedCategory.includes('fournisseur') ||
+        normalizedCategory.includes('marchandise')
+      ) {
+        return 'PURCHASE_EXPENSE';
+      }
+      return 'MISC_EXPENSE';
+    }
+
+    return null;
   }
 }
 

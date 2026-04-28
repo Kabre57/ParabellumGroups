@@ -26,6 +26,8 @@ interface PaymentFormProps {
   payment?: any;
   invoiceId?: string;
   invoiceNumber?: string;
+  clientName?: string;
+  clientPhone?: string;
   remainingAmount?: number;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -35,6 +37,8 @@ export default function PaymentForm({
   payment,
   invoiceId,
   invoiceNumber,
+  clientName,
+  clientPhone,
   remainingAmount,
   onSuccess,
   onCancel,
@@ -86,14 +90,19 @@ export default function PaymentForm({
 
   const createMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
+      const invoices = invoicesResponse?.data ?? [];
+      const selectedInvoice =
+        invoices.find((invoice) => invoice.id === (data.factureId || invoiceId)) || null;
       return billingService.createPayment({
         factureId: data.factureId || '',
         montant: data.montant,
         datePaiement: data.datePaiement,
         modePaiement: data.modePaiement as any,
         treasuryAccountId: data.treasuryAccountId || undefined,
-        reference: data.reference,
-        notes: data.notes,
+        reference: data.reference?.trim() || undefined,
+        notes: data.notes?.trim() || undefined,
+        clientName: clientName || selectedInvoice?.client?.nom || undefined,
+        clientPhone: clientPhone || selectedInvoice?.client?.telephone || undefined,
       });
     },
     onSuccess: () => {

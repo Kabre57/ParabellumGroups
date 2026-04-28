@@ -25,17 +25,30 @@ const ensureInternalEventSecret = (req, res, next) => {
   next();
 };
 
-const upsertCommitment = async (tx, data) =>
-  tx.purchaseCommitment.upsert({
-    where: {
-      sourceType_sourceId: {
-        sourceType: data.sourceType,
-        sourceId: data.sourceId,
-      },
+const upsertCommitment = async (tx, data) => {
+  const key = {
+    sourceType_sourceId: {
+      sourceType: data.sourceType,
+      sourceId: data.sourceId,
     },
-    update: data,
-    create: data,
+  };
+  const existing = await tx.purchaseCommitment.findUnique({
+    where: key,
   });
+  const nextStatus = data.status ?? existing?.status ?? null;
+
+  return tx.purchaseCommitment.upsert({
+    where: key,
+    update: {
+      ...data,
+      status: nextStatus,
+    },
+    create: {
+      ...data,
+      status: nextStatus,
+    },
+  });
+};
 
 const processProcurementEvent = async (event) => {
   const eventId = String(event?.eventId || '');
@@ -78,6 +91,34 @@ const processProcurementEvent = async (event) => {
           status: resolveAccountingCommitmentStatus({
             sourceType: 'PURCHASE_QUOTE',
             sourceStatus: payload.status || 'BROUILLON',
+          }),
+          createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
+        });
+        break;
+      }
+      case 'procurement.purchase_proforma.created':
+      case 'procurement.purchase_proforma.submitted':
+      case 'procurement.purchase_proforma.approved':
+      case 'procurement.purchase_proforma.rejected': {
+        const shouldKeepSelectedSupplier = Boolean(payload.selectedForOrder);
+        await upsertCommitment(tx, {
+          sourceType: 'PURCHASE_QUOTE',
+          sourceId: String(payload.purchaseQuoteId),
+          sourceNumber: payload.purchaseQuoteNumber || 'N/A',
+          enterpriseId: payload.enterpriseId != null ? Number(payload.enterpriseId) : null,
+          enterpriseName: payload.enterpriseName || null,
+          serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
+          serviceName: payload.serviceName || null,
+          supplierId: shouldKeepSelectedSupplier ? payload.supplierId || null : undefined,
+          supplierName: shouldKeepSelectedSupplier ? payload.supplierName || null : undefined,
+          sourceStatus: payload.quoteStatus || payload.status || 'BROUILLON',
+          amountHT: normalizeNumber(payload.amountHT, 0),
+          amountTVA: normalizeNumber(payload.amountTVA, 0),
+          amountTTC: normalizeNumber(payload.amountTTC, 0),
+          currency: payload.currency || 'XOF',
+          status: resolveAccountingCommitmentStatus({
+            sourceType: 'PURCHASE_QUOTE',
+            sourceStatus: payload.quoteStatus || payload.status || 'BROUILLON',
           }),
           createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
         });
@@ -258,10 +299,22 @@ exports.validatePurchaseCommitment = async (req, res) => {
     }
 
     const normalizedSourceStatus = String(commitment.sourceStatus || '').toUpperCase();
-    if (!['APPROUVEE', 'CONFIRME'].includes(normalizedSourceStatus)) {
+    if (!['APPROUVEE', 'CONFIRME', 'PROFORMA_APPROUVEE'].includes(normalizedSourceStatus)) {
       return res.status(400).json({
         success: false,
         message: "Cet engagement n'est pas encore prêt pour une validation comptable.",
+      });
+    }
+
+    if (
+      commitment.sourceType === 'PURCHASE_QUOTE' &&
+      !String(commitment.supplierId || '').trim() &&
+      !String(commitment.supplierName || '').trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Veuillez d'abord retenir une proforma fournisseur avant de valider comptablement cette demande d'achat.",
       });
     }
 

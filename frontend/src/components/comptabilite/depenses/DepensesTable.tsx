@@ -421,7 +421,11 @@ export function DepensesTable({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          {canApprove && !commitment.status && ['APPROUVEE', 'CONFIRME'].includes(String(commitment.sourceStatus || '').toUpperCase()) && (
+                          {canApprove &&
+                          !commitment.status &&
+                          ['APPROUVEE', 'CONFIRME', 'PROFORMA_APPROUVEE'].includes(
+                            String(commitment.sourceStatus || '').toUpperCase()
+                          ) && (
                             <Button size="sm" variant="secondary" onClick={() => onValidateCommitment(commitment)}>
                               Valider
                             </Button>

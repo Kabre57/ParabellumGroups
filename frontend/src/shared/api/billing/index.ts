@@ -237,6 +237,7 @@ export interface Encaissement {
   numeroPiece: string;
   clientId?: string | null;
   clientName: string;
+  clientPhone?: string | null;
   description: string;
   enterpriseId?: number | null;
   enterpriseName?: string | null;
@@ -950,6 +951,8 @@ export const billingService = {
     treasuryAccountId?: string | null;
     reference?: string;
     notes?: string;
+    clientName?: string;
+    clientPhone?: string;
   }): Promise<DetailResponse<Payment>> {
     const response = await apiClient.post('/billing/payments', data);
     return response.data;

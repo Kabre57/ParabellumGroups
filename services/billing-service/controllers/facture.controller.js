@@ -123,7 +123,7 @@ const fetchServiceMeta = async (req, serviceId) => {
 
 const fetchClientMeta = async (req, clientId) => {
   if (!clientId) {
-    return { clientName: null, clientEmail: null };
+    return { clientName: null, clientEmail: null, clientPhone: null };
   }
 
   try {
@@ -134,10 +134,11 @@ const fetchClientMeta = async (req, clientId) => {
     return {
       clientName: resp.data?.data?.nom || null,
       clientEmail: resp.data?.data?.email || null,
+      clientPhone: resp.data?.data?.telephone || resp.data?.data?.phone || null,
     };
   } catch (e) {
     console.warn('Meta client facture non recuperee', e?.response?.status || e.message);
-    return { clientName: null, clientEmail: null };
+    return { clientName: null, clientEmail: null, clientPhone: null };
   }
 };
 
@@ -211,6 +212,7 @@ exports.getAllFactures = async (req, res) => {
           client: {
             nom: clientMeta.clientName,
             email: clientMeta.clientEmail,
+            telephone: clientMeta.clientPhone,
           },
         };
       })
@@ -253,6 +255,7 @@ exports.getFactureById = async (req, res) => {
       client: {
         nom: clientMeta.clientName,
         email: clientMeta.clientEmail,
+        telephone: clientMeta.clientPhone,
       },
     });
   } catch (error) {

@@ -2,11 +2,14 @@ const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const MappingService = require('../core/services/AccountingMappingService');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
+const {
+  getTreasuryFamilyFromPaymentMethod,
+  getTreasuryJournalMeta,
+  resolveAccountingAccount,
+} = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
-
-const resolveTreasuryAccountingCode = (paymentMethod) =>
-  String(paymentMethod || '').toUpperCase() === 'ESPECES' ? '531' : '512';
 
 exports.create = async (req, res) => {
   try {
@@ -130,30 +133,33 @@ exports.updateStatus = async (req, res) => {
         },
       });
 
-      return res.json({ success: true, data: updated });
+      const [enriched] = await enrichEncaissementsWithInvoiceContext(prisma, req, [updated]);
+      return res.json({ success: true, data: enriched || updated });
     }
 
     if (encaissement.status === 'VALIDE') {
-      return res.json({ success: true, data: encaissement });
+      const [enriched] = await enrichEncaissementsWithInvoiceContext(prisma, req, [encaissement]);
+      return res.json({ success: true, data: enriched || encaissement });
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const treasuryAccountingAccount = await tx.accountingAccount.findUnique({
-        where: { code: resolveTreasuryAccountingCode(encaissement.paymentMethod) },
-      });
-
-      if (!treasuryAccountingAccount) {
-        throw new Error(
-          `Le compte comptable ${resolveTreasuryAccountingCode(encaissement.paymentMethod)} n est pas configuré dans le plan comptable.`
-        );
-      }
+      const treasuryAccountingAccount = await resolveAccountingAccount(
+        tx,
+        getTreasuryFamilyFromPaymentMethod(encaissement.paymentMethod),
+        {
+          user: req.user,
+        }
+      );
+      const treasuryJournal = getTreasuryJournalMeta(treasuryAccountingAccount);
 
       let creditAccount = null;
       if (encaissement.factureClientId) {
         const customerAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER');
-        creditAccount = customerAccount?.code
-          ? await tx.accountingAccount.findUnique({ where: { code: customerAccount.code } })
-          : null;
+        creditAccount = await resolveAccountingAccount(tx, 'CUSTOMER_RECEIVABLE', {
+          preferredAccountId: customerAccount?.accountId,
+          preferredCode: customerAccount?.code,
+          user: req.user,
+        });
       } else if (encaissement.accountingAccountId) {
         creditAccount = await tx.accountingAccount.findUnique({
           where: { id: String(encaissement.accountingAccountId) },
@@ -169,8 +175,8 @@ exports.updateStatus = async (req, res) => {
         data: {
           entryNumber,
           entryDate: encaissement.dateEncaissement || new Date(),
-          journalCode: treasuryAccountingAccount.code === '531' ? 'CA' : 'BQ',
-          journalLabel: treasuryAccountingAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+          journalCode: treasuryJournal.journalCode,
+          journalLabel: treasuryJournal.journalLabel,
           label: `${encaissement.numeroPiece} - ${encaissement.description}`,
           reference: encaissement.reference || encaissement.numeroPiece,
           sourceType: 'ENCAISSEMENT',
@@ -226,7 +232,8 @@ exports.updateStatus = async (req, res) => {
       });
     });
 
-    res.json({ success: true, data: updated });
+    const [enriched] = await enrichEncaissementsWithInvoiceContext(prisma, req, [updated]);
+    res.json({ success: true, data: enriched || updated });
   } catch (error) {
     console.error("Erreur validation encaissement:", error.message);
     res.status(500).json({ success: false, message: error.message });
@@ -243,7 +250,8 @@ exports.getAll = async (req, res) => {
       include: { treasuryAccount: true },
       orderBy: { dateEncaissement: 'desc' },
     });
-    res.json({ success: true, data: encaissements });
+    const enrichedEncaissements = await enrichEncaissementsWithInvoiceContext(prisma, req, encaissements);
+    res.json({ success: true, data: enrichedEncaissements });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

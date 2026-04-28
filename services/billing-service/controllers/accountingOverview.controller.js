@@ -12,6 +12,11 @@ const {
   treasuryTypeFromPaymentMethod,
   serializeTreasuryAccount,
 } = require('../utils/treasury');
+const {
+  getTreasuryJournalMeta,
+  isCashAccountingCode,
+  isTreasuryAccountingCode,
+} = require('../utils/accountingAccountResolver');
 const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 const MappingService = require('../core/services/AccountingMappingService');
 const { applyEnterpriseScope } = require('../utils/enterpriseScope');
@@ -439,22 +444,23 @@ const dynamicAccounts = evaluatedDynamicAccounts;
         return;
       }
       entry.lines
-        .filter((line) => ['512', '531'].includes(String(line.account?.code || '')))
+        .filter((line) => isTreasuryAccountingCode(line.account?.code))
         .forEach((line) => {
-          const manualAccountType = String(line.account?.code || '') === '531' ? 'CASH' : 'BANK';
+          const treasuryJournal = getTreasuryJournalMeta(line.account?.code);
+          const manualAccountType = isCashAccountingCode(line.account?.code) ? 'CASH' : 'BANK';
           const fallbackAccount = defaultTreasuryByType[manualAccountType];
           pushMovement(movements, {
             id: `manual-${entry.id}-${line.id}`,
             date: entry.entryDate,
             type: line.side === AccountingEntrySide.DEBIT ? 'income' : 'expense',
-            category: line.account.code === '531' ? 'Mouvement de caisse' : 'Mouvement bancaire',
+            category: manualAccountType === 'CASH' ? 'Mouvement de caisse' : 'Mouvement bancaire',
             description: `${entry.journalCode} - ${entry.label}`,
             amount: amount(line.amount),
             enterpriseId: entry.enterpriseId || null,
             enterpriseName: entry.enterpriseName || null,
             reference: entry.reference || entry.entryNumber,
             sourceType: entry.sourceType || 'MANUAL_ENTRY',
-            paymentMethod: line.account.code === '531' ? 'ESPECES' : 'VIREMENT',
+            paymentMethod: treasuryJournal.defaultPaymentMethod,
             treasuryAccountId: fallbackAccount?.id,
             treasuryAccountName: fallbackAccount?.name,
             treasuryAccountType: fallbackAccount?.type,
@@ -555,12 +561,13 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       if (d.status === 'DECAISSE') {
         const treasuryAccount = await MappingService.resolveAccount('PAYMENT', d.paymentMethod);
         const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
+        const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
 
         entries.push({
           id: buildEntryId('decaissement-payment', d.id),
           date: d.dateDecaissement || d.createdAt,
-          journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
-          journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+          journalCode: treasuryJournal.journalCode,
+          journalLabel: treasuryJournal.journalLabel,
           enterpriseId: d.enterpriseId || null,
           enterpriseName: d.enterpriseName || null,
           accountDebit: supplierDebitAccount.code,
@@ -580,19 +587,22 @@ const dynamicAccounts = evaluatedDynamicAccounts;
     for (const e of receivedVouchers) {
       if (manualEntrySourceKeys.has(`ENCAISSEMENT:${e.id}`)) continue;
       const treasuryAccount = await MappingService.resolveAccount('PAYMENT', e.paymentMethod);
-      const incomeAccount = await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory); // Réutilise la catégorie pour le revenu
+      const creditAccount = e.factureClientId
+        ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
+        : await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory);
+      const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
 
       entries.push({
         id: buildEntryId('encaissement', e.id),
         date: e.dateEncaissement || e.createdAt,
-        journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
-        journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+        journalCode: treasuryJournal.journalCode,
+        journalLabel: treasuryJournal.journalLabel,
         enterpriseId: e.enterpriseId || null,
         enterpriseName: e.enterpriseName || null,
         accountDebit: treasuryAccount.code,
         accountDebitLabel: treasuryAccount.label,
-        accountCredit: incomeAccount.code,
-        accountCreditLabel: incomeAccount.label,
+        accountCredit: creditAccount.code,
+        accountCreditLabel: creditAccount.label,
         label: `${e.numeroPiece} - ${e.description}`,
         debit: safeAmount(e.amountTTC),
         credit: safeAmount(e.amountTTC),

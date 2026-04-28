@@ -24,6 +24,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -227,6 +228,9 @@ export default function PaiementsPage() {
           <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle>Enregistrer un paiement</DialogTitle>
+              <DialogDescription>
+                Saisissez un règlement client. Il sera ensuite contrôlé par la comptabilité avant écriture.
+              </DialogDescription>
             </DialogHeader>
             <PaymentForm onSuccess={() => setIsCreateDialogOpen(false)} onCancel={() => setIsCreateDialogOpen(false)} />
           </DialogContent>

@@ -22,6 +22,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -170,6 +171,11 @@ export default function InvoiceDetailPage() {
     clientMap.get(invoice.clientId)?.nom ||
     invoice.client?.nom ||
     invoice.clientId;
+  const clientPhone =
+    clientDetailResponse?.data?.telephone ||
+    clientMap.get(invoice.clientId)?.telephone ||
+    invoice.client?.telephone ||
+    '';
 
   const handlePrintInvoice = () => {
     setIsPrintOpen(true);
@@ -365,10 +371,15 @@ export default function InvoiceDetailPage() {
           <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle>Enregistrer un paiement</DialogTitle>
+              <DialogDescription>
+                Renseignez le règlement client. Le paiement restera visible en comptabilité jusqu&apos;à validation.
+              </DialogDescription>
             </DialogHeader>
             <PaymentForm
               invoiceId={invoice.id}
               invoiceNumber={invoice.numeroFacture}
+              clientName={clientName}
+              clientPhone={clientPhone}
               remainingAmount={remainingAmount}
               onSuccess={() => setIsPaymentDialogOpen(false)}
               onCancel={() => setIsPaymentDialogOpen(false)}
@@ -382,6 +393,9 @@ export default function InvoiceDetailPage() {
           <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle>Creer un avoir / note de credit</DialogTitle>
+              <DialogDescription>
+                Préparez un document correctif lié à cette facture client.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">

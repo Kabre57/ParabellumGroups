@@ -9,6 +9,7 @@ const {
   ensureDefaultTreasuryAccounts,
   serializeTreasuryAccount,
 } = require('../utils/treasury');
+const { getTreasuryJournalMeta } = require('../utils/accountingAccountResolver');
 const MappingService = require('../core/services/AccountingMappingService');
 const {
   getAccessibleEnterpriseIds,
@@ -375,12 +376,13 @@ const buildGeneratedEntries = async ({
     if (decaissement.status === 'DECAISSE') {
       const treasuryAccount = await MappingService.resolveAccount('PAYMENT', decaissement.paymentMethod);
       const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
+      const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
 
       entries.push({
         id: buildEntryId('decaissement-payment', decaissement.id),
         date: decaissement.dateDecaissement || decaissement.createdAt,
-        journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
-        journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+        journalCode: treasuryJournal.journalCode,
+        journalLabel: treasuryJournal.journalLabel,
         enterpriseId: decaissement.enterpriseId || null,
         enterpriseName: decaissement.enterpriseName || null,
         accountDebit: supplierDebitAccount.code,
@@ -401,19 +403,22 @@ const buildGeneratedEntries = async ({
     if (manualEntrySourceKeys.has(`ENCAISSEMENT:${encaissement.id}`)) continue;
 
     const treasuryAccount = await MappingService.resolveAccount('PAYMENT', encaissement.paymentMethod);
-    const incomeAccount = await MappingService.resolveAccount('ENCAISSEMENT', encaissement.expenseCategory);
+    const creditAccount = encaissement.factureClientId
+      ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
+      : await MappingService.resolveAccount('ENCAISSEMENT', encaissement.expenseCategory);
+    const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
 
     entries.push({
       id: buildEntryId('encaissement', encaissement.id),
       date: encaissement.dateEncaissement || encaissement.createdAt,
-      journalCode: treasuryAccount.code === '531' ? 'CA' : 'BQ',
-      journalLabel: treasuryAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
+      journalCode: treasuryJournal.journalCode,
+      journalLabel: treasuryJournal.journalLabel,
       enterpriseId: encaissement.enterpriseId || null,
       enterpriseName: encaissement.enterpriseName || null,
       accountDebit: treasuryAccount.code,
       accountDebitLabel: treasuryAccount.label,
-      accountCredit: incomeAccount.code,
-      accountCreditLabel: incomeAccount.label,
+      accountCredit: creditAccount.code,
+      accountCreditLabel: creditAccount.label,
       label: `${encaissement.numeroPiece} - ${encaissement.description}`,
       debit: amount(encaissement.amountTTC),
       credit: amount(encaissement.amountTTC),

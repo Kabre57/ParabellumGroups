@@ -1,6 +1,7 @@
 const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
 
 const prisma = new PrismaClient();
 
@@ -400,7 +401,7 @@ exports.getSpendingOverview = async (req, res) => {
       }
     }
 
-    const [commitments, vouchers, encaissements, decaissements] = await Promise.all([
+    const [commitments, vouchers, rawEncaissements, decaissements] = await Promise.all([
       prisma.purchaseCommitment.findMany({
         where: await applyEnterpriseScope({
           req,
@@ -437,6 +438,7 @@ exports.getSpendingOverview = async (req, res) => {
         orderBy: { dateDecaissement: 'desc' },
       }),
     ]);
+    const encaissements = await enrichEncaissementsWithInvoiceContext(prisma, req, rawEncaissements);
 
     const totalCommitted = commitments.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalVouchered = vouchers.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);

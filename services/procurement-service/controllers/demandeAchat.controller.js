@@ -438,84 +438,127 @@ const buildCommitteeEvaluation = ({
   };
 };
 
-const purchaseQuoteCreatedPayload = (quote) => ({
+const buildQuoteSnapshotPayload = (quote) => ({
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
+  enterpriseId: quote.enterpriseId ?? null,
+  enterpriseName: quote.enterpriseName || null,
   serviceId: quote.serviceId,
   serviceName: quote.serviceName,
   requesterUserId: quote.demandeurUserId,
-  supplierId: quote.fournisseurId,
-  supplierName: quote.fournisseurNom,
+  supplierId: quote.selectedProformaId ? quote.proformas?.find((proforma) => proforma.id === quote.selectedProformaId)?.fournisseurId || quote.fournisseurId : quote.fournisseurId,
+  supplierName: quote.selectedProformaId
+    ? quote.proformas?.find((proforma) => proforma.id === quote.selectedProformaId)?.fournisseurNom || quote.fournisseurNom
+    : quote.fournisseurNom,
   amountHT: quote.montantHT,
   amountTVA: quote.montantTVA,
   amountTTC: quote.montantTTC,
   currency: quote.devise || 'XOF',
   status: quote.status,
+  selectedProformaId: quote.selectedProformaId || null,
+  selectedProformaNumber: quote.selectedProformaNumber || null,
+});
+
+const purchaseQuoteCreatedPayload = (quote) => ({
+  ...buildQuoteSnapshotPayload(quote),
   createdAt: quote.createdAt,
 });
 
 const purchaseQuoteSubmittedPayload = (quote) => ({
-  purchaseQuoteId: quote.id,
-  purchaseQuoteNumber: quote.numeroDevisAchat,
-  status: quote.status,
+  ...buildQuoteSnapshotPayload(quote),
   submittedAt: quote.submittedAt,
 });
 
 const purchaseQuoteRejectedPayload = (quote) => ({
-  purchaseQuoteId: quote.id,
-  purchaseQuoteNumber: quote.numeroDevisAchat,
-  status: quote.status,
+  ...buildQuoteSnapshotPayload(quote),
   reason: quote.rejectionReason || null,
 });
 
 const purchaseQuoteApprovedPayload = (quote) => ({
-  purchaseQuoteId: quote.id,
-  purchaseQuoteNumber: quote.numeroDevisAchat,
-  serviceId: quote.serviceId,
-  serviceName: quote.serviceName,
+  ...buildQuoteSnapshotPayload(quote),
   approvedByUserId: quote.approvedByUserId,
   approvedByServiceId: quote.approvedByServiceId,
   approvedByServiceName: quote.approvedByServiceName,
-  amountTTC: quote.montantTTC,
-  status: quote.status,
 });
 
 const proformaCreatedPayload = (quote, proforma) => ({
+  enterpriseId: quote.enterpriseId ?? null,
+  enterpriseName: quote.enterpriseName || null,
+  serviceId: quote.serviceId ?? null,
+  serviceName: quote.serviceName || null,
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
   proformaId: proforma.id,
   proformaNumber: proforma.numeroProforma,
   supplierId: proforma.fournisseurId,
   supplierName: proforma.fournisseurNom,
+  amountHT: proforma.montantHT,
+  amountTVA: proforma.montantTVA,
   amountTTC: proforma.montantTTC,
+  currency: proforma.devise || quote.devise || 'XOF',
+  quoteStatus: quote.status,
+  selectedForOrder: Boolean(proforma.selectedForOrder),
   status: proforma.status,
 });
 
 const proformaSubmittedPayload = (quote, proforma) => ({
+  enterpriseId: quote.enterpriseId ?? null,
+  enterpriseName: quote.enterpriseName || null,
+  serviceId: quote.serviceId ?? null,
+  serviceName: quote.serviceName || null,
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
   proformaId: proforma.id,
   proformaNumber: proforma.numeroProforma,
+  supplierId: proforma.fournisseurId,
+  supplierName: proforma.fournisseurNom,
+  amountHT: proforma.montantHT,
+  amountTVA: proforma.montantTVA,
+  amountTTC: proforma.montantTTC,
+  currency: proforma.devise || quote.devise || 'XOF',
+  quoteStatus: quote.status,
+  selectedForOrder: Boolean(proforma.selectedForOrder),
   status: proforma.status,
   submittedAt: proforma.submittedAt,
 });
 
 const proformaApprovedPayload = (quote, proforma) => ({
+  enterpriseId: quote.enterpriseId ?? null,
+  enterpriseName: quote.enterpriseName || null,
+  serviceId: quote.serviceId ?? null,
+  serviceName: quote.serviceName || null,
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
   proformaId: proforma.id,
   proformaNumber: proforma.numeroProforma,
   supplierId: proforma.fournisseurId,
   supplierName: proforma.fournisseurNom,
+  amountHT: proforma.montantHT,
+  amountTVA: proforma.montantTVA,
   amountTTC: proforma.montantTTC,
+  currency: proforma.devise || quote.devise || 'XOF',
+  quoteStatus: quote.status,
+  selectedForOrder: Boolean(proforma.selectedForOrder),
   status: proforma.status,
 });
 
 const proformaRejectedPayload = (quote, proforma) => ({
+  enterpriseId: quote.enterpriseId ?? null,
+  enterpriseName: quote.enterpriseName || null,
+  serviceId: quote.serviceId ?? null,
+  serviceName: quote.serviceName || null,
   purchaseQuoteId: quote.id,
   purchaseQuoteNumber: quote.numeroDevisAchat,
   proformaId: proforma.id,
   proformaNumber: proforma.numeroProforma,
+  supplierId: proforma.fournisseurId,
+  supplierName: proforma.fournisseurNom,
+  amountHT: proforma.montantHT,
+  amountTVA: proforma.montantTVA,
+  amountTTC: proforma.montantTTC,
+  currency: proforma.devise || quote.devise || 'XOF',
+  quoteStatus: quote.status,
+  selectedForOrder: Boolean(proforma.selectedForOrder),
   status: proforma.status,
   reason: proforma.rejectionReason || null,
 });
