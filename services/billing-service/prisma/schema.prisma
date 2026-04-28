@@ -141,6 +141,8 @@ model Devis {
   enterpriseName String?
   objet         String?
   notes         String?
+  modeLivraison String?
+  modalitePaiement String?
   serviceId     Int?
   serviceName   String?
   serviceLogoUrl String?
@@ -295,11 +297,15 @@ model Encaissement {
   currency          String   @default("XOF")
   paymentMethod     MethodePaiement
   treasuryAccountId String?
+  accountingAccountId String?
   dateEncaissement  DateTime @default(now())
   reference         String?
   notes             String?
+  status            String   @default("EN_ATTENTE") // EN_ATTENTE, VALIDE, ANNULE
   createdByUserId   String?
   createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -325,6 +331,7 @@ model Decaissement {
   currency          String   @default("XOF")
   paymentMethod     MethodePaiement
   treasuryAccountId String?
+  accountingAccountId String?
   serviceId         Int?
   serviceName       String?
   dateDecaissement  DateTime @default(now())

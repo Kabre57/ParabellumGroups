@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { type PurchaseCommitment, type FactureFournisseur } from '@/shared/api/billing';
+import billingService, { type PurchaseCommitment, type FactureFournisseur } from '@/shared/api/billing';
 
 interface CreateFactureFournisseurDialogProps {
   open: boolean;
@@ -25,6 +26,11 @@ type FormState = {
   amountTVA: string;
   amountTTC: string;
   notes: string;
+  markAsPaid: boolean;
+  paymentMethod: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+  treasuryAccountId: string;
+  datePaiement: string;
+  paymentReference: string;
 };
 
 export function CreateFactureFournisseurDialog({
@@ -43,6 +49,17 @@ export function CreateFactureFournisseurDialog({
     amountTVA: String(commitment?.amountTVA ?? 0),
     amountTTC: String(commitment?.amountTTC ?? 0),
     notes: '',
+    markAsPaid: false,
+    paymentMethod: 'CHEQUE',
+    treasuryAccountId: '',
+    datePaiement: new Date().toISOString().slice(0, 10),
+    paymentReference: '',
+  });
+
+  const { data: treasuryAccountsResponse } = useQuery({
+    queryKey: ['treasury-accounts'],
+    queryFn: () => billingService.getTreasuryAccounts(),
+    enabled: open,
   });
 
   useEffect(() => {
@@ -56,6 +73,11 @@ export function CreateFactureFournisseurDialog({
         amountTVA: String(commitment.amountTVA ?? 0),
         amountTTC: String(commitment.amountTTC ?? 0),
         notes: '',
+        markAsPaid: false,
+        paymentMethod: 'CHEQUE',
+        treasuryAccountId: '',
+        datePaiement: new Date().toISOString().slice(0, 10),
+        paymentReference: '',
       });
     }
   }, [open, commitment]);
@@ -81,8 +103,18 @@ export function CreateFactureFournisseurDialog({
       montantTTC: Number(form.amountTTC),
       commitmentId: commitment.id,
       notes: form.notes || undefined,
+      markAsPaid: form.markAsPaid,
+      paymentMethod: form.markAsPaid ? form.paymentMethod : undefined,
+      treasuryAccountId: form.markAsPaid ? form.treasuryAccountId || undefined : undefined,
+      datePaiement: form.markAsPaid ? new Date(form.datePaiement).toISOString() : undefined,
+      paymentReference: form.markAsPaid ? form.paymentReference || undefined : undefined,
     });
   };
+
+  const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
+  const filteredAccounts = treasuryAccounts.filter((acc) =>
+    form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,6 +215,69 @@ export function CreateFactureFournisseurDialog({
               placeholder="Expliquez l'éventuel écart ou ajoutez des détails sur la prestation..."
             />
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <input
+              type="checkbox"
+              checked={form.markAsPaid}
+              onChange={(e) => updateField('markAsPaid', e.target.checked)}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-medium text-emerald-900">Facture déjà payée</div>
+              <div className="text-sm text-emerald-700">
+                Si cette facture fournisseur est déjà réglée, un décaissement sera créé automatiquement en même temps.
+              </div>
+            </div>
+          </label>
+
+          {form.markAsPaid && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="mb-3 text-sm font-medium uppercase tracking-wider text-emerald-800">Règlement immédiat</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Mode de paiement</Label>
+                  <select
+                    className="w-full rounded-md border bg-white px-3 py-2"
+                    value={form.paymentMethod}
+                    onChange={(e) => updateField('paymentMethod', e.target.value as FormState['paymentMethod'])}
+                  >
+                    <option value="CHEQUE">Chèque</option>
+                    <option value="VIREMENT">Virement</option>
+                    <option value="ESPECES">Espèces</option>
+                    <option value="CARTE">Carte</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date de paiement</Label>
+                  <Input type="date" value={form.datePaiement} onChange={(e) => updateField('datePaiement', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Compte de trésorerie</Label>
+                  <select
+                    className="w-full rounded-md border bg-white px-3 py-2"
+                    value={form.treasuryAccountId}
+                    onChange={(e) => updateField('treasuryAccountId', e.target.value)}
+                  >
+                    <option value="">Sélectionner un compte</option>
+                    {filteredAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Référence de paiement</Label>
+                  <Input
+                    value={form.paymentReference}
+                    onChange={(e) => updateField('paymentReference', e.target.value)}
+                    placeholder="N° chèque, virement, pièce..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="border-t pt-4">
@@ -190,7 +285,7 @@ export function CreateFactureFournisseurDialog({
           <Button 
             className="bg-blue-700 hover:bg-blue-800 text-white"
             onClick={handleSubmit} 
-            disabled={isSubmitting || !form.numeroFacture || Number(form.amountTTC) <= 0}
+            disabled={isSubmitting || !form.numeroFacture || Number(form.amountTTC) <= 0 || (form.markAsPaid && !form.treasuryAccountId)}
           >
             {isSubmitting ? 'Enregistrement...' : 'Enregistrer la Facture (Liquider)'}
           </Button>

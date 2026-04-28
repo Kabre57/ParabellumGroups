@@ -13,6 +13,8 @@ export default function QuotePrint({ quote, onClose }: any) {
       issueDate={quote.dateEmission || quote.date}
       issuedBy={quote.commercialName || (quote.createdBy ? `${quote.createdBy.firstName} ${quote.createdBy.lastName}` : null)}
       deliveryLeadTime={quote.dateValidite || quote.validUntil ? `Valable jusqu'au ${new Date(quote.dateValidite || quote.validUntil).toLocaleDateString('fr-FR')}` : '30 jours'}
+      deliveryMode={quote.modeLivraison || null}
+      paymentTerms={quote.modalitePaiement || null}
       recipient={{
         name: quote.client?.nom || quote.client?.raisonSociale || quote.customer?.name || quote.clientName,
         email: quote.client?.email || quote.customer?.email,

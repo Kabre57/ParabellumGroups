@@ -1,5 +1,5 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
-const { recordPayment } = require('../utils/accountingWorkflow');
+const { PrismaClient, AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
+const { recordEngagement, recordLiquidation, recordPayment } = require('../utils/accountingWorkflow');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
@@ -59,6 +59,7 @@ exports.create = async (req, res) => {
           amountTTC: amount(amountTTC),
           paymentMethod,
           treasuryAccountId,
+          accountingAccountId: accountingAccountId || null,
           serviceId: serviceId ? Number(serviceId) : null,
           serviceName,
           dateDecaissement: dateDecaissement ? new Date(dateDecaissement) : new Date(),
@@ -73,32 +74,149 @@ exports.create = async (req, res) => {
       });
 
       if (commitmentId) {
-        const commitment = await tx.purchaseCommitment.findUnique({
+        await tx.purchaseCommitment.update({
           where: { id: commitmentId },
+          data: { status: PurchaseCommitmentStatus.ORDONNANCE },
         });
-
-        if (commitment) {
-          await recordPayment(tx, { commitment, decaissement, user: req.user });
-        }
 
         return decaissement;
       }
 
-      const expenseAccount = await tx.accountingAccount.findUnique({
-        where: { id: String(accountingAccountId) },
+      return decaissement;
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    console.error('Erreur creation decaissement:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const nextStatus = String(req.body?.status || '').toUpperCase();
+
+    if (!['DECAISSE', 'ANNULE'].includes(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Statut de décaissement invalide.',
       });
+    }
+
+    const decaissement = await prisma.decaissement.findUnique({
+      where: { id },
+    });
+
+    if (!decaissement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Décaissement introuvable.',
+      });
+    }
+
+    await assertEnterpriseInScope(
+      req,
+      decaissement.enterpriseId,
+      "Vous n'avez pas acces a ce decaissement."
+    );
+
+    if (nextStatus === 'ANNULE') {
+      const updated = await prisma.decaissement.update({
+        where: { id },
+        data: {
+          status: 'ANNULE',
+          approvedByUserId: req.user?.userId ? String(req.user.userId) : null,
+          approvedByEmail: req.user?.email || null,
+        },
+      });
+      return res.json({ success: true, data: updated });
+    }
+
+    if (decaissement.status === 'DECAISSE') {
+      return res.json({ success: true, data: decaissement });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (decaissement.commitmentId) {
+        const commitment = await tx.purchaseCommitment.findUnique({
+          where: { id: decaissement.commitmentId },
+          include: { factureFournisseur: true },
+        });
+
+        if (!commitment) {
+          throw new Error("L'engagement lié à ce décaissement est introuvable.");
+        }
+
+        const existingEngagementEntry = await tx.accountingJournalEntry.findFirst({
+          where: {
+            sourceType: 'PURCHASE_ORDER',
+            sourceId: commitment.sourceId,
+          },
+        });
+
+        if (!existingEngagementEntry) {
+          await recordEngagement(tx, { commitment, user: req.user });
+        }
+
+        if (
+          commitment.factureFournisseur &&
+          [PurchaseCommitmentStatus.LIQUIDE, PurchaseCommitmentStatus.ORDONNANCE].includes(commitment.status)
+        ) {
+          const existingLiquidationEntry = await tx.accountingJournalEntry.findFirst({
+            where: {
+              sourceType: 'SUPPLIER_INVOICE_REGUL',
+              sourceId: commitment.factureFournisseur.id,
+            },
+          });
+
+          if (!existingLiquidationEntry) {
+            await recordLiquidation(tx, {
+              commitment,
+              invoice: commitment.factureFournisseur,
+              user: req.user,
+            });
+          }
+        }
+
+        const updatedDecaissement = await tx.decaissement.update({
+          where: { id },
+          data: {
+            status: 'DECAISSE',
+            approvedByUserId: req.user?.userId ? String(req.user.userId) : null,
+            approvedByEmail: req.user?.email || null,
+          },
+        });
+
+        await recordPayment(tx, { commitment, decaissement: updatedDecaissement, user: req.user });
+
+        if (updatedDecaissement.factureFournisseurId) {
+          await tx.factureFournisseur.update({
+            where: { id: updatedDecaissement.factureFournisseurId },
+            data: { status: 'PAYEE' },
+          });
+        }
+
+        return updatedDecaissement;
+      }
+
+      const expenseAccount = decaissement.accountingAccountId
+        ? await tx.accountingAccount.findUnique({
+            where: { id: String(decaissement.accountingAccountId) },
+          })
+        : null;
 
       if (!expenseAccount) {
         throw new Error('Le compte de charge sélectionné est introuvable.');
       }
 
       const treasuryAccountingAccount = await tx.accountingAccount.findUnique({
-        where: { code: resolveTreasuryAccountingCode(paymentMethod) },
+        where: { code: resolveTreasuryAccountingCode(decaissement.paymentMethod) },
       });
 
       if (!treasuryAccountingAccount) {
         throw new Error(
-          `Le compte comptable ${resolveTreasuryAccountingCode(paymentMethod)} n est pas configuré dans le plan comptable.`
+          `Le compte comptable ${resolveTreasuryAccountingCode(decaissement.paymentMethod)} n est pas configuré dans le plan comptable.`
         );
       }
 
@@ -113,8 +231,8 @@ exports.create = async (req, res) => {
           reference: decaissement.reference || decaissement.numeroPiece,
           sourceType: 'DECAISSEMENT',
           sourceId: decaissement.id,
-          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
-          enterpriseName: resolvedEnterpriseName,
+          enterpriseId: decaissement.enterpriseId ?? null,
+          enterpriseName: decaissement.enterpriseName || null,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
           lines: {
@@ -158,12 +276,19 @@ exports.create = async (req, res) => {
         },
       });
 
-      return decaissement;
+      return tx.decaissement.update({
+        where: { id },
+        data: {
+          status: 'DECAISSE',
+          approvedByUserId: req.user?.userId ? String(req.user.userId) : null,
+          approvedByEmail: req.user?.email || null,
+        },
+      });
     });
 
-    res.status(201).json({ success: true, data: result });
+    res.json({ success: true, data: updated });
   } catch (error) {
-    console.error('Erreur creation decaissement:', error.message);
+    console.error('Erreur validation decaissement:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };

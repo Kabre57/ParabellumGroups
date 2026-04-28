@@ -144,6 +144,7 @@ export interface User {
   position?: string | null;
   phoneNumber?: string;
   avatar?: string;
+  preferences?: string | Record<string, any> | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -353,6 +354,9 @@ export interface UpdateProfileRequest {
   lastName?: string;
   phoneNumber?: string;
   avatar?: string;
+  position?: string;
+  department?: string;
+  preferences?: Record<string, any> | null;
 }
 
 /**

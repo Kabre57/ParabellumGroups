@@ -1,7 +1,5 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
-const { nextEntryNumber, computeSignedDelta } = require('../utils/accounting');
-const MappingService = require('../core/services/AccountingMappingService');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
@@ -16,6 +14,7 @@ const paymentMethodMap = {
 };
 
 const normalizeMethod = (value) => paymentMethodMap[String(value || '').toUpperCase()] || null;
+const buildPaymentEncaissementMarker = (paymentId) => `[PAYMENT:${paymentId}]`;
 
 const serializePaiement = (paiement) => ({
   id: paiement.id,
@@ -97,6 +96,30 @@ exports.createPaiement = async (req, res) => {
         },
       });
 
+      await tx.encaissement.create({
+        data: {
+          numeroPiece: `ENC-${Date.now()}`,
+          clientId: facture.clientId || null,
+          clientName: facture.clientName || facture.numeroFacture || 'Client',
+          description: `Encaissement facture ${facture.numeroFacture || facture.id}`,
+          enterpriseId,
+          enterpriseName,
+          amountHT: montantNumerique,
+          amountTVA: 0,
+          amountTTC: montantNumerique,
+          paymentMethod: normalizedMethod,
+          treasuryAccountId: resolvedTreasuryAccountId,
+          dateEncaissement: datePaiement ? new Date(datePaiement) : new Date(),
+          reference: reference || paiement.id,
+          notes:
+            [notes, buildPaymentEncaissementMarker(paiement.id)].filter(Boolean).join(' | ') ||
+            buildPaymentEncaissementMarker(paiement.id),
+          factureClientId: factureId,
+          createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+          createdByEmail: req.user?.email || null,
+        },
+      });
+
       const totalPaiements = totalPaye + montantNumerique;
       const newStatus =
         totalPaiements >= facture.montantTTC
@@ -109,74 +132,6 @@ exports.createPaiement = async (req, res) => {
         await tx.facture.update({
           where: { id: factureId },
           data: { status: newStatus },
-        });
-      }
-
-      const resolveTreasuryAccountingCode = (method) =>
-        String(method || '').toUpperCase() === 'ESPECES' ? '531' : '512';
-      const treasuryAccountingAccount = await tx.accountingAccount.findUnique({
-        where: { code: resolveTreasuryAccountingCode(normalizedMethod) },
-      });
-      const revenueAccountMapped = await MappingService.resolveAccount('INVOICE', 'REVENUE');
-      const revenueAccount = revenueAccountMapped?.code
-        ? await tx.accountingAccount.findFirst({
-            where: { code: revenueAccountMapped.code },
-          })
-        : null;
-
-      if (treasuryAccountingAccount && revenueAccount) {
-        const entryNumber = await nextEntryNumber(tx);
-        await tx.accountingJournalEntry.create({
-          data: {
-            entryNumber,
-            entryDate: paiement.datePaiement,
-            journalCode: treasuryAccountingAccount.code === '531' ? 'CA' : 'BQ',
-            journalLabel: treasuryAccountingAccount.code === '531' ? 'Journal de caisse' : 'Journal de banque',
-            label: `Paiement - Facture ${facture.numeroFacture || facture.id}`,
-            reference: paiement.reference || `FAC-${facture.numeroFacture || facture.id}`,
-            sourceType: 'PAYMENT',
-            sourceId: paiement.id,
-            enterpriseId,
-            enterpriseName,
-            createdByUserId: req.user?.userId ? String(req.user.userId) : null,
-            createdByEmail: req.user?.email || null,
-            lines: {
-              create: [
-                {
-                  accountId: treasuryAccountingAccount.id,
-                  side: AccountingEntrySide.DEBIT,
-                  amount: montantNumerique,
-                  description: `Paiement Facture ${facture.numeroFacture || facture.id}`,
-                },
-                {
-                  accountId: revenueAccount.id,
-                  side: AccountingEntrySide.CREDIT,
-                  amount: montantNumerique,
-                  description: `Encaissement Facture ${facture.numeroFacture || facture.id}`,
-                },
-              ],
-            },
-          },
-        });
-        await tx.accountingAccount.update({
-          where: { id: treasuryAccountingAccount.id },
-          data: {
-            currentBalance: {
-              increment: computeSignedDelta(
-                treasuryAccountingAccount.type,
-                AccountingEntrySide.DEBIT,
-                montantNumerique
-              ),
-            },
-          },
-        });
-        await tx.accountingAccount.update({
-          where: { id: revenueAccount.id },
-          data: {
-            currentBalance: {
-              increment: computeSignedDelta(revenueAccount.type, AccountingEntrySide.CREDIT, montantNumerique),
-            },
-          },
         });
       }
 
@@ -262,27 +217,14 @@ exports.deletePaiement = async (req, res) => {
     await assertEnterpriseInScope(req, paiement.enterpriseId, "Vous n'avez pas acces a ce paiement.");
 
     await prisma.$transaction(async (tx) => {
-      const entryToDelete = await tx.accountingJournalEntry.findFirst({
-        where: { sourceType: 'PAYMENT', sourceId: id },
-        include: { lines: { include: { account: true } } },
+      await tx.encaissement.deleteMany({
+        where: {
+          factureClientId: paiement.factureId,
+          notes: {
+            contains: buildPaymentEncaissementMarker(id),
+          },
+        },
       });
-
-      if (entryToDelete) {
-        for (const line of entryToDelete.lines) {
-          const inverseSide =
-            line.side === AccountingEntrySide.DEBIT ? AccountingEntrySide.CREDIT : AccountingEntrySide.DEBIT;
-          await tx.accountingAccount.update({
-            where: { id: line.accountId },
-            data: {
-              currentBalance: {
-                increment: computeSignedDelta(line.account.type, inverseSide, line.amount),
-              },
-            },
-          });
-        }
-        await tx.accountingJournalEntryLine.deleteMany({ where: { journalEntryId: entryToDelete.id } });
-        await tx.accountingJournalEntry.delete({ where: { id: entryToDelete.id } });
-      }
 
       await tx.paiement.delete({ where: { id } });
 

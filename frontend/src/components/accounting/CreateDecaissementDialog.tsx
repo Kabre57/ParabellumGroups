@@ -331,7 +331,7 @@ export function CreateDecaissementDialog({
               (!form.commitmentId && !accountingAccountId)
             }
           >
-            {isSubmitting ? 'Enregistrement...' : 'Confirmer le decaissement'}
+            {isSubmitting ? 'Enregistrement...' : 'Enregistrer le décaissement'}
           </Button>
         </DialogFooter>
       </DialogContent>

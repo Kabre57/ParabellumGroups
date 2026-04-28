@@ -1,5 +1,4 @@
 const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
-const { recordEngagement } = require('../utils/accountingWorkflow');
 const { applyEnterpriseScope } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
@@ -11,16 +10,7 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const resolveAccountingCommitmentStatus = ({ sourceType, sourceStatus }) => {
-  const normalizedSourceType = String(sourceType || '').toUpperCase();
-  const normalizedSourceStatus = String(sourceStatus || '').toUpperCase();
-
-  if (normalizedSourceType === 'PURCHASE_ORDER' && normalizedSourceStatus === 'CONFIRME') {
-    return PurchaseCommitmentStatus.ENGAGE;
-  }
-
-  return null;
-};
+const resolveAccountingCommitmentStatus = () => null;
 
 const ensureInternalEventSecret = (req, res, next) => {
   const secret = req.headers['x-event-secret'];
@@ -153,10 +143,6 @@ const processProcurementEvent = async (event) => {
             },
           });
 
-          // Si passage à CONFIRME (ENGAGE), on enregistre l'écriture comptable
-          if (updated.status === PurchaseCommitmentStatus.ENGAGE && commitment.status !== PurchaseCommitmentStatus.ENGAGE) {
-            await recordEngagement(tx, { commitment: updated, user: null });
-          }
         }
         break;
       }
@@ -252,6 +238,56 @@ exports.getPurchaseCommitmentsStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des statistiques achats',
+    });
+  }
+};
+
+exports.validatePurchaseCommitment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const commitment = await prisma.purchaseCommitment.findUnique({
+      where: { id },
+    });
+
+    if (!commitment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Engagement achat introuvable',
+      });
+    }
+
+    const normalizedSourceStatus = String(commitment.sourceStatus || '').toUpperCase();
+    if (!['APPROUVEE', 'CONFIRME'].includes(normalizedSourceStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Cet engagement n'est pas encore prêt pour une validation comptable.",
+      });
+    }
+
+    if (commitment.status) {
+      return res.json({
+        success: true,
+        data: commitment,
+        message: 'Engagement déjà validé ou traité.',
+      });
+    }
+
+    const updatedCommitment = await prisma.purchaseCommitment.update({
+      where: { id },
+      data: { status: PurchaseCommitmentStatus.ENGAGE },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedCommitment,
+      message: 'Engagement validé par la comptabilité. Il peut maintenant être liquidé puis décaissé.',
+    });
+  } catch (error) {
+    console.error('Erreur validation engagement achat:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la validation de l'engagement achat",
     });
   }
 };

@@ -1,6 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { recordLiquidation } = require('../utils/accountingWorkflow');
+const { amount } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 
 exports.getAll = async (req, res) => {
@@ -34,6 +34,11 @@ exports.create = async (req, res) => {
       montantTTC,
       commitmentId,
       notes,
+      markAsPaid,
+      paymentMethod,
+      treasuryAccountId,
+      datePaiement,
+      paymentReference,
     } = req.body;
 
     const commitment = commitmentId
@@ -69,10 +74,45 @@ exports.create = async (req, res) => {
         },
       });
 
-      if (commitmentId) {
-        if (commitment) {
-          await recordLiquidation(tx, { commitment, invoice: facture, user: req.user });
-        }
+      if (commitmentId && commitment) {
+        await tx.purchaseCommitment.update({
+          where: { id: commitment.id },
+          data: {
+            factureFournisseurId: facture.id,
+            status: PurchaseCommitmentStatus.LIQUIDE,
+          },
+        });
+      }
+
+      if (markAsPaid && commitment) {
+        await tx.decaissement.create({
+          data: {
+            numeroPiece: `DEC-${Date.now()}`,
+            beneficiaryName: fournisseurNom || commitment.supplierName || 'Fournisseur',
+            description: `Paiement facture fournisseur ${numeroFacture}`,
+            enterpriseId: resolvedEnterpriseId,
+            enterpriseName: resolvedEnterpriseName,
+            amountHT: amount(montantHT),
+            amountTVA: amount(montantTVA),
+            amountTTC: amount(montantTTC),
+            paymentMethod,
+            treasuryAccountId: treasuryAccountId || null,
+            dateDecaissement: datePaiement ? new Date(datePaiement) : new Date(),
+            reference: paymentReference || numeroFacture,
+            notes: notes || null,
+            status: 'VALIDE',
+            commitmentId,
+            factureFournisseurId: facture.id,
+            accountingAccountId: null,
+            createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+            createdByEmail: req.user?.email || null,
+          },
+        });
+
+        await tx.purchaseCommitment.update({
+          where: { id: commitment.id },
+          data: { status: PurchaseCommitmentStatus.ORDONNANCE },
+        });
       }
 
       return facture;

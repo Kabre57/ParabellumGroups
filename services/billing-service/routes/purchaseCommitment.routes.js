@@ -8,5 +8,6 @@ router.use(authenticateToken);
 
 router.get('/', purchaseCommitmentController.getAllPurchaseCommitments);
 router.get('/stats', purchaseCommitmentController.getPurchaseCommitmentsStats);
+router.patch('/:id/validate', purchaseCommitmentController.validatePurchaseCommitment);
 
 module.exports = router;

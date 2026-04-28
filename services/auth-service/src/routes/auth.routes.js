@@ -7,6 +7,7 @@ const {
   logout,
   forgotPassword,
   getCurrentUser,
+  updateProfile,
   revokeAllTokens
 } = require('../controllers/auth.controller');
 const authenticate = require('../middleware/auth');
@@ -121,6 +122,7 @@ router.post('/logout', authenticate, logout);
  * @access  Private
  */
 router.get('/me', authenticate, getCurrentUser);
+router.patch('/profile', authenticate, updateProfile);
 
 /**
  * @route   POST /api/auth/revoke-all

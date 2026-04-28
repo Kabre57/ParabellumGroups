@@ -1,0 +1,8 @@
+ALTER TABLE "encaissements"
+ADD COLUMN IF NOT EXISTS "accountingAccountId" TEXT,
+ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'EN_ATTENTE',
+ADD COLUMN IF NOT EXISTS "approvedByUserId" TEXT,
+ADD COLUMN IF NOT EXISTS "approvedByEmail" TEXT;
+
+ALTER TABLE "decaissements"
+ADD COLUMN IF NOT EXISTS "accountingAccountId" TEXT;

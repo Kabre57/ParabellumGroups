@@ -75,6 +75,12 @@ interface ContactFormValues {
   principal: boolean;
 }
 
+function normalizeOptionalField(value?: string) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 export default function ContactsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -216,11 +222,24 @@ export default function ContactsPage() {
   }, [dialogOpen, editingContact, form]);
 
   const onSubmit = async (values: ContactFormValues) => {
+    const payload = {
+      ...values,
+      civilite: normalizeOptionalField(values.civilite),
+      prenom: values.prenom.trim(),
+      nom: values.nom.trim(),
+      email: normalizeOptionalField(values.email),
+      emailSecondaire: normalizeOptionalField(values.emailSecondaire),
+      telephone: normalizeOptionalField(values.telephone),
+      mobile: normalizeOptionalField(values.mobile),
+      poste: normalizeOptionalField(values.poste),
+      departement: normalizeOptionalField(values.departement),
+    };
+
     try {
       if (editingContact) {
-        await updateMutation.mutateAsync({ id: editingContact.id, data: values });
+        await updateMutation.mutateAsync({ id: editingContact.id, data: payload });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
       }
 
       queryClient.invalidateQueries({ queryKey: ['crm', 'contacts'] });

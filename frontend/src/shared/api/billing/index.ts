@@ -60,6 +60,8 @@ export interface Quote {
   enterpriseName?: string | null;
   objet?: string | null;
   notes?: string | null;
+  modeLivraison?: string | null;
+  modalitePaiement?: string | null;
   serviceId?: string;
   serviceName?: string;
   serviceLogoUrl?: string;
@@ -197,11 +199,12 @@ export interface PurchaseCommitment {
   serviceName?: string | null;
   supplierId?: string | null;
   supplierName?: string | null;
+  sourceStatus?: string | null;
   amountHT: number;
   amountTVA: number;
   amountTTC: number;
   currency: string;
-  status: 'ENGAGE' | 'LIQUIDE' | 'ORDONNANCE' | 'PAYE';
+  status?: 'ENGAGE' | 'LIQUIDE' | 'ORDONNANCE' | 'PAYE' | null;
   createdAt?: string | null;
 }
 
@@ -221,6 +224,11 @@ export interface FactureFournisseur {
   status: 'A_PAYER' | 'PARTIELLEMENT_PAYEE' | 'PAYEE' | 'ANNULEE';
   notes?: string | null;
   commitmentId?: string | null;
+  markAsPaid?: boolean;
+  paymentMethod?: 'CHEQUE' | 'ESPECES' | 'VIREMENT' | 'CARTE';
+  treasuryAccountId?: string | null;
+  datePaiement?: string | null;
+  paymentReference?: string | null;
   createdAt?: string;
 }
 
@@ -243,7 +251,8 @@ export interface Encaissement {
   dateEncaissement: string;
   reference?: string | null;
   notes?: string | null;
-  accountingAccountId?: string | null; // Ajout
+  status?: 'EN_ATTENTE' | 'VALIDE' | 'ANNULE' | null;
+  accountingAccountId?: string | null;
   createdAt?: string;
 }
 
@@ -268,7 +277,7 @@ export interface Decaissement {
   status: string;
   factureFournisseurId?: string | null;
   commitmentId?: string | null;
-  accountingAccountId?: string | null; // Ajout
+  accountingAccountId?: string | null;
   createdAt?: string;
 }
 
@@ -965,6 +974,11 @@ export const billingService = {
     return normalizeStatsResponse<PurchaseCommitmentStats>(response.data);
   },
 
+  async validatePurchaseCommitment(id: string): Promise<DetailResponse<PurchaseCommitment>> {
+    const response = await apiClient.patch(`/billing/purchase-commitments/${id}/validate`);
+    return normalizeDetailResponse<PurchaseCommitment>(response.data);
+  },
+
   async getEncaissements(params?: any): Promise<ListResponse<Encaissement>> {
     const response = await apiClient.get('/billing/encaissements', { params });
     return normalizeListResponse<Encaissement>(response.data);
@@ -975,6 +989,14 @@ export const billingService = {
     return normalizeDetailResponse<Encaissement>(response.data);
   },
 
+  async updateEncaissementStatus(
+    id: string,
+    payload: { status: 'VALIDE' | 'ANNULE' }
+  ): Promise<DetailResponse<Encaissement>> {
+    const response = await apiClient.patch(`/billing/encaissements/${id}/status`, payload);
+    return normalizeDetailResponse<Encaissement>(response.data);
+  },
+
   async getDecaissements(params?: any): Promise<ListResponse<Decaissement>> {
     const response = await apiClient.get('/billing/decaissements', { params });
     return normalizeListResponse<Decaissement>(response.data);
@@ -982,6 +1004,14 @@ export const billingService = {
 
   async createDecaissement(data: Partial<Decaissement>): Promise<DetailResponse<Decaissement>> {
     const response = await apiClient.post('/billing/decaissements', data);
+    return normalizeDetailResponse<Decaissement>(response.data);
+  },
+
+  async updateDecaissementStatus(
+    id: string,
+    payload: { status: 'DECAISSE' | 'ANNULE' }
+  ): Promise<DetailResponse<Decaissement>> {
+    const response = await apiClient.patch(`/billing/decaissements/${id}/status`, payload);
     return normalizeDetailResponse<Decaissement>(response.data);
   },
 

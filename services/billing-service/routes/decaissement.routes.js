@@ -7,5 +7,6 @@ router.use(authenticateToken);
 
 router.get('/', controller.getAll);
 router.post('/', controller.create);
+router.patch('/:id/status', controller.updateStatus);
 
 module.exports = router;

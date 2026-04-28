@@ -83,7 +83,8 @@ const billingPermissionRules = [
   {
     pattern: /^\/purchase-commitments/,
     permissions: {
-      GET: ['invoices.read', 'purchases.read', 'expenses.read', 'expenses.read_all']
+      GET: ['invoices.read', 'purchases.read', 'expenses.read', 'expenses.read_all'],
+      PATCH: ['expenses.approve', 'payments.validate']
     }
   },
   {
@@ -138,6 +139,32 @@ const billingPermissionRules = [
     pattern: /^\/cash-vouchers\/[^/]+\/status$/,
     permissions: {
       PATCH: ['expenses.approve', 'payments.validate']
+    }
+  },
+  {
+    pattern: /^\/encaissements\/[^/]+\/status$/,
+    permissions: {
+      PATCH: 'payments.validate'
+    }
+  },
+  {
+    pattern: /^\/encaissements/,
+    permissions: {
+      GET: ['payments.read', 'reports.read_financial'],
+      POST: 'payments.create'
+    }
+  },
+  {
+    pattern: /^\/decaissements\/[^/]+\/status$/,
+    permissions: {
+      PATCH: ['expenses.approve', 'payments.validate']
+    }
+  },
+  {
+    pattern: /^\/decaissements/,
+    permissions: {
+      GET: ['expenses.read', 'expenses.read_all', 'reports.read_financial'],
+      POST: 'expenses.create'
     }
   },
   {

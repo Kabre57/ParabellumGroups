@@ -454,6 +454,14 @@ export function QuoteDetailView({ quoteId }: Props) {
                     <div className="mt-1 font-medium">{formatDate(quote.dateValidite)}</div>
                   </div>
                   <div>
+                    <div className="text-sm text-muted-foreground">Mode de livraison</div>
+                    <div className="mt-1 font-medium">{quote.modeLivraison || '-'}</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-sm text-muted-foreground">Modalité de paiement</div>
+                    <div className="mt-1 font-medium">{quote.modalitePaiement || '-'}</div>
+                  </div>
+                  <div>
                     <div className="text-sm text-muted-foreground">Dernier envoi client</div>
                     <div className="mt-1 font-medium">{formatDate(quote.sentAt)}</div>
                   </div>

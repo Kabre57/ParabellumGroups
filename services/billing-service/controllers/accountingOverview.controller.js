@@ -228,11 +228,14 @@ exports.getAccountingOverview = async (req, res) => {
     const totalCollectedVat = factures
       .filter((invoice) => !['BROUILLON', 'ANNULEE'].includes(String(invoice.status)))
       .reduce((sum, invoice) => sum + safeAmount(invoice.montantTVA), 0);
-    const totalInvoiceReceived = paiements.reduce((sum, payment) => sum + safeAmount(payment.montant), 0);
+    const validatedEncaissements = encaissements.filter((item) => String(item.status || '').toUpperCase() === 'VALIDE');
+    const totalInvoiceReceived = validatedEncaissements
+      .filter((item) => item.factureClientId)
+      .reduce((sum, item) => sum + safeAmount(item.amountTTC), 0);
 
     const activeDecaissements = decaissements.filter((d) => d.status !== 'ANNULE');
     const disbursedVouchers = activeDecaissements.filter((d) => d.status === 'DECAISSE');
-    const receivedVouchers = encaissements; 
+    const receivedVouchers = validatedEncaissements;
     const totalExpenseHT = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountHT || d.amountTTC), 0);
     const totalDeductibleVat = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountTVA), 0);
     const totalDisbursed = disbursedVouchers.reduce((sum, d) => sum + safeAmount(d.amountTTC), 0);
@@ -240,16 +243,10 @@ exports.getAccountingOverview = async (req, res) => {
     const totalTreasuryIncome = totalInvoiceReceived + totalOtherIncome;
 
     const bankInflows =
-      paiements
-        .filter((payment) => String(payment.methodePaiement || '').toUpperCase() !== 'ESPECES')
-        .reduce((sum, payment) => sum + amount(payment.montant), 0) +
       receivedVouchers
         .filter((e) => String(e.paymentMethod || '').toUpperCase() !== 'ESPECES')
         .reduce((sum, e) => sum + amount(e.amountTTC), 0);
     const cashInflows =
-      paiements
-        .filter((payment) => String(payment.methodePaiement || '').toUpperCase() === 'ESPECES')
-        .reduce((sum, payment) => sum + amount(payment.montant), 0) +
       receivedVouchers
         .filter((e) => String(e.paymentMethod || '').toUpperCase() === 'ESPECES')
         .reduce((sum, e) => sum + amount(e.amountTTC), 0);
@@ -299,14 +296,14 @@ exports.getAccountingOverview = async (req, res) => {
       totalDisbursed,
       netResult: Math.max(totalRevenue - totalExpenseHT, 0),
       bankMovementCount:
-        paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() !== 'ESPECES').length +
+        receivedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length +
         disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length,
       cashMovementCount:
-        paiements.filter((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES').length +
+        receivedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES').length +
         disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES').length,
-      lastBankTransaction: paiements[0]?.datePaiement || disbursedVouchers[0]?.dateDecaissement || null,
+      lastBankTransaction: receivedVouchers[0]?.dateEncaissement || disbursedVouchers[0]?.dateDecaissement || null,
       lastCashTransaction: 
-        paiements.find((item) => String(item.methodePaiement || '').toUpperCase() === 'ESPECES')?.datePaiement ||
+        receivedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.dateEncaissement ||
         disbursedVouchers.find((item) => String(item.paymentMethod || '').toUpperCase() === 'ESPECES')?.dateDecaissement ||
         null,
       invoiceCount: factures.length,
@@ -531,33 +528,7 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       });
     }
 
-    for (const payment of paiements) {
-      const treasuryAccount = await MappingService.resolveAccount('PAYMENT', payment.methodePaiement);
-      const clientAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER');
-
-      entries.push({
-        id: buildEntryId('payment', payment.id),
-        date: payment.datePaiement,
-        journalCode: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'CA' : 'BQ',
-        journalLabel: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'Journal de caisse' : 'Journal de banque',
-        enterpriseId: payment.enterpriseId || payment.facture?.enterpriseId || null,
-        enterpriseName: payment.enterpriseName || payment.facture?.enterpriseName || null,
-        accountDebit: treasuryAccount.code,
-        accountDebitLabel: treasuryAccount.label,
-        accountCredit: clientAccount.code,
-        accountCreditLabel: clientAccount.label,
-        label: safeAccess(payment, 'facture.numeroFacture')
-          ? `Encaissement facture ${payment.facture.numeroFacture}`
-          : 'Encaissement client',
-        debit: safeAmount(payment.montant),
-        credit: safeAmount(payment.montant),
-        reference: payment.reference || safeAccess(payment, 'facture.numeroFacture') || payment.id,
-        sourceType: 'PAYMENT',
-        sourceId: payment.id,
-      });
-    }
-
-    for (const d of activeDecaissements) {
+    for (const d of disbursedVouchers) {
       if (manualEntrySourceKeys.has(`DECAISSEMENT:${d.id}`)) continue;
       const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', d.expenseCategory);
       const supplierAccount = await MappingService.resolveAccount('DECAISSEMENT', 'CREDIT_SUPPLIER');

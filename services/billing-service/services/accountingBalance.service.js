@@ -347,33 +347,7 @@ const buildGeneratedEntries = async ({
     });
   }
 
-  for (const payment of paiements) {
-    const treasuryAccount = await MappingService.resolveAccount('PAYMENT', payment.methodePaiement);
-    const clientAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER');
-
-    entries.push({
-      id: buildEntryId('payment', payment.id),
-      date: payment.datePaiement,
-      journalCode: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'CA' : 'BQ',
-      journalLabel: String(payment.methodePaiement || '').toUpperCase() === 'ESPECES' ? 'Journal de caisse' : 'Journal de banque',
-      enterpriseId: payment.enterpriseId || payment.facture?.enterpriseId || null,
-      enterpriseName: payment.enterpriseName || payment.facture?.enterpriseName || null,
-      accountDebit: treasuryAccount.code,
-      accountDebitLabel: treasuryAccount.label,
-      accountCredit: clientAccount.code,
-      accountCreditLabel: clientAccount.label,
-      label: payment.facture?.numeroFacture
-        ? `Encaissement facture ${payment.facture.numeroFacture}`
-        : 'Encaissement client',
-      debit: amount(payment.montant),
-      credit: amount(payment.montant),
-      reference: payment.reference || payment.facture?.numeroFacture || payment.id,
-      sourceType: 'PAYMENT',
-      sourceId: payment.id,
-    });
-  }
-
-  for (const decaissement of decaissements.filter((item) => item.status !== 'ANNULE')) {
+  for (const decaissement of decaissements.filter((item) => item.status === 'DECAISSE')) {
     if (manualEntrySourceKeys.has(`DECAISSEMENT:${decaissement.id}`)) continue;
 
     const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', decaissement.expenseCategory);
@@ -423,7 +397,7 @@ const buildGeneratedEntries = async ({
     }
   }
 
-  for (const encaissement of encaissements) {
+  for (const encaissement of encaissements.filter((item) => item.status === 'VALIDE')) {
     if (manualEntrySourceKeys.has(`ENCAISSEMENT:${encaissement.id}`)) continue;
 
     const treasuryAccount = await MappingService.resolveAccount('PAYMENT', encaissement.paymentMethod);

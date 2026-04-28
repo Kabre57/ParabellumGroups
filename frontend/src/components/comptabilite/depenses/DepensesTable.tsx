@@ -21,6 +21,9 @@ interface DepensesTableProps {
   formatDate: (v?: string | null) => string;
   sourceLabels: Record<string, string>;
   canApprove: boolean;
+  onValidateCommitment: (commitment: PurchaseCommitment) => void;
+  onValidateEncaissement: (encaissement: Encaissement) => void;
+  onValidateDecaissement: (decaissement: Decaissement) => void;
   onUpdateVoucher: (id: string, status: string) => void;
   onPrintVoucher: (voucher: any) => void;
   onLiquider: (commitment: PurchaseCommitment) => void;
@@ -40,6 +43,9 @@ export function DepensesTable({
   formatDate,
   sourceLabels,
   canApprove,
+  onValidateCommitment,
+  onValidateEncaissement,
+  onValidateDecaissement,
   onUpdateVoucher,
   onPrintVoucher,
   onLiquider,
@@ -261,10 +267,15 @@ export function DepensesTable({
                       <td className="px-4 py-3">{decaissement.reference || '-'}</td>
                       <td className="px-4 py-3 text-right font-bold">{formatCurrency(decaissement.amountTTC)}</td>
                       <td className="px-4 py-3">
-                        <CashVoucherStatusBadge status={decaissement.status || 'DECAISSE'} />
+                        <CashVoucherStatusBadge status={decaissement.status || 'VALIDE'} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          {canApprove && decaissement.status !== 'DECAISSE' && decaissement.status !== 'ANNULE' ? (
+                            <Button size="sm" onClick={() => onValidateDecaissement(decaissement)}>
+                              Comptabiliser
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
                             variant="outline"
@@ -329,10 +340,15 @@ export function DepensesTable({
                       <td className="px-4 py-3">{encaissement.reference || '-'}</td>
                       <td className="px-4 py-3 text-right font-bold">{formatCurrency(encaissement.amountTTC)}</td>
                       <td className="px-4 py-3">
-                        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">RECU</Badge>
+                        <CashVoucherStatusBadge status={encaissement.status || 'EN_ATTENTE'} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          {canApprove && encaissement.status !== 'VALIDE' && encaissement.status !== 'ANNULE' ? (
+                            <Button size="sm" onClick={() => onValidateEncaissement(encaissement)}>
+                              Valider
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
                             variant="outline"
@@ -396,10 +412,20 @@ export function DepensesTable({
                       <td className="px-4 py-3">{commitment.supplierName || '-'}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatCurrency(commitment.amountTTC)}</td>
                       <td className="px-4 py-3">
-                        <Badge variant="outline">{commitment.status}</Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline">{commitment.status || commitment.sourceStatus || 'EN ATTENTE'}</Badge>
+                          {commitment.sourceStatus && !commitment.status ? (
+                            <span className="text-xs text-muted-foreground">Achat: {commitment.sourceStatus}</span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
+                          {canApprove && !commitment.status && ['APPROUVEE', 'CONFIRME'].includes(String(commitment.sourceStatus || '').toUpperCase()) && (
+                            <Button size="sm" variant="secondary" onClick={() => onValidateCommitment(commitment)}>
+                              Valider
+                            </Button>
+                          )}
                           {commitment.status === 'ENGAGE' && (
                             <Button size="sm" variant="outline" onClick={() => onLiquider(commitment)}>
                               Liquider

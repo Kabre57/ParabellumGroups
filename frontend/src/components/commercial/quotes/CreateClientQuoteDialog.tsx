@@ -61,6 +61,8 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
   const [objet, setObjet] = useState('');
   const [dateValidite, setDateValidite] = useState(buildDefaultValidityDate());
   const [notes, setNotes] = useState('');
+  const [modeLivraison, setModeLivraison] = useState('');
+  const [modalitePaiement, setModalitePaiement] = useState('');
   const [lines, setLines] = useState<QuoteLineForm[]>([{ ...EMPTY_LINE }]);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
 
@@ -139,6 +141,8 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     setObjet('');
     setDateValidite(buildDefaultValidityDate());
     setNotes('');
+    setModeLivraison('');
+    setModalitePaiement('');
     setLines([{ ...EMPTY_LINE }]);
   };
 
@@ -161,6 +165,8 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
     setObjet(initialQuote.objet || '');
     setDateValidite(initialQuote.dateValidite?.split('T')[0] || buildDefaultValidityDate());
     setNotes(initialQuote.notes || '');
+    setModeLivraison(initialQuote.modeLivraison || '');
+    setModalitePaiement(initialQuote.modalitePaiement || '');
     const mappedLines = (initialQuote.lignes || []).map((line) => ({
       description: line.description || '',
       categorie: '',
@@ -206,6 +212,8 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
       objet: objet.trim(),
       dateValidite,
       notes: notes.trim() || undefined,
+      modeLivraison: modeLivraison.trim() || undefined,
+      modalitePaiement: modalitePaiement.trim() || undefined,
       lignes,
     };
 
@@ -301,9 +309,27 @@ export function CreateClientQuoteDialog({ isOpen, onClose, initialQuote = null }
               <Input value={objet} onChange={(event) => setObjet(event.target.value)} placeholder="Fourniture équipements / prestation / abonnement..." />
             </div>
 
-            <div className="space-y-2 lg:col-span-2">
+            <div className="space-y-2">
               <label className="text-sm font-medium">Date de validité</label>
               <Input type="date" value={dateValidite} onChange={(event) => setDateValidite(event.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mode de livraison</label>
+              <Input
+                value={modeLivraison}
+                onChange={(event) => setModeLivraison(event.target.value)}
+                placeholder="Livraison sur site, retrait, transporteur..."
+              />
+            </div>
+
+            <div className="space-y-2 lg:col-span-2">
+              <label className="text-sm font-medium">Modalité de paiement</label>
+              <Input
+                value={modalitePaiement}
+                onChange={(event) => setModalitePaiement(event.target.value)}
+                placeholder="50% à la commande, 50% à la livraison"
+              />
             </div>
 
             <div className="space-y-2 lg:col-span-2">

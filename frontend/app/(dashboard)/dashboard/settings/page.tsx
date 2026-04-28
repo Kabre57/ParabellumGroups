@@ -1,291 +1,470 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, Building2, Database, Globe, Mail, Save, Settings, Shield } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Settings, Save, Database, Mail, Bell, Shield, Globe } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { authService } from '@/shared/api/auth';
+import type { User } from '@/shared/api/shared/types';
+import { enterpriseApi, type Enterprise } from '@/lib/api';
+
+type UserPreferences = {
+  timezone?: string;
+  language?: string;
+  currency?: string;
+  notifications?: {
+    email?: boolean;
+    push?: boolean;
+    dailySummary?: boolean;
+    securityAlerts?: boolean;
+  };
+  security?: {
+    require2fa?: boolean;
+    notifyNewLogin?: boolean;
+  };
+};
+
+const tabs = [
+  { id: 'general', label: 'Général', icon: Settings },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Sécurité', icon: Shield },
+  { id: 'database', label: 'Base de données', icon: Database },
+  { id: 'email', label: 'Email', icon: Mail },
+  { id: 'localization', label: 'Localisation', icon: Globe },
+] as const;
+
+const defaultPreferences: UserPreferences = {
+  timezone: 'Africa/Abidjan',
+  language: 'fr',
+  currency: 'XOF',
+  notifications: {
+    email: true,
+    push: true,
+    dailySummary: false,
+    securityAlerts: true,
+  },
+  security: {
+    require2fa: false,
+    notifyNewLogin: true,
+  },
+};
+
+const parsePreferences = (value: User['preferences']): UserPreferences => {
+  if (!value) return defaultPreferences;
+  if (typeof value === 'object') {
+    return {
+      ...defaultPreferences,
+      ...value,
+      notifications: { ...defaultPreferences.notifications, ...(value.notifications || {}) },
+      security: { ...defaultPreferences.security, ...(value.security || {}) },
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return {
+      ...defaultPreferences,
+      ...parsed,
+      notifications: { ...defaultPreferences.notifications, ...(parsed.notifications || {}) },
+      security: { ...defaultPreferences.security, ...(parsed.security || {}) },
+    };
+  } catch {
+    return defaultPreferences;
+  }
+};
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('general');
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('general');
 
-  const tabs = [
-    { id: 'general', label: 'Général', icon: Settings },
-    { id: 'database', label: 'Base de données', icon: Database },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'email', label: 'Email', icon: Mail },
-    { id: 'security', label: 'Sécurité', icon: Shield },
-    { id: 'localization', label: 'Localisation', icon: Globe },
-  ];
+  const userQuery = useQuery<User>({
+    queryKey: ['settings-current-user'],
+    queryFn: () => authService.getCurrentUser(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const currentUser = userQuery.data;
+  const preferences = useMemo(() => parsePreferences(currentUser?.preferences), [currentUser?.preferences]);
+  const [enterpriseDraft, setEnterpriseDraft] = useState({
+    name: '',
+    code: '',
+    description: '',
+  });
+  const [prefsDraft, setPrefsDraft] = useState<UserPreferences>(defaultPreferences);
+
+  const enterpriseQuery = useQuery<{ success: boolean; data: Enterprise }>({
+    queryKey: ['settings-enterprise', currentUser?.enterpriseId],
+    queryFn: () => enterpriseApi.getById(currentUser?.enterpriseId as string | number),
+    enabled: Boolean(currentUser?.enterpriseId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  React.useEffect(() => {
+    const enterprise = enterpriseQuery.data?.data;
+    if (enterprise) {
+      setEnterpriseDraft({
+        name: enterprise.name || '',
+        code: enterprise.code || '',
+        description: enterprise.description || '',
+      });
+    }
+  }, [enterpriseQuery.data?.data]);
+
+  React.useEffect(() => {
+    setPrefsDraft(preferences);
+  }, [preferences]);
+
+  const updateEnterpriseMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUser?.enterpriseId) return null;
+      return enterpriseApi.update(currentUser.enterpriseId, {
+        name: enterpriseDraft.name.trim(),
+        code: enterpriseDraft.code.trim() || undefined,
+        description: enterpriseDraft.description.trim() || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Paramètres de l'entreprise enregistrés.");
+      await queryClient.invalidateQueries({ queryKey: ['settings-enterprise'] });
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Impossible d'enregistrer l'entreprise.");
+    },
+  });
+
+  const updatePreferencesMutation = useMutation({
+    mutationFn: async () =>
+      authService.updateProfile({
+        preferences: prefsDraft,
+      }),
+    onSuccess: async () => {
+      toast.success('Préférences enregistrées.');
+      await queryClient.invalidateQueries({ queryKey: ['settings-current-user'] });
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    },
+    onError: () => {
+      toast.error("Impossible d'enregistrer les préférences.");
+    },
+  });
+
+  if (userQuery.isLoading) {
+    return <div className="p-6">Chargement des paramètres...</div>;
+  }
+
+  if (!currentUser) {
+    return <div className="p-6">Impossible de charger les paramètres.</div>;
+  }
+
+  const enterprise = enterpriseQuery.data?.data;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Paramètres Système</h1>
-          <p className="text-muted-foreground mt-2">
-            Configuration générale de l'application Parabellum Groups
+          <p className="mt-2 text-muted-foreground">
+            Réglages opérationnels du workspace, de l’entreprise active et des préférences utilisateur.
           </p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-6">
-        {/* Navigation latérale */}
-        <div className="col-span-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Card className="p-4">
-            <nav className="space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <tab.icon className="mr-3 h-5 w-5" />
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Entreprise active</div>
+            <div className="mt-2 font-semibold">{enterprise?.name || currentUser.enterprise?.name || 'Non rattachée'}</div>
           </Card>
-        </div>
-
-        {/* Contenu */}
-        <div className="col-span-9">
-          <Card className="p-6">
-            {activeTab === 'general' && <GeneralSettings />}
-            {activeTab === 'database' && <DatabaseSettings />}
-            {activeTab === 'notifications' && <NotificationSettings />}
-            {activeTab === 'email' && <EmailSettings />}
-            {activeTab === 'security' && <SecuritySettings />}
-            {activeTab === 'localization' && <LocalizationSettings />}
+          <Card className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Rôle</div>
+            <div className="mt-2 font-semibold">{typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.name || currentUser.role?.code || '—'}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Service</div>
+            <div className="mt-2 font-semibold">{currentUser.service?.name || currentUser.department || 'Non renseigné'}</div>
           </Card>
         </div>
       </div>
-    </div>
-  );
-}
 
-function GeneralSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Paramètres Généraux</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Nom de l'entreprise</label>
-            <Input defaultValue="Parabellum Groups" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Email contact</label>
-            <Input type="email" defaultValue="contact@parabellum.com" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Fuseau horaire</label>
-            <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-              <option>Europe/Paris (GMT+1)</option>
-              <option>America/New_York (GMT-5)</option>
-              <option>Asia/Tokyo (GMT+9)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer les modifications
-        </Button>
-      </div>
-    </div>
-  );
-}
+      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <Card className="h-fit p-4">
+          <nav className="space-y-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                    : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                <tab.icon className="mr-3 h-5 w-5" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </Card>
 
-function DatabaseSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Configuration Base de Données</h2>
-        <div className="space-y-4">
-          <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-              <Database className="h-5 w-5" />
-              <span className="font-medium">Connexion active</span>
-            </div>
-            <p className="text-sm text-green-600 dark:text-green-500 mt-1">
-              PostgreSQL 15.2 - 12 microservices connectés
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">URL de connexion</label>
-            <Input type="password" defaultValue="postgresql://localhost:5432/parabellum" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Pool min</label>
-              <Input type="number" defaultValue="2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Pool max</label>
-              <Input type="number" defaultValue="10" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function NotificationSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Préférences de Notifications</h2>
-        <div className="space-y-4">
-          {[
-            { label: 'Notifications par email', description: 'Recevoir les alertes importantes par email' },
-            { label: 'Notifications push', description: 'Notifications en temps réel dans l\'application' },
-            { label: 'Résumé quotidien', description: 'Résumé quotidien des activités envoyé à 8h' },
-            { label: 'Alertes système', description: 'Notifications critiques système et sécurité' },
-          ].map((item) => (
-            <label key={item.label} className="flex items-start gap-3 p-3 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-              <input type="checkbox" defaultChecked className="mt-1" />
+        <Card className="p-6">
+          {activeTab === 'general' && (
+            <div className="space-y-6">
               <div>
-                <div className="font-medium">{item.label}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">{item.description}</div>
+                <h2 className="text-xl font-semibold">Paramètres généraux</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ces informations pilotent l’identité de l’entreprise visible dans les documents et l’admin.
+                </p>
               </div>
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function EmailSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Configuration SMTP</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Serveur SMTP</label>
-            <Input defaultValue="smtp.gmail.com" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Port</label>
-              <Input type="number" defaultValue="587" />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">Nom de l’entreprise</label>
+                  <Input value={enterpriseDraft.name} onChange={(e) => setEnterpriseDraft((cur) => ({ ...cur, name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Code entreprise</label>
+                  <Input value={enterpriseDraft.code} onChange={(e) => setEnterpriseDraft((cur) => ({ ...cur, code: e.target.value }))} placeholder="PBL" />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Email de contact principal</label>
+                  <Input value={currentUser.email} readOnly className="bg-muted/40" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">Description</label>
+                  <Textarea
+                    rows={4}
+                    value={enterpriseDraft.description}
+                    onChange={(e) => setEnterpriseDraft((cur) => ({ ...cur, description: e.target.value }))}
+                    placeholder="Présentez l’activité, le périmètre ou l’usage de cette entreprise."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end border-t pt-4">
+                <Button onClick={() => updateEnterpriseMutation.mutate()} disabled={updateEnterpriseMutation.isPending || !currentUser.enterpriseId}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {updateEnterpriseMutation.isPending ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                </Button>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Sécurité</label>
-              <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-                <option>TLS</option>
-                <option>SSL</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Email expéditeur</label>
-            <Input type="email" defaultValue="noreply@parabellum.com" />
-          </div>
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </Button>
-      </div>
-    </div>
-  );
-}
+          )}
 
-function SecuritySettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Sécurité</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Durée session (minutes)</label>
-            <Input type="number" defaultValue="60" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Tentatives connexion max</label>
-            <Input type="number" defaultValue="5" />
-          </div>
-          <label className="flex items-start gap-3 p-3 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-            <input type="checkbox" defaultChecked className="mt-1" />
-            <div>
-              <div className="font-medium">Authentification à deux facteurs (2FA)</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Exiger 2FA pour tous les utilisateurs</div>
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Préférences de notifications</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Réglages personnels stockés sur votre profil pour adapter le bruit opérationnel à votre usage.
+                </p>
+              </div>
+              {[
+                ['email', 'Notifications par email', 'Recevoir les alertes métier importantes dans votre boîte mail.'],
+                ['push', 'Notifications dans l’application', 'Conserver le flux temps réel dans le header et les pages métier.'],
+                ['dailySummary', 'Résumé quotidien', 'Recevoir un récapitulatif des activités et validations attendues.'],
+                ['securityAlerts', 'Alertes de sécurité', 'Prévenir en cas de connexion inhabituelle ou de changement sensible.'],
+              ].map(([key, title, description]) => (
+                <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/30">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(prefsDraft.notifications?.[key as keyof NonNullable<UserPreferences['notifications']>])}
+                    onChange={(e) =>
+                      setPrefsDraft((cur) => ({
+                        ...cur,
+                        notifications: {
+                          ...cur.notifications,
+                          [key]: e.target.checked,
+                        },
+                      }))
+                    }
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium">{title}</div>
+                    <div className="text-sm text-muted-foreground">{description}</div>
+                  </div>
+                </label>
+              ))}
+              <div className="flex justify-end border-t pt-4">
+                <Button onClick={() => updatePreferencesMutation.mutate()} disabled={updatePreferencesMutation.isPending}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {updatePreferencesMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                </Button>
+              </div>
             </div>
-          </label>
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </Button>
-      </div>
-    </div>
-  );
-}
+          )}
 
-function LocalizationSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Localisation</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Langue</label>
-            <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-              <option>Français ("")</option>
-              <option>English (US)</option>
-              <option>Español (España)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Format date</label>
-            <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-              <option>DD/MM/YYYY</option>
-              <option>MM/DD/YYYY</option>
-              <option>YYYY-MM-DD</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Devise</label>
-            <select className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-              <option>XOF (Xof)</option>
-              <option>EUR (Euro)</option>
-              <option>USD (Dollar)</option>
-              <option>GBP (Livre)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="pt-4 border-t">
-        <Button className="flex items-center gap-2">
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </Button>
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Sécurité</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pilotage léger des préférences sécurité côté utilisateur, avec rappel du périmètre réel de votre compte.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Dernière connexion</div>
+                  <div className="mt-2 font-semibold">
+                    {currentUser.lastLoginAt || (currentUser as any).lastLogin
+                      ? new Date((currentUser.lastLoginAt || (currentUser as any).lastLogin) as string).toLocaleString('fr-FR')
+                      : 'Non disponible'}
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Entreprise rattachée</div>
+                  <div className="mt-2 font-semibold">{enterprise?.name || currentUser.enterprise?.name || 'Aucune'}</div>
+                </Card>
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/30">
+                <input
+                  type="checkbox"
+                  checked={Boolean(prefsDraft.security?.require2fa)}
+                  onChange={(e) =>
+                    setPrefsDraft((cur) => ({
+                      ...cur,
+                      security: {
+                        ...cur.security,
+                        require2fa: e.target.checked,
+                      },
+                    }))
+                  }
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium">Demander la 2FA dès qu’elle sera activée côté backend</div>
+                  <div className="text-sm text-muted-foreground">
+                    Préférence enregistrée sur le profil. Le mécanisme complet peut ensuite être branché côté auth-service.
+                  </div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/30">
+                <input
+                  type="checkbox"
+                  checked={Boolean(prefsDraft.security?.notifyNewLogin)}
+                  onChange={(e) =>
+                    setPrefsDraft((cur) => ({
+                      ...cur,
+                      security: {
+                        ...cur.security,
+                        notifyNewLogin: e.target.checked,
+                      },
+                    }))
+                  }
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium">M’avertir des nouvelles connexions</div>
+                  <div className="text-sm text-muted-foreground">
+                    Utile pour les profils administratifs et les comptes utilisés sur plusieurs sites.
+                  </div>
+                </div>
+              </label>
+              <div className="flex justify-end border-t pt-4">
+                <Button onClick={() => updatePreferencesMutation.mutate()} disabled={updatePreferencesMutation.isPending}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {updatePreferencesMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'database' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Base de données</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Lecture projet des briques actuellement exploitées par l’ERP, sans faux réglages non branchés.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="border-emerald-200 bg-emerald-50 p-4">
+                  <div className="font-semibold text-emerald-800">Architecture active</div>
+                  <div className="mt-2 text-sm text-emerald-700">PostgreSQL + Prisma, multi-services ERP, déployés sous Docker.</div>
+                </Card>
+                <Card className="p-4">
+                  <div className="font-semibold">Contexte applicatif</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Auth, CRM, achats, facturation, comptabilité et services techniques reposent sur une base commune et des flux d’événements internes.
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'email' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Email</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Les paramètres SMTP ne sont pas encore exposés en édition dans ce projet; on affiche ici les points d’usage réels.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Adresse utilisateur</div>
+                  <div className="mt-2 font-semibold">{currentUser.email}</div>
+                </Card>
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Entreprise pour les documents</div>
+                  <div className="mt-2 font-semibold">{enterprise?.name || 'Non définie'}</div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'localization' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Localisation</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Préférences utilisateur utilisées pour le rendu des dates, devises et horaires dans l’interface.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Langue</label>
+                  <select
+                    className="w-full rounded-md border px-3 py-2"
+                    value={prefsDraft.language || 'fr'}
+                    onChange={(e) => setPrefsDraft((cur) => ({ ...cur, language: e.target.value }))}
+                  >
+                    <option value="fr">Français</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Fuseau horaire</label>
+                  <select
+                    className="w-full rounded-md border px-3 py-2"
+                    value={prefsDraft.timezone || 'Africa/Abidjan'}
+                    onChange={(e) => setPrefsDraft((cur) => ({ ...cur, timezone: e.target.value }))}
+                  >
+                    <option value="Africa/Abidjan">Afrique/Abidjan (GMT)</option>
+                    <option value="Europe/Paris">Europe/Paris</option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Devise par défaut</label>
+                  <select
+                    className="w-full rounded-md border px-3 py-2"
+                    value={prefsDraft.currency || 'XOF'}
+                    onChange={(e) => setPrefsDraft((cur) => ({ ...cur, currency: e.target.value }))}
+                  >
+                    <option value="XOF">FCFA (XOF)</option>
+                    <option value="EUR">Euro (EUR)</option>
+                    <option value="USD">Dollar (USD)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end border-t pt-4">
+                <Button onClick={() => updatePreferencesMutation.mutate()} disabled={updatePreferencesMutation.isPending}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {updatePreferencesMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );

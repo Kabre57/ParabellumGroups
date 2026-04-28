@@ -122,7 +122,7 @@ export default function DepensesPage() {
   const createEncaissementMutation = useMutation({
     mutationFn: billingService.createEncaissement,
     onSuccess: (response) => {
-      toast.success("Bon d'encaissement cree avec succes.");
+      toast.success("Encaissement enregistré. Il est maintenant en attente de validation comptable.");
       setPrintVoucher({
         ...response.data,
         flowType: 'ENCAISSEMENT',
@@ -138,7 +138,7 @@ export default function DepensesPage() {
   const createDecaissementMutation = useMutation({
     mutationFn: billingService.createDecaissement,
     onSuccess: (response) => {
-      toast.success('Bon de decaissement cree avec succes.');
+      toast.success('Décaissement enregistré. Il sera comptabilisé après confirmation.');
       setPrintVoucher({
         ...response.data,
         flowType: 'DECAISSEMENT',
@@ -162,6 +162,47 @@ export default function DepensesPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Erreur lors de la liquidation.');
+    },
+  });
+
+  const validateCommitmentMutation = useMutation({
+    mutationFn: (commitmentId: string) => billingService.validatePurchaseCommitment(commitmentId),
+    onSuccess: () => {
+      toast.success('Engagement achat validé par la comptabilité.');
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['purchaseCommitments'] });
+      queryClient.invalidateQueries({ queryKey: ['purchaseCommitmentStats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Erreur lors de la validation de l'engagement.");
+    },
+  });
+
+  const validateEncaissementMutation = useMutation({
+    mutationFn: (encaissementId: string) =>
+      billingService.updateEncaissementStatus(encaissementId, { status: 'VALIDE' }),
+    onSuccess: () => {
+      toast.success("Encaissement validé et transmis en écritures comptables.");
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-balance'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Erreur lors de la validation de l'encaissement.");
+    },
+  });
+
+  const validateDecaissementMutation = useMutation({
+    mutationFn: (decaissementId: string) =>
+      billingService.updateDecaissementStatus(decaissementId, { status: 'DECAISSE' }),
+    onSuccess: () => {
+      toast.success('Décaissement confirmé et comptabilisé.');
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-balance'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la comptabilisation du décaissement.');
     },
   });
 
@@ -356,6 +397,9 @@ export default function DepensesPage() {
         formatDate={formatDate}
         sourceLabels={sourceLabels}
         canApprove={canApproveVoucher}
+        onValidateCommitment={(commitment) => validateCommitmentMutation.mutate(commitment.id)}
+        onValidateEncaissement={(encaissement) => validateEncaissementMutation.mutate(encaissement.id)}
+        onValidateDecaissement={(decaissement) => validateDecaissementMutation.mutate(decaissement.id)}
         onUpdateVoucher={(id, status) => updateVoucherMutation.mutate({ id, status })}
         onPrintVoucher={setPrintVoucher}
         onLiquider={(commitment) => {

@@ -405,14 +405,18 @@ export default function ContractsPage() {
 
       {canCreate && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-hidden p-0">
           <DialogHeader>
+            <div className="px-6 pt-6">
             <DialogTitle>Nouveau contrat</DialogTitle>
             <DialogDescription>
-              Renseignez les informations contractuelles. Les montants sont attendus en FCFA (XOF).
+              Renseignez les informations contractuelles..
             </DialogDescription>
+            </div>
           </DialogHeader>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex max-h-[calc(92vh-80px)] flex-col">
+            <div className="overflow-y-auto px-6 pb-4">
+            <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Client *</label>
@@ -550,8 +554,10 @@ export default function ContractsPage() {
                 <textarea className="w-full px-3 py-2 border rounded-md" rows={3} {...form.register('conditionsParticulieres')} />
               </div>
             </div>
+            </div>
+            </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 border-t bg-background px-6 py-4">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Annuler
               </Button>
