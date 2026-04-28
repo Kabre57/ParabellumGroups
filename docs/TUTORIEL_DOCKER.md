@@ -214,6 +214,28 @@ docker compose up -d --build
 docker compose ps
 ```
 
+Après un correctif poussé sur GitHub, pour récupérer le code et relancer les services principaux:
+
+```bash
+cd ~/apps/ParabellumGroups
+git pull
+docker compose up -d --build billing-service api-gateway frontend nginx
+docker compose ps
+```
+
+Si le VPS a aussi un conflit sur le port `4010`, ajouter dans son `.env`:
+
+```env
+BILLING_SERVICE_HOST_PORT=14110
+```
+
+Puis relancer `billing-service`:
+
+```bash
+docker compose up -d billing-service
+docker compose port billing-service 4010
+```
+
 Appliquer les migrations Prisma depuis le conteneur du service concerné:
 
 ```bash
