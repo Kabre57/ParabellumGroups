@@ -378,7 +378,7 @@ services:
     container_name: billing-service
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
-      - "4010:4010"
+      - "${BILLING_SERVICE_HOST_IP:-0.0.0.0}:${BILLING_SERVICE_HOST_PORT:-4010}:4010"
     environment:
       - PORT=4010
       - NODE_ENV=${NODE_ENV:-development}

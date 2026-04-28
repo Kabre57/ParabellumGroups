@@ -1,3 +1,3 @@
 ALTER TABLE "devis"
-ADD COLUMN "modeLivraison" TEXT,
-ADD COLUMN "modalitePaiement" TEXT;
+ADD COLUMN IF NOT EXISTS "modeLivraison" TEXT,
+ADD COLUMN IF NOT EXISTS "modalitePaiement" TEXT;

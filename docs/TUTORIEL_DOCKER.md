@@ -168,141 +168,85 @@ Validation de la config Compose:
 ```bash
 docker compose config
 ```
-docker compose up -d nginx
-docker compose up -d --build --no-deps frontend nginx
-docker compose ps frontend nginx
 
+Relancer un service précis après modification:
 
-Pour rappel, la commande de mise à jour conteneur (par service) reste la même :
-
+```bash
 docker compose up -d --build billing-service
-(ou technical-service, project-service, etc.).
+```
 
-Je comprends, et c’est normal si le frontend que tu vois tourne encore sur l’image précédente. On a bien poussé le commit, mais il faut rebuild + relancer le container frontend (et aussi appliquer la migration communication-service pour les relances).
+Relancer uniquement le frontend et Nginx:
 
-Fais ceci sur le VPS :
-cd /home/theo_pbl/apps/ParabellumGroups
-
-# 1) Mettre le code à jour
-git pull
-
-# 2) Rebuilder et relancer le frontend
+```bash
 docker compose up -d --build frontend nginx
+docker compose ps frontend nginx
+```
 
-# 3) Appliquer la migration des campagnes (communication-service)
-docker compose exec communication-service npx prisma migrate deploy
+Port hôte déjà utilisé:
 
+```bash
+ss -ltnp 'sport = :4010'
+```
 
-<<<<<<< Updated upstream
-Voici les commandes pour effectuer un commit et un push propre de vos corrections :
-1. Ajout ciblé des fichiers modifiés
-Ajoutez uniquement les fichiers que nous avons corrigés ainsi que les changements de dépendances (package.json et package-lock.json) :
-Bash
-git add package.json package-lock.json \
-src/components/commercial/terrain/ProspectionTerrainMap.tsx \
-src/components/accounting/CreateCashVoucherDialog.tsx \
-src/components/printComponents/printUtils.ts
-2. Création du commit
-Utilisez un message de commit clair décrivant les corrections :
-Bash
-git commit -m "fix: resolve build errors (leaflet dependencies, JSX scoping, and TS return types)"
-3. Envoi sur le dépôt distant
-Envoyez vos modifications sur votre branche actuelle (remplacez main par le nom de votre branche si nécessaire) :
-Bash
-git push origin main
-Pourquoi ce commit est "propre" ?
-Atomique : Il regroupe uniquement les modifications liées à la résolution des erreurs de build.
-Explicite : Le message de commit suit les conventions standards (fix: ...) pour faciliter le suivi dans l'historique Git.
-Sûr : En ciblant les fichiers individuellement avec git add, vous évitez d'ajouter par erreur des fichiers temporaires ou des fichiers de configuration locale.
-=======
+Si `billing-service` ne peut pas publier `4010:4010`, définir un port hôte alternatif dans `.env`:
 
-Parfait, merci pour la précision. Si tu es sur le VPS, alors pour récupérer les derniers changements il faut faire le pull sur le VPS, pas en local.
+```env
+BILLING_SERVICE_HOST_PORT=14110
+```
 
-Voici la commande exacte à exécuter sur le VPS :
+Puis relancer:
 
+```bash
+docker compose up -d billing-service
+docker compose port billing-service 4010
+```
+
+Le port interne reste `4010`; les autres conteneurs continuent donc d'utiliser `http://billing-service:4010`.
+
+## 11. Mise à jour sur le VPS
+
+Depuis le dossier du projet sur le serveur:
+
+```bash
 cd ~/apps/ParabellumGroups
 git pull
-Si tu veux je peux aussi lancer la rebuild après, par exemple :
-
-docker compose up -d --build frontend
-
-
-Bien vu — la variable est correcte, mais le service Postgres n’est pas joignable depuis ta session shell, parce que postgres est un nom DNS valide uniquement dans le réseau Docker.
-
-Tu as deux options :
-
-✅ Option A (recommandée, la plus simple)
-Exécuter la migration depuis le conteneur billing-service, où postgres est accessible :
-
-cd /home/theo_pbl/apps/ParabellumGroups
-docker compose exec billing-service npx prisma migrate dev -n add_treasury_closures
-✅ Option B (si tu veux lancer depuis le VPS directement)
-Il faut une URL avec l’IP/localhost au lieu de postgres.
-Exemple (si Postgres est exposé en local) :
-
-export DATABASE_URL="postgresql://parabellum:...@127.0.0.1:5432/parabellum_billing?schema=public"
-npx prisma migrate dev -n add_treasury_closures
-Je te conseille Option A, ça marchera tout de suite.
-Tu veux que je continue sur la validation des clôtures par rôle après ça ?
->>>>>>> Stashed changes
-
-
-C'est un plaisir de voir cet écran de connexion ! Voici un guide de maintenance complet pour gérer sereinement votre nouveau serveur de production.
-
-J'ai préparé ce guide sous forme d'artifact pour que vous puissiez le conserver précieusement.
-
-Guide de Maintenance : Parabellum ERP
-Ce guide récapitule les commandes essentielles pour administrer votre infrastructure Docker sur le VPS.
-
-1. Gestion des Services (Docker Compose)
-Toutes ces commandes doivent être exécutées depuis le dossier du projet : ~/apps/ParabellumGroups.
-
-Voir l'état de tous les services :
-bash
-docker compose ps
-Redémarrer tous les services :
-bash
-docker compose restart
-Redémarrer un service spécifique (ex: frontend) :
-bash
-docker compose restart frontend
-Arrêter proprement toute l'application :
-bash
-docker compose down
-Démarrer l'application (et reconstruire si changement de code) :
-bash
 docker compose up -d --build
-2. Consultation des Logs (Débogage)
-Les logs sont vos meilleurs amis pour comprendre ce qui se passe à l'intérieur des conteneurs.
+docker compose ps
+```
 
-Logs de tous les services en temps réel :
-bash
+Appliquer les migrations Prisma depuis le conteneur du service concerné:
+
+```bash
+docker compose exec communication-service npx prisma migrate deploy
+docker compose exec billing-service npx prisma migrate deploy
+```
+
+Ne pas lancer une migration depuis le shell hôte avec `postgres` comme hostname: ce nom DNS existe dans le réseau Docker, pas directement sur la machine.
+
+## 12. Maintenance
+
+Voir les logs de tous les services:
+
+```bash
 docker compose logs -f
-Logs d'un service spécifique (ex: customer-service) :
-bash
+```
+
+Voir les logs d'un service:
+
+```bash
 docker compose logs -f customer-service
-Logs de Nginx (Host) pour les problèmes de connexion/SSL :
-bash
-sudo tail -f /var/log/nginx/error.log
-3. Base de Données & Sauvegarde
-Accéder à la console PostgreSQL (si besoin) :
-bash
-docker exec -it parabellum-db psql -U postgres -d parabellum_customers
-Effectuer une sauvegarde rapide (Dump) :
-bash
-docker exec -t parabellum-db pg_dumpall -c -U postgres > dump_$(date +%Y%m%d).sql
-4. Maintenance du Serveur (UFW & Nginx)
-Vérifier le pare-feu : sudo ufw status
-Recharger la configuration Nginx de l'hôte (après modification de fichier de conf) :
-bash
-sudo nginx -t && sudo systemctl reload nginx
-5. Procédure de mise à jour du code
-Lorsque vous faites des modifications sur GitHub et que vous voulez les mettre en production :
+```
 
-git pull
-docker compose up -d --build (Docker ne reconstruira que les modules modifiés).
-TIP
+Redémarrer toute l'application:
 
-Nettoyage de l'espace disque : Docker consomme de l'espace au fil des builds. Si votre disque sature, utilisez cette commande pour supprimer les images inutilisées : docker system prune -a (attention, cela supprimera les images non utilisées par des conteneurs actifs).
+```bash
+docker compose restart
+```
 
-Félicitations encore pour ce lancement réussi ! Votre ERP est maintenant prêt pour ses premiers utilisateurs. Avez-vous besoin d'aide sur un point spécifique avant de conclure cette session ?
+Nettoyer les images Docker inutilisées:
+
+```bash
+docker system prune -a
+```
+
+Cette dernière commande supprime les images non utilisées par des conteneurs actifs; vérifier l'espace disque et les conteneurs avant de l'exécuter.
