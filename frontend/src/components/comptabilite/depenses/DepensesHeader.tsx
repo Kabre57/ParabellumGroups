@@ -23,9 +23,10 @@ export function DepensesHeader({
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <h1 className="text-3xl font-bold">Bons de caisse et dépenses</h1>
+        <h1 className="text-3xl font-bold">Flux de caisse et depenses</h1>
         <p className="mt-2 text-muted-foreground">
-          Suivi des engagements d'achat, des bons de caisse et des décaissements comptables de l'entreprise.
+          Suivez distinctement les engagements achats, les encaissements clients, les decaissements fournisseurs
+          et les pieces de caisse avant comptabilisation.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">

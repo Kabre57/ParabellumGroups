@@ -23,6 +23,7 @@ import {
   DepensesHeader,
   DepensesStats,
   DepensesTable,
+  DepensesWorkflowGuide,
 } from '@/components/comptabilite/depenses';
 
 const formatCurrency = (value: number) =>
@@ -43,7 +44,7 @@ const formatDate = (value?: string | null) => {
 
 const sourceLabels: Record<string, string> = {
   PURCHASE_ORDER: 'Bon de commande',
-  PURCHASE_QUOTE: 'Demande validee',
+  PURCHASE_QUOTE: 'DPA / proforma retenue',
   SUPPLIER_INVOICE: 'Facture fournisseur',
   EXPENSE: 'Depense diverse',
   OTHER: 'Autre depense',
@@ -283,7 +284,7 @@ export default function DepensesPage() {
       kind: 'voucher' as const,
       date: item.issueDate,
       number: item.voucherNumber,
-      label: 'Bon de caisse',
+      label: 'Piece de caisse',
       enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
@@ -295,11 +296,11 @@ export default function DepensesPage() {
       kind: 'encaissement' as const,
       date: item.dateEncaissement,
       number: item.numeroPiece,
-      label: 'Encaissement direct',
+      label: 'Paiement client recu',
       enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.clientName,
       amount: item.amountTTC,
-      status: 'RECU',
+      status: item.status || 'EN_ATTENTE',
     }));
 
     const decaissementRows = filteredDecaissements.map((item: any) => ({
@@ -307,7 +308,7 @@ export default function DepensesPage() {
       kind: 'decaissement' as const,
       date: item.dateDecaissement,
       number: item.numeroPiece,
-      label: 'Decaissement realise',
+      label: item.commitmentId ? 'Paiement fournisseur saisi' : 'Decaissement saisi',
       enterpriseName: item.enterpriseName || item.serviceName || '-',
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
@@ -347,8 +348,11 @@ export default function DepensesPage() {
         totalCommitted={data?.data?.totals?.totalCommitted || 0}
         totalVouchered={data?.data?.totals?.totalVouchered || 0}
         totalDisbursed={data?.data?.totals?.totalDisbursed || 0}
+        totalReceived={data?.data?.totals?.totalReceived || 0}
         pendingVouchersAmount={data?.data?.totals?.pendingVouchersAmount || 0}
       />
+
+      <DepensesWorkflowGuide />
 
       <Card className="p-4 shadow-sm">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
@@ -357,7 +361,7 @@ export default function DepensesPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher par numero, beneficiaire, fournisseur ou entreprise..."
+              placeholder="Rechercher par piece, client, fournisseur, beneficiaire ou reference..."
               className="pl-9"
             />
           </div>
@@ -449,11 +453,11 @@ export default function DepensesPage() {
 
       {printListOpen && (
         <TabularListPrint
-          title="Bons de caisse"
+          title="Flux de caisse et depenses"
           subtitle={
             enterpriseFilter === 'all'
-              ? 'Liste consolidee des mouvements financiers'
-              : `Liste des mouvements financiers - ${selectedEnterpriseLabel || 'Entreprise'}`
+              ? 'Liste consolidee des engagements, encaissements, decaissements et pieces de caisse'
+              : `Liste des flux comptables - ${selectedEnterpriseLabel || 'Entreprise'}`
           }
           columns={[
             { key: 'number', label: 'N° Piece' },

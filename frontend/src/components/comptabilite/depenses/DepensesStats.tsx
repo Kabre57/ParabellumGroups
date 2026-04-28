@@ -1,6 +1,6 @@
 'use client';
 
-import { Wallet, Receipt, TrendingUp, TrendingDown } from 'lucide-react';
+import { HandCoins, Receipt, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const fmt = (v: number) =>
@@ -16,6 +16,7 @@ interface DepensesStatsProps {
   totalCommitted: number;
   totalVouchered: number;
   totalDisbursed: number;
+  totalReceived: number;
   pendingVouchersAmount: number;
 }
 
@@ -23,18 +24,43 @@ export function DepensesStats({
   totalCommitted,
   totalVouchered,
   totalDisbursed,
+  totalReceived,
   pendingVouchersAmount,
 }: DepensesStatsProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
       <Card className="p-4 border-l-4 border-l-blue-500 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-50 rounded-lg">
             <TrendingUp className="h-6 w-6 text-blue-500" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Engagements</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Engagements achats</p>
             <p className="text-xl font-bold">{fmt(totalCommitted)}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-4 border-l-4 border-l-emerald-500 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <Wallet className="h-6 w-6 text-emerald-500" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Encaissements valides</p>
+            <p className="text-xl font-bold text-emerald-700">{fmt(totalReceived)}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-4 border-l-4 border-l-rose-500 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-rose-50 rounded-lg">
+            <TrendingDown className="h-6 w-6 text-rose-500" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Decaissements confirmes</p>
+            <p className="text-xl font-bold text-rose-700">{fmt(totalDisbursed)}</p>
           </div>
         </div>
       </Card>
@@ -45,20 +71,8 @@ export function DepensesStats({
             <Receipt className="h-6 w-6 text-indigo-500" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bons Saisis</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pieces de caisse</p>
             <p className="text-xl font-bold text-indigo-700">{fmt(totalVouchered)}</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-4 border-l-4 border-l-emerald-500 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-50 rounded-lg">
-            <TrendingDown className="h-6 w-6 text-emerald-500" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Décaissements</p>
-            <p className="text-xl font-bold text-emerald-700">{fmt(totalDisbursed)}</p>
           </div>
         </div>
       </Card>
@@ -66,10 +80,10 @@ export function DepensesStats({
       <Card className="p-4 border-l-4 border-l-amber-500 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-amber-50 rounded-lg">
-            <Wallet className="h-6 w-6 text-amber-500" />
+            <HandCoins className="h-6 w-6 text-amber-500" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">En Attente</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">En attente de validation</p>
             <p className="text-xl font-bold text-amber-700">{fmt(pendingVouchersAmount)}</p>
           </div>
         </div>
