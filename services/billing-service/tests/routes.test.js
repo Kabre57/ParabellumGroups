@@ -20,11 +20,13 @@ test('billing server exposes public health routes and keeps devis router mounted
 
 test('billing route modules protect authenticated domains and preserve public quote response endpoints', () => {
   const devisContent = read('routes', 'devis.routes.js');
+  const accountingRoutesContent = read('routes', 'accounting.routes.js');
 
   assert.match(devisContent, /router\.get\('\/respond\/:token'/);
   assert.match(devisContent, /router\.post\('\/respond\/:token'/);
   assert.match(devisContent, /router\.use\(authenticateToken\)/);
   assert.match(devisContent, /router\.post\('\/uploads', upload\.single\('image'\), devisController\.uploadQuoteLineImage\)/);
+  assert.match(accountingRoutesContent, /router\.get\('\/balance', accountingBalanceController\.getAccountingBalance\)/);
 
   [
     'facture.routes.js',

@@ -361,7 +361,8 @@ export default function UsersManagementPage() {
 
       {normalizedActiveTab === 'users' && canReadUsers && (
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto">
+        <table className="min-w-[1180px] w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
@@ -371,7 +372,7 @@ export default function UsersManagementPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Derniere connexion</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
               {canManageUserActions && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap min-w-[160px]">Actions</th>
               )}
             </tr>
           </thead>
@@ -432,12 +433,12 @@ export default function UsersManagementPage() {
                     </span>
                   </td>
                   {canManageUserActions && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium min-w-[160px]">
+                      <div className="flex items-center justify-end gap-2">
                         {canUpdateUsers && (
                           <button 
                             onClick={() => handleEditUser(user)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-indigo-200 text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-900"
                             title="Modifier"
                           >
                             <Edit className="h-4 w-4" />
@@ -446,7 +447,11 @@ export default function UsersManagementPage() {
                         {canUpdateUsers && (
                           <button 
                             onClick={() => handleToggleStatus(user)}
-                            className={user.isActive ? "text-orange-600 hover:text-orange-900" : "text-green-600 hover:text-green-900"}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition ${
+                              user.isActive
+                                ? 'border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-900'
+                                : 'border-green-200 text-green-600 hover:bg-green-50 hover:text-green-900'
+                            }`}
                             title={user.isActive ? "Desactiver" : "Activer"}
                           >
                             {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
@@ -458,7 +463,7 @@ export default function UsersManagementPage() {
                               setSelectedUser(user);
                               setShowPermissionsModal(true);
                             }}
-                            className="text-purple-600 hover:text-purple-900"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-purple-200 text-purple-600 transition hover:bg-purple-50 hover:text-purple-900"
                             title="Permissions"
                           >
                             <Shield className="h-4 w-4" />
@@ -467,7 +472,7 @@ export default function UsersManagementPage() {
                         {canDeleteUsers && (
                           <button 
                             onClick={() => handleDeleteUser(user)}
-                            className="text-red-600 hover:text-red-900"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 transition hover:bg-red-50 hover:text-red-900"
                             title="Supprimer"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -481,6 +486,7 @@ export default function UsersManagementPage() {
             )}
           </tbody>
         </table>
+        </div>
 
         {pagination && pagination.totalPages > 1 && (
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">

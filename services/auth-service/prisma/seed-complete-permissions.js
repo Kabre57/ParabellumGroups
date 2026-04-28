@@ -821,13 +821,38 @@ async function seedCompletePermissions() {
   // optionally apply default templates to system roles (if helper available)
   try {
     await ensureRole({
+      name: 'Administrateur',
+      code: 'ADMIN',
+      description: 'Acces complet au systeme',
+    });
+    await ensureRole({
+      name: 'Direction Generale',
+      code: 'GENERAL_DIRECTOR',
+      description: 'Validation et supervision generale',
+    });
+    await ensureRole({
+      name: 'Commercial',
+      code: 'COMMERCIAL',
+      description: 'Prospection, pipeline, devis clients et suivi commercial',
+    });
+    await ensureRole({
+      name: 'Comptable',
+      code: 'ACCOUNTANT',
+      description: 'Suivi comptable, bons de caisse et decaissements',
+    });
+    await ensureRole({
+      name: 'Employe',
+      code: 'EMPLOYEE',
+      description: 'Utilisateur standard',
+    });
+    await ensureRole({
       name: 'Service Achat',
       code: 'PURCHASING_MANAGER',
       description: 'Role preconfigure pour les achats, les stocks et l approbation des devis',
     });
 
     const { applyTemplate } = require('../src/utils/roleTemplates');
-    for (const code of ['ADMIN', 'EMPLOYEE', 'PURCHASING_MANAGER']) {
+    for (const code of ['ADMIN', 'GENERAL_DIRECTOR', 'COMMERCIAL', 'ACCOUNTANT', 'EMPLOYEE', 'PURCHASING_MANAGER']) {
       await applyTemplate(code);
       console.log(`Applied template ${code}`);
     }

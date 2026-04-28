@@ -93,6 +93,12 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/accounting\/balance$/,
+    permissions: {
+      GET: 'reports.read_financial'
+    }
+  },
+  {
     pattern: /^\/accounting\/overview$/,
     permissions: {
       GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read']

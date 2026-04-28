@@ -35,7 +35,7 @@ async function ensureRole({ name, code, description, isSystem = true, isActive =
 async function main() {
   console.log('🌱 Starting seed...');
 
-  // Seed Roles (uniquement 2 rôles système)
+  // Seed Roles
   console.log('Creating roles...');
   const roles = await Promise.all([
     ensureRole({
@@ -47,6 +47,11 @@ async function main() {
       name: 'Direction Générale',
       code: 'GENERAL_DIRECTOR',
       description: 'Validation et supervision générale',
+    }),
+    ensureRole({
+      name: 'Commercial',
+      code: 'COMMERCIAL',
+      description: 'Prospection, pipeline, devis clients et suivi commercial',
     }),
     ensureRole({
       name: 'Employé',
@@ -132,7 +137,7 @@ async function main() {
   // Apply default templates only after permissions exist
   const { applyTemplate } = require('../src/utils/roleTemplates');
   for (const r of roles) {
-    if (['ADMIN', 'GENERAL_DIRECTOR', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'].includes(r.code)) {
+    if (['ADMIN', 'GENERAL_DIRECTOR', 'COMMERCIAL', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'].includes(r.code)) {
       await applyTemplate(r.code);
     }
   }

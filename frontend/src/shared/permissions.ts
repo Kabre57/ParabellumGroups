@@ -74,7 +74,7 @@ export const getPermissionAliases = (permission: string): string[] => {
 
 const ADMIN_ROLE_CODES = new Set([
   'ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR',
-  'GENERAL_DIRECTOR', 'DIRECTEUR_GENERAL', 'SUPER_ADMIN', 'SUPERADMIN',
+  'SUPER_ADMIN', 'SUPERADMIN',
 ]);
 
 export const isAdminRole = (user: User | null | undefined): boolean => {

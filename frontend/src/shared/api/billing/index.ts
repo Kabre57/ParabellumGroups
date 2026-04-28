@@ -507,6 +507,53 @@ export interface AccountingOverview {
   reports: AccountingReports;
 }
 
+export interface AccountingBalanceRow {
+  id: string;
+  accountId?: string;
+  code: string;
+  label: string;
+  type: AccountingAccount['type'] | string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
+  openingDebit: number;
+  openingCredit: number;
+  debit: number;
+  credit: number;
+  balanceDebit: number;
+  balanceCredit: number;
+  movementCount: number;
+  lastTransaction?: string | null;
+}
+
+export interface AccountingBalanceResponse {
+  period: {
+    startDate?: string | null;
+    endDate?: string | null;
+  };
+  generatedAt: string;
+  scope: 'all' | 'parent' | 'subsidiaries' | 'single';
+  groupBy: 'consolidated' | 'enterprise';
+  includeZeroRows: boolean;
+  rows: AccountingBalanceRow[];
+  totals: {
+    openingDebit: number;
+    openingCredit: number;
+    debit: number;
+    credit: number;
+    balanceDebit: number;
+    balanceCredit: number;
+  };
+}
+
+export interface GetAccountingBalanceParams {
+  startDate?: string;
+  endDate?: string;
+  enterpriseId?: string | number;
+  scope?: 'all' | 'parent' | 'subsidiaries' | 'single';
+  groupBy?: 'consolidated' | 'enterprise';
+  includeZeroRows?: boolean;
+}
+
 export interface PlacementsResponse {
   success: boolean;
   data: Placement[];
@@ -981,6 +1028,13 @@ export const billingService = {
       },
     });
     return normalizeStatsResponse<AccountingOverview>(response.data);
+  },
+
+  async getAccountingBalance(
+    params?: GetAccountingBalanceParams
+  ): Promise<{ success: boolean; data: AccountingBalanceResponse }> {
+    const response = await apiClient.get('/billing/accounting/balance', { params });
+    return normalizeStatsResponse<AccountingBalanceResponse>(response.data);
   },
 
   async getAccountingAccounts(): Promise<ListResponse<AccountingAccount>> {

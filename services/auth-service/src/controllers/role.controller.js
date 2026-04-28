@@ -112,7 +112,7 @@ const createRole = async (req, res) => {
       });
     }
 
-    const { name, code, description, isActive } = req.body;
+    const { name, code, description, isActive, template } = req.body;
 
     // Check if role with same name exists
     const existingName = await prisma.role.findUnique({
@@ -215,10 +215,10 @@ const updateRole = async (req, res) => {
     }
 
     // Prevent modification of system roles
-    if (existingRole.isSystem) {
+    if (existingRole.code === 'ADMIN') {
       return res.status(403).json({
         success: false,
-        message: 'Cannot modify system roles',
+        message: 'Cannot modify the ADMIN role',
       });
     }
 
@@ -318,10 +318,10 @@ const deleteRole = async (req, res) => {
     }
 
     // Prevent deletion of system roles
-    if (role.isSystem) {
+    if (role.code === 'ADMIN') {
       return res.status(403).json({
         success: false,
-        message: 'Cannot delete system roles',
+        message: 'Cannot delete the ADMIN role',
       });
     }
 

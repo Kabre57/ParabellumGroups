@@ -57,3 +57,11 @@ test('storage route config proxies browser asset requests through auth service',
   assert.match(content, /\^\/storage': '\/api\/storage'/);
   assert.match(content, /auth: false/);
 });
+
+test('billing route config protects accounting balance endpoint with financial read permissions', () => {
+  const content = read('routes', 'services', 'billing.routes.js');
+
+  assert.match(content, /pattern: \/\^\\\/accounting\\\/balance\$\//);
+  assert.match(content, /reports\.read_financial/);
+  assert.match(content, /expenses\.read_all/);
+});

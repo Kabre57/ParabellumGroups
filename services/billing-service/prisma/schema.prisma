@@ -232,11 +232,12 @@ model PurchaseCommitment {
   serviceName    String?
   supplierId     String?
   supplierName   String?
+  sourceStatus   String?
   amountHT       Float
   amountTVA      Float
   amountTTC      Float
   currency       String   @default("XOF")
-  status         PurchaseCommitmentStatus @default(ENGAGE)
+  status         PurchaseCommitmentStatus?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, RefreshCw, Search, Scale } from 'lucide-react';
+import { Download, Printer, RefreshCw, Search, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,43 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { accountingAccountTypeLabel, formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import { exportBalanceCsv } from '@/components/accounting/accountingExport';
-import billingService, { type AccountingAccount, type AccountingEntry } from '@/shared/api/billing';
+import billingService, { type AccountingBalanceRow } from '@/shared/api/billing';
 import { enterpriseApi, type Enterprise } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { getCrudVisibility } from '@/shared/action-visibility';
+import AccountingBalancePrint from '@/components/printComponents/AccountingBalancePrint';
 
-type Period = 'week' | 'month' | 'quarter' | 'year' | 'all';
-type ViewMode = 'consolidated' | 'byEnterprise';
+type ViewMode = 'consolidated' | 'enterprise';
 type SortMode = 'code' | 'enterprise' | 'label' | 'debit' | 'credit' | 'balance';
 type ScopeValue = 'all' | 'parent' | 'subsidiaries' | `enterprise:${string}`;
-
-interface BalanceRow {
-  id: string;
-  accountId?: string;
-  code: string;
-  label: string;
-  type: AccountingAccount['type'] | string;
-  enterpriseId?: number | null;
-  enterpriseName?: string | null;
-  openingDebit: number;
-  openingCredit: number;
-  debit: number;
-  credit: number;
-  balanceDebit: number;
-  balanceCredit: number;
-  movementCount: number;
-  lastTransaction?: string | null;
-}
-
-const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
-  { value: 'month', label: 'Ce mois' },
-  { value: 'quarter', label: 'Ce trimestre' },
-  { value: 'year', label: 'Cette année' },
-  { value: 'week', label: '7 derniers jours' },
-  { value: 'all', label: 'Tout l\'exercice' },
-];
 
 const SORT_OPTIONS: Array<{ value: SortMode; label: string }> = [
   { value: 'code', label: 'Compte' },
@@ -62,55 +36,6 @@ const normalizeEnterpriseId = (value: string | number | null | undefined): strin
   const normalized = String(value);
   return normalized.trim() ? normalized : null;
 };
-
-const amount = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const inferAccountType = (code: string): AccountingAccount['type'] => {
-  if (code.startsWith('6')) return 'expense';
-  if (code.startsWith('7')) return 'revenue';
-  if (code.startsWith('1')) return 'equity';
-  if (code.startsWith('4')) return 'liability';
-  return 'asset';
-};
-
-const openingSides = (account: AccountingAccount) => {
-  const opening = amount(account.openingBalance);
-  if (!opening) return { openingDebit: 0, openingCredit: 0 };
-
-  const debitNormal = account.type === 'asset' || account.type === 'expense';
-  if (opening > 0) {
-    return debitNormal
-      ? { openingDebit: opening, openingCredit: 0 }
-      : { openingDebit: 0, openingCredit: opening };
-  }
-
-  return debitNormal
-    ? { openingDebit: 0, openingCredit: Math.abs(opening) }
-    : { openingDebit: Math.abs(opening), openingCredit: 0 };
-};
-
-const finalizeRow = (row: BalanceRow): BalanceRow => {
-  const debitTotal = row.openingDebit + row.debit;
-  const creditTotal = row.openingCredit + row.credit;
-  const net = debitTotal - creditTotal;
-
-  return {
-    ...row,
-    balanceDebit: net > 0 ? net : 0,
-    balanceCredit: net < 0 ? Math.abs(net) : 0,
-  };
-};
-
-const isRowEmpty = (row: BalanceRow) =>
-  row.openingDebit === 0 &&
-  row.openingCredit === 0 &&
-  row.debit === 0 &&
-  row.credit === 0 &&
-  row.balanceDebit === 0 &&
-  row.balanceCredit === 0;
 
 const buildParentMap = (enterprises: Enterprise[]) => {
   const parentById = new Map<string, string | null>();
@@ -147,124 +72,64 @@ const enterpriseLabel = (
   return enterprise.name;
 };
 
-const buildBalanceRows = ({
-  accounts,
-  entries,
-  viewMode,
-  includeEmptyAccounts,
-  useOpeningBalances,
-}: {
-  accounts: AccountingAccount[];
-  entries: AccountingEntry[];
-  viewMode: ViewMode;
-  includeEmptyAccounts: boolean;
-  useOpeningBalances: boolean;
-}) => {
-  const accountByCode = new Map(accounts.map((account) => [account.code, account]));
-  const rows = new Map<string, BalanceRow>();
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-  const ensureRow = ({
-    code,
-    label,
-    enterpriseId,
-    enterpriseName,
-  }: {
-    code: string;
-    label?: string;
-    enterpriseId?: number | null;
-    enterpriseName?: string | null;
-  }) => {
-    const account = accountByCode.get(code);
-    const rowKey = viewMode === 'byEnterprise' ? `${enterpriseId ?? 'none'}:${code}` : code;
-    const existing = rows.get(rowKey);
-    if (existing) return existing;
+const defaultStartDate = () => {
+  const now = new Date();
+  return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+};
 
-    const opening = account && useOpeningBalances ? openingSides(account) : { openingDebit: 0, openingCredit: 0 };
-    const row: BalanceRow = {
-      id: rowKey,
-      accountId: account?.id,
-      code,
-      label: account?.label || label || 'Compte non référencé',
-      type: account?.type || inferAccountType(code),
-      enterpriseId: viewMode === 'byEnterprise' ? enterpriseId ?? null : null,
-      enterpriseName: viewMode === 'byEnterprise' ? enterpriseName || 'Entreprise non renseignée' : null,
-      openingDebit: opening.openingDebit,
-      openingCredit: opening.openingCredit,
-      debit: 0,
-      credit: 0,
-      balanceDebit: 0,
-      balanceCredit: 0,
-      movementCount: 0,
-      lastTransaction: account?.lastTransaction || null,
+const defaultEndDate = () => toDateInputValue(new Date());
+
+const getScopeRequest = (scope: ScopeValue, currentEnterpriseId: string | null) => {
+  if (scope === 'parent') {
+    return {
+      scope: 'parent' as const,
+      enterpriseId: currentEnterpriseId || undefined,
     };
-    rows.set(rowKey, row);
-    return row;
-  };
-
-  if (viewMode === 'consolidated' && includeEmptyAccounts) {
-    accounts.forEach((account) => {
-      ensureRow({ code: account.code, label: account.label });
-    });
+  }
+  if (scope === 'subsidiaries') {
+    return {
+      scope: 'subsidiaries' as const,
+      enterpriseId: currentEnterpriseId || undefined,
+    };
+  }
+  if (scope.startsWith('enterprise:')) {
+    return {
+      scope: 'single' as const,
+      enterpriseId: scope.replace('enterprise:', '') || undefined,
+    };
   }
 
-  const touchRow = (row: BalanceRow, entry: AccountingEntry) => {
-    row.movementCount += 1;
-    if (!row.lastTransaction || new Date(entry.date).getTime() > new Date(row.lastTransaction).getTime()) {
-      row.lastTransaction = entry.date;
-    }
+  return {
+    scope: 'all' as const,
+    enterpriseId: undefined,
   };
-
-  entries.forEach((entry) => {
-    const enterpriseId = entry.enterpriseId ?? null;
-    const enterpriseName = entry.enterpriseName || null;
-
-    if (entry.accountDebit) {
-      const row = ensureRow({
-        code: entry.accountDebit,
-        label: entry.accountDebitLabel,
-        enterpriseId,
-        enterpriseName,
-      });
-      row.debit += amount(entry.debit);
-      touchRow(row, entry);
-    }
-
-    if (entry.accountCredit) {
-      const row = ensureRow({
-        code: entry.accountCredit,
-        label: entry.accountCreditLabel,
-        enterpriseId,
-        enterpriseName,
-      });
-      row.credit += amount(entry.credit);
-      touchRow(row, entry);
-    }
-  });
-
-  return Array.from(rows.values())
-    .map(finalizeRow)
-    .filter((row) => includeEmptyAccounts || !isRowEmpty(row));
 };
 
 export default function BalanceComptesPage() {
   const { user } = useAuth();
-  const [period, setPeriod] = useState<Period>('all');
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(defaultEndDate);
   const [scope, setScope] = useState<ScopeValue>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('consolidated');
   const [sortMode, setSortMode] = useState<SortMode>('code');
   const [searchQuery, setSearchQuery] = useState('');
-  const [includeEmptyAccounts, setIncludeEmptyAccounts] = useState(true);
+  const [includeZeroRows, setIncludeZeroRows] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
-  const canRead =
-    isAdminRole(user) ||
-    ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'expenses.read_own', 'payments.read', 'invoices.read'].some((permission) =>
-      permissionSet.has(permission)
-    );
+  const canRead = isAdminRole(user) || permissionSet.has('reports.read_financial');
   const { canExport } = getCrudVisibility(user, {
-    read: ['reports.read_financial', 'expenses.read'],
+    read: ['reports.read_financial'],
     export: ['reports.export'],
   });
+  const canPrint = isAdminRole(user) || permissionSet.has('reports.export');
 
   const currentEnterpriseId = normalizeEnterpriseId(user?.enterpriseId);
 
@@ -292,61 +157,35 @@ export default function BalanceComptesPage() {
     [accessibleEnterprises, currentEnterpriseId]
   );
 
-  const queryEnterpriseId = useMemo(() => {
-    if (scope === 'parent') return currentEnterpriseId || undefined;
-    if (scope.startsWith('enterprise:')) return scope.replace('enterprise:', '') || undefined;
-    return undefined;
-  }, [currentEnterpriseId, scope]);
+  const scopeRequest = useMemo(() => getScopeRequest(scope, currentEnterpriseId), [scope, currentEnterpriseId]);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['accounting-balance', period, queryEnterpriseId || 'all'],
+    queryKey: ['accounting-balance-v2', startDate, endDate, scopeRequest.scope, scopeRequest.enterpriseId || 'all', viewMode, includeZeroRows],
     queryFn: () =>
-      billingService.getAccountingOverview(period, queryEnterpriseId ? { enterpriseId: queryEnterpriseId } : undefined),
+      billingService.getAccountingBalance({
+        startDate,
+        endDate,
+        scope: scopeRequest.scope,
+        enterpriseId: scopeRequest.enterpriseId,
+        groupBy: viewMode,
+        includeZeroRows,
+      }),
     enabled: canRead,
   });
 
-  const overview = data?.data;
-  const rawEntries = overview?.entries ?? [];
-  const accounts = overview?.accounts ?? [];
-
-  const scopedEntries = useMemo(() => {
-    if (scope !== 'subsidiaries') return rawEntries;
-
-    return rawEntries.filter((entry) => {
-      const enterpriseId = normalizeEnterpriseId(entry.enterpriseId);
-      return enterpriseId ? descendantEnterpriseIds.has(enterpriseId) : false;
-    });
-  }, [descendantEnterpriseIds, rawEntries, scope]);
-
-  const useOpeningBalances = viewMode === 'consolidated' && scope !== 'subsidiaries';
-
-  const balanceRows = useMemo(
-    () =>
-      buildBalanceRows({
-        accounts,
-        entries: scopedEntries,
-        viewMode,
-        includeEmptyAccounts,
-        useOpeningBalances,
-      }),
-    [accounts, includeEmptyAccounts, scopedEntries, useOpeningBalances, viewMode]
-  );
+  const balance = data?.data;
+  const rawRows = balance?.rows ?? [];
 
   const visibleRows = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const searchedRows = normalizedSearch
-      ? balanceRows.filter((row) =>
-          [
-            row.code,
-            row.label,
-            accountingAccountTypeLabel(row.type),
-            row.enterpriseName || '',
-          ]
+      ? rawRows.filter((row) =>
+          [row.code, row.label, accountingAccountTypeLabel(row.type), row.enterpriseName || '']
             .join(' ')
             .toLowerCase()
             .includes(normalizedSearch)
         )
-      : balanceRows;
+      : rawRows;
 
     return [...searchedRows].sort((left, right) => {
       if (sortMode === 'enterprise') {
@@ -360,9 +199,9 @@ export default function BalanceComptesPage() {
       }
       return left.code.localeCompare(right.code, 'fr', { numeric: true });
     });
-  }, [balanceRows, searchQuery, sortMode]);
+  }, [rawRows, searchQuery, sortMode]);
 
-  const totals = useMemo(
+  const visibleTotals = useMemo(
     () =>
       visibleRows.reduce(
         (accumulator, row) => {
@@ -379,7 +218,7 @@ export default function BalanceComptesPage() {
     [visibleRows]
   );
 
-  const movementGap = Math.abs(totals.debit - totals.credit);
+  const movementGap = Math.abs(visibleTotals.debit - visibleTotals.credit);
   const scopeLabel = useMemo(() => {
     if (scope === 'subsidiaries') return 'Filiales uniquement';
     if (scope === 'parent') return currentEnterprise?.name || 'Entreprise mère';
@@ -408,7 +247,7 @@ export default function BalanceComptesPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold">Balance des comptes</h1>
-              <p className="mt-1 text-muted-foreground">Débits, crédits et soldes par compte comptable.</p>
+              <p className="mt-1 text-muted-foreground">Balance calculée par période, avec ouverture, mouvements et soldes cumulés.</p>
             </div>
           </div>
         </div>
@@ -417,8 +256,12 @@ export default function BalanceComptesPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)} disabled={!visibleRows.length || !canPrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            Imprimer
+          </Button>
           {canExport && (
-            <Button onClick={() => exportBalanceCsv(visibleRows, `balance-des-comptes-${period}.csv`)}>
+            <Button onClick={() => exportBalanceCsv(visibleRows, `balance-des-comptes-${startDate}-${endDate}.csv`)}>
               <Download className="mr-2 h-4 w-4" />
               Exporter Excel
             </Button>
@@ -434,13 +277,13 @@ export default function BalanceComptesPage() {
         </Card>
         <Card className="p-5">
           <p className="text-sm text-muted-foreground">Mouvements débit</p>
-          <p className="mt-2 text-2xl font-bold text-green-700">{formatAccountingCurrency(totals.debit)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Sur la période sélectionnée</p>
+          <p className="mt-2 text-2xl font-bold text-green-700">{formatAccountingCurrency(visibleTotals.debit)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Du {formatAccountingDate(balance?.period.startDate)} au {formatAccountingDate(balance?.period.endDate)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-sm text-muted-foreground">Mouvements crédit</p>
-          <p className="mt-2 text-2xl font-bold text-red-700">{formatAccountingCurrency(totals.credit)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Sur la période sélectionnée</p>
+          <p className="mt-2 text-2xl font-bold text-red-700">{formatAccountingCurrency(visibleTotals.credit)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Période sélectionnée</p>
         </Card>
         <Card className="p-5">
           <p className="text-sm text-muted-foreground">Écart mouvements</p>
@@ -452,7 +295,7 @@ export default function BalanceComptesPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_240px_180px_190px]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_160px_220px_170px_170px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -463,17 +306,8 @@ export default function BalanceComptesPage() {
             />
           </div>
 
-          <select
-            value={period}
-            onChange={(event) => setPeriod(event.target.value as Period)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            {PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
 
           <select
             value={scope}
@@ -499,7 +333,7 @@ export default function BalanceComptesPage() {
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="consolidated">Vue consolidée</option>
-            <option value="byEnterprise">Par entreprise</option>
+            <option value="enterprise">Par entreprise</option>
           </select>
 
           <select
@@ -518,11 +352,11 @@ export default function BalanceComptesPage() {
         <label className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
-            checked={includeEmptyAccounts}
-            onChange={(event) => setIncludeEmptyAccounts(event.target.checked)}
+            checked={includeZeroRows}
+            onChange={(event) => setIncludeZeroRows(event.target.checked)}
             className="h-4 w-4 rounded border-gray-300"
           />
-          Inclure les comptes sans mouvement
+          Inclure les comptes sans activité sur la période
         </label>
       </Card>
 
@@ -536,7 +370,7 @@ export default function BalanceComptesPage() {
             <table className="w-full min-w-[1180px]">
               <thead>
                 <tr className="border-b bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
-                  {viewMode === 'byEnterprise' && <th className="px-4 py-3 font-semibold">Entreprise</th>}
+                  {viewMode === 'enterprise' && <th className="px-4 py-3 font-semibold">Entreprise</th>}
                   <th className="px-4 py-3 font-semibold">Numéro de compte</th>
                   <th className="px-4 py-3 font-semibold">Intitulé des comptes</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
@@ -550,9 +384,9 @@ export default function BalanceComptesPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => (
+                {visibleRows.map((row: AccountingBalanceRow) => (
                   <tr key={row.id} className="border-b hover:bg-slate-50">
-                    {viewMode === 'byEnterprise' && (
+                    {viewMode === 'enterprise' && (
                       <td className="px-4 py-3 text-sm font-medium">{row.enterpriseName || '-'}</td>
                     )}
                     <td className="px-4 py-3">
@@ -573,8 +407,8 @@ export default function BalanceComptesPage() {
                 ))}
                 {!visibleRows.length && (
                   <tr>
-                    <td colSpan={viewMode === 'byEnterprise' ? 11 : 10} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                      Aucune ligne de balance disponible pour ces filtres.
+                    <td colSpan={viewMode === 'enterprise' ? 11 : 10} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      Aucune ligne de balance disponible pour cette période et ces filtres.
                     </td>
                   </tr>
                 )}
@@ -582,16 +416,16 @@ export default function BalanceComptesPage() {
               {visibleRows.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-slate-50 font-bold">
-                    {viewMode === 'byEnterprise' && <td className="px-4 py-4">Totaux</td>}
-                    <td className="px-4 py-4" colSpan={viewMode === 'byEnterprise' ? 3 : 3}>
+                    {viewMode === 'enterprise' && <td className="px-4 py-4">Totaux</td>}
+                    <td className="px-4 py-4" colSpan={viewMode === 'enterprise' ? 3 : 3}>
                       Totaux de la balance
                     </td>
-                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(totals.openingDebit)}</td>
-                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(totals.openingCredit)}</td>
-                    <td className="px-4 py-4 text-right text-green-700">{formatAccountingCurrency(totals.debit)}</td>
-                    <td className="px-4 py-4 text-right text-red-700">{formatAccountingCurrency(totals.credit)}</td>
-                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(totals.balanceDebit)}</td>
-                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(totals.balanceCredit)}</td>
+                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(visibleTotals.openingDebit)}</td>
+                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(visibleTotals.openingCredit)}</td>
+                    <td className="px-4 py-4 text-right text-green-700">{formatAccountingCurrency(visibleTotals.debit)}</td>
+                    <td className="px-4 py-4 text-right text-red-700">{formatAccountingCurrency(visibleTotals.credit)}</td>
+                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(visibleTotals.balanceDebit)}</td>
+                    <td className="px-4 py-4 text-right">{formatAccountingCurrency(visibleTotals.balanceCredit)}</td>
                     <td className="px-4 py-4" />
                   </tr>
                 </tfoot>
@@ -600,6 +434,19 @@ export default function BalanceComptesPage() {
           </div>
         )}
       </Card>
+
+      {isPrintOpen && (
+        <AccountingBalancePrint
+          rows={visibleRows}
+          totals={visibleTotals}
+          scopeLabel={scopeLabel}
+          groupBy={viewMode}
+          startDate={balance?.period.startDate || startDate}
+          endDate={balance?.period.endDate || endDate}
+          generatedAt={balance?.generatedAt}
+          onClose={() => setIsPrintOpen(false)}
+        />
+      )}
     </div>
   );
 }

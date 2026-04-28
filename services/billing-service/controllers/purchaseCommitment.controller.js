@@ -11,6 +11,17 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const resolveAccountingCommitmentStatus = ({ sourceType, sourceStatus }) => {
+  const normalizedSourceType = String(sourceType || '').toUpperCase();
+  const normalizedSourceStatus = String(sourceStatus || '').toUpperCase();
+
+  if (normalizedSourceType === 'PURCHASE_ORDER' && normalizedSourceStatus === 'CONFIRME') {
+    return PurchaseCommitmentStatus.ENGAGE;
+  }
+
+  return null;
+};
+
 const ensureInternalEventSecret = (req, res, next) => {
   const secret = req.headers['x-event-secret'];
 
@@ -69,11 +80,15 @@ const processProcurementEvent = async (event) => {
           serviceName: payload.serviceName || null,
           supplierId: payload.supplierId || null,
           supplierName: payload.supplierName || null,
+          sourceStatus: payload.status || 'BROUILLON',
           amountHT: normalizeNumber(payload.amountHT, 0),
           amountTVA: normalizeNumber(payload.amountTVA, 0),
           amountTTC: normalizeNumber(payload.amountTTC, 0),
           currency: payload.currency || 'XOF',
-          status: payload.status || 'BROUILLON',
+          status: resolveAccountingCommitmentStatus({
+            sourceType: 'PURCHASE_QUOTE',
+            sourceStatus: payload.status || 'BROUILLON',
+          }),
           createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
         });
         break;
@@ -89,11 +104,15 @@ const processProcurementEvent = async (event) => {
           serviceName: payload.serviceName || null,
           supplierId: payload.supplierId || null,
           supplierName: payload.supplierName || null,
+          sourceStatus: payload.status || 'BROUILLON',
           amountHT: normalizeNumber(payload.amountHT, 0),
           amountTVA: normalizeNumber(payload.amountTVA, 0),
           amountTTC: normalizeNumber(payload.amountTTC, 0),
           currency: payload.currency || 'XOF',
-          status: payload.status || 'BROUILLON',
+          status: resolveAccountingCommitmentStatus({
+            sourceType: 'PURCHASE_ORDER',
+            sourceStatus: payload.status || 'BROUILLON',
+          }),
           createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
         });
 
@@ -116,12 +135,16 @@ const processProcurementEvent = async (event) => {
         });
 
         if (commitment) {
+          const nextSourceStatus = payload.toStatus || payload.status || 'BROUILLON';
+          const nextAccountingStatus = resolveAccountingCommitmentStatus({
+            sourceType: 'PURCHASE_ORDER',
+            sourceStatus: nextSourceStatus,
+          });
           const updated = await tx.purchaseCommitment.update({
             where: { id: commitment.id },
             data: {
-              status: (payload.toStatus || payload.status || 'BROUILLON') === 'CONFIRME' 
-                ? PurchaseCommitmentStatus.ENGAGE 
-                : (payload.toStatus || payload.status || 'BROUILLON'),
+              sourceStatus: nextSourceStatus,
+              status: nextAccountingStatus,
               enterpriseId: payload.enterpriseId != null ? Number(payload.enterpriseId) : null,
               enterpriseName: payload.enterpriseName || null,
               serviceId: payload.serviceId != null ? Number(payload.serviceId) : null,
@@ -214,13 +237,13 @@ exports.getPurchaseCommitmentsStats = async (req, res) => {
       success: true,
       data: {
         totalPurchases: commitments.length,
-        pendingQuotes: quotes.filter((item) => item.status === 'SOUMISE').length,
-        draftQuotes: quotes.filter((item) => item.status === 'BROUILLON').length,
-        rejectedQuotes: quotes.filter((item) => item.status === 'REJETEE').length,
-        draftOrders: orders.filter((item) => item.status === 'BROUILLON').length,
-        confirmedOrders: orders.filter((item) => item.status === 'CONFIRME').length,
-        receivedOrders: orders.filter((item) => item.status === 'LIVRE').length,
-        cancelledOrders: orders.filter((item) => item.status === 'ANNULE').length,
+        pendingQuotes: quotes.filter((item) => item.sourceStatus === 'SOUMISE').length,
+        draftQuotes: quotes.filter((item) => item.sourceStatus === 'BROUILLON').length,
+        rejectedQuotes: quotes.filter((item) => item.sourceStatus === 'REJETEE').length,
+        draftOrders: orders.filter((item) => item.sourceStatus === 'BROUILLON').length,
+        confirmedOrders: orders.filter((item) => item.sourceStatus === 'CONFIRME').length,
+        receivedOrders: orders.filter((item) => item.sourceStatus === 'LIVRE').length,
+        cancelledOrders: orders.filter((item) => item.sourceStatus === 'ANNULE').length,
         totalCommittedAmount: commitments.reduce((sum, item) => sum + normalizeNumber(item.amountTTC, 0), 0),
       },
     });
