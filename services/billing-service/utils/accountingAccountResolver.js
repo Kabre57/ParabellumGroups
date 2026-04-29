@@ -86,6 +86,15 @@ const matchesConfiguredFamilyRule = (configuredRule, accountOrCode) => {
   return false;
 };
 
+const pickPreferredRule = (rules = [], accountOrCode) => {
+  if (!Array.isArray(rules) || rules.length === 0) return null;
+
+  const explicitMatch = rules.find((rule) => matchesConfiguredFamilyRule(rule, accountOrCode));
+  if (explicitMatch) return explicitMatch;
+
+  return rules.find((rule) => rule.isPrimary) || rules[0] || null;
+};
+
 const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFamily = null) => {
   const { accountId, code } = getAccountIdentity(accountOrCode);
   if (!accountId && !code) {
@@ -93,13 +102,13 @@ const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFa
   }
 
   const rules = await loadAccountingFamilyRules(client);
-  const cashRule = rules.get(AccountingFamily.TREASURY_CASH);
-  if (matchesConfiguredFamilyRule(cashRule, accountOrCode)) {
+  const cashRules = rules.get(AccountingFamily.TREASURY_CASH) || [];
+  if (cashRules.some((rule) => matchesConfiguredFamilyRule(rule, accountOrCode))) {
     return AccountingFamily.TREASURY_CASH;
   }
 
-  const bankRule = rules.get(AccountingFamily.TREASURY_BANK);
-  if (matchesConfiguredFamilyRule(bankRule, accountOrCode)) {
+  const bankRules = rules.get(AccountingFamily.TREASURY_BANK) || [];
+  if (bankRules.some((rule) => matchesConfiguredFamilyRule(rule, accountOrCode))) {
     return AccountingFamily.TREASURY_BANK;
   }
 
@@ -149,18 +158,19 @@ const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
     include: {
       account: true,
     },
-    orderBy: { family: 'asc' },
+    orderBy: [{ family: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }],
   });
 
-  familyRulesCache = new Map(
-    rules.map((rule) => [
-      rule.family,
-      {
-        ...rule,
-        account: rule.account && rule.account.isActive !== false ? rule.account : null,
-      },
-    ])
-  );
+  familyRulesCache = new Map();
+  rules.forEach((rule) => {
+    const normalizedRule = {
+      ...rule,
+      account: rule.account && rule.account.isActive !== false ? rule.account : null,
+    };
+    const bucket = familyRulesCache.get(rule.family) || [];
+    bucket.push(normalizedRule);
+    familyRulesCache.set(rule.family, bucket);
+  });
   familyRulesLoadedAt = Date.now();
   return familyRulesCache;
 };
@@ -211,7 +221,7 @@ const resolveAccountingAccount = async (
 
   if (!account) {
     const rules = await loadAccountingFamilyRules(client);
-    const configuredRule = rules.get(family);
+    const configuredRule = pickPreferredRule(rules.get(family) || [], preferredAccountId || preferredCode || null);
     if (configuredRule?.account) {
       account = configuredRule.account;
     } else if (configuredRule?.accountId) {

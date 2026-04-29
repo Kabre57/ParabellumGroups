@@ -113,10 +113,12 @@ const billingPermissionRules = [
     }
   },
   {
-    pattern: /^\/accounting\/family-rules(?:\/[^/]+)?$/,
+    pattern: /^\/accounting\/family-rules(?:\/(?:item\/[^/]+|[^/]+))?$/,
     permissions: {
       GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      PUT: ['expenses.update', 'payments.update']
+      POST: ['expenses.update', 'payments.update'],
+      PATCH: ['expenses.update', 'payments.update'],
+      DELETE: ['expenses.update', 'payments.update']
     }
   },
   {

@@ -7,6 +7,8 @@ const router = express.Router();
 router.use(authenticateToken);
 
 router.get('/', controller.getFamilyRules);
-router.put('/:family', controller.upsertFamilyRule);
+router.post('/:family', controller.addFamilyRule);
+router.patch('/item/:ruleId', controller.updateFamilyRule);
+router.delete('/item/:ruleId', controller.deleteFamilyRule);
 
 module.exports = router;

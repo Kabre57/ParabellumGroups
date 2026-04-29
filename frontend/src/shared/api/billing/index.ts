@@ -391,7 +391,6 @@ export interface AccountingAccount {
 }
 
 export interface AccountingFamilyRule {
-  id: string | null;
   family:
     | 'CUSTOMER_RECEIVABLE'
     | 'SUPPLIER_PAYABLE'
@@ -402,10 +401,19 @@ export interface AccountingFamilyRule {
     | 'TREASURY_CASH';
   label: string;
   description?: string | null;
-  accountId?: string | null;
-  account?: AccountingAccount | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  primaryAccountId?: string | null;
+  primaryAccount?: AccountingAccount | null;
+  rules: Array<{
+    id: string;
+    family: AccountingFamilyRule['family'];
+    label: string;
+    description?: string | null;
+    accountId: string;
+    account?: AccountingAccount | null;
+    isPrimary: boolean;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  }>;
 }
 
 export interface AccountingMovement {
@@ -1209,16 +1217,34 @@ export const billingService = {
     return response.data;
   },
 
-  async upsertAccountingFamilyRule(
+  async addAccountingFamilyRule(
     family: AccountingFamilyRule['family'],
     data: {
       accountId: string;
       label?: string;
       description?: string;
+      isPrimary?: boolean;
     }
-  ): Promise<DetailResponse<AccountingFamilyRule>> {
-    const response = await apiClient.put(`/billing/accounting/family-rules/${family}`, data);
-    return normalizeDetailResponse<AccountingFamilyRule>(response.data);
+  ): Promise<DetailResponse<AccountingFamilyRule['rules'][number]>> {
+    const response = await apiClient.post(`/billing/accounting/family-rules/${family}`, data);
+    return normalizeDetailResponse<AccountingFamilyRule['rules'][number]>(response.data);
+  },
+
+  async updateAccountingFamilyRule(
+    ruleId: string,
+    data: {
+      label?: string;
+      description?: string;
+      isPrimary?: boolean;
+    }
+  ): Promise<DetailResponse<AccountingFamilyRule['rules'][number]>> {
+    const response = await apiClient.patch(`/billing/accounting/family-rules/item/${ruleId}`, data);
+    return normalizeDetailResponse<AccountingFamilyRule['rules'][number]>(response.data);
+  },
+
+  async deleteAccountingFamilyRule(ruleId: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/billing/accounting/family-rules/item/${ruleId}`);
+    return response.data;
   },
 
   async getAccountingEntries(params?: {

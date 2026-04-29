@@ -69,15 +69,35 @@ export default function ComptesPage() {
       setSelected(null);
     }
   });
-  const familyRuleMutation = useMutation({
+  const addFamilyRuleMutation = useMutation({
     mutationFn: ({ family, accountId }: { family: AccountingFamilyRule['family']; accountId: string }) =>
-      billingService.upsertAccountingFamilyRule(family, { accountId }),
+      billingService.addAccountingFamilyRule(family, { accountId }),
     onSuccess: () => {
-      toast.success('Règle de famille comptable mise à jour.');
+      toast.success('Compte rattaché à la famille comptable.');
       queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour de la famille comptable.');
+      toast.error(error?.response?.data?.message || 'Erreur lors de l’ajout du compte à la famille comptable.');
+    },
+  });
+  const makePrimaryRuleMutation = useMutation({
+    mutationFn: (ruleId: string) => billingService.updateAccountingFamilyRule(ruleId, { isPrimary: true }),
+    onSuccess: () => {
+      toast.success('Compte principal mis à jour.');
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour du compte principal.');
+    },
+  });
+  const removeFamilyRuleMutation = useMutation({
+    mutationFn: (ruleId: string) => billingService.deleteAccountingFamilyRule(ruleId),
+    onSuccess: () => {
+      toast.success('Compte retiré de la famille.');
+      queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression du compte rattaché.');
     },
   });
 
@@ -231,7 +251,7 @@ export default function ComptesPage() {
 
             <div className="grid gap-3 lg:grid-cols-2">
               {orderedFamilyRules.map((rule) => {
-                const selectedValue = familySelections[rule.family] ?? rule.accountId ?? '';
+                const selectedValue = familySelections[rule.family] ?? '';
                 const availableAccounts = accountsForFamily(rule.family);
                 return (
                   <div key={rule.family} className="rounded-lg border border-slate-200 p-3">
@@ -243,7 +263,7 @@ export default function ComptesPage() {
                         </div>
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
-                        {rule.account ? rule.account.code : 'Non configuré'}
+                        {rule.primaryAccount ? `${rule.primaryAccount.code} principal` : 'Non configuré'}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -267,14 +287,51 @@ export default function ComptesPage() {
                       <Button
                         type="button"
                         size="sm"
-                        disabled={!selectedValue || familyRuleMutation.isPending}
-                        onClick={() => familyRuleMutation.mutate({ family: rule.family, accountId: selectedValue })}
+                        disabled={!selectedValue || addFamilyRuleMutation.isPending}
+                        onClick={() => addFamilyRuleMutation.mutate({ family: rule.family, accountId: selectedValue })}
                       >
-                        Enregistrer
+                        Ajouter
                       </Button>
                     </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Compte actuel : {rule.account ? `${rule.account.code} - ${rule.account.label}` : 'Non configuré'}
+                    <div className="mt-3 space-y-2">
+                      {rule.rules.length ? (
+                        rule.rules.map((item) => (
+                          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium">
+                                {item.account ? `${item.account.code} - ${item.account.label}` : 'Compte indisponible'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.isPrimary ? 'Compte principal de la famille' : 'Compte secondaire rattaché'}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {!item.isPrimary && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={makePrimaryRuleMutation.isPending}
+                                  onClick={() => makePrimaryRuleMutation.mutate(item.id)}
+                                >
+                                  Définir principal
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={removeFamilyRuleMutation.isPending}
+                                onClick={() => removeFamilyRuleMutation.mutate(item.id)}
+                              >
+                                Retirer
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Aucun compte rattaché à cette famille.</div>
+                      )}
                     </div>
                   </div>
                 );
