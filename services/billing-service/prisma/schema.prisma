@@ -455,6 +455,25 @@ model AccountingAccount {
   @@index([isActive])
   @@map("accounting_accounts")
   mappings        AccountingMapping[]
+  familyRules     AccountingFamilyRule[]
+}
+
+model AccountingFamilyRule {
+  id              String                @id @default(uuid())
+  family          AccountingFamily
+  label           String
+  description     String?
+  accountId       String
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  account         AccountingAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([family])
+  @@index([accountId])
+  @@map("accounting_family_rules")
 }
 
 model AccountingJournalEntry {
@@ -570,6 +589,16 @@ enum AccountingAccountType {
 enum AccountingEntrySide {
   DEBIT
   CREDIT
+}
+
+enum AccountingFamily {
+  CUSTOMER_RECEIVABLE
+  SUPPLIER_PAYABLE
+  PURCHASE_EXPENSE
+  MISC_EXPENSE
+  REVENUE
+  TREASURY_BANK
+  TREASURY_CASH
 }
 
 model CashVoucher {

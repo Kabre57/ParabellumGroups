@@ -219,7 +219,7 @@ exports.updateStatus = async (req, res) => {
           user: req.user,
         }
       );
-      const treasuryJournal = getTreasuryJournalMeta(treasuryAccountingAccount);
+      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount);
 
       const entryNumber = await nextEntryNumber(tx);
       await tx.accountingJournalEntry.create({

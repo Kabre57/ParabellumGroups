@@ -1,110 +1,168 @@
-const { AccountingAccountType } = require('@prisma/client');
+const { AccountingAccountType, AccountingFamily } = require('@prisma/client');
 
-const FAMILY_RULES = {
-  CUSTOMER_RECEIVABLE: {
-    exactCodes: ['411'],
-    prefixes: ['411'],
+const FAMILY_DEFINITIONS = {
+  [AccountingFamily.CUSTOMER_RECEIVABLE]: {
+    label: 'Compte client',
+    description: 'Compte utilise pour les creances clients.',
     type: AccountingAccountType.ASSET,
-    create: {
-      code: '411',
-      label: 'Clients',
-      type: AccountingAccountType.ASSET,
-    },
-    errorMessage: 'Aucun compte client n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte client n est configuré dans les règles comptables.',
   },
-  SUPPLIER_PAYABLE: {
-    exactCodes: ['401'],
-    prefixes: ['401'],
+  [AccountingFamily.SUPPLIER_PAYABLE]: {
+    label: 'Compte fournisseur',
+    description: 'Compte utilise pour les dettes fournisseurs.',
     type: AccountingAccountType.LIABILITY,
-    create: {
-      code: '401',
-      label: 'Fournisseurs',
-      type: AccountingAccountType.LIABILITY,
-    },
-    errorMessage: 'Aucun compte fournisseur n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte fournisseur n est configuré dans les règles comptables.',
   },
-  PURCHASE_EXPENSE: {
-    exactCodes: ['607', '601'],
-    prefixes: ['607', '601', '605', '60', '61', '62'],
+  [AccountingFamily.PURCHASE_EXPENSE]: {
+    label: 'Compte de charge achat',
+    description: 'Compte de charge principal pour les achats et approvisionnements.',
     type: AccountingAccountType.EXPENSE,
-    create: {
-      code: '607',
-      label: 'Achats de biens et services',
-      type: AccountingAccountType.EXPENSE,
-    },
-    errorMessage: 'Aucun compte de charge achat n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte de charge achat n est configuré dans les règles comptables.',
   },
-  MISC_EXPENSE: {
-    exactCodes: ['618', '615', '625'],
-    prefixes: ['618', '615', '625', '61', '62', '60'],
+  [AccountingFamily.MISC_EXPENSE]: {
+    label: 'Compte de charge diverse',
+    description: 'Compte de charge pour les autres depenses.',
     type: AccountingAccountType.EXPENSE,
-    create: {
-      code: '618',
-      label: 'Autres charges d exploitation',
-      type: AccountingAccountType.EXPENSE,
-    },
-    errorMessage: 'Aucun compte de charge n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte de charge diverse n est configuré dans les règles comptables.',
   },
-  REVENUE: {
-    exactCodes: ['706', '707', '708'],
-    prefixes: ['706', '707', '708', '70'],
+  [AccountingFamily.REVENUE]: {
+    label: 'Compte de produit',
+    description: 'Compte de produit principal pour les ventes et prestations.',
     type: AccountingAccountType.REVENUE,
-    create: {
-      code: '706',
-      label: 'Prestations de services',
-      type: AccountingAccountType.REVENUE,
-    },
-    errorMessage: 'Aucun compte de produit n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte de produit n est configuré dans les règles comptables.',
   },
-  TREASURY_BANK: {
-    exactCodes: ['521100', '521', '512'],
-    prefixes: ['521', '512'],
+  [AccountingFamily.TREASURY_BANK]: {
+    label: 'Compte de banque',
+    description: 'Compte de tresorerie bancaire utilise pour les virements, cheques et cartes.',
     type: AccountingAccountType.ASSET,
-    create: {
-      code: '521100',
-      label: 'BANQUES EN MONNAIE NATIONALE',
-      type: AccountingAccountType.ASSET,
-    },
-    errorMessage: 'Aucun compte bancaire n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte bancaire n est configuré dans les règles comptables.',
   },
-  TREASURY_CASH: {
-    exactCodes: ['571100', '571', '531'],
-    prefixes: ['571', '531'],
+  [AccountingFamily.TREASURY_CASH]: {
+    label: 'Compte de caisse',
+    description: 'Compte de caisse utilise pour les paiements en especes.',
     type: AccountingAccountType.ASSET,
-    create: {
-      code: '571100',
-      label: 'CAISSE EN MONNAIE NATIONALE',
-      type: AccountingAccountType.ASSET,
-    },
-    errorMessage: 'Aucun compte de caisse n est configuré dans le plan comptable.',
+    errorMessage: 'Aucun compte de caisse n est configuré dans les règles comptables.',
   },
 };
 
 const normalizeText = (value) => String(value || '').trim();
 
-const isCashAccountingCode = (code) => {
-  const normalized = normalizeText(code);
-  return normalized.startsWith('571') || normalized.startsWith('531');
+const getAccountIdentity = (accountOrCode) => {
+  if (!accountOrCode) {
+    return { accountId: null, code: '' };
+  }
+
+  if (typeof accountOrCode === 'string') {
+    return {
+      accountId: null,
+      code: normalizeText(accountOrCode),
+    };
+  }
+
+  return {
+    accountId: accountOrCode.id ? String(accountOrCode.id) : null,
+    code: normalizeText(accountOrCode.code),
+  };
 };
 
-const isBankAccountingCode = (code) => {
-  const normalized = normalizeText(code);
-  return normalized.startsWith('521') || normalized.startsWith('512');
+const matchesConfiguredFamilyRule = (configuredRule, accountOrCode) => {
+  if (!configuredRule) return false;
+
+  const { accountId, code } = getAccountIdentity(accountOrCode);
+  if (!accountId && !code) return false;
+
+  if (configuredRule.accountId && accountId && String(configuredRule.accountId) === accountId) {
+    return true;
+  }
+
+  if (configuredRule.account?.id && accountId && String(configuredRule.account.id) === accountId) {
+    return true;
+  }
+
+  if (configuredRule.account?.code && code && normalizeText(configuredRule.account.code) === code) {
+    return true;
+  }
+
+  return false;
 };
 
-const isTreasuryAccountingCode = (code) => isCashAccountingCode(code) || isBankAccountingCode(code);
+const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFamily = null) => {
+  const { accountId, code } = getAccountIdentity(accountOrCode);
+  if (!accountId && !code) {
+    return fallbackFamily;
+  }
+
+  const rules = await loadAccountingFamilyRules(client);
+  const cashRule = rules.get(AccountingFamily.TREASURY_CASH);
+  if (matchesConfiguredFamilyRule(cashRule, accountOrCode)) {
+    return AccountingFamily.TREASURY_CASH;
+  }
+
+  const bankRule = rules.get(AccountingFamily.TREASURY_BANK);
+  if (matchesConfiguredFamilyRule(bankRule, accountOrCode)) {
+    return AccountingFamily.TREASURY_BANK;
+  }
+
+  return fallbackFamily;
+};
+
+const isCashAccountingCode = async (client, accountOrCode) =>
+  (await resolveConfiguredTreasuryFamily(client, accountOrCode)) === AccountingFamily.TREASURY_CASH;
+
+const isBankAccountingCode = async (client, accountOrCode) =>
+  (await resolveConfiguredTreasuryFamily(client, accountOrCode)) === AccountingFamily.TREASURY_BANK;
+
+const isTreasuryAccountingCode = async (client, accountOrCode) =>
+  Boolean(await resolveConfiguredTreasuryFamily(client, accountOrCode));
 
 const getTreasuryFamilyFromPaymentMethod = (paymentMethod) =>
-  String(paymentMethod || '').toUpperCase() === 'ESPECES' ? 'TREASURY_CASH' : 'TREASURY_BANK';
+  String(paymentMethod || '').toUpperCase() === 'ESPECES'
+    ? AccountingFamily.TREASURY_CASH
+    : AccountingFamily.TREASURY_BANK;
 
-const getTreasuryJournalMeta = (accountOrCode) => {
-  const code = typeof accountOrCode === 'string' ? accountOrCode : accountOrCode?.code;
-  const isCash = isCashAccountingCode(code);
+const getTreasuryJournalMeta = async (client, accountOrCode, { fallbackFamily = AccountingFamily.TREASURY_BANK } = {}) => {
+  const family = await resolveConfiguredTreasuryFamily(client, accountOrCode, fallbackFamily);
+  const isCash = family === AccountingFamily.TREASURY_CASH;
   return {
     journalCode: isCash ? 'CA' : 'BQ',
     journalLabel: isCash ? 'Journal de caisse' : 'Journal de banque',
     defaultPaymentMethod: isCash ? 'ESPECES' : 'VIREMENT',
   };
+};
+
+let familyRulesCache = null;
+let familyRulesLoadedAt = 0;
+const CACHE_TTL_MS = 60 * 1000;
+
+const invalidateAccountingFamilyRulesCache = () => {
+  familyRulesCache = null;
+  familyRulesLoadedAt = 0;
+};
+
+const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
+  const cacheExpired = Date.now() - familyRulesLoadedAt > CACHE_TTL_MS;
+  if (!force && familyRulesCache && !cacheExpired) {
+    return familyRulesCache;
+  }
+
+  const rules = await client.accountingFamilyRule.findMany({
+    include: {
+      account: true,
+    },
+    orderBy: { family: 'asc' },
+  });
+
+  familyRulesCache = new Map(
+    rules.map((rule) => [
+      rule.family,
+      {
+        ...rule,
+        account: rule.account && rule.account.isActive !== false ? rule.account : null,
+      },
+    ])
+  );
+  familyRulesLoadedAt = Date.now();
+  return familyRulesCache;
 };
 
 const findAccountById = async (client, accountId) => {
@@ -116,60 +174,18 @@ const findAccountById = async (client, accountId) => {
   return account;
 };
 
-const findAccountByExactCodes = async (client, codes, type) => {
-  for (const code of codes) {
-    const normalizedCode = normalizeText(code);
-    if (!normalizedCode) continue;
-    const account = await client.accountingAccount.findFirst({
-      where: {
-        code: normalizedCode,
-        ...(type ? { type } : {}),
-        isActive: true,
-      },
-    });
-    if (account) return account;
-  }
-  return null;
-};
-
-const findAccountByPrefixes = async (client, prefixes, type) => {
-  for (const prefix of prefixes) {
-    const normalizedPrefix = normalizeText(prefix);
-    if (!normalizedPrefix) continue;
-    const account = await client.accountingAccount.findFirst({
-      where: {
-        code: {
-          startsWith: normalizedPrefix,
-        },
-        ...(type ? { type } : {}),
-        isActive: true,
-      },
-      orderBy: { code: 'asc' },
-    });
-    if (account) return account;
-  }
-  return null;
-};
-
-const ensureSystemAccount = async (client, spec, user) =>
-  client.accountingAccount.upsert({
-    where: { code: spec.code },
-    update: {
-      label: spec.label,
-      type: spec.type,
-      isSystem: true,
+const findAccountByCode = async (client, code, type) => {
+  const normalizedCode = normalizeText(code);
+  if (!normalizedCode) return null;
+  const account = await client.accountingAccount.findFirst({
+    where: {
+      code: normalizedCode,
+      ...(type ? { type } : {}),
       isActive: true,
-    },
-    create: {
-      code: spec.code,
-      label: spec.label,
-      type: spec.type,
-      isSystem: true,
-      isActive: true,
-      createdByUserId: user?.userId ? String(user.userId) : null,
-      createdByEmail: user?.email || null,
     },
   });
+  return account || null;
+};
 
 const resolveAccountingAccount = async (
   client,
@@ -177,13 +193,11 @@ const resolveAccountingAccount = async (
   {
     preferredAccountId = null,
     preferredCode = null,
-    allowCreate = true,
     strict = true,
-    user = null,
   } = {}
 ) => {
-  const rule = FAMILY_RULES[family];
-  if (!rule) {
+  const definition = FAMILY_DEFINITIONS[family];
+  if (!definition) {
     if (strict) {
       throw new Error(`Famille comptable inconnue: ${family}`);
     }
@@ -192,20 +206,24 @@ const resolveAccountingAccount = async (
 
   let account = await findAccountById(client, preferredAccountId);
   if (!account) {
-    account = await findAccountByExactCodes(
-      client,
-      [preferredCode, ...rule.exactCodes].filter(Boolean),
-      rule.type
-    );
+    account = await findAccountByCode(client, preferredCode, definition.type);
   }
+
   if (!account) {
-    account = await findAccountByPrefixes(client, rule.prefixes, rule.type);
+    const rules = await loadAccountingFamilyRules(client);
+    const configuredRule = rules.get(family);
+    if (configuredRule?.account) {
+      account = configuredRule.account;
+    } else if (configuredRule?.accountId) {
+      account = await findAccountById(client, configuredRule.accountId);
+      if (!account) {
+        invalidateAccountingFamilyRulesCache();
+      }
+    }
   }
-  if (!account && allowCreate && rule.create) {
-    account = await ensureSystemAccount(client, rule.create, user);
-  }
+
   if (!account && strict) {
-    throw new Error(rule.errorMessage);
+    throw new Error(definition.errorMessage);
   }
 
   return account;
@@ -215,7 +233,6 @@ const resolveAccountingReference = async (client, family, options = {}) => {
   const account = await resolveAccountingAccount(client, family, {
     ...options,
     strict: false,
-    allowCreate: false,
   });
   if (account) {
     return {
@@ -225,22 +242,25 @@ const resolveAccountingReference = async (client, family, options = {}) => {
     };
   }
 
-  const rule = FAMILY_RULES[family];
-  if (!rule?.create) return null;
+  const definition = FAMILY_DEFINITIONS[family];
+  if (!definition) return null;
   return {
     accountId: null,
-    code: rule.create.code,
-    label: rule.create.label,
+    code: null,
+    label: definition.label,
   };
 };
 
 module.exports = {
-  FAMILY_RULES,
+  AccountingFamily,
+  FAMILY_DEFINITIONS,
   isCashAccountingCode,
   isBankAccountingCode,
   isTreasuryAccountingCode,
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
+  loadAccountingFamilyRules,
+  invalidateAccountingFamilyRulesCache,
   resolveAccountingAccount,
   resolveAccountingReference,
 };

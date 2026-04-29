@@ -68,9 +68,13 @@ class AccountingMappingService {
       }
     }
 
-    // 3. Fallback ultime
-    console.log(`[AccountingMappingService] No mapping found for ${normalizedSource}:${normalizedCategory}. Using default fallback.`);
-    return { code: '618', label: 'Autres charges d exploitation', accountId: null };
+    // 3. Fallback ultime sans code hardcodé
+    console.log(`[AccountingMappingService] No mapping found for ${normalizedSource}:${normalizedCategory}. Returning semantic fallback.`);
+    return {
+      code: null,
+      label: semanticFamily ? `Famille comptable à configurer: ${semanticFamily}` : 'Famille comptable à configurer',
+      accountId: null,
+    };
   }
 
   resolveSemanticFamily(sourceType, category) {

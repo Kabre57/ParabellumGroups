@@ -439,34 +439,37 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       });
     });
 
-    manualJournalEntries.forEach((entry) => {
+    for (const entry of manualJournalEntries) {
       if (['ENCAISSEMENT', 'DECAISSEMENT', 'PAYMENT'].includes(String(entry.sourceType || '').toUpperCase())) {
-        return;
+        continue;
       }
-      entry.lines
-        .filter((line) => isTreasuryAccountingCode(line.account?.code))
-        .forEach((line) => {
-          const treasuryJournal = getTreasuryJournalMeta(line.account?.code);
-          const manualAccountType = isCashAccountingCode(line.account?.code) ? 'CASH' : 'BANK';
-          const fallbackAccount = defaultTreasuryByType[manualAccountType];
-          pushMovement(movements, {
-            id: `manual-${entry.id}-${line.id}`,
-            date: entry.entryDate,
-            type: line.side === AccountingEntrySide.DEBIT ? 'income' : 'expense',
-            category: manualAccountType === 'CASH' ? 'Mouvement de caisse' : 'Mouvement bancaire',
-            description: `${entry.journalCode} - ${entry.label}`,
-            amount: amount(line.amount),
-            enterpriseId: entry.enterpriseId || null,
-            enterpriseName: entry.enterpriseName || null,
-            reference: entry.reference || entry.entryNumber,
-            sourceType: entry.sourceType || 'MANUAL_ENTRY',
-            paymentMethod: treasuryJournal.defaultPaymentMethod,
-            treasuryAccountId: fallbackAccount?.id,
-            treasuryAccountName: fallbackAccount?.name,
-            treasuryAccountType: fallbackAccount?.type,
-          });
+
+      for (const line of entry.lines) {
+        if (!(await isTreasuryAccountingCode(prisma, line.account))) {
+          continue;
+        }
+
+        const treasuryJournal = await getTreasuryJournalMeta(prisma, line.account);
+        const manualAccountType = (await isCashAccountingCode(prisma, line.account)) ? 'CASH' : 'BANK';
+        const fallbackAccount = defaultTreasuryByType[manualAccountType];
+        pushMovement(movements, {
+          id: `manual-${entry.id}-${line.id}`,
+          date: entry.entryDate,
+          type: line.side === AccountingEntrySide.DEBIT ? 'income' : 'expense',
+          category: manualAccountType === 'CASH' ? 'Mouvement de caisse' : 'Mouvement bancaire',
+          description: `${entry.journalCode} - ${entry.label}`,
+          amount: amount(line.amount),
+          enterpriseId: entry.enterpriseId || null,
+          enterpriseName: entry.enterpriseName || null,
+          reference: entry.reference || entry.entryNumber,
+          sourceType: entry.sourceType || 'MANUAL_ENTRY',
+          paymentMethod: treasuryJournal.defaultPaymentMethod,
+          treasuryAccountId: fallbackAccount?.id,
+          treasuryAccountName: fallbackAccount?.name,
+          treasuryAccountType: fallbackAccount?.type,
         });
-    });
+      }
+    }
 
     const movementsChronological = [...movements].sort(
       (left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()
@@ -561,7 +564,9 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       if (d.status === 'DECAISSE') {
         const treasuryAccount = await MappingService.resolveAccount('PAYMENT', d.paymentMethod);
         const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
-        const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
+        const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+          fallbackFamily: treasuryTypeFromPaymentMethod(d.paymentMethod) === 'CASH' ? 'TREASURY_CASH' : 'TREASURY_BANK',
+        });
 
         entries.push({
           id: buildEntryId('decaissement-payment', d.id),
@@ -590,7 +595,9 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       const creditAccount = e.factureClientId
         ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
         : await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory);
-      const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
+      const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+        fallbackFamily: treasuryTypeFromPaymentMethod(e.paymentMethod) === 'CASH' ? 'TREASURY_CASH' : 'TREASURY_BANK',
+      });
 
       entries.push({
         id: buildEntryId('encaissement', e.id),

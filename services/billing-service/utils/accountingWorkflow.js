@@ -7,11 +7,11 @@ const {
 } = require('./accountingAccountResolver');
 
 /**
- * Enregistre l'engagement comptable (D: 6xxx / C: 401*)
+ * Enregistre l'engagement comptable (charge achat / dette fournisseur configurée)
  */
 async function recordEngagement(tx, { commitment, user }) {
-  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
-  const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { user });
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
+  const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
 
   const entryNumber = await nextEntryNumber(tx);
   const label = `Engagement BC ${commitment.sourceNumber} - ${commitment.supplierName || 'Fournisseur'}`;
@@ -68,8 +68,8 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
 
   if (Math.abs(difference) > 0.01) {
     // Écriture de régularisation séparée
-    const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
-    const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { user });
+    const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
+    const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
 
     const entryNumber = await nextEntryNumber(tx);
     const label = `Régularisation Engagement BC ${commitment.sourceNumber} / Facture ${invoice.numeroFacture}`;
@@ -127,7 +127,7 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
  * Enregistre le paiement (débit fournisseur / crédit trésorerie)
  */
 async function recordPayment(tx, { commitment, decaissement, user }) {
-  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { user });
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
   const accountTreasury = await resolveAccountingAccount(
     tx,
     getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
@@ -135,10 +135,10 @@ async function recordPayment(tx, { commitment, decaissement, user }) {
       user,
     }
   );
-  const treasuryJournal = getTreasuryJournalMeta(accountTreasury);
+  const treasuryJournal = await getTreasuryJournalMeta(tx, accountTreasury);
 
   if (!account401 || !accountTreasury) {
-    throw new Error('Comptes comptables (401/Trésorerie) non configurés');
+    throw new Error('Comptes comptables fournisseur / trésorerie non configurés');
   }
 
   const entryNumber = await nextEntryNumber(tx);

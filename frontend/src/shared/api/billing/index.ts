@@ -390,6 +390,24 @@ export interface AccountingAccount {
   movementCount?: number;
 }
 
+export interface AccountingFamilyRule {
+  id: string | null;
+  family:
+    | 'CUSTOMER_RECEIVABLE'
+    | 'SUPPLIER_PAYABLE'
+    | 'PURCHASE_EXPENSE'
+    | 'MISC_EXPENSE'
+    | 'REVENUE'
+    | 'TREASURY_BANK'
+    | 'TREASURY_CASH';
+  label: string;
+  description?: string | null;
+  accountId?: string | null;
+  account?: AccountingAccount | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface AccountingMovement {
   id: string;
   date: string;
@@ -1075,6 +1093,11 @@ export const billingService = {
     return normalizeListResponse<AccountingAccount>(response.data);
   },
 
+  async getAccountingFamilyRules(): Promise<ListResponse<AccountingFamilyRule>> {
+    const response = await apiClient.get('/billing/accounting/family-rules');
+    return normalizeListResponse<AccountingFamilyRule>(response.data);
+  },
+
   async getTreasuryAccounts(): Promise<ListResponse<TreasuryAccount>> {
     const response = await apiClient.get('/billing/treasury-accounts');
     return normalizeListResponse<TreasuryAccount>(response.data);
@@ -1184,6 +1207,18 @@ export const billingService = {
   async deleteAccountingAccount(id: string): Promise<{ success: boolean; message?: string }> {
     const response = await apiClient.delete(`/billing/accounting/accounts/${id}`);
     return response.data;
+  },
+
+  async upsertAccountingFamilyRule(
+    family: AccountingFamilyRule['family'],
+    data: {
+      accountId: string;
+      label?: string;
+      description?: string;
+    }
+  ): Promise<DetailResponse<AccountingFamilyRule>> {
+    const response = await apiClient.put(`/billing/accounting/family-rules/${family}`, data);
+    return normalizeDetailResponse<AccountingFamilyRule>(response.data);
   },
 
   async getAccountingEntries(params?: {

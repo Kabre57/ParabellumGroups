@@ -376,7 +376,9 @@ const buildGeneratedEntries = async ({
     if (decaissement.status === 'DECAISSE') {
       const treasuryAccount = await MappingService.resolveAccount('PAYMENT', decaissement.paymentMethod);
       const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
-      const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
+      const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+        fallbackFamily: String(d.paymentMethod || '').toUpperCase() === 'ESPECES' ? 'TREASURY_CASH' : 'TREASURY_BANK',
+      });
 
       entries.push({
         id: buildEntryId('decaissement-payment', decaissement.id),
@@ -406,7 +408,9 @@ const buildGeneratedEntries = async ({
     const creditAccount = encaissement.factureClientId
       ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
       : await MappingService.resolveAccount('ENCAISSEMENT', encaissement.expenseCategory);
-    const treasuryJournal = getTreasuryJournalMeta(treasuryAccount?.code);
+    const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+      fallbackFamily: String(encaissement.paymentMethod || '').toUpperCase() === 'ESPECES' ? 'TREASURY_CASH' : 'TREASURY_BANK',
+    });
 
     entries.push({
       id: buildEntryId('encaissement', encaissement.id),

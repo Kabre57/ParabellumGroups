@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
+const { loadAccountingFamilyRules } = require('./utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
 
@@ -101,6 +102,12 @@ const startServer = async () => {
     console.log('🔄 Tentative de connexion à la base de données...');
     await prisma.$connect();
     console.log('✅ Connexion à la base de données réussie.');
+    try {
+      await loadAccountingFamilyRules(prisma, { force: true });
+      console.log('✅ Règles de familles comptables chargées en mémoire.');
+    } catch (cacheError) {
+      console.warn('⚠️ Impossible de précharger les règles de familles comptables:', cacheError.message);
+    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Billing Service démarré sur le port ${PORT}`);

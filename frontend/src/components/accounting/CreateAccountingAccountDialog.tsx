@@ -47,10 +47,10 @@ const initialState: {
 };
 
 const codeGuides: Array<{ match: (code: string) => boolean; text: string }> = [
-  { match: (code) => code.startsWith('40'), text: 'Les comptes 40x concernent généralement les fournisseurs et autres tiers créditeurs. Exemple: 401 = Fournisseurs.' },
-  { match: (code) => code.startsWith('41'), text: 'Les comptes 41x concernent généralement les clients et autres tiers débiteurs. Exemple: 411 = Clients.' },
-  { match: (code) => code === '512', text: '512 correspond habituellement à la banque.' },
-  { match: (code) => code === '531', text: '531 correspond habituellement à la caisse.' },
+  { match: (code) => code.startsWith('40') || code.startsWith('48'), text: 'Les comptes 40x ou 48x peuvent correspondre aux fournisseurs et autres tiers créditeurs selon votre plan comptable.' },
+  { match: (code) => code.startsWith('41'), text: 'Les comptes 41x correspondent généralement aux clients et autres tiers débiteurs.' },
+  { match: (code) => code.startsWith('52') || code.startsWith('51'), text: 'Les comptes 51x ou 52x sont souvent utilisés pour les banques et assimilés selon votre plan comptable.' },
+  { match: (code) => code.startsWith('57') || code.startsWith('53'), text: 'Les comptes 57x ou 53x sont souvent utilisés pour la caisse selon votre plan comptable.' },
   { match: (code) => code.startsWith('6'), text: 'Les comptes 6xx sont en principe des charges.' },
   { match: (code) => code.startsWith('7'), text: 'Les comptes 7xx sont en principe des produits.' },
 ];
@@ -58,9 +58,10 @@ const codeGuides: Array<{ match: (code: string) => boolean; text: string }> = [
 const getTypeWarning = (code: string, type: AccountType) => {
   if (code.startsWith('6') && type !== 'EXPENSE') return 'Un compte 6xx est normalement une charge.';
   if (code.startsWith('7') && type !== 'REVENUE') return 'Un compte 7xx est normalement un produit.';
-  if (code === '512' && type !== 'ASSET') return 'Le compte 512 est normalement un compte d actif.';
-  if (code === '531' && type !== 'ASSET') return 'Le compte 531 est normalement un compte d actif.';
-  if (code === '401' && type !== 'LIABILITY') return 'Le compte 401 est normalement un compte fournisseur.';
+  if ((code.startsWith('52') || code.startsWith('51') || code.startsWith('57') || code.startsWith('53')) && type !== 'ASSET') {
+    return 'Ce compte de trésorerie est normalement un compte d actif.';
+  }
+  if ((code.startsWith('40') || code.startsWith('48')) && type !== 'LIABILITY') return 'Ce compte fournisseur / tiers créditeur est normalement un passif.';
   if (code === '411' && type !== 'ASSET') return 'Le compte 411 est normalement un compte client.';
   return null;
 };
@@ -122,7 +123,7 @@ export function CreateAccountingAccountDialog({
               id="account-code"
               value={form.code}
               onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
-              placeholder="512, 6011, 707..."
+              placeholder="571188, 6011, 707..."
             />
             {codeGuide && <p className="text-xs text-muted-foreground">{codeGuide}</p>}
             {typeWarning && <p className="text-xs text-amber-700">{typeWarning}</p>}
@@ -179,7 +180,7 @@ export function CreateAccountingAccountDialog({
 
         <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
           Utilisez de préférence des comptes détaillés plutôt qu un compte générique.
-          Exemples utiles: `401` fournisseurs, `411` clients, `512` banque, `531` caisse, `6xx` charges, `7xx` produits.
+          Exemples utiles: `48x` fournisseurs, `411` clients, `52x` banque, `57x` caisse, `6xx` charges, `7xx` produits.
         </div>
 
         <DialogFooter>

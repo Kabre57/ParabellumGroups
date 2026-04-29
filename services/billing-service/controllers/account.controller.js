@@ -207,6 +207,7 @@ exports.deleteAccount = async (req, res) => {
           select: {
             journalLines: true,
             mappings: true,
+            familyRules: true,
           },
         },
       },
@@ -219,7 +220,10 @@ exports.deleteAccount = async (req, res) => {
       });
     }
 
-    const hasDependencies = account._count.journalLines > 0 || account._count.mappings > 0;
+    const hasDependencies =
+      account._count.journalLines > 0 ||
+      account._count.mappings > 0 ||
+      account._count.familyRules > 0;
 
     if (hasDependencies) {
       await prisma.accountingAccount.update({

@@ -150,7 +150,7 @@ exports.updateStatus = async (req, res) => {
           user: req.user,
         }
       );
-      const treasuryJournal = getTreasuryJournalMeta(treasuryAccountingAccount);
+      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount);
 
       let creditAccount = null;
       if (encaissement.factureClientId) {
