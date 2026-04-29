@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComptes, useCreateCompte, useDeleteCompte, useUpdateCompte } from '@/hooks/comptabilite/comptes/useComptes';
-import { ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
+import { AccountingFamilyAccountPicker, ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -37,7 +37,6 @@ export default function ComptesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState<AccountingAccount | null>(null);
-  const [familySelections, setFamilySelections] = useState<Record<string, string>>({});
   const [activeView, setActiveView] = useState<'families' | 'accounts'>('accounts');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
@@ -251,7 +250,6 @@ export default function ComptesPage() {
 
             <div className="grid gap-3 lg:grid-cols-2">
               {orderedFamilyRules.map((rule) => {
-                const selectedValue = familySelections[rule.family] ?? '';
                 const availableAccounts = accountsForFamily(rule.family);
                 return (
                   <div key={rule.family} className="rounded-lg border border-slate-200 p-3">
@@ -266,33 +264,12 @@ export default function ComptesPage() {
                         {rule.primaryAccount ? `${rule.primaryAccount.code} principal` : 'Non configuré'}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <select
-                        value={selectedValue}
-                        onChange={(e) =>
-                          setFamilySelections((current) => ({
-                            ...current,
-                            [rule.family]: e.target.value,
-                          }))
-                        }
-                        className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                      >
-                        <option value="">Sélectionner un compte</option>
-                        {availableAccounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.code} - {account.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!selectedValue || addFamilyRuleMutation.isPending}
-                        onClick={() => addFamilyRuleMutation.mutate({ family: rule.family, accountId: selectedValue })}
-                      >
-                        Ajouter
-                      </Button>
-                    </div>
+                    <AccountingFamilyAccountPicker
+                      familyRule={rule}
+                      accounts={availableAccounts}
+                      isSubmitting={addFamilyRuleMutation.isPending}
+                      onSelect={(accountId) => addFamilyRuleMutation.mutate({ family: rule.family, accountId })}
+                    />
                     <div className="mt-3 space-y-2">
                       {rule.rules.length ? (
                         rule.rules.map((item) => (
