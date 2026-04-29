@@ -1,5 +1,6 @@
 const { AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta } = require('./accounting');
+const { getTreasuryAccountingAccountId } = require('./treasury');
 const {
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
@@ -128,10 +129,15 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
  */
 async function recordPayment(tx, { commitment, decaissement, user }) {
   const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
+  const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
+    tx,
+    decaissement.treasuryAccountId
+  );
   const accountTreasury = await resolveAccountingAccount(
     tx,
     getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
     {
+      preferredAccountId: preferredTreasuryAccountingAccountId,
       user,
     }
   );

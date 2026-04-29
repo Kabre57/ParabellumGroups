@@ -181,7 +181,7 @@ export default function ComptesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="accounts">Plan comptable</TabsTrigger>
-            <TabsTrigger value="families">Familles dynamiques</TabsTrigger>
+            <TabsTrigger value="families">Familles des comptes </TabsTrigger>
           </TabsList>
           <div className="text-sm text-muted-foreground">
             {activeView === 'accounts'
@@ -241,10 +241,9 @@ export default function ComptesPage() {
         <TabsContent value="families" className="space-y-4">
           <Card className="space-y-4 p-4">
             <div>
-              <h2 className="text-lg font-semibold">Familles comptables dynamiques</h2>
+              <h2 className="text-lg font-semibold">Familles comptables</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cette configuration remplace les anciens codes hardcodés. Chaque famille doit pointer vers un compte réel
-                du plan comptable.
+                Chaque famille peut pointer vers un ou plusieurs comptes réels du plan comptable.
               </p>
             </div>
 

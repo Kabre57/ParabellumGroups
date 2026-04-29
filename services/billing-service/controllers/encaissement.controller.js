@@ -1,8 +1,9 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
+const { PrismaClient, AccountingAccountType, AccountingEntrySide } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const MappingService = require('../core/services/AccountingMappingService');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
+const { getTreasuryAccountingAccountId } = require('../utils/treasury');
 const {
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
@@ -10,6 +11,24 @@ const {
 } = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
+
+const validationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const ensureRevenueAccount = (account) => {
+  if (!account || account.isActive === false) {
+    throw validationError('Le compte de produit sélectionné est introuvable ou inactif.');
+  }
+
+  if (account.type !== AccountingAccountType.REVENUE) {
+    throw validationError('Le compte sélectionné pour un encaissement manuel doit être un compte de produit.');
+  }
+
+  return account;
+};
 
 exports.create = async (req, res) => {
   try {
@@ -54,9 +73,7 @@ exports.create = async (req, res) => {
           where: { id: String(accountingAccountId) },
         });
 
-        if (!revenueAccount) {
-          throw new Error('Le compte de produit sélectionné est introuvable.');
-        }
+        ensureRevenueAccount(revenueAccount);
       }
 
       const encaissement = await tx.encaissement.create({
@@ -90,7 +107,7 @@ exports.create = async (req, res) => {
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     console.error('Erreur creation encaissement:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
 
@@ -143,10 +160,15 @@ exports.updateStatus = async (req, res) => {
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
+        tx,
+        encaissement.treasuryAccountId
+      );
       const treasuryAccountingAccount = await resolveAccountingAccount(
         tx,
         getTreasuryFamilyFromPaymentMethod(encaissement.paymentMethod),
         {
+          preferredAccountId: preferredTreasuryAccountingAccountId,
           user: req.user,
         }
       );
@@ -164,6 +186,7 @@ exports.updateStatus = async (req, res) => {
         creditAccount = await tx.accountingAccount.findUnique({
           where: { id: String(encaissement.accountingAccountId) },
         });
+        ensureRevenueAccount(creditAccount);
       }
 
       if (!creditAccount) {
@@ -236,7 +259,7 @@ exports.updateStatus = async (req, res) => {
     res.json({ success: true, data: enriched || updated });
   } catch (error) {
     console.error("Erreur validation encaissement:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
 

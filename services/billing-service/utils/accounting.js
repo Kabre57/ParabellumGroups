@@ -20,6 +20,9 @@ const ensureAccountingReadAccess = (req) => {
   if (
     hasPermission(
       req.user,
+      'accounting.read',
+      'accounting.rules.read',
+      'accounting.diagnostics.read',
       'reports.read_financial',
       'expenses.read',
       'expenses.read_all',
@@ -42,7 +45,87 @@ const ensureAccountingReadAccess = (req) => {
 };
 
 const ensureAccountingWriteAccess = (req, message = 'Vous n avez pas la permission de modifier les données comptables') => {
-  if (hasPermission(req.user, 'expenses.create', 'expenses.update', 'payments.create', 'payments.update')) {
+  if (
+    hasPermission(
+      req.user,
+      'accounting.accounts.manage',
+      'accounting.entries.create',
+      'accounting.rules.update',
+      'accounting.treasury.manage',
+      'expenses.create',
+      'expenses.update',
+      'payments.create',
+      'payments.update'
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    status: 403,
+    body: {
+      success: false,
+      message,
+    },
+  };
+};
+
+const ensureAccountingRulesWriteAccess = (
+  req,
+  message = 'Vous n avez pas la permission de modifier les règles comptables'
+) => {
+  if (hasPermission(req.user, 'accounting.rules.update')) {
+    return null;
+  }
+
+  return {
+    status: 403,
+    body: {
+      success: false,
+      message,
+    },
+  };
+};
+
+const ensureAccountingAccountsWriteAccess = (
+  req,
+  message = 'Vous n avez pas la permission de modifier le plan comptable'
+) => {
+  if (hasPermission(req.user, 'accounting.accounts.manage')) {
+    return null;
+  }
+
+  return {
+    status: 403,
+    body: {
+      success: false,
+      message,
+    },
+  };
+};
+
+const ensureAccountingEntriesWriteAccess = (
+  req,
+  message = 'Vous n avez pas la permission de créer des écritures comptables'
+) => {
+  if (hasPermission(req.user, 'accounting.entries.create')) {
+    return null;
+  }
+
+  return {
+    status: 403,
+    body: {
+      success: false,
+      message,
+    },
+  };
+};
+
+const ensureAccountingTreasuryWriteAccess = (
+  req,
+  message = 'Vous n avez pas la permission de modifier les comptes de trésorerie'
+) => {
+  if (hasPermission(req.user, 'accounting.treasury.manage')) {
     return null;
   }
 
@@ -303,6 +386,10 @@ module.exports = {
   hasPermission,
   ensureAccountingReadAccess,
   ensureAccountingWriteAccess,
+  ensureAccountingRulesWriteAccess,
+  ensureAccountingAccountsWriteAccess,
+  ensureAccountingEntriesWriteAccess,
+  ensureAccountingTreasuryWriteAccess,
   amount,
   parseDate,
   resolveDateRange,

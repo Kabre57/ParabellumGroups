@@ -1,5 +1,5 @@
 const { PrismaClient, AccountingFamily } = require('@prisma/client');
-const { ensureAccountingReadAccess, ensureAccountingWriteAccess, serializeAccountingAccount } = require('../utils/accounting');
+const { ensureAccountingReadAccess, ensureAccountingRulesWriteAccess, serializeAccountingAccount } = require('../utils/accounting');
 const {
   FAMILY_DEFINITIONS,
   loadAccountingFamilyRules,
@@ -35,6 +35,36 @@ const serializeFamilyGroup = (family, rules = []) => {
   };
 };
 
+const serializeFamilyDiagnostic = (family, rules = []) => {
+  const definition = FAMILY_DEFINITIONS[family];
+  const usableRules = rules.filter((rule) => rule.account);
+  const primaryRule = usableRules.find((rule) => rule.isPrimary) || usableRules[0] || null;
+  const invalidRuleCount = rules.length - usableRules.length;
+  const issues = [];
+
+  if (!primaryRule) {
+    issues.push('Aucun compte actif compatible n est rattache a cette famille.');
+  }
+
+  if (invalidRuleCount > 0) {
+    issues.push(`${invalidRuleCount} rattachement(s) pointe(nt) vers un compte inactif ou incompatible.`);
+  }
+
+  return {
+    family,
+    label: definition.label,
+    expectedType: definition.type,
+    required: true,
+    isConfigured: Boolean(primaryRule),
+    primaryAccountId: primaryRule?.accountId || null,
+    primaryAccount: primaryRule?.account ? serializeAccountingAccount(primaryRule.account) : null,
+    rulesCount: rules.length,
+    usableRulesCount: usableRules.length,
+    invalidRulesCount: invalidRuleCount,
+    issues,
+  };
+};
+
 const refreshCache = async () => {
   invalidateAccountingFamilyRulesCache();
   await loadAccountingFamilyRules(prisma, { force: true });
@@ -58,6 +88,15 @@ const validateFamilyAndAccount = async (family, accountId) => {
 
   if (!account || account.isActive === false) {
     return { error: { status: 404, message: 'Compte comptable introuvable ou inactif' } };
+  }
+
+  if (definition.type && account.type !== definition.type) {
+    return {
+      error: {
+        status: 400,
+        message: `Le compte ${account.code} n est pas compatible avec cette famille comptable. Type attendu: ${definition.type}.`,
+      },
+    };
   }
 
   return {
@@ -93,9 +132,43 @@ exports.getFamilyRules = async (req, res) => {
   }
 };
 
+exports.getFamilyRulesDiagnostic = async (req, res) => {
+  try {
+    const accessError = ensureAccountingReadAccess(req);
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const configuredRules = await loadAccountingFamilyRules(prisma, { force: true });
+    const diagnostics = Object.values(AccountingFamily).map((family) =>
+      serializeFamilyDiagnostic(family, configuredRules.get(family) || [])
+    );
+    const missingFamilies = diagnostics.filter((item) => !item.isConfigured);
+    const invalidFamilies = diagnostics.filter((item) => item.invalidRulesCount > 0);
+
+    return res.json({
+      success: true,
+      data: {
+        healthy: missingFamilies.length === 0 && invalidFamilies.length === 0,
+        totalFamilies: diagnostics.length,
+        configuredFamilies: diagnostics.length - missingFamilies.length,
+        missingFamilies: missingFamilies.map((item) => item.family),
+        invalidFamilies: invalidFamilies.map((item) => item.family),
+        families: diagnostics,
+      },
+    });
+  } catch (error) {
+    console.error('Erreur diagnostic familles comptables:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors du diagnostic des familles comptables',
+    });
+  }
+};
+
 exports.addFamilyRule = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(
+    const accessError = ensureAccountingRulesWriteAccess(
       req,
       'Vous n avez pas la permission de modifier les règles de familles comptables'
     );
@@ -181,7 +254,7 @@ exports.addFamilyRule = async (req, res) => {
 
 exports.updateFamilyRule = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(
+    const accessError = ensureAccountingRulesWriteAccess(
       req,
       'Vous n avez pas la permission de modifier les règles de familles comptables'
     );
@@ -250,7 +323,7 @@ exports.updateFamilyRule = async (req, res) => {
 
 exports.deleteFamilyRule = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(
+    const accessError = ensureAccountingRulesWriteAccess(
       req,
       'Vous n avez pas la permission de modifier les règles de familles comptables'
     );

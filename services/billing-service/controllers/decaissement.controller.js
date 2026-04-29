@@ -1,7 +1,8 @@
-const { PrismaClient, AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
+const { PrismaClient, AccountingAccountType, AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
 const { recordEngagement, recordLiquidation, recordPayment } = require('../utils/accountingWorkflow');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { getTreasuryAccountingAccountId } = require('../utils/treasury');
 const {
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
@@ -9,6 +10,24 @@ const {
 } = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
+
+const validationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const ensureExpenseAccount = (account) => {
+  if (!account || account.isActive === false) {
+    throw validationError('Le compte de charge sélectionné est introuvable ou inactif.');
+  }
+
+  if (account.type !== AccountingAccountType.EXPENSE) {
+    throw validationError('Le compte sélectionné pour un décaissement manuel doit être un compte de charge.');
+  }
+
+  return account;
+};
 
 exports.create = async (req, res) => {
   try {
@@ -49,6 +68,14 @@ exports.create = async (req, res) => {
     );
 
     const result = await prisma.$transaction(async (tx) => {
+      if (accountingAccountId) {
+        const expenseAccount = await tx.accountingAccount.findUnique({
+          where: { id: String(accountingAccountId) },
+        });
+
+        ensureExpenseAccount(expenseAccount);
+      }
+
       const decaissement = await tx.decaissement.create({
         data: {
           numeroPiece: `DEC-${Date.now()}`,
@@ -90,7 +117,7 @@ exports.create = async (req, res) => {
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     console.error('Erreur creation decaissement:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
 
@@ -208,14 +235,17 @@ exports.updateStatus = async (req, res) => {
           })
         : null;
 
-      if (!expenseAccount) {
-        throw new Error('Le compte de charge sélectionné est introuvable.');
-      }
+      ensureExpenseAccount(expenseAccount);
 
+      const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
+        tx,
+        decaissement.treasuryAccountId
+      );
       const treasuryAccountingAccount = await resolveAccountingAccount(
         tx,
         getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
         {
+          preferredAccountId: preferredTreasuryAccountingAccountId,
           user: req.user,
         }
       );
@@ -290,7 +320,7 @@ exports.updateStatus = async (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Erreur validation decaissement:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
 

@@ -77,6 +77,19 @@ const completePermissions = {
     ]
   },
 
+  accounting: {
+    label: 'Comptabilite',
+    permissions: [
+      { name: 'accounting.read', description: 'Consulter les donnees comptables' },
+      { name: 'accounting.accounts.manage', description: 'Gerer le plan comptable' },
+      { name: 'accounting.rules.read', description: 'Consulter les regles comptables' },
+      { name: 'accounting.rules.update', description: 'Modifier les regles comptables' },
+      { name: 'accounting.entries.create', description: 'Creer des ecritures comptables' },
+      { name: 'accounting.treasury.manage', description: 'Gerer les comptes de tresorerie comptables' },
+      { name: 'accounting.diagnostics.read', description: 'Consulter le diagnostic comptable' }
+    ]
+  },
+
   users: {
     label: 'Utilisateurs',
     permissions: [

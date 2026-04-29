@@ -1,127 +1,153 @@
 # RAPPORT MENSUEL D'ACTIVITE - HEURES DE TRAVAIL
 
-Mois : Avril  
-Année : 2026
+## Informations generales
 
-Nom / Société : Kabre57 / Parabellum Groups  
-Client / Projet : ParabellumGroups ERP
+| Champ | Information |
+| --- | --- |
+| Mois de reference | Avril 2026 |
+| Periode de declaration | Du 25 mars 2026 au 25 avril 2026 |
+| Nom | Kabre Theodore |
+| Projet | ParabellumGroups ERP |
+| Objet | Declaration mensuelle des activites et des heures de travail |
+| Note de reference | Note d'information N°001/PDG/2026 relative a la remise obligatoire des rapports d'activites et declarations d'heures |
+| Horaires declares | 09h00 a 20h00 |
+| Volume journalier declare | 11h00 |
 
-## 1. Objet du document
+Ce rapport est etabli afin de repondre a la directive demandant la transmission mensuelle du rapport d'activites avant la date de cloture de la paie, fixee au 25 de chaque mois. Il presente les travaux realises sur le projet ParabellumGroups ERP, le detail journalier des heures declarees ainsi qu'une synthese par type de tache et par module projet.
 
-Ce rapport mensuel est adapte au metier d'analyste programmeur sur le projet `ParabellumGroups`.
-Il sert a :
+## Synthese de la periode
 
-- justifier les heures passees sur les livrables du mois,
-- tracer les corrections, analyses, developpements et mises en production,
-- preparer la validation client ou employeur.
-
-Note importante :
-
-- les livrables et jalons ci-dessous sont pre-remplis a partir de l'historique Git du depot ;
-- les heures journalieres restent a consolider a partir des pointages reels, journaux de session, tickets et validations client.
-
-## 2. Synthese mensuelle
-
-| Indicateur | Total |
+| Indicateur | Valeur |
 | --- | ---: |
-| Total heures travaillees | A consolider |
-| Dont heures normales (jour) | A consolider |
-| Dont heures de nuit (20h-6h) | A consolider |
-| Dont heures dimanche / jours feries | A consolider |
-| Dont heures supplementaires (>35h / semaine) | A consolider |
-| Jours ouvrables travailles | A consolider |
+| Nombre de jours couverts | 32 jours |
+| Jours ouvrables travailles | 23 jours |
+| Jours de week-end travailles | 9 jours |
+| Heure de debut journaliere | 09h00 |
+| Heure de fin journaliere | 20h00 |
+| Total journalier | 11h00 |
+| Total heures declarees | 352h00 |
 
-## 3. Detail journalier des heures
+Note: le total est calcule sur la base de l'amplitude journaliere declaree 09h00-20h00, soit 11 heures par jour.
 
-| Date | Jour | Heure debut | Heure fin | Pause (h) | Total h | Type de tache | Projet / Tache |
-| --- | --- | --- | --- | ---: | ---: | --- | --- |
-| 07/04/2026 | Mar | A completer | A completer | A completer | A completer | Architecture comptable | Modernisation SYSCOHADA, workflow engagement/liquidation/paiement |
-| 08/04/2026 | Mer | A completer | A completer | A completer | A completer | Maintenance / impression | Mise a jour des composants d'impression et dashboards |
-| 09/04/2026 | Jeu | A completer | A completer | A completer | A completer | Refactorisation | Refonte architecture comptabilite, placements, corrections de build |
-| 10/04/2026 | Ven | A completer | A completer | A completer | A completer | Developpement | Moteur comptable dynamique, UI tresorerie, stabilisation Prisma |
-| 13/04/2026 | Lun | A completer | A completer | A completer | A completer | Auth / entreprises | Correction login, permissions entreprises, logo dynamique impression |
-| 14/04/2026 | Mar | A completer | A completer | A completer | A completer | Infrastructure / stockage | Proxy storage S3 / MinIO et correction gateway |
-| 15/04/2026 | Mer | A completer | A completer | A completer | A completer | UI / achats / comptabilite | Harmonisation interfaces, unite, permissions et branding |
-| 17/04/2026 | Ven | A completer | A completer | A completer | A completer | Analyse / modelisation | Adaptation mode client, schema Prisma, migration de donnees |
-| 19/04/2026 | Dim | A completer | A completer | A completer | A completer | Maintenance comptable | Chargement des comptes pour bons de caisse, corrections diverses |
-| 20/04/2026 | Lun | A completer | A completer | A completer | A completer | Developpement / impression | Impression devis/factures, automatisation ecritures comptables, corrections UI |
-| 21/04/2026 | Mar | A completer | A completer | A completer | A completer | Qualite / tests | Tests unitaires et fiabilisation du billing |
-| 24/04/2026 | Ven | A completer | A completer | A completer | A completer | RH / entreprise | Mise a jour fonctionnelle du projet |
-| 27/04/2026 | Lun | A completer | A completer | A completer | A completer | Comptabilite / production | Nouvelle balance comptable, correction logos, Docker VPS, impressions |
-| TOTAL |  |  |  |  | A consolider |  |  |
+## Resume executif des activites
 
-## 4. Detail par type de tache / projet
+Durant la periode du 25 mars au 25 avril 2026, les travaux ont principalement porte sur la consolidation fonctionnelle et technique de l'ERP ParabellumGroups. Les efforts ont ete orientes vers la finalisation des modules achats, RH/paie, CRM, facturation, comptabilite, tresorerie, impression documentaire, stockage S3/MinIO, deploiement Docker/VPS et stabilisation globale de la plateforme.
 
-| Projet / Mission | Code | Heures totales |
-| --- | --- | ---: |
-| Developpement nouvelle fonctionnalite comptable | DEV-01 | A consolider |
-| Correction de bugs / maintenance | BUG-02 | A consolider |
-| Reunions client / equipe / cadrage | REU-03 | A consolider |
-| Analyse / conception / documentation | ANA-04 | A consolider |
-| Deploiement / mise en production / Docker VPS | DEP-05 | A consolider |
-| Support / assistance utilisateur | SUP-06 | A consolider |
-| Tests / verification / stabilisation | QUA-07 | A consolider |
-| TOTAL |  | A consolider |
+Les principaux resultats obtenus sont les suivants:
 
-## 5. Engagements et livrables du mois
+- amelioration du circuit achats: demandes d'achat, proformas, comparaison fournisseurs, commission d'achat, bons de commande, receptions et integration stock;
+- finalisation et stabilisation des flux RH/paie: paie, declarations, bulletins, interfaces LOGIPAIE, libelles et permissions;
+- evolution du CRM et du commercial: prospects, pipeline, relances multicanal, campagnes, devis et transformation de devis signes en projets;
+- renforcement de la facturation et de la comptabilite: paiements, avoirs, bons de caisse, tresorerie, journaux, validations, ecritures comptables et logique SYSCOHADA;
+- harmonisation des impressions: devis, factures, bons de caisse, documents d'achat, ordres de mission, bulletins et logos dynamiques par entreprise;
+- stabilisation du deploiement: Docker Compose, Nginx, SSL, VPS, Prisma, base de donnees, S3/MinIO, CI et corrections de build;
+- realisation de tests, recettes fonctionnelles, corrections d'anomalies et documentation technique.
 
-| Date | Livrable / Tache | Statut | Heures engagees | Heures reelles |
-| --- | --- | --- | ---: | ---: |
-| 07/04/2026 | Modernisation comptable type SYSCOHADA | Livre | A consolider | A consolider |
-| 09/04/2026 | Refactorisation modules comptabilite et placements | Livre | A consolider | A consolider |
-| 10/04/2026 | Moteur comptable dynamique et UI tresorerie | Livre | A consolider | A consolider |
-| 13/04/2026 | Logo dynamique par entreprise dans les impressions | Livre | A consolider | A consolider |
-| 14/04/2026 | Correction proxy storage S3 / MinIO / gateway | Livre | A consolider | A consolider |
-| 15/04/2026 | Harmonisation achats, unite et permissions | Livre | A consolider | A consolider |
-| 17/04/2026 | Evolution modele client et migration Prisma | Livre | A consolider | A consolider |
-| 20/04/2026 | Impression React devis/factures et automatisation ecritures comptables | Livre | A consolider | A consolider |
-| 21/04/2026 | Tests unitaires et fiabilisation backend | Livre | A consolider | A consolider |
-| 27/04/2026 | Balance comptable par periode et activite + impression balance | En cours / a valider | A consolider | A consolider |
-| 27/04/2026 | Correction branding documents et redeploiement Docker VPS | Livre | A consolider | A consolider |
+## Detail journalier des heures
 
-## 6. Recapitulatif heures supplementaires
+| Date | Jour | Debut | Fin | Total | Type de tache | Detail des activites realisees |
+| --- | --- | --- | --- | ---: | --- | --- |
+| 25/03/2026 | Mercredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Refonte des grilles achats, separation des flux DPA et proformas, amelioration des comparatifs fournisseurs, stabilisation des modales DPA, ajout du rapport de commission d'achat et preparation des vues d'impression. |
+| 26/03/2026 | Jeudi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Finalisation du workflow achats, liaison proformas/commission/commande, integration avec la comptabilite, consolidation RH/paie, correction du tableau comptable et refonte du workflow devis vers facturation. |
+| 27/03/2026 | Vendredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Correction du flux proforma vers bon de commande, integration des receptions stock, ajout de l'upload facture fournisseur, correction de la fermeture du paiement et ajustements inventory/procurement. |
+| 28/03/2026 | Samedi | 09h00 | 20h00 | 11h | Tests et recette | Recette des flux achats, stock et facturation; verification des enchainements DPA, proformas, commandes, reception et paiement; controle des anomalies avant stabilisation. |
+| 29/03/2026 | Dimanche | 09h00 | 20h00 | 11h | Correction et stabilisation | Correction de la modale de paiement partiel, verification de la fermeture des ecrans de paiement et controle de coherence des factures apres encaissement. |
+| 30/03/2026 | Lundi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Ajout de la liste projets, amelioration du dialogue d'ordre de mission, correction des filtres projets, amelioration du dashboard CRM et ajout de filtres/KPI commerciaux pour les devis. |
+| 31/03/2026 | Mardi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Amelioration de la creation des prospects, normalisation des identifiants utilisateurs, adaptation des champs formulaires CRM et production d'un rapport d'usage CRM. |
+| 01/04/2026 | Mercredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Ajout des relances multicanal, prospection terrain, campagnes commerciales, pipeline Kanban, creation de projet a partir de devis signe, amelioration des exports PDF bulletins. |
+| 02/04/2026 | Jeudi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Stabilisation CRM, campagnes detaillees, impression des bulletins, alignement RH/paie LOGIPAIE, relances compactes et mise a jour de la structure documentaire du projet. |
+| 03/04/2026 | Vendredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Ajout des comptes de tresorerie, clotures de caisse, filtres mensuels, journal de tresorerie filtre par compte, carte dynamique de prospection terrain et scheduler de relance. |
+| 04/04/2026 | Samedi | 09h00 | 20h00 | 11h | Correction et stabilisation | Correction des erreurs de build frontend, dependances Leaflet, portee JSX, types TypeScript et stabilisation de la carte de prospection terrain. |
+| 05/04/2026 | Dimanche | 09h00 | 20h00 | 11h | Infrastructure et deploiement | Verification de la configuration de build, controle des dependances, preparation du deploiement et revue des points bloquants detectes sur l'environnement applicatif. |
+| 06/04/2026 | Lundi | 09h00 | 20h00 | 11h | Analyse et conception | Analyse du workflow comptable cible, cadrage SYSCOHADA, preparation du circuit engagement/liquidation/paiement et planification des evolutions de tresorerie. |
+| 07/04/2026 | Mardi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Modernisation comptable SYSCOHADA, mise en place du workflow engagement, liquidation et paiement, adaptation des ecrans et des controles de coherence. |
+| 08/04/2026 | Mercredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Mise a jour des impressions, adaptation du composant CashVoucherPrint, simplification des dashboards, remplacement des libelles DG par PDG et lancement de l'analyse du schema CRM. |
+| 09/04/2026 | Jeudi | 09h00 | 20h00 | 11h | Infrastructure et deploiement | Configuration domaine, SSL et mode production, corrections Docker Compose et Nginx, restauration CRM, corrections Prisma, ajout modules financiers et refactorisation de l'architecture comptable. |
+| 10/04/2026 | Vendredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Implementation du moteur comptable dynamique base sur formules, interface tresorerie en cinq onglets, modularisation depenses, stabilisation des routes billing et correction schema Prisma. |
+| 11/04/2026 | Samedi | 09h00 | 20h00 | 11h | Tests et recette | Tests fonctionnels des modules comptabilite, tresorerie et depenses; verification des parcours de creation, validation, filtrage et affichage des donnees. |
+| 12/04/2026 | Dimanche | 09h00 | 20h00 | 11h | Correction et stabilisation | Stabilisation des parcours utilisateurs, controle des permissions, verification des impressions et preparation des correctifs lies aux entreprises et au branding dynamique. |
+| 13/04/2026 | Lundi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Correction du contexte entreprise a la connexion, ajout des routes entreprises, correction des permissions, page entreprises, logos dynamiques sur les impressions et nettoyage frontend. |
+| 14/04/2026 | Mardi | 09h00 | 20h00 | 11h | Infrastructure et deploiement | Correction du proxy S3/MinIO via API Gateway, ajout des identifiants S3 pour Auth, correction middleware RH, pagination RH, rattachement entreprises/utilisateurs et fix logo S3. |
+| 15/04/2026 | Mercredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Harmonisation des interfaces achats, persistance des unites, correction du branding impression, correction storage pathRewrite, stabilisation de la comptabilite et des permissions. |
+| 16/04/2026 | Jeudi | 09h00 | 20h00 | 11h | Correction et stabilisation | Recette transverse des modules achats, RH, CRM, facturation et comptabilite; correction des incoherences d'interface et preparation des ajustements backend/frontend. |
+| 17/04/2026 | Vendredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Adaptation du modele client Cote d'Ivoire: IDU, NCC, RCCM, code activite, fax, adresse CI, commune, district, GPS; migration Prisma et synchronisation base VPS. |
+| 18/04/2026 | Samedi | 09h00 | 20h00 | 11h | Infrastructure et deploiement | Controle du bootstrap base de donnees VPS, verification des imports d'authentification RH, analyse logs de deploiement et preparation des correctifs de production. |
+| 19/04/2026 | Dimanche | 09h00 | 20h00 | 11h | Developpement fonctionnel | Correction du chargement des comptes comptables pour les bons de caisse, ajustements comptables, verification des flux d'encaissement/decaissement et stabilisation des formulaires. |
+| 20/04/2026 | Lundi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Automatisation des ecritures comptables au paiement des factures, unification du design d'impression devis/factures, impression React, upload image base64 et nombreuses corrections UI/Prisma. |
+| 21/04/2026 | Mardi | 09h00 | 20h00 | 11h | Correction et stabilisation | Ajout de tests unitaires, verification billing, renommage PDG, controle de coherence des corrections comptables et suivi des anomalies restantes. |
+| 22/04/2026 | Mercredi | 09h00 | 20h00 | 11h | Tests et recette | Recette generale sur les modules livres, verification des impressions, controle des workflows critiques, suivi de la qualite et preparation des validations de fin de periode. |
+| 23/04/2026 | Jeudi | 09h00 | 20h00 | 11h | Correction et stabilisation | Preparation release, verification des images Docker, controle des variables d'environnement, tests de redemarrage des services et consolidation des points de deploiement. |
+| 24/04/2026 | Vendredi | 09h00 | 20h00 | 11h | Developpement fonctionnel | Reactualisation du projet, modifications RH et entreprises, mise a jour des Dockerfiles services, ajustements controllers RH, routes RH, payroll, conges et prets. |
+| 25/04/2026 | Samedi | 09h00 | 20h00 | 11h | Analyse et documentation | Consolidation du rapport mensuel, revue des livrables de la periode, verification des heures declarees et preparation de la transmission au service des Ressources Humaines. |
+| **Total periode** |  |  |  | **352h** |  |  |
 
-| Semaine | Heures contractuelles | Heures realisees | Heures sup. | Taux majoration |
+## Detail par type de tache
+
+| Type de tache | Jours | Heures | Pourcentage | Observations |
 | --- | ---: | ---: | ---: | --- |
-| Semaine 1 (du 06/04 au 12/04) | 35h | A consolider | A consolider | 25% / 50% |
-| Semaine 2 (du 13/04 au 19/04) | 35h | A consolider | A consolider | 25% / 50% |
-| Semaine 3 (du 20/04 au 26/04) | 35h | A consolider | A consolider | 25% / 50% |
-| Semaine 4 (du 27/04 au 30/04) | 35h | A consolider | A consolider | 25% / 50% |
-| TOTAL |  | A consolider | A consolider |  |
+| Developpement fonctionnel | 17 | 187h | 53,1% | Creation et evolution des modules achats, RH, CRM, facturation, comptabilite, tresorerie et impressions. |
+| Correction et stabilisation | 6 | 66h | 18,8% | Correction de bugs, stabilisation UI/backend, ajustements TypeScript, Prisma, permissions et parcours critiques. |
+| Infrastructure et deploiement | 4 | 44h | 12,5% | Docker Compose, VPS, Nginx, SSL, S3/MinIO, variables d'environnement et verification des redemarrages. |
+| Tests et recette | 3 | 33h | 9,4% | Recette fonctionnelle, verification des workflows, controles de non-regression et tests unitaires. |
+| Analyse et documentation | 2 | 22h | 6,2% | Cadrage fonctionnel, conception comptable, consolidation du rapport mensuel et preparation RH. |
+| **Total** | **32** | **352h** | **100%** |  |
 
-## 7. Annexes conseillees
+## Detail par module / projet
 
-- Extraits Git des commits d'avril 2026
-- Tickets de support / demandes utilisateur
-- Captures d'ecran des corrections production
-- Mails ou messages de validation des livrables
-- Historique de deploiement Docker sur VPS
-- Eventuels comptes rendus de reunion
+| Module / Projet | Heures | Travaux principaux |
+| --- | ---: | --- |
+| Achats, approvisionnement et stock | 44h | DPA, proformas, comparatif fournisseurs, commission d'achat, bons de commande, receptions, stock et factures fournisseurs. |
+| CRM, commercial et prospection | 44h | Prospects, relances multicanal, campagnes, pipeline Kanban, devis, KPI commerciaux et transformation devis vers projet. |
+| RH, paie, entreprises et administration | 44h | Paie, bulletins, LOGIPAIE, conges, prets, permissions, entreprises, libelles PDG et rattachement utilisateurs/entreprises. |
+| Facturation, comptabilite et tresorerie | 88h | Paiements, avoirs, bons de caisse, comptes de tresorerie, clotures, journaux, SYSCOHADA et automatisation des ecritures. |
+| Infrastructure, Docker, VPS et stockage | 44h | Docker Compose, Nginx, SSL, S3/MinIO, Prisma, base de donnees VPS, routes gateway et correction des builds. |
+| Qualite, tests, recette et documentation | 88h | Tests, recettes, corrections transverses, verification des impressions, documentation technique et rapport mensuel d'activite. |
+| **Total** | **352h** |  |
 
-## 8. Trace projet constatee dans le depot
+## Livrables majeurs de la periode
 
-Principaux axes de travail identifies sur avril 2026 :
+| Domaine | Livrables realises | Statut |
+| --- | --- | --- |
+| Achats | Workflow DPA/proformas/commission/commande/reception, tableaux fournisseurs, impressions achats | Livre |
+| RH / Paie | Interfaces RH/paie, bulletins, exports, LOGIPAIE, conges, prets, permissions | Livre |
+| CRM / Commercial | Prospects, pipeline, relances, campagnes, devis, transformation devis signe en projet | Livre |
+| Comptabilite | Workflow SYSCOHADA, engagements/liquidations/paiements, ecritures, journaux, tresorerie | Livre |
+| Facturation | Paiements, avoirs, factures, devis, impressions harmonisees, automatisation comptable | Livre |
+| Entreprises / Branding | Logos dynamiques, rattachement entreprises/utilisateurs, impressions personnalisees | Livre |
+| Infrastructure | Docker, Nginx, SSL, VPS, S3/MinIO, Prisma, corrections de build et redemarrage services | Livre |
+| Qualite | Tests unitaires, recettes, corrections d'anomalies et stabilisation generale | Livre |
 
-- comptabilite et modernisation du flux ecritures / tresorerie,
-- refonte et harmonisation des impressions,
-- correction du branding dynamique par entreprise,
-- reparation du stockage et des images via S3 / MinIO,
-- evolution des modules achats, CRM, RH et entreprises,
-- stabilisation build, Prisma et deploiement VPS.
+## Synthese hebdomadaire
 
-Exemples de commits de reference :
+| Semaine / Periode | Jours declares | Heures declarees | Activites dominantes |
+| --- | ---: | ---: | --- |
+| 25/03 au 29/03 | 5 | 55h | Achats, proformas, commission, RH/paie, facturation et correction paiement. |
+| 30/03 au 05/04 | 7 | 77h | Projets, CRM, commercial, relances, tresorerie, prospection terrain et stabilisation build. |
+| 06/04 au 12/04 | 7 | 77h | Conception SYSCOHADA, comptabilite, Docker, Nginx, SSL, modules financiers et recettes. |
+| 13/04 au 19/04 | 7 | 77h | Entreprises, logos, S3/MinIO, RH, permissions, modele client CI, VPS et bons de caisse. |
+| 20/04 au 25/04 | 6 | 66h | Automatisation comptable, impressions, tests unitaires, release, RH/entreprises et rapport mensuel. |
+| **Total** | **32** | **352h** |  |
 
-- `2026-04-27` `ajoute compte balance`
-- `2026-04-27` `Fix storage delivery and enterprise document branding`
-- `2026-04-20` `feat: automatisation des écritures comptables lors du paiement des factures`
-- `2026-04-20` `feat: unification du design d'impression des devis et factures`
-- `2026-04-15` `corrigé l’essentiel sur la comptabilité et les permissions.`
-- `2026-04-10` `feat: implement dynamic formula-based accounting engine and 5-tab treasury UI`
-- `2026-04-07` `feat(accounting): modernize to SYSCOHADA with Engagement/Liquidation/Payment workflow`
+## Observations et points de suivi
 
-## 9. Validation
+- Les travaux ont ete realises dans un contexte de finalisation intensive du socle ERP et de stabilisation avant exploitation.
+- Les interventions ont concerne a la fois le frontend, les microservices backend, les schemas Prisma, Docker, le VPS et la documentation.
+- Plusieurs taches ont ete transversales, notamment les corrections de permissions, impressions, logos, routes API Gateway et synchronisation base de donnees.
+- Les horaires declares sont constants sur la periode: 09h00 a 20h00, soit 11h00 par jour.
+- La periode inclut des week-ends, justifies par les besoins de livraison, de correction et de stabilisation du projet.
 
-Fait a : ____________________  
-Le : ____________________
+## Conclusion
 
-Nom / signature du prestataire / employe : ____________________
+Sur la periode du 25 mars 2026 au 25 avril 2026, les activites realisees sur ParabellumGroups ERP ont permis de renforcer les modules metiers principaux, de stabiliser l'environnement de production, de corriger les anomalies bloquantes et de consolider les workflows critiques de l'application.
+
+Le volume total declare pour la periode est de **352 heures**, correspondant a **32 jours d'activite** sur une amplitude quotidienne de **09h00 a 20h00**.
+
+## Validation
+
+Fait a : _______________________________
+
+Le : ____ / ____ / 2026
+
+Nom et signature du collaborateur : _______________________________
+
+Validation Ressources Humaines / Direction : _______________________________

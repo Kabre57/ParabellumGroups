@@ -163,9 +163,14 @@ const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
 
   familyRulesCache = new Map();
   rules.forEach((rule) => {
+    const definition = FAMILY_DEFINITIONS[rule.family];
+    const isUsableAccount =
+      rule.account &&
+      rule.account.isActive !== false &&
+      (!definition?.type || rule.account.type === definition.type);
     const normalizedRule = {
       ...rule,
-      account: rule.account && rule.account.isActive !== false ? rule.account : null,
+      account: isUsableAccount ? rule.account : null,
     };
     const bucket = familyRulesCache.get(rule.family) || [];
     bucket.push(normalizedRule);
@@ -175,12 +180,13 @@ const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
   return familyRulesCache;
 };
 
-const findAccountById = async (client, accountId) => {
+const findAccountById = async (client, accountId, type = null) => {
   if (!accountId) return null;
   const account = await client.accountingAccount.findUnique({
     where: { id: String(accountId) },
   });
   if (!account || account.isActive === false) return null;
+  if (type && account.type !== type) return null;
   return account;
 };
 
@@ -214,7 +220,7 @@ const resolveAccountingAccount = async (
     return null;
   }
 
-  let account = await findAccountById(client, preferredAccountId);
+  let account = await findAccountById(client, preferredAccountId, definition.type);
   if (!account) {
     account = await findAccountByCode(client, preferredCode, definition.type);
   }
@@ -225,7 +231,7 @@ const resolveAccountingAccount = async (
     if (configuredRule?.account) {
       account = configuredRule.account;
     } else if (configuredRule?.accountId) {
-      account = await findAccountById(client, configuredRule.accountId);
+      account = await findAccountById(client, configuredRule.accountId, definition.type);
       if (!account) {
         invalidateAccountingFamilyRulesCache();
       }

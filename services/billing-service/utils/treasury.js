@@ -5,6 +5,17 @@ const amount = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const serializeLinkedAccountingAccount = (account) =>
+  account
+    ? {
+        id: account.id,
+        code: account.code,
+        label: account.label,
+        type: String(account.type || '').toLowerCase(),
+        isActive: account.isActive !== false,
+      }
+    : null;
+
 const serializeTreasuryAccount = (account) => ({
   id: account.id,
   name: account.name,
@@ -14,6 +25,8 @@ const serializeTreasuryAccount = (account) => ({
   currency: account.currency,
   openingBalance: amount(account.openingBalance),
   currentBalance: amount(account.currentBalance),
+  accountingAccountId: account.accountingAccountId || null,
+  accountingAccount: serializeLinkedAccountingAccount(account.accountingAccount),
   isDefault: Boolean(account.isDefault),
   isActive: Boolean(account.isActive),
   createdByUserId: account.createdByUserId,
@@ -92,7 +105,7 @@ const ensureDefaultTreasuryAccounts = async (client, user) => {
 const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMethod, user }) => {
   if (treasuryAccountId) {
     const found = await client.treasuryAccount.findUnique({ where: { id: treasuryAccountId } });
-    if (found) {
+    if (found && found.isActive !== false) {
       return found.id;
     }
   }
@@ -121,9 +134,27 @@ const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMeth
   return anyAccount ? anyAccount.id : null;
 };
 
+const getTreasuryAccountingAccountId = async (client, treasuryAccountId) => {
+  if (!treasuryAccountId) return null;
+
+  const treasuryAccount = await client.treasuryAccount.findUnique({
+    where: { id: String(treasuryAccountId) },
+    include: {
+      accountingAccount: true,
+    },
+  });
+
+  if (!treasuryAccount?.accountingAccountId || treasuryAccount.accountingAccount?.isActive === false) {
+    return null;
+  }
+
+  return treasuryAccount.accountingAccountId;
+};
+
 module.exports = {
   serializeTreasuryAccount,
   treasuryTypeFromPaymentMethod,
   ensureDefaultTreasuryAccounts,
   resolveTreasuryAccountId,
+  getTreasuryAccountingAccountId,
 };

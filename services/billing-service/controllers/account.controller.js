@@ -2,8 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 const {
   amount,
   accountTypeFromInput,
+  ensureAccountingAccountsWriteAccess,
   ensureAccountingReadAccess,
-  ensureAccountingWriteAccess,
   getDynamicAccountTemplate,
   serializeAccountingAccount,
 } = require('../utils/accounting');
@@ -37,7 +37,7 @@ exports.getAllAccounts = async (req, res) => {
 
 exports.createAccount = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de créer un compte comptable');
+    const accessError = ensureAccountingAccountsWriteAccess(req, 'Vous n avez pas la permission de créer un compte comptable');
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }
@@ -102,7 +102,7 @@ exports.createAccount = async (req, res) => {
 
 exports.updateAccount = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de modifier un compte comptable');
+    const accessError = ensureAccountingAccountsWriteAccess(req, 'Vous n avez pas la permission de modifier un compte comptable');
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }
@@ -194,7 +194,7 @@ exports.updateAccount = async (req, res) => {
 
 exports.deleteAccount = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de supprimer un compte comptable');
+    const accessError = ensureAccountingAccountsWriteAccess(req, 'Vous n avez pas la permission de supprimer un compte comptable');
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }

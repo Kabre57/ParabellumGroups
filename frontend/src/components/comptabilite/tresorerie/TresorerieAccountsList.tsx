@@ -25,6 +25,11 @@ export function TresorerieAccountsList({ accounts }: TresorerieAccountsListProps
                 <p className="text-lg font-semibold">{account.name}</p>
                 {account.bankName && <p className="text-xs text-muted-foreground">{account.bankName}</p>}
                 {account.accountNumber && <p className="text-xs text-muted-foreground">{account.accountNumber}</p>}
+                {account.accountingAccount && (
+                  <p className="text-xs text-muted-foreground">
+                    {account.accountingAccount.code} - {account.accountingAccount.label}
+                  </p>
+                )}
               </div>
               <span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">
                 {account.isDefault ? 'Par défaut' : 'Actif'}

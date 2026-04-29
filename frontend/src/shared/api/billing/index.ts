@@ -338,6 +338,8 @@ export interface TreasuryAccount {
   openingBalance: number;
   currentBalance: number;
   balance?: number;
+  accountingAccountId?: string | null;
+  accountingAccount?: Pick<AccountingAccount, 'id' | 'code' | 'label' | 'type' | 'isActive'> | null;
   isDefault?: boolean;
   isActive?: boolean;
   inflows?: number;
@@ -413,6 +415,27 @@ export interface AccountingFamilyRule {
     isPrimary: boolean;
     createdAt?: string | null;
     updatedAt?: string | null;
+  }>;
+}
+
+export interface AccountingFamilyDiagnostic {
+  healthy: boolean;
+  totalFamilies: number;
+  configuredFamilies: number;
+  missingFamilies: AccountingFamilyRule['family'][];
+  invalidFamilies: AccountingFamilyRule['family'][];
+  families: Array<{
+    family: AccountingFamilyRule['family'];
+    label: string;
+    expectedType: string;
+    required: boolean;
+    isConfigured: boolean;
+    primaryAccountId?: string | null;
+    primaryAccount?: AccountingAccount | null;
+    rulesCount: number;
+    usableRulesCount: number;
+    invalidRulesCount: number;
+    issues: string[];
   }>;
 }
 
@@ -1106,6 +1129,11 @@ export const billingService = {
     return normalizeListResponse<AccountingFamilyRule>(response.data);
   },
 
+  async getAccountingFamilyRulesDiagnostic(): Promise<DetailResponse<AccountingFamilyDiagnostic>> {
+    const response = await apiClient.get('/billing/accounting/family-rules/diagnostic');
+    return normalizeDetailResponse<AccountingFamilyDiagnostic>(response.data);
+  },
+
   async getTreasuryAccounts(): Promise<ListResponse<TreasuryAccount>> {
     const response = await apiClient.get('/billing/treasury-accounts');
     return normalizeListResponse<TreasuryAccount>(response.data);
@@ -1164,6 +1192,7 @@ export const billingService = {
     accountNumber?: string | null;
     currency?: string;
     openingBalance?: number;
+    accountingAccountId?: string | null;
     isDefault?: boolean;
   }): Promise<DetailResponse<TreasuryAccount>> {
     const response = await apiClient.post('/billing/treasury-accounts', data);
@@ -1178,6 +1207,7 @@ export const billingService = {
       accountNumber?: string | null;
       currency?: string;
       openingBalance?: number;
+      accountingAccountId?: string | null;
       isDefault?: boolean;
       isActive?: boolean;
     }

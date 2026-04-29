@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { TreasuryAccount } from '@/shared/api/billing';
+import billingService, { type AccountingAccount, type TreasuryAccount } from '@/shared/api/billing';
 
 interface CreateTreasuryAccountDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface CreateTreasuryAccountDialogProps {
     accountNumber?: string | null;
     openingBalance?: number;
     currency?: string;
+    accountingAccountId?: string | null;
     isDefault?: boolean;
   }) => Promise<void> | void;
   isSubmitting?: boolean;
@@ -30,6 +32,7 @@ type FormState = {
   accountNumber: string;
   openingBalance: string;
   currency: string;
+  accountingAccountId: string;
   isDefault: boolean;
 };
 
@@ -40,6 +43,7 @@ const defaultState: FormState = {
   accountNumber: '',
   openingBalance: '0',
   currency: 'XOF',
+  accountingAccountId: '',
   isDefault: false,
 };
 
@@ -50,6 +54,19 @@ export function CreateTreasuryAccountDialog({
   isSubmitting = false,
 }: CreateTreasuryAccountDialogProps) {
   const [form, setForm] = useState<FormState>(defaultState);
+  const { data: accountingAccountsResponse } = useQuery({
+    queryKey: ['accounting-accounts'],
+    queryFn: () => billingService.getAccountingAccounts(),
+    enabled: open,
+  });
+
+  const treasuryAccountingAccounts = useMemo(
+    () =>
+      ((accountingAccountsResponse?.data ?? []) as AccountingAccount[]).filter(
+        (account) => account.type === 'asset' && account.isActive !== false
+      ),
+    [accountingAccountsResponse?.data]
+  );
 
   useEffect(() => {
     if (open) {
@@ -69,6 +86,7 @@ export function CreateTreasuryAccountDialog({
       accountNumber: form.accountNumber.trim() || null,
       openingBalance: Number(form.openingBalance || 0),
       currency: form.currency.trim() || 'XOF',
+      accountingAccountId: form.accountingAccountId || null,
       isDefault: form.isDefault,
     });
   };
@@ -103,6 +121,25 @@ export function CreateTreasuryAccountDialog({
           <div className="space-y-2">
             <Label>Monnaie</Label>
             <Input value={form.currency} onChange={(event) => updateField('currency', event.target.value)} />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Compte comptable lié</Label>
+            <Select
+              value={form.accountingAccountId || '__none__'}
+              onValueChange={(value) => updateField('accountingAccountId', value === '__none__' ? '' : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner un compte comptable" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucun lien comptable</SelectItem>
+                {treasuryAccountingAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.code} - {account.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Banque</Label>

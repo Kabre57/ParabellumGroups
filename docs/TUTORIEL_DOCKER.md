@@ -245,6 +245,54 @@ docker compose exec billing-service npx prisma migrate deploy
 
 Ne pas lancer une migration depuis le shell hôte avec `postgres` comme hostname: ce nom DNS existe dans le réseau Docker, pas directement sur la machine.
 
+### Mise à jour comptabilité: migration Prisma et permissions
+
+Après un `git pull` contenant des changements sur le module comptabilité, reconstruire `billing-service` et `auth-service`, appliquer la migration Prisma du billing, puis resynchroniser les rôles et permissions système.
+
+```bash
+cd ~/apps/ParabellumGroups
+git pull
+
+docker compose build billing-service auth-service
+docker compose up -d billing-service auth-service
+
+docker compose exec -T billing-service npx prisma migrate deploy
+docker compose exec -T auth-service npm run sync:roles
+
+docker compose exec -T billing-service npx prisma migrate status
+docker compose ps billing-service auth-service
+```
+
+Vérifier que la colonne de liaison trésorerie/comptabilité existe bien:
+
+```bash
+docker compose exec -T postgres sh -lc 'psql -U "$POSTGRES_USER" -d parabellum_billing -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '\''treasury_accounts'\'' AND column_name = '\''accountingAccountId'\'';"'
+```
+
+Vérifier que les nouvelles permissions comptables sont présentes:
+
+```bash
+docker compose exec -T postgres sh -lc 'psql -U "$POSTGRES_USER" -d parabellum_auth -c "SELECT name, category FROM permissions WHERE name LIKE '\''accounting.%'\'' ORDER BY name;"'
+```
+
+Permissions attendues:
+
+```text
+accounting.accounts.manage
+accounting.diagnostics.read
+accounting.entries.create
+accounting.read
+accounting.rules.read
+accounting.rules.update
+accounting.treasury.manage
+```
+
+En cas de doute, consulter les logs:
+
+```bash
+docker compose logs --tail=120 billing-service auth-service
+```
+
 ## 12. Maintenance
 
 Voir les logs de tous les services:

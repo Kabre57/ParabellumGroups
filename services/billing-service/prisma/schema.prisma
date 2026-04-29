@@ -366,6 +366,7 @@ model TreasuryAccount {
   currency        String               @default("XOF")
   openingBalance  Float                @default(0)
   currentBalance  Float                @default(0)
+  accountingAccountId String?
   isDefault       Boolean              @default(false)
   isActive        Boolean              @default(true)
   createdByUserId String?
@@ -378,9 +379,11 @@ model TreasuryAccount {
   decaissements   Decaissement[]
   cashVouchers    CashVoucher[]
   closures        TreasuryClosure[]
+  accountingAccount   AccountingAccount? @relation(fields: [accountingAccountId], references: [id], onDelete: SetNull)
 
   @@index([type])
   @@index([isActive])
+  @@index([accountingAccountId])
   @@map("treasury_accounts")
 }
 
@@ -456,6 +459,7 @@ model AccountingAccount {
   @@map("accounting_accounts")
   mappings        AccountingMapping[]
   familyRules     AccountingFamilyRule[]
+  treasuryAccounts TreasuryAccount[]
 }
 
 model AccountingFamilyRule {

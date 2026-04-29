@@ -53,3 +53,57 @@ Le système génère automatiquement des pièces justificatives au standard prof
 L'onglet **Vue consolidée** regroupe tous les mouvements (Engagements, Bons de caisse, Flux directs). 
 - Utilisez la barre de recherche pour filtrer par **Numéro de pièce**, **Tiers** ou **Service**.
 - La colonne **Service / Entité** permet de suivre la consommation budgétaire par centre de profit.
+
+
+
+Dans le flux métier qu’on a posé, le bon de caisse ne doit pas être enregistré au moment où on valide une DPA ou au moment où la facturation marque une facture payée.
+
+Le bon moment, c’est quand la comptabilité / caisse émet réellement la pièce de caisse.
+
+Concrètement, aujourd’hui dans le projet il faut distinguer 4 choses sur la page Dépenses:
+
+Engagement achat : la DPA ou la proforma retenue devient visible pour le comptable.
+Décaissement : la compta prépare la sortie d’argent.
+Encaissement : la facturation déclare qu’un paiement client a été reçu, mais il reste à valider par la compta.
+Bon de caisse : la pièce de caisse elle-même, créée manuellement via le flux dédié, pas automatiquement.
+Donc le bon enchaînement est:
+
+Achat
+DPA validée
+si une proforma est retenue, elle remonte dans Engagements achats
+le comptable valide l’engagement
+quand on décide de payer, on crée le décaissement
+si on veut une vraie pièce de caisse, on enregistre le bon de caisse à ce moment-là
+après validation finale, ça passe en écriture comptable
+Vente / facture client
+la facturation enregistre le paiement
+cela crée un encaissement en attente
+la compta contrôle et valide
+après validation, on génère l’écriture comptable
+si vous utilisez une pièce de caisse pour l’encaissement, le bon de caisse s’émet au niveau caisse, pas au simple clic “facture payée”
+Dans le code actuel, ça se voit bien:
+
+la création d’un bon de caisse est manuelle dans cashVoucher.controller.js (line 203)
+les encaissements et décaissements passent par des mutations séparées dans depenses/page.tsx (line 122)
+le décaissement est créé via son propre dialogue dans CreateDecaissementDialog.tsx (line 1)
+Donc ta logique est bonne:
+
+pas d’écriture comptable directe
+d’abord visibilité et validation comptable
+ensuite pièce de caisse / décaissement / encaissement
+puis écriture comptable
+
+le  services/procurement-service/controllers/demandeAchat.controller.js fait 2055 ligne c'est trop trop long nous somme en microservice c'est pour rendre notre projet modulaire comme controllers/
+└── purchaseQuotes/
+    ├── index.js                 # Export principal et création du contrôleur
+    ├── permissions.js           # Gestion des permissions
+    ├── quoteHelpers.js          # Helpers spécifiques aux quotes
+    ├── proformaHelpers.js       # Helpers spécifiques aux proformas
+    ├── payloads.js              # Construction des payloads d'événements
+    ├── validation.js            # Validation des données
+    ├── committeeHelpers.js      # Évaluation de commission
+    ├── queries.js               # Requêtes base de données
+    ├── eventHandlers.js         # Gestion des événements outbox
+    ├── quoteHandlers.js         # Handlers pour les DPA
+    ├── proformaHandlers.js      # Handlers pour les proformas
+    └── statsHandlers.js         # Handlers pour les statistiques une remarque si on a un fichier qui fais 500 ligne rend ca modulaire stp 

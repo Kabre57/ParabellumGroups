@@ -2,7 +2,7 @@ const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const {
   amount,
   ensureAccountingReadAccess,
-  ensureAccountingWriteAccess,
+  ensureAccountingEntriesWriteAccess,
   parseDate,
   resolveDateRange,
   nextEntryNumber,
@@ -102,7 +102,7 @@ exports.getAllJournalEntries = async (req, res) => {
 
 exports.createJournalEntry = async (req, res) => {
   try {
-    const accessError = ensureAccountingWriteAccess(req, 'Vous n avez pas la permission de créer une écriture comptable');
+    const accessError = ensureAccountingEntriesWriteAccess(req, 'Vous n avez pas la permission de créer une écriture comptable');
     if (accessError) {
       return res.status(accessError.status).json(accessError.body);
     }

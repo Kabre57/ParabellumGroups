@@ -44,6 +44,25 @@ const pushMovement = (bucket, movement) => {
 
 const buildEntryId = (...parts) => parts.filter(Boolean).join('-');
 
+const buildAccountingReference = (account) =>
+  account
+    ? {
+        id: account.id,
+        accountId: account.id,
+        code: account.code,
+        label: account.label,
+      }
+    : null;
+
+const resolveTreasuryAccountingReference = async (treasuryAccount, paymentMethod) => {
+  const linkedAccount = treasuryAccount?.accountingAccount;
+  const linkedReference = linkedAccount && linkedAccount.isActive !== false
+    ? buildAccountingReference(linkedAccount)
+    : null;
+
+  return linkedReference || MappingService.resolveAccount('PAYMENT', paymentMethod);
+};
+
 const buildDateWhere = (field, startDate, endDate) => {
   if (!startDate && !endDate) return {};
 
@@ -176,7 +195,7 @@ exports.getAccountingOverview = async (req, res) => {
       }), 'factures'),
       safeQuery(prisma.paiement.findMany({
         where: paymentWhere,
-        include: { facture: true, treasuryAccount: true },
+        include: { facture: true, treasuryAccount: { include: { accountingAccount: true } } },
         orderBy: { datePaiement: 'desc' },
       }), 'paiements'),
       safeQuery(prisma.purchaseCommitment.findMany({
@@ -185,12 +204,12 @@ exports.getAccountingOverview = async (req, res) => {
       }), 'commitments'),
       safeQuery(prisma.encaissement.findMany({
         where: encaissementWhere,
-        include: { treasuryAccount: true },
+        include: { treasuryAccount: { include: { accountingAccount: true } } },
         orderBy: { dateEncaissement: 'desc' },
       }), 'encaissements'),
       safeQuery(prisma.decaissement.findMany({
         where: decaissementWhere,
-        include: { treasuryAccount: true },
+        include: { treasuryAccount: { include: { accountingAccount: true } } },
         orderBy: [{ dateDecaissement: 'desc' }, { createdAt: 'desc' }],
       }), 'decaissements'),
       safeQuery(prisma.accountingAccount.findMany({
@@ -209,6 +228,7 @@ exports.getAccountingOverview = async (req, res) => {
       }), 'manualJournalEntries'),
       safeQuery(prisma.treasuryAccount.findMany({
         where: { isActive: true },
+        include: { accountingAccount: true },
         orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       }), 'treasuryAccounts'),
     ]);
@@ -562,7 +582,7 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       });
 
       if (d.status === 'DECAISSE') {
-        const treasuryAccount = await MappingService.resolveAccount('PAYMENT', d.paymentMethod);
+        const treasuryAccount = await resolveTreasuryAccountingReference(d.treasuryAccount, d.paymentMethod);
         const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
         const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
           fallbackFamily: treasuryTypeFromPaymentMethod(d.paymentMethod) === 'CASH' ? 'TREASURY_CASH' : 'TREASURY_BANK',
@@ -591,7 +611,7 @@ const dynamicAccounts = evaluatedDynamicAccounts;
 
     for (const e of receivedVouchers) {
       if (manualEntrySourceKeys.has(`ENCAISSEMENT:${e.id}`)) continue;
-      const treasuryAccount = await MappingService.resolveAccount('PAYMENT', e.paymentMethod);
+      const treasuryAccount = await resolveTreasuryAccountingReference(e.treasuryAccount, e.paymentMethod);
       const creditAccount = e.factureClientId
         ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
         : await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory);
