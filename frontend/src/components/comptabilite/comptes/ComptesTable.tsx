@@ -26,13 +26,13 @@ interface ComptesTableProps {
 
 export function ComptesTable({ accounts, isLoading, canUpdate, canDelete, onDetails, onEdit, onDelete }: ComptesTableProps) {
   return (
-    <Card className="p-6">
+    <Card className="p-4">
       {isLoading ? (
         <div className="text-center py-8">Chargement...</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-auto rounded-md border">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b dark:border-gray-700">
                 {['Code','Libellé','Type','Solde','Dernière Transaction','Actions'].map(h => (
                   <th key={h} className={`py-3 px-4 font-semibold text-sm ${h === 'Solde' ? 'text-right' : 'text-left'}`}>{h}</th>

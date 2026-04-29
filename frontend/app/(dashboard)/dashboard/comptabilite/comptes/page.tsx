@@ -9,6 +9,7 @@ import { ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
@@ -37,6 +38,7 @@ export default function ComptesPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState<AccountingAccount | null>(null);
   const [familySelections, setFamilySelections] = useState<Record<string, string>>({});
+  const [activeView, setActiveView] = useState<'families' | 'accounts'>('accounts');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
@@ -156,107 +158,131 @@ export default function ComptesPage() {
 
       <ComptesStats count={accounts.length} totals={totals} />
 
-      <Card className="space-y-4 p-4">
-        <div>
-          <h2 className="text-lg font-semibold">Familles comptables dynamiques</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Cette configuration remplace les anciens codes hardcodés. Chaque famille doit pointer vers un compte réel
-            du plan comptable.
-          </p>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          {orderedFamilyRules.map((rule) => {
-            const selectedValue = familySelections[rule.family] ?? rule.accountId ?? '';
-            const availableAccounts = accountsForFamily(rule.family);
-            return (
-              <div key={rule.family} className="rounded-lg border border-slate-200 p-4">
-                <div className="mb-2">
-                  <div className="font-medium">{rule.label}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {rule.description || 'Famille comptable configurable.'}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <select
-                    value={selectedValue}
-                    onChange={(e) =>
-                      setFamilySelections((current) => ({
-                        ...current,
-                        [rule.family]: e.target.value,
-                      }))
-                    }
-                    className="h-10 flex-1 rounded-md border border-input bg-background px-3"
-                  >
-                    <option value="">Sélectionner un compte</option>
-                    {availableAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.code} - {account.label}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="button"
-                    disabled={!selectedValue || familyRuleMutation.isPending}
-                    onClick={() => familyRuleMutation.mutate({ family: rule.family, accountId: selectedValue })}
-                  >
-                    Enregistrer
-                  </Button>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Compte actuel : {rule.account ? `${rule.account.code} - ${rule.account.label}` : 'Non configuré'}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un compte..."
-              className="pl-10"
-            />
+      <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'families' | 'accounts')} className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="accounts">Plan comptable</TabsTrigger>
+            <TabsTrigger value="families">Familles dynamiques</TabsTrigger>
+          </TabsList>
+          <div className="text-sm text-muted-foreground">
+            {activeView === 'accounts'
+              ? `${filtered.length} compte(s) visible(s)`
+              : `${orderedFamilyRules.length} famille(s) à configurer`}
           </div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-md border px-4 py-2 dark:border-gray-700 dark:bg-gray-800"
-          >
-            <option value="all">Tous les types</option>
-            <option value="asset">Actif</option>
-            <option value="liability">Passif</option>
-            <option value="equity">Capital</option>
-            <option value="revenue">Produits</option>
-            <option value="expense">Charges</option>
-          </select>
         </div>
-      </Card>
 
-      <ComptesTable
-        accounts={filtered}
-        isLoading={isLoading}
-        canUpdate={canUpdate}
-        canDelete={canDelete}
-        onDetails={(a) => {
-          setSelected(a);
-          setDetailsOpen(true);
-        }}
-        onEdit={(a) => {
-          setSelected(a);
-          setEditDialogOpen(true);
-        }}
-        onDelete={(a) => {
-          const confirmed = window.confirm(`Supprimer le compte ${a.code} - ${a.label} ?`);
-          if (!confirmed) return;
-          deleteMutation.mutate(a.id);
-        }}
-      />
+        <TabsContent value="accounts" className="space-y-4">
+          <Card className="p-4">
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher un compte..."
+                  className="pl-10"
+                />
+              </div>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="h-10 rounded-md border px-4 py-2 dark:border-gray-700 dark:bg-gray-800 lg:w-56"
+              >
+                <option value="all">Tous les types</option>
+                <option value="asset">Actif</option>
+                <option value="liability">Passif</option>
+                <option value="equity">Capital</option>
+                <option value="revenue">Produits</option>
+                <option value="expense">Charges</option>
+              </select>
+            </div>
+          </Card>
+
+          <ComptesTable
+            accounts={filtered}
+            isLoading={isLoading}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            onDetails={(a) => {
+              setSelected(a);
+              setDetailsOpen(true);
+            }}
+            onEdit={(a) => {
+              setSelected(a);
+              setEditDialogOpen(true);
+            }}
+            onDelete={(a) => {
+              const confirmed = window.confirm(`Supprimer le compte ${a.code} - ${a.label} ?`);
+              if (!confirmed) return;
+              deleteMutation.mutate(a.id);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="families" className="space-y-4">
+          <Card className="space-y-4 p-4">
+            <div>
+              <h2 className="text-lg font-semibold">Familles comptables dynamiques</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cette configuration remplace les anciens codes hardcodés. Chaque famille doit pointer vers un compte réel
+                du plan comptable.
+              </p>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              {orderedFamilyRules.map((rule) => {
+                const selectedValue = familySelections[rule.family] ?? rule.accountId ?? '';
+                const availableAccounts = accountsForFamily(rule.family);
+                return (
+                  <div key={rule.family} className="rounded-lg border border-slate-200 p-3">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{rule.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {rule.description || 'Famille comptable configurable.'}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        {rule.account ? rule.account.code : 'Non configuré'}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <select
+                        value={selectedValue}
+                        onChange={(e) =>
+                          setFamilySelections((current) => ({
+                            ...current,
+                            [rule.family]: e.target.value,
+                          }))
+                        }
+                        className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">Sélectionner un compte</option>
+                        {availableAccounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.code} - {account.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!selectedValue || familyRuleMutation.isPending}
+                        onClick={() => familyRuleMutation.mutate({ family: rule.family, accountId: selectedValue })}
+                      >
+                        Enregistrer
+                      </Button>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Compte actuel : {rule.account ? `${rule.account.code} - ${rule.account.label}` : 'Non configuré'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <CreateAccountingAccountDialog
         open={createDialogOpen}
