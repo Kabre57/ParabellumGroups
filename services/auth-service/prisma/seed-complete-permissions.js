@@ -82,6 +82,8 @@ const completePermissions = {
     permissions: [
       { name: 'accounting.read', description: 'Consulter les donnees comptables' },
       { name: 'accounting.accounts.manage', description: 'Gerer le plan comptable' },
+      { name: 'accounting.periods.manage', description: 'Gerer les exercices et periodes comptables' },
+      { name: 'accounting.journals.manage', description: 'Gerer les journaux comptables' },
       { name: 'accounting.rules.read', description: 'Consulter les regles comptables' },
       { name: 'accounting.rules.update', description: 'Modifier les regles comptables' },
       { name: 'accounting.entries.create', description: 'Creer des ecritures comptables' },
@@ -148,6 +150,7 @@ const completePermissions = {
     label: 'Entreprises (Multi-Tenant)',
     permissions: [
       { name: 'enterprises.read', description: 'Voir la liste des entreprises' },
+      { name: 'enterprises.read_all', description: 'Voir toutes les entreprises du groupe' },
       { name: 'enterprises.read_own', description: 'Voir uniquement son entreprise' },
       { name: 'enterprises.create', description: 'Créer des entreprises' },
       { name: 'enterprises.update', description: 'Modifier les entreprises' },
@@ -281,6 +284,7 @@ const completePermissions = {
   invoices: {
     label: 'Factures',
     permissions: [
+      { name: 'billing.dashboard.read', description: 'Consulter le dashboard facturation' },
       { name: 'invoices.read', description: 'Consulter les factures' },
       { name: 'invoices.read_all', description: 'Voir toutes les factures' },
       { name: 'invoices.read_own', description: 'Voir uniquement ses factures' },
@@ -293,6 +297,13 @@ const completePermissions = {
       { name: 'invoices.credit_note', description: 'Créer des avoirs' },
       { name: 'invoices.print', description: 'Imprimer des factures' },
       { name: 'invoices.export', description: 'Exporter les factures' }
+    ]
+  },
+
+  credit_notes: {
+    label: 'Avoirs & Notes de credit',
+    permissions: [
+      { name: 'credit_notes.read', description: 'Consulter les avoirs et notes de credit' }
     ]
   },
 
@@ -562,6 +573,7 @@ const completePermissions = {
     label: 'Achats',
     permissions: [
       { name: 'purchases.read', description: 'Consulter le dashboard achats' },
+      { name: 'purchases.read_all', description: 'Voir tous les achats' },
       { name: 'purchases.create', description: 'Créer des devis d achat' },
       { name: 'purchases.submit', description: 'Soumettre des devis d achat pour approbation' },
       { name: 'purchases.update', description: 'Modifier des devis d achat' },
@@ -622,6 +634,7 @@ const completePermissions = {
       { name: 'expenses.read_all', description: 'Voir toutes les dépenses' },
       { name: 'expenses.read_own', description: 'Voir uniquement ses dépenses' },
       { name: 'expenses.create', description: 'Créer des dépenses' },
+      { name: 'expenses.import', description: 'Importer des bons de caisse historiques' },
       { name: 'expenses.update', description: 'Modifier les dépenses' },
       { name: 'expenses.delete', description: 'Supprimer des dépenses' },
       { name: 'expenses.approve', description: 'Approuver les dépenses' },

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AccountingAccountPickerDialog } from '@/components/accounting/AccountingAccountPickerDialog';
 import billingService, { type Decaissement, type PurchaseCommitment } from '@/shared/api/billing';
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -69,7 +70,16 @@ export function CreateDecaissementDialog({
 }: CreateDecaissementDialogProps) {
   const { user } = useAuth();
   const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
-  const canChooseEnterprise = isAdminRole(user) || hasAnyPermission(user, ['enterprises.read', 'enterprises.manage_logo']);
+  const canChooseEnterprise =
+    isAdminRole(user) ||
+    hasAnyPermission(user, [
+      'enterprises.read',
+      'enterprises.read_all',
+      'enterprises.manage_logo',
+      'expenses.read_all',
+      'payments.read_all',
+      'accounting.treasury.manage',
+    ]);
   const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment, userEnterpriseId));
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
 
@@ -89,10 +99,13 @@ export function CreateDecaissementDialog({
     enabled: open && (canChooseEnterprise || !userEnterpriseId),
   });
 
-  const enterprises = useMemo(
-    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
-    [enterprisesResponse?.data, user?.enterpriseId]
-  );
+  const enterprises = useMemo(() => {
+    const allEnterprises = enterprisesResponse?.data ?? [];
+    if (canChooseEnterprise) {
+      return [...allEnterprises].sort((left: any, right: any) => left.name.localeCompare(right.name, 'fr'));
+    }
+    return getAccessibleEnterprises(allEnterprises, user?.enterpriseId);
+  }, [canChooseEnterprise, enterprisesResponse?.data, user?.enterpriseId]);
 
   const selectedEnterprise = useMemo(
     () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
@@ -136,11 +149,7 @@ export function CreateDecaissementDialog({
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
-  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => {
-    const normalizedType = String(acc?.type || '').toLowerCase();
-    const normalizedCode = String(acc?.code || '');
-    return normalizedType === 'expense' || normalizedCode.startsWith('6');
-  });
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => acc?.isActive !== false);
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
@@ -283,25 +292,16 @@ export function CreateDecaissementDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Imputation comptable (compte de charge)</Label>
-              <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
-                <SelectTrigger className="border-rose-200 focus:ring-rose-500">
-                  <SelectValue placeholder="Selectionner le compte de depense" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accountingAccounts.length === 0 ? (
-                    <SelectItem value="__no-expense-account__" disabled>
-                      Aucun compte de charge disponible
-                    </SelectItem>
-                  ) : (
-                    accountingAccounts.map((acc: any) => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.code} - {acc.label}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Imputation comptable</Label>
+              <AccountingAccountPickerDialog
+                title="Choisissez un compte comptable"
+                description="Sélectionnez le compte d'imputation dans le plan comptable pour ce décaissement."
+                placeholder="Aucun compte comptable sélectionné"
+                selectedAccountId={accountingAccountId}
+                accounts={accountingAccounts}
+                isSubmitting={isSubmitting}
+                onSelect={setAccountingAccountId}
+              />
             </div>
           </div>
 

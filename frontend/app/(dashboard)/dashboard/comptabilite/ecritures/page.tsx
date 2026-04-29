@@ -25,12 +25,12 @@ export default function EcrituresPage() {
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
-    ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some((p) =>
+    ['accounting.read', 'reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some((p) =>
       permissionSet.has(p)
     );
   const { canCreate } = getCrudVisibility(user, {
-    read: ['reports.read_financial', 'invoices.read'],
-    create: ['expenses.create', 'payments.create'],
+    read: ['accounting.read', 'reports.read_financial'],
+    create: ['accounting.entries.create'],
   });
 
   const { data: enterprisesResponse } = useQuery({
@@ -48,7 +48,7 @@ export default function EcrituresPage() {
   const { data: accountsData } = useAccountsForEntry(canCreate);
   const createEntryMutation = useCreateEntry(() => setCreateDialogOpen(false));
 
-  const entries: AccountingEntry[] = data?.data?.entries ?? [];
+  const entries: AccountingEntry[] = data?.data ?? [];
   const accounts = accountsData?.data ?? [];
   const filtered = entries.filter(
     (entry) =>

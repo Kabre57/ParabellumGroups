@@ -39,6 +39,14 @@ const permissionCategories = {
       { name: 'prospects.convert', description: 'Convertir en client' }
     ]
   },
+  enterprises: {
+    label: 'Entreprises',
+    permissions: [
+      { name: 'enterprises.read', description: 'Consulter les entreprises' },
+      { name: 'enterprises.read_all', description: 'Voir toutes les entreprises du groupe' },
+      { name: 'enterprises.read_own', description: 'Voir uniquement son entreprise' }
+    ]
+  },
   emails: {
     label: 'Campagnes Email',
     permissions: [
@@ -72,12 +80,19 @@ const permissionCategories = {
   invoices: {
     label: 'Facturation',
     permissions: [
+      { name: 'billing.dashboard.read', description: 'Consulter le dashboard facturation' },
       { name: 'invoices.create', description: 'Créer des factures' },
       { name: 'invoices.read', description: 'Consulter les factures' },
       { name: 'invoices.update', description: 'Modifier les factures' },
       { name: 'invoices.delete', description: 'Supprimer des factures' },
       { name: 'invoices.send', description: 'Envoyer des factures' },
       { name: 'invoices.validate', description: 'Valider des factures' }
+    ]
+  },
+  credit_notes: {
+    label: 'Avoirs & Notes de crédit',
+    permissions: [
+      { name: 'credit_notes.read', description: 'Consulter les avoirs et notes de crédit' }
     ]
   },
   payments: {
@@ -103,6 +118,7 @@ const permissionCategories = {
     label: 'Dépenses',
     permissions: [
       { name: 'expenses.create', description: 'Créer des dépenses' },
+      { name: 'expenses.import', description: 'Importer des bons de caisse historiques' },
       { name: 'expenses.read', description: 'Consulter les dépenses' },
       { name: 'expenses.update', description: 'Modifier les dépenses' },
       { name: 'expenses.delete', description: 'Supprimer des dépenses' },
@@ -123,6 +139,8 @@ const permissionCategories = {
     permissions: [
       { name: 'accounting.read', description: 'Consulter les donnees comptables' },
       { name: 'accounting.accounts.manage', description: 'Gerer le plan comptable' },
+      { name: 'accounting.periods.manage', description: 'Gerer les exercices et periodes comptables' },
+      { name: 'accounting.journals.manage', description: 'Gerer les journaux comptables' },
       { name: 'accounting.rules.read', description: 'Consulter les regles comptables' },
       { name: 'accounting.rules.update', description: 'Modifier les regles comptables' },
       { name: 'accounting.entries.create', description: 'Creer des ecritures comptables' },
@@ -231,6 +249,7 @@ const permissionCategories = {
     permissions: [
       { name: 'purchases.create', description: 'Créer des commandes d\'achat' },
       { name: 'purchases.read', description: 'Consulter les achats' },
+      { name: 'purchases.read_all', description: 'Voir tous les achats' },
       { name: 'purchases.update', description: 'Modifier les achats' },
       { name: 'purchases.delete', description: 'Supprimer des achats' },
       { name: 'purchases.approve', description: 'Approuver les achats' }

@@ -6,7 +6,7 @@ export function useEcritures(enabled = true, enterpriseId?: string) {
   return useQuery({
     queryKey: ['accounting-entries', enterpriseId || 'all'],
     queryFn: () =>
-      billingService.getAccountingOverview('all', enterpriseId ? { enterpriseId } : undefined),
+      billingService.getAccountingEntries(enterpriseId ? { enterpriseId } : undefined),
     enabled,
   });
 }
@@ -27,6 +27,8 @@ export function useCreateEntry(onSuccess?: () => void) {
       toast.success('Écriture comptable créée avec succès.');
       queryClient.invalidateQueries({ queryKey: ['accounting-entries'] });
       queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-general-ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-balance-v2'] });
       queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
       onSuccess?.();
     },

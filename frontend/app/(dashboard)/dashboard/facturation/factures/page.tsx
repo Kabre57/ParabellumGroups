@@ -45,10 +45,19 @@ export default function FacturesPage() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<any | null>(null);
   const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
   const [printLoading, setPrintLoading] = useState(false);
+  const visibility = getCrudVisibility(user, {
+    read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
+    create: ['invoices.create'],
+    update: ['invoices.update', 'invoices.validate', 'invoices.send'],
+    remove: ['invoices.delete', 'invoices.cancel'],
+    export: ['invoices.export', 'invoices.print', 'invoices.send'],
+  });
+  const { canRead, canCreate, canUpdate, canDelete, canExport } = visibility;
   const { data: clients = [] } = useClients({ pageSize: 200 });
   const { data: enterprisesResponse } = useQuery({
     queryKey: ['enterprise-filter-options', 'factures'],
     queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: canRead,
   });
 
   const accessibleEnterprises = React.useMemo(
@@ -66,6 +75,7 @@ export default function FacturesPage() {
       const data = await billingService.getInvoices(params);
       return data;
     },
+    enabled: canRead,
   });
 
   const deleteMutation = useMutation({
@@ -133,13 +143,16 @@ export default function FacturesPage() {
 
   const invoices = invoicesResponse?.data ?? [];
   const clientMap = new Map((Array.isArray(clients) ? clients : []).map((client: any) => [client.id, client]));
-  const { canCreate, canUpdate, canDelete, canExport } = getCrudVisibility(user, {
-    read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
-    create: ['invoices.create'],
-    update: ['invoices.update', 'invoices.validate', 'invoices.send'],
-    remove: ['invoices.delete', 'invoices.cancel'],
-    export: ['invoices.export', 'invoices.print', 'invoices.send'],
-  });
+  if (!canRead) {
+    return (
+      <Card className="p-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Acces restreint</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Vous ne pouvez pas consulter les factures avec vos permissions actuelles.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -310,6 +310,11 @@ const serializeAccountingAccount = (account) => ({
   currentBalance: amount(account.currentBalance),
   lastTransaction: account.updatedAt || account.createdAt || null,
   isDynamic: Boolean(account.isDynamic),
+  parentId: account.parentId || null,
+  categoryCode: account.categoryCode || null,
+  allowManualPosting: account.allowManualPosting !== false,
+  requiresThirdParty: Boolean(account.requiresThirdParty),
+  requiresCostCenter: Boolean(account.requiresCostCenter),
 });
 
 const nextEntryNumber = async (client) => {
@@ -362,6 +367,10 @@ const serializeJournalEntry = (entry) => {
     date: entry.entryDate,
     journalCode: entry.journalCode,
     journalLabel: entry.journalLabel,
+    journalId: entry.journalId || null,
+    periodId: entry.periodId || null,
+    fiscalYearId: entry.fiscalYearId || null,
+    status: entry.status || 'POSTED',
     enterpriseId: entry.enterpriseId ?? null,
     enterpriseName: entry.enterpriseName || null,
     accountDebit: debitLine?.account?.code || '',
@@ -376,6 +385,8 @@ const serializeJournalEntry = (entry) => {
     reference: entry.reference || entry.entryNumber,
     sourceType: entry.sourceType || null,
     sourceId: entry.sourceId || null,
+    postedAt: entry.postedAt || null,
+    validatedAt: entry.validatedAt || null,
     createdAt: entry.createdAt,
   };
 };

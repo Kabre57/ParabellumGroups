@@ -44,20 +44,22 @@ export default function AvoirsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const visibility = getCrudVisibility(user, {
+    read: ['credit_notes.read'],
+    create: ['invoices.credit_note'],
+  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [factureId, setFactureId] = useState('');
   const [motif, setMotif] = useState('');
   const [notes, setNotes] = useState('');
   const [enterpriseFilter, setEnterpriseFilter] = useState('all');
 
-  const { canCreate } = getCrudVisibility(user, {
-    read: ['invoices.read', 'invoices.read_all', 'invoices.read_own'],
-    create: ['invoices.credit_note'],
-  });
+  const { canRead, canCreate } = visibility;
 
   const { data: enterprisesResponse } = useQuery({
     queryKey: ['enterprise-filter-options', 'avoirs'],
     queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: canRead,
   });
 
   const accessibleEnterprises = useMemo(
@@ -71,15 +73,17 @@ export default function AvoirsPage() {
       billingService.getCreditNotes(
         enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : undefined
       ),
+    enabled: canRead,
   });
 
   const { data: invoicesResponse } = useQuery({
     queryKey: ['invoices-for-credit-notes', enterpriseFilter],
     queryFn: () =>
-      billingService.getInvoices({
-        limit: 200,
-        ...(enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : {}),
-      }),
+        billingService.getInvoices({
+          limit: 200,
+          ...(enterpriseFilter !== 'all' ? { enterpriseId: enterpriseFilter } : {}),
+        }),
+    enabled: canRead,
   });
 
   const { data: clients = [] } = useClients({ pageSize: 200 });
@@ -127,6 +131,17 @@ export default function AvoirsPage() {
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  if (!canRead) {
+    return (
+      <Card className="p-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Acces restreint</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Vous ne pouvez pas consulter les avoirs avec vos permissions actuelles.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

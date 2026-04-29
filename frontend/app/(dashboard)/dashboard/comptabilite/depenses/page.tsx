@@ -5,7 +5,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
@@ -60,6 +69,7 @@ export default function DepensesPage() {
       permissionSet.has(permission)
     );
   const canCreateVoucher = isAdminRole(user) || permissionSet.has('expenses.create');
+  const canImportVoucher = canCreateVoucher || isAdminRole(user) || permissionSet.has('expenses.import');
   const canApproveVoucher =
     isAdminRole(user) || permissionSet.has('expenses.approve') || permissionSet.has('payments.validate');
 
@@ -70,6 +80,11 @@ export default function DepensesPage() {
   const [encaissementOpen, setEncaissementOpen] = useState(false);
   const [decaissementOpen, setDecaissementOpen] = useState(false);
   const [liquidationOpen, setLiquidationOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importEnterpriseId, setImportEnterpriseId] = useState('all');
+  const [importDefaultFlowType, setImportDefaultFlowType] = useState<'ENCAISSEMENT' | 'DECAISSEMENT'>('DECAISSEMENT');
+  const [importDefaultStatus, setImportDefaultStatus] = useState<'BROUILLON' | 'EN_ATTENTE' | 'VALIDE' | 'DECAISSE' | 'ANNULE'>('VALIDE');
   const [selectedCommitment, setSelectedCommitment] = useState<PurchaseCommitment | null>(null);
   const [printVoucher, setPrintVoucher] = useState<any | null>(null);
   const [printListOpen, setPrintListOpen] = useState(false);
@@ -225,6 +240,39 @@ export default function DepensesPage() {
     },
   });
 
+  const importCashVouchersMutation = useMutation({
+    mutationFn: async () => {
+      if (!importFile) {
+        throw new Error('Veuillez selectionner un fichier Excel.');
+      }
+      return billingService.importCashVouchers(importFile, {
+        enterpriseId: importEnterpriseId !== 'all' ? importEnterpriseId : undefined,
+        defaultEnterpriseName:
+          importEnterpriseId !== 'all'
+            ? accessibleEnterprises.find((enterprise) => String(enterprise.id) === importEnterpriseId)?.name
+            : undefined,
+        defaultFlowType: importDefaultFlowType,
+        defaultStatus: importDefaultStatus,
+      });
+    },
+    onSuccess: (response) => {
+      const summary = response.data;
+      toast.success(`${summary.imported} bon(s) de caisse importe(s), ${summary.skipped} ligne(s) ignoree(s).`);
+      if (summary.errors.length > 0) {
+        toast.warning(`${summary.errors.length} ligne(s) contiennent des erreurs. Consulte le retour d'import.`);
+      }
+      setImportOpen(false);
+      setImportFile(null);
+      setImportEnterpriseId('all');
+      setImportDefaultFlowType('DECAISSEMENT');
+      setImportDefaultStatus('VALIDE');
+      queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error?.message || "Erreur lors de l'import du fichier.");
+    },
+  });
+
   const commitments = useMemo(() => data?.data?.commitments ?? [], [data]);
   const vouchers = useMemo(() => data?.data?.cashVouchers ?? [], [data]);
   const encaissements = useMemo(() => data?.data?.encaissements ?? [], [data]);
@@ -336,12 +384,14 @@ export default function DepensesPage() {
         period={period}
         onPeriodChange={setPeriod}
         onPrintList={() => setPrintListOpen(true)}
+        onImport={() => setImportOpen(true)}
         onNewEncaissement={() => setEncaissementOpen(true)}
         onNewDecaissement={() => {
           setSelectedCommitment(null);
           setDecaissementOpen(true);
         }}
         canCreate={canCreateVoucher}
+        canImport={canImportVoucher}
       />
 
       <DepensesStats
@@ -445,6 +495,86 @@ export default function DepensesPage() {
             await createLiquidationMutation.mutateAsync(payload);
           }}
         />
+      )}
+
+      {canImportVoucher && (
+        <Dialog open={importOpen} onOpenChange={setImportOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Importer des bons de caisse historiques</DialogTitle>
+              <DialogDescription>
+                Importez un fichier Excel `.xlsx` contenant vos bons de caisse saisis manuellement en 2024 ou sur une autre période.
+                Colonnes reconnues: `numeroPiece`, `beneficiaire`, `description`, `montantTTC`, `modePaiement`, `date`,
+                `reference`, `notes`, `entrepriseId`, `entrepriseName`, `typeFlux`, `statut`.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fichier Excel</label>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(event) => setImportFile(event.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Entreprise par défaut</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={importEnterpriseId}
+                    onChange={(event) => setImportEnterpriseId(event.target.value)}
+                  >
+                    <option value="all">Depuis le fichier / sinon entreprise connectee</option>
+                    {accessibleEnterprises.map((enterprise) => (
+                      <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                        {enterprise.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Flux par défaut</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={importDefaultFlowType}
+                    onChange={(event) => setImportDefaultFlowType(event.target.value as 'ENCAISSEMENT' | 'DECAISSEMENT')}
+                  >
+                    <option value="DECAISSEMENT">Décaissement</option>
+                    <option value="ENCAISSEMENT">Encaissement</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Statut par défaut</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={importDefaultStatus}
+                    onChange={(event) => setImportDefaultStatus(event.target.value as any)}
+                  >
+                    <option value="BROUILLON">Brouillon</option>
+                    <option value="EN_ATTENTE">En attente</option>
+                    <option value="VALIDE">Valide</option>
+                    <option value="DECAISSE">Décaisse</option>
+                    <option value="ANNULE">Annule</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importCashVouchersMutation.isPending}>
+                Annuler
+              </Button>
+              <Button onClick={() => void importCashVouchersMutation.mutateAsync()} disabled={!importFile || importCashVouchersMutation.isPending}>
+                {importCashVouchersMutation.isPending ? 'Import en cours...' : 'Importer'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {printVoucher && (

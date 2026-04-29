@@ -435,6 +435,84 @@ model BillingProcessedEvent {
   @@map("billing_processed_events")
 }
 
+model FiscalYear {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  label       String
+  startDate   DateTime
+  endDate     DateTime
+  status      FiscalYearStatus @default(OPEN)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  periods     AccountingPeriod[]
+  journalEntries AccountingJournalEntry[]
+
+  @@index([startDate, endDate])
+  @@map("fiscal_years")
+}
+
+model AccountingPeriod {
+  id              String                 @id @default(uuid())
+  fiscalYearId    String
+  code            String
+  label           String
+  startDate       DateTime
+  endDate         DateTime
+  periodType      AccountingPeriodType
+  status          AccountingPeriodStatus @default(OPEN)
+  closedAt        DateTime?
+  closedByUserId  String?
+  lockedAt        DateTime?
+  lockedByUserId  String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  fiscalYear      FiscalYear             @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  journalEntries  AccountingJournalEntry[]
+  sequences       AccountingEntrySequence[]
+
+  @@unique([fiscalYearId, code])
+  @@index([fiscalYearId])
+  @@index([startDate, endDate])
+  @@map("accounting_periods")
+}
+
+model AccountingJournal {
+  id           String                @id @default(uuid())
+  code         String                @unique
+  label        String
+  type         AccountingJournalType
+  description  String?
+  isActive     Boolean               @default(true)
+  enterpriseId Int?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  entries      AccountingJournalEntry[]
+  sequences    AccountingEntrySequence[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("accounting_journals")
+}
+
+model AccountingEntrySequence {
+  id         String            @id @default(uuid())
+  journalId  String
+  periodId   String
+  nextNumber Int               @default(1)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  journal    AccountingJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  period     AccountingPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, periodId])
+  @@index([periodId])
+  @@map("accounting_entry_sequences")
+}
+
 model AccountingAccount {
   id              String                @id @default(uuid())
   code            String                @unique
@@ -447,15 +525,24 @@ model AccountingAccount {
   currentBalance  Float                 @default(0)
   isDynamic       Boolean               @default(false)
   formula         Json?
+  parentId        String?
+  level           Int                   @default(1)
+  categoryCode    String?
+  allowManualPosting Boolean            @default(true)
+  requiresThirdParty Boolean            @default(false)
+  requiresCostCenter Boolean            @default(false)
   createdByUserId String?
   createdByEmail  String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
+  parent          AccountingAccount?    @relation("AccountingAccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children        AccountingAccount[]   @relation("AccountingAccountTree")
   journalLines    AccountingJournalLine[]
 
   @@index([type])
   @@index([isActive])
+  @@index([parentId])
   @@map("accounting_accounts")
   mappings        AccountingMapping[]
   familyRules     AccountingFamilyRule[]
@@ -494,16 +581,31 @@ model AccountingJournalEntry {
   sourceId        String?
   enterpriseId    Int?
   enterpriseName  String?
+  journalId       String?
+  periodId        String?
+  fiscalYearId    String?
+  status          AccountingJournalEntryStatus @default(DRAFT)
+  postedAt        DateTime?
+  validatedAt     DateTime?
+  validatedByUserId String?
+  reversedEntryId String?
+  isLocked        Boolean                 @default(false)
   createdByUserId String?
   createdByEmail  String?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
 
+  journal         AccountingJournal?      @relation(fields: [journalId], references: [id], onDelete: SetNull)
+  period          AccountingPeriod?       @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  fiscalYear      FiscalYear?             @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
   lines           AccountingJournalLine[]
 
   @@index([entryDate])
   @@index([enterpriseId])
   @@index([journalCode])
+  @@index([journalId])
+  @@index([periodId])
+  @@index([status])
   @@map("accounting_journal_entries")
 }
 
@@ -514,6 +616,12 @@ model AccountingJournalLine {
   side        AccountingEntrySide
   amount      Float
   description String?
+  enterpriseId Int?
+  thirdPartyId String?
+  thirdPartyName String?
+  currency    String                 @default("XOF")
+  exchangeRate Float?
+  amountCurrency Float?
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
@@ -523,6 +631,8 @@ model AccountingJournalLine {
   @@index([entryId])
   @@index([accountId])
   @@index([side])
+  @@index([enterpriseId])
+  @@index([thirdPartyId])
   @@map("accounting_journal_lines")
 }
 
@@ -595,6 +705,43 @@ enum AccountingAccountType {
 enum AccountingEntrySide {
   DEBIT
   CREDIT
+}
+
+enum FiscalYearStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum AccountingPeriodType {
+  MONTH
+  QUARTER
+  SEMESTER
+  YEAR
+  CUSTOM
+}
+
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum AccountingJournalType {
+  SALES
+  PURCHASE
+  BANK
+  CASH
+  GENERAL
+  PAYROLL
+  INVESTMENT
+}
+
+enum AccountingJournalEntryStatus {
+  DRAFT
+  VALIDATED
+  POSTED
+  REVERSED
 }
 
 enum AccountingFamily {

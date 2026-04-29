@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { completePermissions } = require('../prisma/seed-complete-permissions');
-const { roleTemplates } = require('../src/utils/roleTemplates');
+const { applyTemplate } = require('../src/utils/roleTemplates');
 
 const prisma = new PrismaClient();
 
@@ -46,9 +46,17 @@ const procurementApprovalPermissions = [
 
 const purchasingSubmissionPermissions = ['purchases.submit'];
 
-async function ensurePermissions() {
+async function ensurePermissions(dryRun = false) {
   for (const [category, categoryData] of Object.entries(completePermissions)) {
     for (const permission of categoryData.permissions) {
+      if (dryRun) {
+        const existing = await prisma.permission.findUnique({ where: { name: permission.name } });
+        if (!existing) {
+          console.log(`[dry-run] permission à créer: ${permission.name} (${category})`);
+        }
+        continue;
+      }
+
       await prisma.permission.upsert({
         where: { name: permission.name },
         update: {
@@ -65,13 +73,22 @@ async function ensurePermissions() {
   }
 }
 
-async function ensureRoles() {
+async function ensureRoles(dryRun = false) {
   for (const role of systemRoles) {
     const existing = await prisma.role.findFirst({
       where: {
         OR: [{ code: role.code }, { name: role.name }],
       },
     });
+
+    if (dryRun) {
+      console.log(
+        existing
+          ? `[dry-run] rôle à aligner: ${role.code}`
+          : `[dry-run] rôle à créer: ${role.code}`
+      );
+      continue;
+    }
 
     if (existing) {
       await prisma.role.update({
@@ -97,37 +114,21 @@ async function ensureRoles() {
   }
 }
 
-async function syncRolePermissions(roleCode) {
-  const role = await prisma.role.findUnique({ where: { code: roleCode } });
-  if (!role) return;
-
-  const template = roleTemplates[roleCode] || [];
-  const permissions = template.includes('*')
-    ? await prisma.permission.findMany({ select: { id: true } })
-    : await prisma.permission.findMany({
-        where: { name: { in: template } },
-        select: { id: true },
-      });
-
-  await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-
-  if (!permissions.length) return;
-
-  await prisma.rolePermission.createMany({
-    data: permissions.map((permission) => ({
-      roleId: role.id,
-      permissionId: permission.id,
-      canView: true,
-      canCreate: true,
-      canEdit: true,
-      canDelete: true,
-      canApprove: true,
-    })),
-    skipDuplicates: true,
+async function syncRolePermissions(roleCode, dryRun = false) {
+  const summary = await applyTemplate(roleCode, {
+    dryRun,
+    replace: true,
+    logger: console,
   });
+
+  if (dryRun) {
+    console.log(
+      `[dry-run] ${roleCode}: ${summary.matchedPermissions} permissions, +${summary.wouldCreate}, ~${summary.wouldUpdate}, -${summary.wouldDelete}`
+    );
+  }
 }
 
-async function cleanupDirectPermissions() {
+async function cleanupDirectPermissions(dryRun = false) {
   const approvalPerms = await prisma.permission.findMany({
     where: { name: { in: procurementApprovalPermissions } },
     select: { id: true, name: true },
@@ -140,6 +141,11 @@ async function cleanupDirectPermissions() {
 
   const approvalPermIds = approvalPerms.map((item) => item.id);
   const submitPermIds = submitPerms.map((item) => item.id);
+
+  if (dryRun) {
+    console.log('[dry-run] nettoyage des permissions directes incohérentes ignoré (aucune écriture).');
+    return;
+  }
 
   if (approvalPermIds.length) {
     await prisma.userPermission.deleteMany({
@@ -173,19 +179,25 @@ async function cleanupDirectPermissions() {
 }
 
 async function main() {
+  const dryRun = process.argv.includes('--dry-run');
+
+  if (dryRun) {
+    console.log('Mode dry-run activé: aucune modification ne sera écrite.');
+  }
+
   console.log('Synchronisation des permissions complètes...');
-  await ensurePermissions();
+  await ensurePermissions(dryRun);
 
   console.log('Synchronisation des rôles système...');
-  await ensureRoles();
+  await ensureRoles(dryRun);
 
   for (const role of systemRoles) {
     console.log(` - alignement du rôle ${role.code}`);
-    await syncRolePermissions(role.code);
+    await syncRolePermissions(role.code, dryRun);
   }
 
   console.log('Nettoyage des permissions directes incohérentes...');
-  await cleanupDirectPermissions();
+  await cleanupDirectPermissions(dryRun);
 
   console.log('Synchronisation terminée.');
 }

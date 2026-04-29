@@ -1,4 +1,5 @@
 const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
+const XLSX = require('xlsx');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
@@ -81,6 +82,105 @@ const parseAmount = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const normalizeHeader = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+const getRowValue = (row, aliases) => {
+  const entries = Object.entries(row || {});
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeHeader(alias);
+    const match = entries.find(([key]) => normalizeHeader(key) === normalizedAlias);
+    if (match) {
+      const value = match[1];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+  }
+  return null;
+};
+
+const parseSpreadsheetDate = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'number') {
+    const excelDate = XLSX.SSF.parse_date_code(value);
+    if (excelDate) {
+      return new Date(excelDate.y, excelDate.m - 1, excelDate.d, excelDate.H || 0, excelDate.M || 0, excelDate.S || 0);
+    }
+  }
+  return parseDate(value);
+};
+
+const normalizePaymentMethod = (value, fallback = 'ESPECES') => {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+
+  const mapping = {
+    ESPECE: 'ESPECES',
+    ESPECES: 'ESPECES',
+    CASH: 'ESPECES',
+    VIREMENT: 'VIREMENT',
+    VIR: 'VIREMENT',
+    CHEQUE: 'CHEQUE',
+    CHEQUES: 'CHEQUE',
+    CHQ: 'CHEQUE',
+    CARTE: 'CARTE',
+    CB: 'CARTE',
+    PRELEVEMENT: 'PRELEVEMENT',
+  };
+
+  const resolved = mapping[normalized] || normalized;
+  return Object.values(MethodePaiement).includes(resolved) ? resolved : fallback;
+};
+
+const normalizeFlowType = (value, fallback = 'DECAISSEMENT') => {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+
+  const mapping = {
+    ENCAISSEMENT: 'ENCAISSEMENT',
+    ENCAISSE: 'ENCAISSEMENT',
+    ENCAISSEMENTS: 'ENCAISSEMENT',
+    DECAISSEMENT: 'DECAISSEMENT',
+    DECAISSE: 'DECAISSEMENT',
+    DECAISSEMENTS: 'DECAISSEMENT',
+  };
+
+  const resolved = mapping[normalized] || normalized;
+  return Object.values(CashVoucherFlowType).includes(resolved) ? resolved : fallback;
+};
+
+const normalizeVoucherStatus = (value, fallback = 'VALIDE') => {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+
+  const mapping = {
+    BROUILLON: 'BROUILLON',
+    ENATTENTE: 'EN_ATTENTE',
+    EN_ATTENTE: 'EN_ATTENTE',
+    VALIDE: 'VALIDE',
+    DECAISSE: 'DECAISSE',
+    ANNULE: 'ANNULE',
+  };
+
+  const resolved = mapping[normalized] || normalized;
+  return Object.values(CashVoucherStatus).includes(resolved) ? resolved : fallback;
+};
+
 const nextVoucherNumber = async () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -96,6 +196,88 @@ const nextVoucherNumber = async () => {
   });
 
   return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+};
+
+const createImportedVoucherData = async ({ row, req, defaultEnterpriseId, defaultEnterpriseName, defaultFlowType, defaultStatus }) => {
+  const beneficiaryName =
+    getRowValue(row, ['beneficiaire', 'beneficiaryName', 'nomprenom', 'nom', 'tiers']) ||
+    getRowValue(row, ['supplierName', 'fournisseur']) ||
+    null;
+
+  if (!beneficiaryName) {
+    throw new Error('Beneficiaire introuvable dans la ligne importee.');
+  }
+
+  const description = getRowValue(row, ['description', 'motif', 'libelle', 'objet']);
+  if (!description) {
+    throw new Error('Description ou motif obligatoire.');
+  }
+
+  const amountTTC = parseAmount(
+    getRowValue(row, ['montantttc', 'amountttc', 'montant', 'amount']),
+    NaN
+  );
+
+  if (!Number.isFinite(amountTTC) || amountTTC <= 0) {
+    throw new Error('Montant TTC invalide.');
+  }
+
+  const amountHT = parseAmount(getRowValue(row, ['montantht', 'amountht']), amountTTC);
+  const amountTVA = parseAmount(getRowValue(row, ['montanttva', 'amounttva', 'tva']), Math.max(0, amountTTC - amountHT));
+  const enterpriseIdValue = getRowValue(row, ['enterpriseId', 'entrepriseId', 'societeId']);
+  const enterpriseNameValue = getRowValue(row, ['enterpriseName', 'entrepriseName', 'societeName', 'entreprise']);
+  const resolvedEnterpriseId = enterpriseIdValue ? Number(enterpriseIdValue) : defaultEnterpriseId;
+  const resolvedEnterpriseName = enterpriseNameValue || defaultEnterpriseName || req.user?.enterpriseName || null;
+
+  if (resolvedEnterpriseId) {
+    await assertEnterpriseInScope(req, resolvedEnterpriseId, "Vous n'avez pas acces a l'entreprise selectionnee pour cet import.");
+  }
+
+  const paymentMethod = normalizePaymentMethod(
+    getRowValue(row, ['modePaiement', 'methodePaiement', 'paymentMethod', 'mode']),
+    'ESPECES'
+  );
+  const flowType = normalizeFlowType(
+    getRowValue(row, ['typeFlux', 'flowType', 'sens']),
+    defaultFlowType
+  );
+  const status = normalizeVoucherStatus(
+    getRowValue(row, ['statut', 'status']),
+    defaultStatus
+  );
+  const issueDate = parseSpreadsheetDate(getRowValue(row, ['date', 'issueDate', 'dateEmission'])) || new Date();
+  const disbursementDate = parseSpreadsheetDate(getRowValue(row, ['dateDecaissement', 'disbursementDate']));
+
+  return {
+    voucherNumber: await nextVoucherNumber(),
+    sourceType: getRowValue(row, ['sourceType', 'typeSource']) || 'IMPORT_EXCEL',
+    sourceId: getRowValue(row, ['sourceId']) || null,
+    sourceNumber: getRowValue(row, ['numeroPiece', 'voucherNumber', 'sourceNumber']) || null,
+    expenseCategory: getRowValue(row, ['expenseCategory', 'categorieDepense', 'categorie']) || null,
+    enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+    enterpriseName: resolvedEnterpriseName,
+    serviceId: getRowValue(row, ['serviceId']) ? Number(getRowValue(row, ['serviceId'])) : null,
+    serviceName: getRowValue(row, ['serviceName', 'service']) || null,
+    supplierId: getRowValue(row, ['supplierId', 'fournisseurId']) || null,
+    supplierName: getRowValue(row, ['supplierName', 'fournisseur']) || null,
+    beneficiaryName: String(beneficiaryName).trim(),
+    beneficiaryPhone: getRowValue(row, ['telephone', 'beneficiaryPhone', 'phone']) || null,
+    description: String(description).trim(),
+    amountHT,
+    amountTVA,
+    amountTTC,
+    currency: getRowValue(row, ['currency', 'devise']) || 'XOF',
+    paymentMethod,
+    flowType,
+    treasuryAccountId: null,
+    issueDate,
+    disbursementDate,
+    reference: getRowValue(row, ['reference']) || null,
+    notes: getRowValue(row, ['notes', 'commentaire', 'comments']) || null,
+    status,
+    createdByUserId: String(req.user?.userId || req.user?.id || ''),
+    createdByEmail: req.user?.email || null,
+  };
 };
 
 const serializeCashVoucher = (voucher) => ({
@@ -317,6 +499,88 @@ exports.createCashVoucher = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur lors de la création du bon de caisse',
+    });
+  }
+};
+
+exports.importCashVouchers = async (req, res) => {
+  try {
+    const accessError = ensureCreateAccess(req);
+    if (accessError && !hasPermission(req.user, 'expenses.import')) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    if (!req.file?.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez fournir un fichier Excel a importer.',
+      });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le fichier Excel ne contient aucune feuille exploitable.',
+      });
+    }
+
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null, raw: false });
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le fichier Excel est vide.',
+      });
+    }
+
+    const defaultEnterpriseId = req.body.enterpriseId ? Number(req.body.enterpriseId) : null;
+    const defaultEnterpriseName = req.body.defaultEnterpriseName || req.user?.enterpriseName || null;
+    const defaultFlowType = normalizeFlowType(req.body.defaultFlowType, 'DECAISSEMENT');
+    const defaultStatus = normalizeVoucherStatus(req.body.defaultStatus, 'VALIDE');
+
+    if (defaultEnterpriseId) {
+      await assertEnterpriseInScope(req, defaultEnterpriseId, "Vous n'avez pas acces a l'entreprise selectionnee pour cet import.");
+    }
+
+    const imported = [];
+    const errors = [];
+
+    for (const [index, row] of rows.entries()) {
+      try {
+        const voucherData = await createImportedVoucherData({
+          row,
+          req,
+          defaultEnterpriseId,
+          defaultEnterpriseName,
+          defaultFlowType,
+          defaultStatus,
+        });
+        const voucher = await prisma.cashVoucher.create({ data: voucherData });
+        imported.push(serializeCashVoucher(voucher));
+      } catch (error) {
+        errors.push({
+          row: index + 2,
+          message: error.message || "Erreur d'import sur la ligne.",
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Import des bons de caisse termine.',
+      data: {
+        imported: imported.length,
+        skipped: errors.length,
+        errors,
+        vouchers: imported,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur import bons de caisse:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'import des bons de caisse",
     });
   }
 };

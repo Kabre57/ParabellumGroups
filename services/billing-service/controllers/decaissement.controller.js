@@ -1,4 +1,4 @@
-const { PrismaClient, AccountingAccountType, AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
+const { PrismaClient, AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
 const { recordEngagement, recordLiquidation, recordPayment } = require('../utils/accountingWorkflow');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
@@ -17,13 +17,13 @@ const validationError = (message) => {
   return error;
 };
 
-const ensureExpenseAccount = (account) => {
+const ensureManualAccountingAccount = (account) => {
   if (!account || account.isActive === false) {
-    throw validationError('Le compte de charge sélectionné est introuvable ou inactif.');
+    throw validationError('Le compte comptable sélectionné est introuvable ou inactif.');
   }
 
-  if (account.type !== AccountingAccountType.EXPENSE) {
-    throw validationError('Le compte sélectionné pour un décaissement manuel doit être un compte de charge.');
+  if (account.allowManualPosting === false) {
+    throw validationError("Le compte comptable sélectionné n'autorise pas la saisie manuelle.");
   }
 
   return account;
@@ -73,7 +73,7 @@ exports.create = async (req, res) => {
           where: { id: String(accountingAccountId) },
         });
 
-        ensureExpenseAccount(expenseAccount);
+        ensureManualAccountingAccount(expenseAccount);
       }
 
       const decaissement = await tx.decaissement.create({
@@ -235,7 +235,7 @@ exports.updateStatus = async (req, res) => {
           })
         : null;
 
-      ensureExpenseAccount(expenseAccount);
+      ensureManualAccountingAccount(expenseAccount);
 
       const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
         tx,

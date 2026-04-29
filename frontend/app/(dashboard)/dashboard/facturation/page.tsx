@@ -8,6 +8,8 @@ import { analyticsService } from '@/shared/api/analytics/analytics.service';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { hasPermission, isAdminRole } from '@/shared/permissions';
 import {
   ResponsiveContainer,
   BarChart,
@@ -29,15 +31,22 @@ const formatCurrency = (amount: number) =>
 
 export default function FacturationPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canRead = isAdminRole(user) || hasPermission(user, 'billing.dashboard.read');
+  const canReadInvoices = isAdminRole(user) || hasPermission(user, 'invoices.read');
+  const canReadPayments = isAdminRole(user) || hasPermission(user, 'payments.read');
+  const canReadCreditNotes = isAdminRole(user) || hasPermission(user, 'credit_notes.read');
 
   const { data: statsResponse, isLoading: isLoadingStats } = useQuery({
     queryKey: ['invoiceStats'],
     queryFn: () => billingService.getInvoiceStats(),
+    enabled: canRead,
   });
 
   const { data: overviewResponse, isLoading: isLoadingOverview } = useQuery({
     queryKey: ['overviewDashboard'],
     queryFn: () => analyticsService.getOverviewDashboard(),
+    enabled: canRead,
   });
 
   const stats = statsResponse?.data;
@@ -92,6 +101,17 @@ export default function FacturationPage() {
 
   const isLoading = isLoadingStats || isLoadingOverview;
 
+  if (!canRead) {
+    return (
+      <Card className="p-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Acces restreint</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Le dashboard facturation n&apos;est pas disponible avec vos permissions actuelles.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -102,15 +122,21 @@ export default function FacturationPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => router.push('/dashboard/facturation/paiements')}>
-            Voir les paiements
-          </Button>
-          <Button variant="outline" onClick={() => router.push('/dashboard/facturation/avoirs')}>
-            Voir les avoirs
-          </Button>
-          <Button onClick={() => router.push('/dashboard/facturation/factures')}>
-            Voir les factures
-          </Button>
+          {canReadPayments && (
+            <Button variant="outline" onClick={() => router.push('/dashboard/facturation/paiements')}>
+              Voir les paiements
+            </Button>
+          )}
+          {canReadCreditNotes && (
+            <Button variant="outline" onClick={() => router.push('/dashboard/facturation/avoirs')}>
+              Voir les avoirs
+            </Button>
+          )}
+          {canReadInvoices && (
+            <Button onClick={() => router.push('/dashboard/facturation/factures')}>
+              Voir les factures
+            </Button>
+          )}
         </div>
       </div>
 

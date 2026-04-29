@@ -20,14 +20,14 @@ import {
   quickAccessItems,
   employeeProjectShortcuts
 } from './sidebarData';
-import { hasPermission, isAdminRole } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission, isAdminRole } from '@/shared/permissions';
 import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 
 interface NavigationItem {
   name: string;
   href?: string;
   icon: any;
-  permission?: string;
+  permission?: string | string[];
   badge?: number;
 }
 
@@ -96,7 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   // Fonction pour vérifier l'accès
   const hasAccess = useCallback((item: NavigationItem) => {
     if (!item.permission) return true;
-    return hasPermission(user, item.permission);
+    return Array.isArray(item.permission)
+      ? hasAnyPermission(user, item.permission)
+      : hasPermission(user, item.permission);
   }, [user]);
 
   const toggleCategory = useCallback((categoryName: string) => {

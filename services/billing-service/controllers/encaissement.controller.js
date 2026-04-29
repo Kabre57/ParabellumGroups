@@ -1,4 +1,4 @@
-const { PrismaClient, AccountingAccountType, AccountingEntrySide } = require('@prisma/client');
+const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
 const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
 const MappingService = require('../core/services/AccountingMappingService');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
@@ -18,13 +18,13 @@ const validationError = (message) => {
   return error;
 };
 
-const ensureRevenueAccount = (account) => {
+const ensureManualAccountingAccount = (account) => {
   if (!account || account.isActive === false) {
-    throw validationError('Le compte de produit sélectionné est introuvable ou inactif.');
+    throw validationError('Le compte comptable sélectionné est introuvable ou inactif.');
   }
 
-  if (account.type !== AccountingAccountType.REVENUE) {
-    throw validationError('Le compte sélectionné pour un encaissement manuel doit être un compte de produit.');
+  if (account.allowManualPosting === false) {
+    throw validationError("Le compte comptable sélectionné n'autorise pas la saisie manuelle.");
   }
 
   return account;
@@ -73,7 +73,7 @@ exports.create = async (req, res) => {
           where: { id: String(accountingAccountId) },
         });
 
-        ensureRevenueAccount(revenueAccount);
+        ensureManualAccountingAccount(revenueAccount);
       }
 
       const encaissement = await tx.encaissement.create({
@@ -186,7 +186,7 @@ exports.updateStatus = async (req, res) => {
         creditAccount = await tx.accountingAccount.findUnique({
           where: { id: String(encaissement.accountingAccountId) },
         });
-        ensureRevenueAccount(creditAccount);
+        ensureManualAccountingAccount(creditAccount);
       }
 
       if (!creditAccount) {

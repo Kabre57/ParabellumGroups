@@ -1,6 +1,11 @@
 import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
 import { User } from '@/shared/api/shared/types';
-import { hasPermission, isAdminRole } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission, isAdminRole } from '@/shared/permissions';
+
+const canAccessItem = (user: User | null | undefined, permission?: string | string[]) => {
+  if (!permission) return true;
+  return Array.isArray(permission) ? hasAnyPermission(user, permission) : hasPermission(user, permission);
+};
 
 export const getPreferredServiceRoute = (user: User | null | undefined): string => {
   if (isAdminRole(user)) return '/dashboard';
@@ -8,7 +13,7 @@ export const getPreferredServiceRoute = (user: User | null | undefined): string 
   const visibleServiceItems = sidebarItems.filter((item) => {
     if (!item.href || item.categoryId === 'dashboard') return false;
     if (!item.isServiceDashboard) return false;
-    return hasPermission(user, item.permission);
+    return canAccessItem(user, item.permission);
   });
 
   return visibleServiceItems[0]?.href || '/dashboard';
@@ -21,7 +26,7 @@ export const getPreferredAnalyticsRoute = (user: User | null | undefined): strin
     item.isServiceDashboard &&
     item.href?.includes('/analytics') &&
     item.categoryId !== 'dashboard' &&
-    hasPermission(user, item.permission)
+    canAccessItem(user, item.permission)
   );
 
   return analyticsItem?.href || getPreferredServiceRoute(user);
@@ -33,7 +38,7 @@ export const getFallbackDashboardRoute = (user: User | null | undefined): string
     if (!item.href) return false;
     if (!isAdmin && item.categoryId === 'dashboard') return false;
     if (item.permission === 'admin') return isAdmin;
-    return hasPermission(user, item.permission);
+    return canAccessItem(user, item.permission);
   });
 
   const sortedItems = visibleItems.sort((a, b) => {

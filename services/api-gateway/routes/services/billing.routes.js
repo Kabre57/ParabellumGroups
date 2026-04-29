@@ -96,52 +96,80 @@ const billingPermissionRules = [
   {
     pattern: /^\/accounting\/balance$/,
     permissions: {
-      GET: 'reports.read_financial'
+      GET: ['accounting.read', 'accounting.diagnostics.read']
+    }
+  },
+  {
+    pattern: /^\/accounting\/general-ledger$/,
+    permissions: {
+      GET: ['accounting.read', 'accounting.diagnostics.read']
     }
   },
   {
     pattern: /^\/accounting\/overview$/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read']
+      GET: 'accounting.read'
+    }
+  },
+  {
+    pattern: /^\/accounting\/fiscal-years$/,
+    permissions: {
+      GET: 'accounting.read',
+      POST: 'accounting.periods.manage'
+    }
+  },
+  {
+    pattern: /^\/accounting\/periods(?:\/[^/]+\/status)?$/,
+    permissions: {
+      GET: 'accounting.read',
+      POST: 'accounting.periods.manage',
+      PATCH: 'accounting.periods.manage'
+    }
+  },
+  {
+    pattern: /^\/accounting\/journals$/,
+    permissions: {
+      GET: 'accounting.read',
+      POST: 'accounting.journals.manage'
     }
   },
   {
     pattern: /^\/accounting\/accounts$/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      POST: ['expenses.create', 'expenses.update', 'payments.create']
+      GET: ['accounting.read', 'accounting.accounts.manage'],
+      POST: 'accounting.accounts.manage'
     }
   },
   {
-    pattern: /^\/accounting\/family-rules(?:\/(?:item\/[^/]+|[^/]+))?$/,
+    pattern: /^\/accounting\/family-rules(?:\/(?:diagnostic|item\/[^/]+|[^/]+))?$/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      POST: ['expenses.update', 'payments.update'],
-      PATCH: ['expenses.update', 'payments.update'],
-      DELETE: ['expenses.update', 'payments.update']
+      GET: ['accounting.rules.read', 'accounting.diagnostics.read'],
+      POST: 'accounting.rules.update',
+      PATCH: 'accounting.rules.update',
+      DELETE: 'accounting.rules.update'
     }
   },
   {
     pattern: /^\/accounting\/entries$/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      POST: ['expenses.create', 'expenses.update', 'payments.create', 'payments.update']
+      GET: 'accounting.read',
+      POST: 'accounting.entries.create'
     }
   },
   {
     pattern: /^\/treasury-accounts$/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      POST: ['expenses.create', 'expenses.update', 'payments.create'],
-      PATCH: ['expenses.update', 'payments.update']
+      GET: 'accounting.read',
+      POST: 'accounting.treasury.manage',
+      PATCH: 'accounting.treasury.manage'
     }
   },
   {
     pattern: /^\/treasury-closures/,
     permissions: {
-      GET: ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'],
-      POST: ['expenses.create', 'expenses.update', 'payments.validate'],
-      PATCH: ['expenses.update', 'payments.validate']
+      GET: 'accounting.read',
+      POST: 'accounting.treasury.manage',
+      PATCH: 'accounting.treasury.manage'
     }
   },
   {

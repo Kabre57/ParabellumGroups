@@ -1,24 +1,28 @@
 'use client';
 
-import { Plus, Printer } from 'lucide-react';
+import { FileSpreadsheet, Plus, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DepensesHeaderProps {
   period: 'month' | 'quarter' | 'year' | 'all';
   onPeriodChange: (period: 'month' | 'quarter' | 'year' | 'all') => void;
   onPrintList: () => void;
+  onImport: () => void;
   onNewEncaissement: () => void;
   onNewDecaissement: () => void;
   canCreate: boolean;
+  canImport: boolean;
 }
 
 export function DepensesHeader({
   period,
   onPeriodChange,
   onPrintList,
+  onImport,
   onNewEncaissement,
   onNewDecaissement,
   canCreate,
+  canImport,
 }: DepensesHeaderProps) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -44,6 +48,12 @@ export function DepensesHeader({
           <Printer className="mr-2 h-4 w-4" />
           Imprimer la liste
         </Button>
+        {canImport && (
+          <Button variant="outline" onClick={onImport}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Import Excel
+          </Button>
+        )}
         {canCreate && (
           <div className="flex gap-2">
             <Button

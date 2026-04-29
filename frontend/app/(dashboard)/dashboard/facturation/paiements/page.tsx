@@ -33,6 +33,10 @@ import PaymentForm from '@/components/billing/PaymentForm';
 export default function PaiementsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const visibility = getCrudVisibility(user, {
+    read: ['payments.read', 'payments.read_all', 'payments.read_own'],
+    create: ['payments.create'],
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [enterpriseFilter, setEnterpriseFilter] = useState<string>('all');
@@ -41,6 +45,7 @@ export default function PaiementsPage() {
   const { data: enterprisesResponse } = useQuery({
     queryKey: ['enterprise-filter-options', 'paiements'],
     queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: visibility.canRead,
   });
 
   const accessibleEnterprises = React.useMemo(
@@ -48,10 +53,7 @@ export default function PaiementsPage() {
     [enterprisesResponse?.data, user?.enterpriseId]
   );
 
-  const { canCreate } = getCrudVisibility(user, {
-    read: ['payments.read', 'payments.read_all', 'payments.read_own'],
-    create: ['payments.create'],
-  });
+  const { canRead, canCreate } = visibility;
 
   const range = React.useMemo(() => {
     if (period === 'all') return {};
@@ -81,6 +83,7 @@ export default function PaiementsPage() {
       if (enterpriseFilter !== 'all') params.enterpriseId = enterpriseFilter;
       return billingService.getPayments(params);
     },
+    enabled: canRead,
   });
 
   const payments = paymentsResponse?.data ?? [];
@@ -102,6 +105,17 @@ export default function PaiementsPage() {
     `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount || 0)} F CFA`;
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('fr-FR');
+
+  if (!canRead) {
+    return (
+      <Card className="p-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Acces restreint</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Vous ne pouvez pas consulter les paiements avec vos permissions actuelles.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

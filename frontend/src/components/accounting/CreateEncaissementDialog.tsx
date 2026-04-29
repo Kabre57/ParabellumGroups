@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AccountingAccountPickerDialog } from '@/components/accounting/AccountingAccountPickerDialog';
 import billingService, { type Encaissement } from '@/shared/api/billing';
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -65,7 +66,16 @@ export function CreateEncaissementDialog({
   const [form, setForm] = useState<FormState>(initialState);
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
   const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
-  const canChooseEnterprise = isAdminRole(user) || hasAnyPermission(user, ['enterprises.read', 'enterprises.manage_logo']);
+  const canChooseEnterprise =
+    isAdminRole(user) ||
+    hasAnyPermission(user, [
+      'enterprises.read',
+      'enterprises.read_all',
+      'enterprises.manage_logo',
+      'expenses.read_all',
+      'payments.read_all',
+      'accounting.treasury.manage',
+    ]);
 
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
@@ -83,10 +93,13 @@ export function CreateEncaissementDialog({
     enabled: open && (canChooseEnterprise || !userEnterpriseId),
   });
 
-  const enterprises = useMemo(
-    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
-    [enterprisesResponse?.data, user?.enterpriseId]
-  );
+  const enterprises = useMemo(() => {
+    const allEnterprises = enterprisesResponse?.data ?? [];
+    if (canChooseEnterprise) {
+      return [...allEnterprises].sort((left: any, right: any) => left.name.localeCompare(right.name, 'fr'));
+    }
+    return getAccessibleEnterprises(allEnterprises, user?.enterpriseId);
+  }, [canChooseEnterprise, enterprisesResponse?.data, user?.enterpriseId]);
 
   const selectedEnterprise = useMemo(
     () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
@@ -134,11 +147,7 @@ export function CreateEncaissementDialog({
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
-  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => {
-    const normalizedType = String(acc?.type || '').toLowerCase();
-    const normalizedCode = String(acc?.code || '');
-    return normalizedType === 'revenue' || normalizedCode.startsWith('7');
-  });
+  const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => acc?.isActive !== false);
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
@@ -271,25 +280,16 @@ export function CreateEncaissementDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Imputation comptable (compte de produit)</Label>
-            <Select value={accountingAccountId} onValueChange={setAccountingAccountId}>
-              <SelectTrigger className="border-emerald-200 focus:ring-emerald-500">
-                <SelectValue placeholder="Selectionner le compte de produit" />
-              </SelectTrigger>
-              <SelectContent>
-                {accountingAccounts.length === 0 ? (
-                  <SelectItem value="__no-revenue-account__" disabled>
-                    Aucun compte de produit disponible
-                  </SelectItem>
-                ) : (
-                  accountingAccounts.map((acc: any) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.code} - {acc.label}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Label>Imputation comptable</Label>
+            <AccountingAccountPickerDialog
+              title="Choisissez un compte comptable"
+              description="Sélectionnez le compte d'imputation dans le plan comptable pour cet encaissement."
+              placeholder="Aucun compte comptable sélectionné"
+              selectedAccountId={accountingAccountId}
+              accounts={accountingAccounts}
+              isSubmitting={isSubmitting}
+              onSelect={setAccountingAccountId}
+            />
           </div>
 
           <div className="space-y-2">

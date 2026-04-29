@@ -124,9 +124,9 @@ export default function BalanceComptesPage() {
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
-  const canRead = isAdminRole(user) || permissionSet.has('reports.read_financial');
+  const canRead = isAdminRole(user) || permissionSet.has('accounting.read') || permissionSet.has('reports.read_financial');
   const { canExport } = getCrudVisibility(user, {
-    read: ['reports.read_financial'],
+    read: ['accounting.read', 'reports.read_financial'],
     export: ['reports.export'],
   });
   const canPrint = isAdminRole(user) || permissionSet.has('reports.export');

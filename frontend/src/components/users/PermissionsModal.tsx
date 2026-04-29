@@ -267,6 +267,14 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                             <div className="space-y-2">
                               {subgroup.permissions.map((permission) => {
                                 const isSelected = selectedPermissions.has(permission.id);
+                                const sourceLabel =
+                                  (permission as any).source === 'role'
+                                    ? 'Hérité du rôle'
+                                    : (permission as any).source === 'mixed'
+                                      ? 'Rôle + surcharge'
+                                      : (permission as any).source === 'user'
+                                        ? 'Surcharge utilisateur'
+                                        : null;
                                 return (
                                   <label
                                     key={permission.id}
@@ -282,9 +290,16 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       />
                                     </div>
                                     <div className="ml-3 min-w-0 flex-1">
-                                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {permission.name}
-                                      </span>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                          {permission.name}
+                                        </span>
+                                        {sourceLabel && (
+                                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                                            {sourceLabel}
+                                          </span>
+                                        )}
+                                      </div>
                                       {permission.description && (
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{permission.description}</p>
                                       )}

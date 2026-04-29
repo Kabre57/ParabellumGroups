@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import PrintLayout from './PrintLayout';
 import { formatFCFA, formatFCFAInWords, formatPrintDate, resolvePrintLogo, textOrDash } from './printUtils';
 import { useEnterpriseLogo } from '@/shared/hooks/useEnterpriseLogo';
 import type { Encaissement, Decaissement } from '@/shared/api/billing';
+import { enterpriseApi } from '@/lib/api';
 
 interface CashVoucherPrintProps {
   voucher: (Encaissement | Decaissement) & { flowType?: 'ENCAISSEMENT' | 'DECAISSEMENT' };
@@ -20,8 +22,24 @@ export default function CashVoucherPrint({
   logoSrc,
 }: CashVoucherPrintProps) {
   const { companyName: enterpriseName, logoSrc: enterpriseLogoSrc } = useEnterpriseLogo();
-  const effectiveCompanyName = enterpriseName || companyName || 'PROGI-TECK';
-  const resolvedLogo = resolvePrintLogo(logoSrc ?? enterpriseLogoSrc);
+  const normalizedEnterpriseId = voucher.enterpriseId ? String(voucher.enterpriseId) : null;
+  const { data: enterpriseResponse } = useQuery({
+    queryKey: ['cash-voucher-print-enterprise', normalizedEnterpriseId],
+    queryFn: () => enterpriseApi.getById(normalizedEnterpriseId as string),
+    enabled: !!normalizedEnterpriseId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const voucherEnterprise = enterpriseResponse?.data;
+  const effectiveCompanyName =
+    voucherEnterprise?.name ||
+    voucher.enterpriseName ||
+    companyName ||
+    enterpriseName ||
+    'Parabellum Groups';
+  const resolvedLogo = resolvePrintLogo(
+    voucherEnterprise?.logoUrl || logoSrc || enterpriseLogoSrc
+  );
   const isEncaissement = voucher.flowType === 'ENCAISSEMENT' || ('clientName' in voucher);
   const voucherNumber = 'numeroPiece' in voucher ? voucher.numeroPiece : (voucher as any).voucherNumber;
   const issueDate = 'dateEncaissement' in voucher ? voucher.dateEncaissement : ('dateDecaissement' in voucher ? voucher.dateDecaissement : (voucher as any).issueDate);

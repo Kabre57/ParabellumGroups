@@ -1,19 +1,16 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const {
-  amount,
   ensureAccountingReadAccess,
   ensureAccountingEntriesWriteAccess,
-  parseDate,
   resolveDateRange,
-  nextEntryNumber,
-  computeSignedDelta,
   serializeJournalEntry,
 } = require('../utils/accounting');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const AccountingPostingService = require('../core/services/AccountingPostingService');
 
 const prisma = new PrismaClient();
 
-const buildWhere = ({ startDate, endDate, search }) => {
+const buildWhere = ({ startDate, endDate, search, journalId, periodId, status }) => {
   const where = {};
 
   if (startDate || endDate) {
@@ -49,6 +46,18 @@ const buildWhere = ({ startDate, endDate, search }) => {
     ];
   }
 
+  if (journalId) {
+    where.journalId = String(journalId);
+  }
+
+  if (periodId) {
+    where.periodId = String(periodId);
+  }
+
+  if (status) {
+    where.status = String(status).trim().toUpperCase();
+  }
+
   return where;
 };
 
@@ -68,6 +77,9 @@ exports.getAllJournalEntries = async (req, res) => {
       startDate,
       endDate,
       search: req.query.search,
+      journalId: req.query.journalId,
+      periodId: req.query.periodId,
+      status: req.query.status,
     });
 
     const entries = await prisma.accountingJournalEntry.findMany({
@@ -120,15 +132,11 @@ exports.createJournalEntry = async (req, res) => {
       sourceId,
       enterpriseId,
       enterpriseName,
+      status,
     } = req.body;
 
-    const normalizedLabel = String(label || '').trim();
-    const normalizedJournalCode = String(journalCode || 'OD').trim().toUpperCase();
-    const normalizedJournalLabel = String(journalLabel || 'Opérations diverses').trim();
     const normalizedDebitAccountId = String(debitAccountId || '').trim();
     const normalizedCreditAccountId = String(creditAccountId || '').trim();
-    const numericAmount = amount(entryAmount);
-    const normalizedEntryDate = parseDate(entryDate) || new Date();
     const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
     const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
 
@@ -138,7 +146,7 @@ exports.createJournalEntry = async (req, res) => {
       "Vous n'avez pas acces a l'entreprise selectionnee pour cette ecriture."
     );
 
-    if (!normalizedLabel || !normalizedDebitAccountId || !normalizedCreditAccountId || numericAmount <= 0) {
+    if (!String(label || '').trim() || !normalizedDebitAccountId || !normalizedCreditAccountId || Number(entryAmount) <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Le libellé, les comptes débit/crédit et le montant sont obligatoires',
@@ -152,86 +160,38 @@ exports.createJournalEntry = async (req, res) => {
       });
     }
 
-    const [debitAccount, creditAccount] = await Promise.all([
-      prisma.accountingAccount.findUnique({ where: { id: normalizedDebitAccountId } }),
-      prisma.accountingAccount.findUnique({ where: { id: normalizedCreditAccountId } }),
-    ]);
-
-    if (!debitAccount || !creditAccount) {
-      return res.status(404).json({
-        success: false,
-        message: 'Un des comptes comptables sélectionnés est introuvable',
-      });
-    }
-
-    const createdEntry = await prisma.$transaction(async (tx) => {
-      const entryNumber = await nextEntryNumber(tx);
-
-      const entry = await tx.accountingJournalEntry.create({
-        data: {
-          entryNumber,
-          entryDate: normalizedEntryDate,
-          journalCode: normalizedJournalCode,
-          journalLabel: normalizedJournalLabel,
-          label: normalizedLabel,
-          reference: reference ? String(reference).trim() : null,
-          sourceType: sourceType ? String(sourceType).trim() : null,
-          sourceId: sourceId ? String(sourceId).trim() : null,
-          enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
-          enterpriseName: resolvedEnterpriseName,
-          createdByUserId: req.user?.userId ? String(req.user.userId) : null,
-          createdByEmail: req.user?.email || null,
-          lines: {
-            create: [
-              {
-                accountId: debitAccount.id,
-                side: AccountingEntrySide.DEBIT,
-                amount: numericAmount,
-                description: normalizedLabel,
-              },
-              {
-                accountId: creditAccount.id,
-                side: AccountingEntrySide.CREDIT,
-                amount: numericAmount,
-                description: normalizedLabel,
-              },
-            ],
-          },
+    const createdEntry = await AccountingPostingService.postEntry({
+      entryDate,
+      journalCode,
+      journalLabel,
+      label,
+      reference,
+      sourceType,
+      sourceId,
+      enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,
+      enterpriseName: resolvedEnterpriseName,
+      status: status || 'POSTED',
+      createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+      createdByEmail: req.user?.email || null,
+      lines: [
+        {
+          accountId: normalizedDebitAccountId,
+          side: 'DEBIT',
+          amount: Number(entryAmount),
+          description: String(label || '').trim(),
         },
-        include: {
-          lines: {
-            include: {
-              account: true,
-            },
-            orderBy: { createdAt: 'asc' },
-          },
+        {
+          accountId: normalizedCreditAccountId,
+          side: 'CREDIT',
+          amount: Number(entryAmount),
+          description: String(label || '').trim(),
         },
-      });
-
-      await tx.accountingAccount.update({
-        where: { id: debitAccount.id },
-        data: {
-          currentBalance: {
-            increment: computeSignedDelta(debitAccount.type, AccountingEntrySide.DEBIT, numericAmount),
-          },
-        },
-      });
-
-      await tx.accountingAccount.update({
-        where: { id: creditAccount.id },
-        data: {
-          currentBalance: {
-            increment: computeSignedDelta(creditAccount.type, AccountingEntrySide.CREDIT, numericAmount),
-          },
-        },
-      });
-
-      return entry;
+      ],
     });
 
     return res.status(201).json({
       success: true,
-      data: serializeJournalEntry(createdEntry),
+      data: createdEntry,
       message: 'Écriture comptable créée avec succès',
     });
   } catch (error) {

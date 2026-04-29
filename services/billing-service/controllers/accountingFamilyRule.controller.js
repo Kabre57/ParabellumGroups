@@ -191,45 +191,43 @@ exports.addFamilyRule = async (req, res) => {
         ? definition.description || null
         : String(req.body.description || '').trim() || null;
 
-    const existingFamilyRules = await prisma.accountingFamilyRule.findMany({
-      where: { family },
-      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-    });
-
-    const duplicate = existingFamilyRules.find((rule) => rule.accountId === account.id);
-    if (duplicate) {
-      return res.status(409).json({
-        success: false,
-        message: 'Ce compte est déjà rattaché à cette famille',
-      });
-    }
+    const requestedPrimary = Boolean(req.body?.isPrimary);
 
     const createdRule = await prisma.$transaction(async (tx) => {
+      const existingFamilyRules = await tx.accountingFamilyRule.findMany({
+        where: { family },
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      const duplicate = existingFamilyRules.find((rule) => rule.accountId === account.id);
+      if (duplicate) {
+        const error = new Error('Ce compte est déjà rattaché à cette famille');
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const shouldBePrimary = existingFamilyRules.length === 0 || requestedPrimary;
+
+      if (shouldBePrimary) {
+        await tx.accountingFamilyRule.updateMany({
+          where: { family },
+          data: { isPrimary: false },
+        });
+      }
+
       return tx.accountingFamilyRule.create({
         data: {
           family,
           label: nextLabel,
           description: nextDescription,
           accountId: account.id,
-          isPrimary: existingFamilyRules.length === 0 || Boolean(req.body?.isPrimary),
+          isPrimary: shouldBePrimary,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
         },
         include: { account: true },
       });
     });
-
-    if (createdRule.isPrimary) {
-      await prisma.accountingFamilyRule.updateMany({
-        where: {
-          family,
-          id: { not: createdRule.id },
-        },
-        data: {
-          isPrimary: false,
-        },
-      });
-    }
 
     await refreshCache();
 
@@ -245,9 +243,9 @@ exports.addFamilyRule = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur ajout règle comptable par famille:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de l ajout de la règle comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de l ajout de la règle comptable',
     });
   }
 };
@@ -280,9 +278,10 @@ exports.updateFamilyRule = async (req, res) => {
         ? existingRule.description || null
         : String(req.body.description || '').trim() || null;
     const nextIsPrimary = req.body?.isPrimary === true;
+    const shouldPromotePrimary = nextIsPrimary && !existingRule.isPrimary;
 
     const updatedRule = await prisma.$transaction(async (tx) => {
-      if (nextIsPrimary) {
+      if (shouldPromotePrimary) {
         await tx.accountingFamilyRule.updateMany({
           where: {
             family: existingRule.family,
@@ -297,7 +296,7 @@ exports.updateFamilyRule = async (req, res) => {
         data: {
           label: nextLabel,
           description: nextDescription,
-          isPrimary: nextIsPrimary ? true : existingRule.isPrimary,
+          isPrimary: shouldPromotePrimary ? true : existingRule.isPrimary,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
         },
@@ -350,9 +349,13 @@ exports.deleteFamilyRule = async (req, res) => {
       if (existingRule.isPrimary) {
         const nextRule = await tx.accountingFamilyRule.findFirst({
           where: { family: existingRule.family },
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
         });
         if (nextRule) {
+          await tx.accountingFamilyRule.updateMany({
+            where: { family: existingRule.family },
+            data: { isPrimary: false },
+          });
           await tx.accountingFamilyRule.update({
             where: { id: nextRule.id },
             data: { isPrimary: true },

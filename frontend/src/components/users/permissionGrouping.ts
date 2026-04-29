@@ -88,23 +88,31 @@ export const serviceDefinitions: ServiceDefinition[] = [
     label: 'Facturation Clients',
     description: 'Devis commerciaux, factures clients et suivi des encaissements.',
     order: 40,
-    categories: ['billing', 'invoices'],
-    prefixes: ['invoices'],
+    categories: ['billing', 'invoices', 'payments', 'credit_notes'],
+    prefixes: ['billing', 'invoices', 'payments', 'credit_notes'],
     subgroupLabels: {
+      billing: 'Dashboard facturation',
       invoices: 'Factures',
+      payments: 'Paiements clients',
+      credit_notes: 'Avoirs & notes de credit',
     },
-    dashboards: [{ label: 'Dashboard facturation', href: '/dashboard/facturation' }],
+    dashboards: [
+      { label: 'Dashboard facturation', href: '/dashboard/facturation', permissions: ['billing.dashboard.read'] },
+      { label: 'Factures', href: '/dashboard/facturation/factures', permissions: ['invoices.read', 'invoices.read_all', 'invoices.read_own'] },
+      { label: 'Suivi paiements', href: '/dashboard/facturation/paiements', permissions: ['payments.read', 'payments.read_all', 'payments.read_own'] },
+      { label: 'Avoirs & notes de credit', href: '/dashboard/facturation/avoirs', permissions: ['credit_notes.read', 'invoices.credit_note'] },
+    ],
   },
   {
     id: 'accounting',
     label: 'Comptabilité & Caisse',
     description: 'Bons de caisse, paiements, écritures et vision consolidée des dépenses.',
     order: 50,
-    categories: ['expenses', 'payments', 'reports'],
-    prefixes: ['expenses', 'payments'],
+    categories: ['expenses', 'accounting', 'reports'],
+    prefixes: ['expenses', 'accounting'],
     subgroupLabels: {
       expenses: 'Depenses',
-      payments: 'Paiements & décaissements',
+      accounting: 'Comptabilite',
       reports: 'Rapports financiers',
     },
     dashboards: [
@@ -276,6 +284,9 @@ export const getSubgroupId = (permission: Permission): string => {
     if (permission.name.includes('hr')) return 'reports_hr';
     if (permission.name.includes('sales')) return 'reports_sales';
     return 'reports';
+  }
+  if (prefix === 'credit_notes') {
+    return 'credit_notes';
   }
   return prefix || 'other';
 };
