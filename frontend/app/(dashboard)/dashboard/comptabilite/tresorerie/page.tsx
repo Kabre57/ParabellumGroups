@@ -33,8 +33,16 @@ export default function TresoreriePage() {
   const [closureFilter, setClosureFilter] = useState('all');
 
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
-  const canRead = isAdminRole(user) || ['reports.read_financial','expenses.read','expenses.read_all','payments.read','invoices.read'].some(p => permissionSet.has(p));
-  const canValidateClosure = isAdminRole(user) || ['payments.validate','expenses.approve','expenses.update'].some(p => permissionSet.has(p));
+  const canRead =
+    isAdminRole(user) ||
+    ['accounting.read', 'accounting.treasury.manage', 'accounting.diagnostics.read', 'expenses.read', 'expenses.read_all'].some((p) =>
+      permissionSet.has(p)
+    );
+  const canValidateClosure =
+    isAdminRole(user) ||
+    ['accounting.treasury.manage', 'payments.validate', 'expenses.approve', 'expenses.update'].some((p) =>
+      permissionSet.has(p)
+    );
 
   const periodRange = useMemo(() => {
     if (customRange) return customRange;

@@ -122,6 +122,7 @@ export interface UserPermission {
   canDelete: boolean;
   canApprove: boolean;
   createdAt: string;
+  source?: 'role' | 'user' | 'mixed';
   permission?: Permission;
 }
 

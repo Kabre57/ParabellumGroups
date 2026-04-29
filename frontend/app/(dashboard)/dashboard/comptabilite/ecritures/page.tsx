@@ -25,11 +25,11 @@ export default function EcrituresPage() {
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
-    ['accounting.read', 'reports.read_financial', 'expenses.read', 'expenses.read_all', 'payments.read', 'invoices.read'].some((p) =>
+    ['accounting.read', 'accounting.entries.create', 'accounting.journals.manage', 'accounting.diagnostics.read'].some((p) =>
       permissionSet.has(p)
     );
   const { canCreate } = getCrudVisibility(user, {
-    read: ['accounting.read', 'reports.read_financial'],
+    read: ['accounting.read', 'accounting.diagnostics.read'],
     create: ['accounting.entries.create'],
   });
 

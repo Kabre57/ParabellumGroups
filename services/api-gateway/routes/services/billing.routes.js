@@ -27,7 +27,7 @@ const billingPermissionRules = [
   {
     pattern: /^\/credit-notes/,
     permissions: {
-      GET: 'invoices.read',
+      GET: 'credit_notes.read',
       POST: 'invoices.credit_note',
       PUT: 'invoices.credit_note',
       PATCH: 'invoices.credit_note',
@@ -91,6 +91,12 @@ const billingPermissionRules = [
     pattern: /^\/cash-vouchers\/spending-overview$/,
     permissions: {
       GET: ['expenses.read', 'expenses.read_all', 'payments.read']
+    }
+  },
+  {
+    pattern: /^\/cash-vouchers\/import$/,
+    permissions: {
+      POST: 'expenses.import'
     }
   },
   {

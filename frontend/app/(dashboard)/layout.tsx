@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
 import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
-import { hasPermission, isAdminRole } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission, isAdminRole } from '@/shared/permissions';
 import {
   getFallbackDashboardRoute,
   getPreferredAnalyticsRoute,
@@ -35,6 +35,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [pathname]);
   const isAuthorized = useMemo(() => {
     if (!requiredPermission) return true;
+    if (Array.isArray(requiredPermission)) {
+      return hasAnyPermission(user, requiredPermission);
+    }
     return hasPermission(user, requiredPermission);
   }, [requiredPermission, user]);
   const isAdmin = useMemo(() => isAdminRole(user), [user]);

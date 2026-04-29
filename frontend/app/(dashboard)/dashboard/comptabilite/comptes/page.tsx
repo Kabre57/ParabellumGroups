@@ -41,14 +41,14 @@ export default function ComptesPage() {
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
     isAdminRole(user) ||
-    ['reports.read_financial', 'expenses.read', 'expenses.read_all', 'expenses.read_own', 'payments.read', 'invoices.read'].some((p) =>
+    ['accounting.read', 'accounting.accounts.manage', 'accounting.rules.read', 'accounting.diagnostics.read'].some((p) =>
       permissionSet.has(p)
     );
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
-    read: ['reports.read_financial', 'invoices.read'],
-    create: ['expenses.create'],
-    update: ['expenses.update', 'invoices.update'],
-    remove: ['expenses.delete', 'expenses.update'],
+    read: ['accounting.read', 'accounting.rules.read'],
+    create: ['accounting.accounts.manage', 'accounting.rules.update'],
+    update: ['accounting.accounts.manage', 'accounting.rules.update'],
+    remove: ['accounting.accounts.manage', 'accounting.rules.update'],
   });
 
   const { data, isLoading } = useComptes(canRead);
