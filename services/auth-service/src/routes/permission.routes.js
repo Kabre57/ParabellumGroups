@@ -2,6 +2,7 @@ const express = require('express');
 const { body, query } = require('express-validator');
 const {
   getAllPermissions,
+  getPermissionModuleRegistry,
   getPermissionById,
   createPermission,
   updatePermission,
@@ -45,6 +46,13 @@ router.get(
  * @access  Private - ADMIN, GENERAL_DIRECTOR
  */
 router.get('/categories', checkRole(['ADMIN', 'GENERAL_DIRECTOR']), getPermissionCategories);
+
+/**
+ * @route   GET /api/permissions/modules
+ * @desc    Get modular permission registry
+ * @access  Private - ADMIN, GENERAL_DIRECTOR
+ */
+router.get('/modules', checkRole(['ADMIN', 'GENERAL_DIRECTOR']), getPermissionModuleRegistry);
 
 /**
  * @route   GET /api/permissions/:id

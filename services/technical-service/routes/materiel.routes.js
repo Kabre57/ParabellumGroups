@@ -7,6 +7,7 @@ router.get('/alertes', materielController.getAlertes);
 router.get('/sorties-en-cours', materielController.getSortiesEnCours);
 router.get('/:id', materielController.getById);              // NOUVEAU
 router.post('/', materielController.create);                 // NOUVEAU
+router.post('/import', materielController.importMateriels);
 router.put('/:id', materielController.update);               // NOUVEAU
 router.delete('/:id', materielController.delete);            // NOUVEAU
 router.post('/sorties', materielController.createSortie);    // NOUVEAU

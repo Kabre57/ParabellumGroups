@@ -22,6 +22,7 @@ type EditableProfile = {
 const roleLabels: Record<string, string> = {
   ADMIN: 'Administrateur',
   GENERAL_DIRECTOR: 'Direction Générale',
+  GERANT: 'Gérant',
   SERVICE_MANAGER: 'Responsable de service',
   EMPLOYEE: 'Employé',
   ACCOUNTANT: 'Comptable',

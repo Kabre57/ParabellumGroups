@@ -26,10 +26,28 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const targetRoleCode = String(user?.role?.code || user?.roleCode || user?.role || '').toUpperCase();
+  const isAdministratorTarget = targetRoleCode === 'ADMIN' || targetRoleCode === 'ADMINISTRATEUR';
+  const canModifyTarget = canEdit && !isAdministratorTarget;
+
+  const hasPermissionFlags = (permission: any) =>
+    Boolean(
+      permission?.canView ||
+      permission?.canCreate ||
+      permission?.canEdit ||
+      permission?.canDelete ||
+      permission?.canApprove
+    );
 
   const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
     queryKey: ['admin-permissions-modal'],
     queryFn: () => adminPermissionsService.getPermissions(),
+    enabled: isOpen,
+  });
+
+  const { data: permissionModulesData, isLoading: permissionModulesLoading } = useQuery({
+    queryKey: ['admin-permission-modules'],
+    queryFn: () => adminPermissionsService.getPermissionModules(),
     enabled: isOpen,
   });
 
@@ -40,6 +58,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   });
 
   const permissions = useMemo(() => permissionsData?.data || [], [permissionsData]);
+  const permissionModules = useMemo(() => permissionModulesData?.data || [], [permissionModulesData]);
   const userPermissions = useMemo(() => userPermissionsData?.data || [], [userPermissionsData]);
   const userPermissionsById = useMemo(() => {
     const map = new Map<number, any>();
@@ -63,9 +82,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
   const currentExceptionCount = useMemo(
     () =>
-      Array.from(selectedPermissions).filter((permissionId) => userPermissionsById.get(permissionId)?.source !== 'role')
-        .length,
-    [selectedPermissions, userPermissionsById]
+      userPermissions.filter((permission: any) => {
+        const source = permission?.source;
+        return source === 'user' || source === 'mixed' || source === 'revoked';
+      }).length,
+    [userPermissions]
   );
 
   const filteredPermissions = useMemo(() => {
@@ -79,13 +100,14 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   }, [effectivePermissions, searchQuery]);
 
   const permissionServices = useMemo(
-    () => groupPermissionsByService(filteredPermissions),
-    [filteredPermissions],
+    () => groupPermissionsByService(filteredPermissions, permissionModules),
+    [filteredPermissions, permissionModules],
   );
 
   useEffect(() => {
     const permIds = new Set(
       userPermissions
+        .filter(hasPermissionFlags)
         .map((up: any) => up.permissionId || up.permission?.id)
         .filter(Boolean),
     );
@@ -99,7 +121,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   }, [permissionServices]);
 
   const togglePermission = (permissionId: number) => {
-    if (!canEdit) return;
+    if (!canModifyTarget) return;
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
@@ -119,44 +141,47 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   };
 
   const selectAllInService = (serviceId: string) => {
-    if (!canEdit) return;
+    if (!canModifyTarget) return;
 
     const service = permissionServices.find((item) => item.id === serviceId);
     if (!service) return;
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
-      service.permissions
-        .filter((perm: any) => (perm as any).source !== 'role')
-        .forEach((perm) => next.add(perm.id));
+      service.permissions.forEach((perm) => next.add(perm.id));
       return next;
     });
   };
 
   const deselectAllInService = (serviceId: string) => {
-    if (!canEdit) return;
+    if (!canModifyTarget) return;
 
     const service = permissionServices.find((item) => item.id === serviceId);
     if (!service) return;
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
-      service.permissions
-        .filter((perm: any) => (perm as any).source !== 'role')
-        .forEach((perm) => next.delete(perm.id));
+      service.permissions.forEach((perm) => next.delete(perm.id));
       return next;
     });
   };
 
   const handleSubmit = async () => {
-    if (!canEdit) return;
+    if (!canModifyTarget) return;
 
     try {
       setIsSubmitting(true);
       await adminUsersService.setUserPermissions(user.id, {
-        permissionIds: Array.from(selectedPermissions).filter((permissionId) => {
-          const source = userPermissionsById.get(permissionId)?.source;
-          return source !== 'role';
+        permissions: permissions.map((permission: any) => {
+          const isSelected = selectedPermissions.has(permission.id);
+          return {
+            permissionId: permission.id,
+            canView: isSelected,
+            canCreate: isSelected,
+            canEdit: isSelected,
+            canDelete: isSelected,
+            canApprove: isSelected,
+          };
         }),
       });
 
@@ -173,7 +198,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isLoading = permissionsLoading || userPermissionsLoading;
+  const isLoading = permissionsLoading || permissionModulesLoading || userPermissionsLoading;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
@@ -205,8 +230,8 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
             />
           </div>
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-            Les permissions <strong>héritées du rôle</strong> sont affichées pour information et restent gérées depuis le rôle.
-            Ici, tu ajoutes ou retires uniquement des <strong>exceptions utilisateur</strong>.
+            Les permissions <strong>héritées du rôle</strong> peuvent être cochées ou retirées via une exception utilisateur.
+            Le rôle <strong>Administrateur</strong> reste protégé et ne peut pas être surchargé ici.
           </div>
         </div>
 
@@ -247,7 +272,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                         </span>
                       </button>
 
-                      {canEdit && (
+                      {canModifyTarget && (
                         <div className="flex items-center space-x-2">
                           <button
                             type="button"
@@ -315,6 +340,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                 const source = (permission as any).source;
                                 const isInheritedOnly = source === 'role';
                                 const isDirectException = source === 'user' || source === 'mixed';
+                                const isRevoked = source === 'revoked';
                                 const sourceLabel =
                                   source === 'role'
                                     ? 'Hérité du rôle'
@@ -322,12 +348,14 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       ? 'Rôle + surcharge'
                                       : source === 'user'
                                         ? 'Surcharge utilisateur'
+                                        : source === 'revoked'
+                                          ? 'Retirée par exception'
                                         : null;
                                 return (
                                   <label
                                     key={permission.id}
                                     className={`flex items-start rounded p-2 transition-colors ${
-                                      isInheritedOnly
+                                      !canModifyTarget
                                         ? 'bg-slate-50/80 dark:bg-slate-800/30'
                                         : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
@@ -337,7 +365,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                         type="checkbox"
                                         checked={isSelected}
                                         onChange={() => togglePermission(permission.id)}
-                                        disabled={!canEdit || isInheritedOnly}
+                                        disabled={!canModifyTarget}
                                         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                       />
                                     </div>
@@ -357,7 +385,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       )}
                                       {isInheritedOnly && (
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                          Cette permission vient du rôle et ne peut pas être retirée depuis cette fenêtre.
+                                          Cette permission vient du rôle. Décoche-la pour créer une exception de retrait.
                                         </p>
                                       )}
                                       {!source && (
@@ -368,6 +396,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       {isDirectException && (
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                                           Cette permission est portée par une exception utilisateur explicite.
+                                        </p>
+                                      )}
+                                      {isRevoked && (
+                                        <p className="mt-1 text-[11px] text-red-500 dark:text-red-300">
+                                          Cette permission vient du rôle mais elle est retirée pour cet utilisateur.
                                         </p>
                                       )}
                                     </div>
@@ -401,7 +434,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
             >
               Annuler
             </button>
-            {canEdit && (
+            {canModifyTarget && (
               <button
                 type="button"
                 onClick={handleSubmit}
@@ -420,6 +453,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                   </>
                 )}
               </button>
+            )}
+            {canEdit && isAdministratorTarget && (
+              <span className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                Administrateur protégé
+              </span>
             )}
           </div>
         </div>

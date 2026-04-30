@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMateriel, useCreateMateriel, useUpdateMateriel, useDeleteMateriel } from '@/hooks/useTechnical';
+import { materielService } from '@/shared/api/technical/materiel.service';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ import { getCrudVisibility } from '@/shared/action-visibility';
 import { isAdminRole } from '@/shared/permissions';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
+import ImportCsvButton, { CsvImportRow } from '@/components/import/ImportCsvButton';
 
 const materielSchema = z.object({
   reference: z.string().min(1, 'Référence requise'),
@@ -49,8 +52,23 @@ const materielSchema = z.object({
 
 type MaterielFormData = z.infer<typeof materielSchema>;
 
+const MATERIEL_IMPORT_HEADERS = [
+  'reference',
+  'nom',
+  'description',
+  'categorie',
+  'quantiteStock',
+  'seuilAlerte',
+  'seuilRupture',
+  'prixUnitaire',
+  'fournisseur',
+  'emplacementStock',
+  'notes',
+];
+
 export default function MaterielPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isAdmin = isAdminRole(user);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingMateriel, setEditingMateriel] = useState<any>(null);
@@ -61,6 +79,13 @@ export default function MaterielPage() {
   const createMutation = useCreateMateriel();
   const updateMutation = useUpdateMateriel();
   const deleteMutation = useDeleteMateriel();
+  const importMutation = useMutation({
+    mutationFn: (rows: CsvImportRow[]) => materielService.importMateriels(rows),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['materiel'] });
+      queryClient.invalidateQueries({ queryKey: ['materiel-alertes'] });
+    },
+  });
   const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
     read: ['materiel.read'],
     create: ['materiel.create'],
@@ -171,7 +196,7 @@ export default function MaterielPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
             <Package className="h-8 w-8 mr-3 text-blue-600" />
@@ -181,11 +206,19 @@ export default function MaterielPage() {
             Gérez votre stock de matériel technique
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
             Imprimer
           </Button>
+          {canCreate && (
+            <ImportCsvButton
+              fileName="modele-materiel.csv"
+              templateHeaders={MATERIEL_IMPORT_HEADERS}
+              disabled={importMutation.isPending}
+              onImport={(rows) => importMutation.mutateAsync(rows)}
+            />
+          )}
           {canCreate && (
             <Button onClick={handleOpenCreate}>
               <Plus className="h-4 w-4 mr-2" />

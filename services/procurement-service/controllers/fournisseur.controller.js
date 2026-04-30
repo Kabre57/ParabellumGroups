@@ -22,6 +22,71 @@ const serializeFournisseur = (fournisseur) => ({
   totalAmount: fournisseur.totalAmount ?? computeSupplierTotals(fournisseur.bonsCommande),
 });
 
+const normalizeImportKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+const normalizeImportValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text === '' ? undefined : text;
+};
+
+const buildImportRowMap = (row) =>
+  Object.entries(row || {}).reduce((map, [key, value]) => {
+    map[normalizeImportKey(key)] = value;
+    return map;
+  }, {});
+
+const pickImportValue = (rowMap, aliases) => {
+  for (const alias of aliases) {
+    const value = normalizeImportValue(rowMap[normalizeImportKey(alias)]);
+    if (value !== undefined) return value;
+  }
+
+  return undefined;
+};
+
+const parseImportNumber = (value, fieldName) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const parsed = Number(normalized.replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${fieldName} doit etre un nombre valide`);
+  }
+  return parsed;
+};
+
+const parseImportEnum = (value, allowedValues, fieldName) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const candidate = normalized
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (!allowedValues.includes(candidate)) {
+    throw new Error(`${fieldName} invalide: ${normalized}`);
+  }
+
+  return candidate;
+};
+
+const compactImportData = (data) =>
+  Object.entries(data).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+const isValidImportEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
 // Get all fournisseurs with pagination and filters
 exports.getAll = async (req, res) => {
   try {
@@ -127,6 +192,101 @@ exports.create = async (req, res) => {
     }
     res.status(500).json({ error: 'Erreur lors de la création du fournisseur' });
   }
+};
+
+exports.importFournisseurs = async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : req.body?.items;
+  const updateExisting = req.body?.options?.updateExisting !== false;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Aucune ligne fournisseur a importer'
+    });
+  }
+
+  const result = {
+    total: items.length,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: []
+  };
+
+  for (const [index, row] of items.entries()) {
+    const rowNumber = index + 2;
+
+    try {
+      if (!row || typeof row !== 'object') {
+        throw new Error('Ligne invalide');
+      }
+
+      const rowMap = buildImportRowMap(row);
+      const nom = pickImportValue(rowMap, ['nom', 'fournisseur', 'supplier', 'name']);
+      const email = pickImportValue(rowMap, ['email', 'mail', 'courriel']);
+
+      if (!nom) {
+        throw new Error('Le nom est requis');
+      }
+      if (!email || !isValidImportEmail(email)) {
+        throw new Error('Un email valide est requis');
+      }
+
+      const existingFournisseur = await prisma.fournisseur.findUnique({
+        where: { email }
+      });
+
+      if (existingFournisseur && !updateExisting) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const data = compactImportData({
+        nom,
+        email,
+        telephone: pickImportValue(rowMap, ['telephone', 'tel', 'phone']),
+        adresse: pickImportValue(rowMap, ['adresse', 'address']),
+        categorieActivite: pickImportValue(rowMap, ['categorieActivite', 'categorie activite', 'categorie', 'category']),
+        status: parseImportEnum(
+          pickImportValue(rowMap, ['status', 'statut']),
+          ['ACTIF', 'INACTIF', 'BLOQUE'],
+          'Statut'
+        ) || (existingFournisseur ? undefined : 'ACTIF'),
+        rating: parseImportNumber(pickImportValue(rowMap, ['rating', 'note', 'evaluation']), 'Evaluation')
+      });
+
+      if (data.rating !== undefined && (data.rating < 0 || data.rating > 5)) {
+        throw new Error('Evaluation doit etre comprise entre 0 et 5');
+      }
+
+      if (existingFournisseur) {
+        await prisma.fournisseur.update({
+          where: { id: existingFournisseur.id },
+          data
+        });
+        result.updated += 1;
+      } else {
+        await prisma.fournisseur.create({
+          data
+        });
+        result.created += 1;
+      }
+    } catch (error) {
+      result.skipped += 1;
+      result.errors.push({
+        row: rowNumber,
+        message: error.code === 'P2002'
+          ? `Valeur deja utilisee: ${error.meta?.target || 'champ unique'}`
+          : error.message
+      });
+    }
+  }
+
+  res.json({
+    success: result.errors.length === 0,
+    message: 'Import fournisseurs termine',
+    data: result
+  });
 };
 
 // Get fournisseur by ID

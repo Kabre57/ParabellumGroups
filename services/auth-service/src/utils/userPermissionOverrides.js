@@ -29,6 +29,17 @@ const mergeFlags = (roleFlags = {}, userFlags = {}) => {
   return merged;
 };
 
+const flagsEqual = (left = {}, right = {}) =>
+  FLAG_FIELDS.every((field) => Boolean(left[field]) === Boolean(right[field]));
+
+const applyUserOverride = ({ roleFlags = null, userFlags = null }) => {
+  if (userFlags) {
+    return normalizeFlags(userFlags);
+  }
+
+  return normalizeFlags(roleFlags);
+};
+
 const computeMeaningfulOverride = ({ roleFlags = null, userFlags = {} }) => {
   const normalizedUserFlags = normalizeFlags(userFlags);
 
@@ -36,12 +47,8 @@ const computeMeaningfulOverride = ({ roleFlags = null, userFlags = {} }) => {
     return hasAnyFlag(normalizedUserFlags) ? normalizedUserFlags : null;
   }
 
-  const override = emptyFlags();
-  for (const field of FLAG_FIELDS) {
-    override[field] = Boolean(normalizedUserFlags[field]) && !Boolean(roleFlags[field]);
-  }
-
-  return hasAnyFlag(override) ? override : null;
+  const normalizedRoleFlags = normalizeFlags(roleFlags);
+  return flagsEqual(normalizedRoleFlags, normalizedUserFlags) ? null : normalizedUserFlags;
 };
 
 module.exports = {
@@ -50,5 +57,7 @@ module.exports = {
   normalizeFlags,
   hasAnyFlag,
   mergeFlags,
+  flagsEqual,
+  applyUserOverride,
   computeMeaningfulOverride,
 };

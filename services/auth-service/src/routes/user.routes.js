@@ -40,7 +40,7 @@ router.get(
       .withMessage('Limit must be between 1 and 100'),
     query('role')
       .optional()
-      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
+      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'GERANT', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
       .withMessage('Invalid role'),
     query('serviceId')
       .optional()

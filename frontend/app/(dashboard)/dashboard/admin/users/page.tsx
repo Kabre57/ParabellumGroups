@@ -28,6 +28,7 @@ import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 const roleColors: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-800',
   GENERAL_DIRECTOR: 'bg-purple-100 text-purple-800',
+  GERANT: 'bg-cyan-100 text-cyan-800',
   SERVICE_MANAGER: 'bg-blue-100 text-blue-800',
   EMPLOYEE: 'bg-gray-100 text-gray-800',
   ACCOUNTANT: 'bg-green-100 text-green-800',

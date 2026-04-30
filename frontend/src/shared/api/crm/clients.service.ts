@@ -17,6 +17,14 @@ export const clientsService = {
     return response.data;
   },
 
+  async importClients(items: Record<string, string>[]): Promise<DetailResponse<any>> {
+    const response = await apiClient.post('/clients/import', {
+      items,
+      options: { updateExisting: true },
+    });
+    return response.data;
+  },
+
   async updateClient(id: string, data: any): Promise<DetailResponse<Client>> {
     const response = await apiClient.put(`/clients/${id}`, data);
     return response.data;

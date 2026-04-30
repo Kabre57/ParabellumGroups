@@ -12,6 +12,7 @@ const TEMPLATES_DISPONIBLES = [
   { value: 'EMPLOYEE', label: 'Employé standard' },
   { value: 'SERVICE_MANAGER', label: 'Responsable de service' },
   { value: 'GENERAL_DIRECTOR', label: 'Directeur général' },
+  { value: 'GERANT', label: 'Gérant' },
   { value: '', label: 'Sans template (Attribution manuelle)' },
 ];
 

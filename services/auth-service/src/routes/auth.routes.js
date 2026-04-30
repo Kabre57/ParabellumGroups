@@ -47,7 +47,7 @@ router.post(
       .withMessage('Last name must not exceed 100 characters'),
     body('role')
       .optional()
-      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
+      .isIn(['ADMIN', 'GENERAL_DIRECTOR', 'GERANT', 'SERVICE_MANAGER', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'])
       .withMessage('Invalid role'),
     body('serviceId')
       .optional()

@@ -17,6 +17,7 @@ router.use(authMiddleware);
 // Routes
 router.get('/', fournisseurController.getAll);
 router.post('/', validateFournisseur, fournisseurController.create);
+router.post('/import', fournisseurController.importFournisseurs);
 router.get('/:id', fournisseurController.getById);
 router.put('/:id', validateFournisseur, fournisseurController.update);
 router.patch('/:id/rating', fournisseurController.updateRating);

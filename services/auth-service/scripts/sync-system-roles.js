@@ -1,41 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
-const { completePermissions } = require('../prisma/seed-complete-permissions');
+const {
+  completePermissions,
+  obsoletePermissionNames,
+  systemRoles,
+  assertValidPermissionRegistry,
+} = require('../src/permissions');
 const { applyTemplate } = require('../src/utils/roleTemplates');
 
 const prisma = new PrismaClient();
-
-const systemRoles = [
-  {
-    name: 'Administrateur',
-    code: 'ADMIN',
-    description: 'Accès complet au système',
-  },
-  {
-    name: 'Direction Générale',
-    code: 'GENERAL_DIRECTOR',
-    description: 'Validation et supervision générale',
-  },
-  {
-    name: 'Employé',
-    code: 'EMPLOYEE',
-    description: 'Utilisateur standard',
-  },
-  {
-    name: 'Comptable',
-    code: 'ACCOUNTANT',
-    description: 'Suivi comptable, bons de caisse et décaissements',
-  },
-  {
-    name: 'Service Achat',
-    code: 'PURCHASING_MANAGER',
-    description: 'Préparation des demandes, consultation fournisseurs, commandes et réceptions',
-  },
-  {
-    name: 'Commercial',
-    code: 'COMMERCIAL',
-    description: 'Prospection, pipeline, devis clients et suivi commercial',
-  },
-];
 
 const procurementApprovalPermissions = [
   'purchase_requests.approve',
@@ -128,6 +100,50 @@ async function syncRolePermissions(roleCode, dryRun = false) {
   }
 }
 
+async function pruneObsoletePermissions(dryRun = false) {
+  const names = [...new Set(obsoletePermissionNames)];
+  if (!names.length) {
+    console.log('Aucune permission obsolete declaree.');
+    return;
+  }
+
+  const obsoletePermissions = await prisma.permission.findMany({
+    where: { name: { in: names } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  if (!obsoletePermissions.length) {
+    console.log('Aucune permission obsolete presente en base.');
+    return;
+  }
+
+  const obsoleteIds = obsoletePermissions.map((permission) => permission.id);
+
+  if (dryRun) {
+    console.log(`[dry-run] ${obsoletePermissions.length} permission(s) obsolete(s) a supprimer:`);
+    obsoletePermissions.forEach((permission) => console.log(` - ${permission.name}`));
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.permissionChangeRequest.deleteMany({
+      where: { permissionId: { in: obsoleteIds } },
+    });
+    await tx.rolePermission.deleteMany({
+      where: { permissionId: { in: obsoleteIds } },
+    });
+    await tx.userPermission.deleteMany({
+      where: { permission_id: { in: obsoleteIds } },
+    });
+    await tx.permission.deleteMany({
+      where: { id: { in: obsoleteIds } },
+    });
+  });
+
+  console.log(`${obsoletePermissions.length} permission(s) obsolete(s) supprimee(s) de la base.`);
+}
+
 async function cleanupDirectPermissions(dryRun = false) {
   const approvalPerms = await prisma.permission.findMany({
     where: { name: { in: procurementApprovalPermissions } },
@@ -154,7 +170,7 @@ async function cleanupDirectPermissions(dryRun = false) {
         users: {
           role: {
             code: {
-              notIn: ['ADMIN', 'GENERAL_DIRECTOR'],
+              notIn: ['ADMIN', 'GENERAL_DIRECTOR', 'GERANT'],
             },
           },
         },
@@ -169,7 +185,7 @@ async function cleanupDirectPermissions(dryRun = false) {
         users: {
           role: {
             code: {
-              notIn: ['ADMIN', 'PURCHASING_MANAGER'],
+              notIn: ['ADMIN', 'PURCHASING_MANAGER', 'GERANT'],
             },
           },
         },
@@ -180,13 +196,25 @@ async function cleanupDirectPermissions(dryRun = false) {
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
+  const pruneObsolete = process.argv.includes('--prune-obsolete');
 
   if (dryRun) {
     console.log('Mode dry-run activé: aucune modification ne sera écrite.');
   }
 
+  const registrySummary = assertValidPermissionRegistry();
+  console.log(
+    `Registre modulaire: ${registrySummary.moduleCount} modules, ` +
+      `${registrySummary.categoryCount} categories, ${registrySummary.permissionCount} permissions.`
+  );
+
   console.log('Synchronisation des permissions complètes...');
   await ensurePermissions(dryRun);
+
+  if (pruneObsolete) {
+    console.log('Suppression des permissions obsoletes...');
+    await pruneObsoletePermissions(dryRun);
+  }
 
   console.log('Synchronisation des rôles système...');
   await ensureRoles(dryRun);

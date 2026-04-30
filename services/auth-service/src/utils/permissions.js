@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const { hasAnyFlag, normalizeFlags } = require('./userPermissionOverrides');
 
 const AUDIT_LEVEL_PERMISSION_MAP = {
   canViewAuditLogInfo: 'INFO',
@@ -31,27 +32,40 @@ async function getUserPermissionNames(userId) {
 
   if (!user) return [];
 
-  const names = new Set();
+  if (user.role?.code === 'ADMIN') {
+    return ['*'];
+  }
+
+  const effectivePermissions = new Map();
 
   if (user.role?.rolePermissions) {
     for (const rp of user.role.rolePermissions) {
-      const hasAny = rp.canView || rp.canCreate || rp.canEdit || rp.canDelete || rp.canApprove;
-      if (hasAny && rp.permission?.name) {
-        names.add(rp.permission.name);
+      if (rp.permission?.name) {
+        effectivePermissions.set(rp.permission.name, normalizeFlags(rp));
       }
     }
   }
 
   if (user.user_permissions) {
     for (const up of user.user_permissions) {
-      const hasAny = up.can_view || up.can_create || up.can_edit || up.can_delete || up.can_approve;
-      if (hasAny && up.permissions?.name) {
-        names.add(up.permissions.name);
+      if (up.permissions?.name) {
+        effectivePermissions.set(
+          up.permissions.name,
+          normalizeFlags(up, {
+            canView: 'can_view',
+            canCreate: 'can_create',
+            canEdit: 'can_edit',
+            canDelete: 'can_delete',
+            canApprove: 'can_approve',
+          })
+        );
       }
     }
   }
 
-  return Array.from(names);
+  return Array.from(effectivePermissions.entries())
+    .filter(([, flags]) => hasAnyFlag(flags))
+    .map(([name]) => name);
 }
 
 /**

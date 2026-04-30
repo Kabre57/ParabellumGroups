@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const notification = require('../services/notificationService');
+const { getPermissionModules } = require('../permissions');
 
 /**
  * Get all permissions
@@ -26,6 +27,26 @@ const getAllPermissions = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error fetching permissions',
+      errors: error.message,
+    });
+  }
+};
+
+/**
+ * Get the modular permission registry
+ * GET /api/permissions/modules
+ */
+const getPermissionModuleRegistry = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      data: getPermissionModules(),
+    });
+  } catch (error) {
+    console.error('Get permission modules error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching permission modules',
       errors: error.message,
     });
   }
@@ -546,6 +567,7 @@ const deleteRolePermission = async (req, res) => {
 
 module.exports = {
   getAllPermissions,
+  getPermissionModuleRegistry,
   getPermissionById,
   createPermission,
   updatePermission,

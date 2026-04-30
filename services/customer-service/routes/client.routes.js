@@ -65,6 +65,7 @@ const queryValidation = [
 // Routes
 router.get('/', authMiddleware, queryValidation, clientController.getAll);
 router.post('/', authMiddleware, requireManager, createValidation, clientController.create);
+router.post('/import', authMiddleware, requireManager, clientController.importClients);
 router.get('/search', authMiddleware, clientController.search);
 router.get('/stats', authMiddleware, clientController.getStats);
 router.get('/:id', authMiddleware, clientController.getById);

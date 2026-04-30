@@ -48,6 +48,99 @@ const normalizeArticlePayload = async (payload, { keepExistingReference = false 
   return normalized;
 };
 
+const normalizeImportKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+const normalizeImportValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text === '' ? undefined : text;
+};
+
+const buildImportRowMap = (row) =>
+  Object.entries(row || {}).reduce((map, [key, value]) => {
+    map[normalizeImportKey(key)] = value;
+    return map;
+  }, {});
+
+const pickImportValue = (rowMap, aliases) => {
+  for (const alias of aliases) {
+    const value = normalizeImportValue(rowMap[normalizeImportKey(alias)]);
+    if (value !== undefined) return value;
+  }
+
+  return undefined;
+};
+
+const parseImportNumber = (value, fieldName) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const parsed = Number(normalized.replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${fieldName} doit etre un nombre valide`);
+  }
+  return parsed;
+};
+
+const parseImportEnum = (value, allowedValues, fieldName) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const candidate = normalized
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (!allowedValues.includes(candidate)) {
+    throw new Error(`${fieldName} invalide: ${normalized}`);
+  }
+
+  return candidate;
+};
+
+const parseImportUnit = (value) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const key = normalizeImportKey(normalized);
+  const aliases = {
+    piece: 'PIECE',
+    pieces: 'PIECE',
+    pce: 'PIECE',
+    pc: 'PIECE',
+    unite: 'PIECE',
+    kg: 'KG',
+    kilo: 'KG',
+    kilos: 'KG',
+    kilogramme: 'KG',
+    kilogrammes: 'KG',
+    m: 'M',
+    metre: 'M',
+    metres: 'M',
+    l: 'L',
+    litre: 'L',
+    litres: 'L',
+  };
+
+  if (!aliases[key]) {
+    throw new Error(`Unite invalide: ${normalized}`);
+  }
+
+  return aliases[key];
+};
+
+const compactImportData = (data) =>
+  Object.entries(data).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
 exports.createArticle = async (req, res) => {
   try {
     const data = await normalizeArticlePayload(req.body);
@@ -59,6 +152,108 @@ exports.createArticle = async (req, res) => {
     console.error('Erreur création article:', error);
     res.status(500).json({ error: 'Erreur lors de la création de l\'article' });
   }
+};
+
+exports.importArticles = async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : req.body?.items;
+  const updateExisting = req.body?.options?.updateExisting !== false;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Aucune ligne produit a importer'
+    });
+  }
+
+  const result = {
+    total: items.length,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: []
+  };
+
+  for (const [index, row] of items.entries()) {
+    const rowNumber = index + 2;
+
+    try {
+      if (!row || typeof row !== 'object') {
+        throw new Error('Ligne invalide');
+      }
+
+      const rowMap = buildImportRowMap(row);
+      const reference = pickImportValue(rowMap, ['reference', 'ref', 'code']);
+      const nom = pickImportValue(rowMap, ['nom', 'produit', 'designation', 'name']);
+      const categorie = pickImportValue(rowMap, ['categorie', 'category', 'famille']);
+
+      if (!nom) {
+        throw new Error('Le nom est requis');
+      }
+
+      const existingArticle = reference
+        ? await prisma.article.findUnique({ where: { reference } })
+        : null;
+
+      if (existingArticle && !updateExisting) {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (!existingArticle && !categorie) {
+        throw new Error('La categorie est requise pour un nouveau produit');
+      }
+
+      const data = compactImportData({
+        reference: existingArticle
+          ? reference
+          : reference || await buildArticleReference({ categorie, nom }),
+        nom,
+        imageUrl: pickImportValue(rowMap, ['imageUrl', 'image url', 'image']),
+        description: pickImportValue(rowMap, ['description']),
+        categorie,
+        unite: parseImportUnit(pickImportValue(rowMap, ['unite', 'unit'])),
+        prixAchat: parseImportNumber(pickImportValue(rowMap, ['prixAchat', 'prix achat', 'cout achat']), 'Prix achat'),
+        prixVente: parseImportNumber(pickImportValue(rowMap, ['prixVente', 'prix vente', 'prix public']), 'Prix vente'),
+        quantiteStock: parseImportNumber(pickImportValue(rowMap, ['quantiteStock', 'quantite stock', 'stock', 'quantite']), 'Quantite stock'),
+        seuilAlerte: parseImportNumber(pickImportValue(rowMap, ['seuilAlerte', 'seuil alerte']), 'Seuil alerte'),
+        seuilRupture: parseImportNumber(pickImportValue(rowMap, ['seuilRupture', 'seuil rupture']), 'Seuil rupture'),
+        emplacement: pickImportValue(rowMap, ['emplacement', 'localisation']),
+        fournisseurId: pickImportValue(rowMap, ['fournisseurId', 'fournisseur id', 'supplier id']),
+        status: parseImportEnum(
+          pickImportValue(rowMap, ['status', 'statut']),
+          ['ACTIF', 'INACTIF', 'OBSOLETE'],
+          'Statut'
+        ) || (existingArticle ? undefined : 'ACTIF'),
+      });
+
+      if (existingArticle) {
+        await prisma.article.update({
+          where: { id: existingArticle.id },
+          data
+        });
+        result.updated += 1;
+      } else {
+        await prisma.article.create({
+          data
+        });
+        result.created += 1;
+      }
+    } catch (error) {
+      result.skipped += 1;
+      result.errors.push({
+        row: rowNumber,
+        message: error.code === 'P2002'
+          ? `Valeur deja utilisee: ${error.meta?.target || 'champ unique'}`
+          : error.message
+      });
+    }
+  }
+
+  res.json({
+    success: result.errors.length === 0,
+    message: 'Import produits termine',
+    data: result
+  });
 };
 
 exports.getAllArticles = async (req, res) => {

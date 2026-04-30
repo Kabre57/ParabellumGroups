@@ -24,6 +24,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
+import ImportCsvButton, { CsvImportRow } from '@/components/import/ImportCsvButton';
 
 const statusColors: Record<SupplierStatus, string> = {
   ACTIF: 'bg-green-100 text-green-800',
@@ -54,6 +55,16 @@ const evaluationLevels = [
   { value: '3', label: '3 - Correct' },
   { value: '4', label: '4 - Bon' },
   { value: '5', label: '5 - Excellent' },
+];
+
+const SUPPLIER_IMPORT_HEADERS = [
+  'nom',
+  'email',
+  'telephone',
+  'adresse',
+  'categorieActivite',
+  'status',
+  'rating',
 ];
 
 export default function SuppliersPage() {
@@ -150,6 +161,13 @@ export default function SuppliersPage() {
     },
   });
 
+  const importMutation = useMutation({
+    mutationFn: (rows: CsvImportRow[]) => procurementService.importSuppliers(rows),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+  });
+
   const form = useForm<SupplierFormValues>({
     defaultValues: {
       name: '',
@@ -241,11 +259,19 @@ export default function SuppliersPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Fournisseurs</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="mr-2 h-4 w-4" />
             Imprimer
           </Button>
+          {canCreate && (
+            <ImportCsvButton
+              fileName="modele-fournisseurs.csv"
+              templateHeaders={SUPPLIER_IMPORT_HEADERS}
+              disabled={importMutation.isPending}
+              onImport={(rows) => importMutation.mutateAsync(rows)}
+            />
+          )}
           {canCreate && (
             <Button onClick={openCreate}>
               <Building2 className="mr-2 h-4 w-4" />

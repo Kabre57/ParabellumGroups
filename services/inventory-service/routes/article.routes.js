@@ -4,6 +4,7 @@ const articleController = require('../controllers/article.controller');
 const auth = require('../middleware/auth');
 
 router.post('/', auth, articleController.createArticle);
+router.post('/import', auth, articleController.importArticles);
 router.get('/', auth, articleController.getAllArticles);
 router.get('/alertes', auth, articleController.getAlertes);
 router.get('/valeur-stock', auth, articleController.getValeurStock);

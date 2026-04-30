@@ -2,6 +2,61 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { isForceDelete } = require('../utils/authz');
 
+const normalizeImportKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+const normalizeImportValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text === '' ? undefined : text;
+};
+
+const buildImportRowMap = (row) =>
+  Object.entries(row || {}).reduce((map, [key, value]) => {
+    map[normalizeImportKey(key)] = value;
+    return map;
+  }, {});
+
+const pickImportValue = (rowMap, aliases) => {
+  for (const alias of aliases) {
+    const value = normalizeImportValue(rowMap[normalizeImportKey(alias)]);
+    if (value !== undefined) return value;
+  }
+
+  return undefined;
+};
+
+const parseImportNumber = (value, fieldName) => {
+  const normalized = normalizeImportValue(value);
+  if (normalized === undefined) return undefined;
+  const parsed = Number(normalized.replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${fieldName} doit etre un nombre valide`);
+  }
+  return parsed;
+};
+
+const parseImportInteger = (value, fieldName) => {
+  const parsed = parseImportNumber(value, fieldName);
+  if (parsed === undefined) return undefined;
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${fieldName} doit etre un nombre entier`);
+  }
+  return parsed;
+};
+
+const compactImportData = (data) =>
+  Object.entries(data).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
 exports.getAll = async (req, res) => {
   try {
     const { page = 1, limit = 10, categorie, search } = req.query;
@@ -270,6 +325,107 @@ exports.create = async (req, res) => {
       error: 'Erreur lors de la création du matériel'
     });
   }
+};
+
+exports.importMateriels = async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : req.body?.items;
+  const updateExisting = req.body?.options?.updateExisting !== false;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Aucune ligne materiel a importer'
+    });
+  }
+
+  const result = {
+    total: items.length,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: []
+  };
+
+  for (const [index, row] of items.entries()) {
+    const rowNumber = index + 2;
+
+    try {
+      if (!row || typeof row !== 'object') {
+        throw new Error('Ligne invalide');
+      }
+
+      const rowMap = buildImportRowMap(row);
+      const reference = pickImportValue(rowMap, ['reference', 'ref', 'code']);
+      const nom = pickImportValue(rowMap, ['nom', 'materiel', 'designation', 'name']);
+      const categorie = pickImportValue(rowMap, ['categorie', 'category', 'famille']);
+
+      if (!reference) {
+        throw new Error('La reference est requise');
+      }
+      if (!nom) {
+        throw new Error('Le nom est requis');
+      }
+
+      const existingMateriel = await prisma.materiel.findUnique({
+        where: { reference }
+      });
+
+      if (existingMateriel && !updateExisting) {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (!existingMateriel && !categorie) {
+        throw new Error('La categorie est requise');
+      }
+
+      const data = compactImportData({
+        reference,
+        nom,
+        description: pickImportValue(rowMap, ['description']),
+        categorie,
+        quantiteStock: parseImportInteger(pickImportValue(rowMap, ['quantiteStock', 'quantite stock', 'stock', 'quantite']), 'Quantite stock'),
+        seuilAlerte: parseImportInteger(pickImportValue(rowMap, ['seuilAlerte', 'seuil alerte']), 'Seuil alerte'),
+        seuilRupture: parseImportInteger(pickImportValue(rowMap, ['seuilRupture', 'seuil rupture']), 'Seuil rupture'),
+        prixUnitaire: parseImportNumber(pickImportValue(rowMap, ['prixUnitaire', 'prix unitaire', 'prix']), 'Prix unitaire'),
+        fournisseur: pickImportValue(rowMap, ['fournisseur', 'supplier']),
+        emplacementStock: pickImportValue(rowMap, ['emplacementStock', 'emplacement stock', 'emplacement', 'localisation']),
+        notes: pickImportValue(rowMap, ['notes', 'note'])
+      });
+
+      if (existingMateriel) {
+        await prisma.materiel.update({
+          where: { id: existingMateriel.id },
+          data
+        });
+        result.updated += 1;
+      } else {
+        await prisma.materiel.create({
+          data: {
+            quantiteStock: 0,
+            seuilAlerte: 10,
+            seuilRupture: 5,
+            ...data
+          }
+        });
+        result.created += 1;
+      }
+    } catch (error) {
+      result.skipped += 1;
+      result.errors.push({
+        row: rowNumber,
+        message: error.code === 'P2002'
+          ? `Valeur deja utilisee: ${error.meta?.target || 'champ unique'}`
+          : error.message
+      });
+    }
+  }
+
+  res.json({
+    success: result.errors.length === 0,
+    message: 'Import materiel termine',
+    data: result
+  });
 };
 
 /**

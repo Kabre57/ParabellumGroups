@@ -72,6 +72,14 @@ export const inventoryService = {
     return normalizeDetailResponse<InventoryArticle>(response.data);
   },
 
+  async importArticles(items: Record<string, string>[]): Promise<DetailResponse<any>> {
+    const response = await apiClient.post('/inventory/articles/import', {
+      items,
+      options: { updateExisting: true },
+    });
+    return normalizeDetailResponse<any>(response.data);
+  },
+
   async updateArticle(id: string, data: Partial<InventoryArticle>): Promise<DetailResponse<InventoryArticle>> {
     const response = await apiClient.put(`/inventory/articles/${id}`, data);
     return normalizeDetailResponse<InventoryArticle>(response.data);

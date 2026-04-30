@@ -2,9 +2,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useClients, useArchiveClient } from '@/hooks/useCrm';
 import { Client } from '@/shared/api/crm/types';
+import { clientsService } from '@/shared/api/crm/clients.service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import CustomerForm from '@/components/customers/CustomerForm';
+import ImportCsvButton, { CsvImportRow } from '@/components/import/ImportCsvButton';
 import { Search, Filter, Users, UserCheck, UserMinus, Archive } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
@@ -27,6 +29,22 @@ const STATUS_OPTIONS = [
   { value: 'ACTIF', label: 'Actif' },
   { value: 'INACTIF', label: 'Inactif' },
   { value: 'ARCHIVE', label: 'Archive' },
+];
+
+const CLIENT_IMPORT_HEADERS = [
+  'nom',
+  'raisonSociale',
+  'email',
+  'telephone',
+  'mobile',
+  'typeClient',
+  'status',
+  'priorite',
+  'idu',
+  'ncc',
+  'rccm',
+  'codeActivite',
+  'source',
 ];
 
 export default function ClientsPage() {
@@ -51,6 +69,13 @@ export default function ClientsPage() {
     : ((clients as any)?.data || []);
 
   const archiveMutation = useArchiveClient();
+  const importMutation = useMutation({
+    mutationFn: (rows: CsvImportRow[]) => clientsService.importClients(rows),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm', 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['crm', 'clients-stats'] });
+    },
+  });
 
   const filteredClients = useMemo(() => {
     return clientsArray.filter((client) => {
@@ -189,6 +214,14 @@ export default function ClientsPage() {
                 ))}
               </select>
             </div>
+            {canCreate && (
+              <ImportCsvButton
+                fileName="modele-clients.csv"
+                templateHeaders={CLIENT_IMPORT_HEADERS}
+                disabled={importMutation.isPending}
+                onImport={(rows) => importMutation.mutateAsync(rows)}
+              />
+            )}
             {canCreate && <Button onClick={() => setDialogOpen(true)}>Nouveau client</Button>}
           </div>
 

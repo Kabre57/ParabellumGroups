@@ -467,6 +467,14 @@ export const procurementService = {
     };
   },
 
+  async importSuppliers(items: Record<string, string>[]): Promise<DetailResponse<any>> {
+    const response = await apiClient.post('/procurement/fournisseurs/import', {
+      items,
+      options: { updateExisting: true },
+    });
+    return normalizeDetailResponse<any>(response.data);
+  },
+
   async updateSupplier(id: string, data: Partial<Supplier>): Promise<DetailResponse<Supplier>> {
     const response = await apiClient.put(`/procurement/fournisseurs/${id}`, data);
     const normalized = normalizeDetailResponse<Supplier>(response.data);

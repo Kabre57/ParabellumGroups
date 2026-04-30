@@ -99,6 +99,22 @@ export interface Permission {
   updatedAt: string;
 }
 
+export interface PermissionModuleCategory {
+  key: string;
+  label: string;
+  permissionCount: number;
+}
+
+export interface PermissionModule {
+  key: string;
+  label: string;
+  menuLabel: string;
+  version: string;
+  order: number;
+  description: string;
+  categories: PermissionModuleCategory[];
+}
+
 export interface RolePermission {
   id: number;
   roleId: number;
@@ -122,7 +138,8 @@ export interface UserPermission {
   canDelete: boolean;
   canApprove: boolean;
   createdAt: string;
-  source?: 'role' | 'user' | 'mixed';
+  source?: 'role' | 'user' | 'mixed' | 'revoked';
+  isRevoked?: boolean;
   permission?: Permission;
 }
 
@@ -415,6 +432,11 @@ export const adminPermissionsService = {
 
   getPermissionCategories: async (): Promise<{ success: boolean; data: string[] }> => {
     const response = await apiClient.get<{ success: boolean; data: string[] }>('/auth/permissions/categories');
+    return response.data;
+  },
+
+  getPermissionModules: async (): Promise<ApiListResponse<PermissionModule>> => {
+    const response = await apiClient.get<ApiListResponse<PermissionModule>>('/auth/permissions/modules');
     return response.data;
   },
 };

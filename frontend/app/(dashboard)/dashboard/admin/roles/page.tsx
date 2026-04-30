@@ -96,6 +96,13 @@ export default function RolesPermissionsPage() {
 
   const allPermissions = Array.isArray(permissionsData?.data) ? permissionsData.data : [];
 
+  const { data: permissionModulesData, isLoading: permissionModulesLoading } = useQuery({
+    queryKey: ['admin-permission-modules'],
+    queryFn: () => adminPermissionsService.getPermissionModules(),
+  });
+
+  const permissionModules = Array.isArray(permissionModulesData?.data) ? permissionModulesData.data : [];
+
   const { data: rolePermissionsData, isLoading: rolePermissionsLoading } = useQuery({
     queryKey: ['admin-role-permissions', selectedRoleId],
     queryFn: () => adminRolesService.getRolePermissions(selectedRoleId!),
@@ -116,8 +123,8 @@ export default function RolesPermissionsPage() {
   }, [allPermissions, search]);
 
   const permissionServices = useMemo(
-    () => groupPermissionsByService(filteredPermissions),
-    [filteredPermissions],
+    () => groupPermissionsByService(filteredPermissions, permissionModules),
+    [filteredPermissions, permissionModules],
   );
 
   useEffect(() => {
@@ -231,7 +238,7 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  const isLoading = permissionsLoading || rolePermissionsLoading;
+  const isLoading = permissionsLoading || permissionModulesLoading || rolePermissionsLoading;
 
   return (
     <div className="space-y-6">

@@ -55,6 +55,7 @@ export interface SearchParams extends PaginationParams {
  */
 export enum UserRole {
   ADMIN = 'ADMIN',
+  GERANT = 'GERANT',
   MANAGER = 'MANAGER',
   CONSULTANT = 'CONSULTANT',
   ACCOUNTANT = 'ACCOUNTANT',

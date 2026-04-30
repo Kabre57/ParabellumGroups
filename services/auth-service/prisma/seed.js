@@ -1,4 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
+const {
+  completePermissions,
+  systemRoles,
+  assertValidPermissionRegistry,
+} = require('../src/permissions');
+
 const prisma = new PrismaClient();
 
 async function ensureRole({ name, code, description, isSystem = true, isActive = true }) {
@@ -35,98 +41,32 @@ async function ensureRole({ name, code, description, isSystem = true, isActive =
 async function main() {
   console.log('🌱 Starting seed...');
 
+  const registrySummary = assertValidPermissionRegistry();
+  console.log(
+    `Registry OK: ${registrySummary.moduleCount} modules, ` +
+      `${registrySummary.categoryCount} categories, ${registrySummary.permissionCount} permissions`
+  );
+
   // Seed Roles
   console.log('Creating roles...');
-  const roles = await Promise.all([
-    ensureRole({
-      name: 'Administrateur',
-      code: 'ADMIN',
-      description: 'Accès complet au système',
-    }),
-    ensureRole({
-      name: 'Direction Générale',
-      code: 'GENERAL_DIRECTOR',
-      description: 'Validation et supervision générale',
-    }),
-    ensureRole({
-      name: 'Commercial',
-      code: 'COMMERCIAL',
-      description: 'Prospection, pipeline, devis clients et suivi commercial',
-    }),
-    ensureRole({
-      name: 'Employé',
-      code: 'EMPLOYEE',
-      description: 'Utilisateur standard',
-    }),
-    ensureRole({
-      name: 'Comptable',
-      code: 'ACCOUNTANT',
-      description: 'Suivi comptable, bons de caisse et décaissements',
-    }),
-    ensureRole({
-      name: 'Service Achat',
-      code: 'PURCHASING_MANAGER',
-      description: 'Rôle préconfiguré pour les achats, le chiffrage fournisseur, les commandes et les stocks',
-    }),
-  ]);
+  const roles = await Promise.all(systemRoles.map((role) => ensureRole(role)));
   console.log(`✅ Created ${roles.length} roles`);
 
   // Seed Permissions Categories
   console.log('Creating permissions...');
-  const permissionCategories = [
-    {
-      category: 'dashboard',
-      permissions: [
-        { name: 'dashboard.view', description: 'Voir le tableau de bord' },
-        { name: 'dashboard.analytics', description: 'Voir les statistiques avancées' },
-      ],
-    },
-    {
-      category: 'users',
-      permissions: [
-        { name: 'users.read', description: 'Voir les utilisateurs' },
-        { name: 'users.create', description: 'Créer des utilisateurs' },
-        { name: 'users.update', description: 'Modifier des utilisateurs' },
-        { name: 'users.delete', description: 'Supprimer des utilisateurs' },
-      ],
-    },
-    {
-      category: 'services',
-      permissions: [
-        { name: 'services.read', description: 'Voir les services' },
-        { name: 'services.create', description: 'Créer des services' },
-        { name: 'services.update', description: 'Modifier des services' },
-        { name: 'services.delete', description: 'Supprimer des services' },
-      ],
-    },
-    {
-      category: 'roles',
-      permissions: [
-        { name: 'roles.read', description: 'Voir les rôles' },
-        { name: 'roles.create', description: 'Créer des rôles' },
-        { name: 'roles.update', description: 'Modifier des rôles' },
-        { name: 'roles.delete', description: 'Supprimer des rôles' },
-      ],
-    },
-    {
-      category: 'permissions',
-      permissions: [
-        { name: 'permissions.read', description: 'Voir les permissions' },
-        { name: 'permissions.manage', description: 'Gérer les permissions par rôle' },
-      ],
-    },
-  ];
-
   let permissionCount = 0;
-  for (const cat of permissionCategories) {
-    for (const perm of cat.permissions) {
+  for (const [category, categoryData] of Object.entries(completePermissions)) {
+    for (const perm of categoryData.permissions) {
       await prisma.permission.upsert({
         where: { name: perm.name },
-        update: {},
+        update: {
+          description: perm.description,
+          category,
+        },
         create: {
           name: perm.name,
           description: perm.description,
-          category: cat.category,
+          category,
         },
       });
       permissionCount++;
@@ -137,9 +77,7 @@ async function main() {
   // Apply default templates only after permissions exist
   const { applyTemplate } = require('../src/utils/roleTemplates');
   for (const r of roles) {
-    if (['ADMIN', 'GENERAL_DIRECTOR', 'COMMERCIAL', 'EMPLOYEE', 'ACCOUNTANT', 'PURCHASING_MANAGER'].includes(r.code)) {
-      await applyTemplate(r.code);
-    }
+    await applyTemplate(r.code);
   }
 
   // Seed Services

@@ -1,7 +1,8 @@
 const prisma = require('../config/database');
 const {
+  hasAnyFlag,
   normalizeFlags,
-  mergeFlags,
+  applyUserOverride,
   computeMeaningfulOverride,
 } = require('../utils/userPermissionOverrides');
 
@@ -66,36 +67,35 @@ const getUserPermissions = async (req, res) => {
     if (user.user_permissions) {
       user.user_permissions.forEach(up => {
         const existing = permissionsMap.get(up.permission_id);
+        const userFlags = normalizeFlags(up, {
+          canView: 'can_view',
+          canCreate: 'can_create',
+          canEdit: 'can_edit',
+          canDelete: 'can_delete',
+          canApprove: 'can_approve',
+        });
+
         if (existing && existing.source === 'role') {
-          // Fusionner en mode additif : une permission utilisateur ajoute des flags
-          // au rôle mais ne doit pas masquer une permission déjà portée par le rôle.
-          const mergedFlags = mergeFlags(
-            normalizeFlags(existing),
-            normalizeFlags(up, {
-              canView: 'can_view',
-              canCreate: 'can_create',
-              canEdit: 'can_edit',
-              canDelete: 'can_delete',
-              canApprove: 'can_approve',
-            })
-          );
+          const effectiveFlags = applyUserOverride({
+            roleFlags: normalizeFlags(existing),
+            userFlags,
+          });
 
           permissionsMap.set(up.permission_id, {
             ...existing,
-            source: 'mixed',
-            ...mergedFlags,
+            overrideId: up.id,
+            source: hasAnyFlag(effectiveFlags) ? 'mixed' : 'revoked',
+            isRevoked: !hasAnyFlag(effectiveFlags),
+            ...effectiveFlags,
           });
         } else {
           permissionsMap.set(up.permission_id, {
             id: up.id,
             permissionId: up.permission_id,
             permission: up.permissions,  // Changed from 'permission' to 'permissions'
-            source: 'user',
-            canView: up.can_view,
-            canCreate: up.can_create,
-            canEdit: up.can_edit,
-            canDelete: up.can_delete,
-            canApprove: up.can_approve
+            source: hasAnyFlag(userFlags) ? 'user' : 'revoked',
+            isRevoked: !hasAnyFlag(userFlags),
+            ...userFlags
           });
         }
       });
@@ -157,6 +157,13 @@ const updateUserPermissions = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Utilisateur non trouvé'
+      });
+    }
+
+    if (user.role?.code === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Les permissions héritées du rôle Administrateur ne peuvent pas être modifiées'
       });
     }
 
@@ -293,9 +300,9 @@ const checkUserPermission = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
       include: {
-        userPermissions: {
+        user_permissions: {
           include: {
-            permission: true
+            permissions: true
           }
         },
         role: true
@@ -324,8 +331,9 @@ const checkUserPermission = async (req, res) => {
     let hasPermission = false;
     let source = 'none';
 
-    const userPerm = user.userPermissions.find(
-      up => up.permission.name === permissionName
+    const directUserPermissions = user.userPermissions || user.user_permissions || [];
+    const userPerm = directUserPermissions.find(
+      up => (up.permission?.name || up.permissions?.name) === permissionName
     );
 
     const rolePerm = user.roleId
@@ -378,8 +386,8 @@ const checkUserPermission = async (req, res) => {
       : null;
 
     if (normalizedUserPerm && normalizedRolePerm) {
-      source = 'mixed';
-      hasPermission = readFlag(mergeFlags(normalizedRolePerm, normalizedUserPerm), action);
+      source = hasAnyFlag(normalizedUserPerm) ? 'mixed' : 'revoked';
+      hasPermission = readFlag(normalizedUserPerm, action);
     } else if (normalizedUserPerm) {
       source = 'user';
       hasPermission = readFlag(normalizedUserPerm, action);

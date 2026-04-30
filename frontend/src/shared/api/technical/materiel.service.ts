@@ -103,6 +103,14 @@ export const materielService = {
     return response.data;
   },
 
+  async importMateriels(items: Record<string, string>[]): Promise<DetailResponse<any>> {
+    const response = await apiClient.post('/technical/materiel/import', {
+      items,
+      options: { updateExisting: true },
+    });
+    return response.data;
+  },
+
   async updateMateriel(id: string, data: UpdateMaterielRequest): Promise<DetailResponse<Materiel>> {
     const response = await apiClient.put(`/technical/materiel/${id}`, data);
     return response.data;

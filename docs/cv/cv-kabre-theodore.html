@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>CV - Kabre Theodore</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 1.5cm;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2933;
+      line-height: 1.35;
+      font-size: 10.5pt;
+      margin: 0;
+    }
+
+    h1 {
+      color: #102a43;
+      font-size: 24pt;
+      margin: 0 0 4px 0;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      color: #102a43;
+      font-size: 13pt;
+      margin: 18px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #bcccdc;
+    }
+
+    h3 {
+      color: #243b53;
+      font-size: 11.5pt;
+      margin: 12px 0 4px 0;
+    }
+
+    p {
+      margin: 5px 0;
+    }
+
+    ul {
+      margin: 5px 0 8px 18px;
+      padding: 0;
+    }
+
+    li {
+      margin: 2px 0;
+    }
+
+    .subtitle {
+      color: #486581;
+      font-weight: bold;
+      font-size: 12pt;
+      margin-bottom: 6px;
+    }
+
+    .contact {
+      color: #52606d;
+      font-size: 9.5pt;
+      margin-bottom: 14px;
+    }
+
+    .section-grid {
+      display: table;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .col {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+      padding-right: 14px;
+    }
+
+    .tagline {
+      background: #f0f4f8;
+      border-left: 4px solid #2f80ed;
+      padding: 8px 10px;
+      margin: 12px 0;
+    }
+
+    .role {
+      font-weight: bold;
+      color: #102a43;
+    }
+
+    .period {
+      color: #52606d;
+      font-style: italic;
+    }
+
+    .small {
+      font-size: 9.5pt;
+      color: #52606d;
+    }
+  </style>
+</head>
+<body>
+  <h1>KABRE THEODORE</h1>
+  <p class="subtitle">Développeur Full-Stack JavaScript / ERP / Automatisation métier</p>
+  <p class="contact">
+    Téléphone : à compléter | Email : à compléter | Localisation : à compléter<br>
+    GitHub : à compléter | LinkedIn : à compléter
+  </p>
+
+  <div class="tagline">
+    Développeur full-stack orienté solutions métier, spécialisé dans la conception et l'amélioration d'applications ERP, d'API backend, de tableaux de bord web et de processus de déploiement Docker. Expérience récente sur ParabellumGroups ERP avec un travail complet sur le module comptabilité, les permissions système, les migrations Prisma, la documentation technique et la préparation au déploiement VPS.
+  </div>
+
+  <h2>Compétences clés</h2>
+  <div class="section-grid">
+    <div class="col">
+      <h3>Backend</h3>
+      <ul>
+        <li>Node.js, Express.js, API REST</li>
+        <li>Prisma ORM, migrations Prisma</li>
+        <li>PostgreSQL</li>
+        <li>Permissions RBAC</li>
+        <li>Validation métier côté serveur</li>
+        <li>Architecture microservices</li>
+      </ul>
+
+      <h3>Frontend</h3>
+      <ul>
+        <li>Next.js, React, TypeScript</li>
+        <li>TanStack Query</li>
+        <li>Interfaces de gestion ERP</li>
+        <li>Tableaux de bord comptables</li>
+        <li>Formulaires métier et intégration API</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>DevOps et déploiement</h3>
+      <ul>
+        <li>Docker, Docker Compose</li>
+        <li>Déploiement sur VPS Linux</li>
+        <li>Git, build et relance de services</li>
+        <li>Logs, conteneurs et migrations</li>
+        <li>Documentation de commandes de production</li>
+      </ul>
+
+      <h3>Comptabilité et ERP</h3>
+      <ul>
+        <li>Plan comptable et familles dynamiques</li>
+        <li>Encaissements, décaissements, trésorerie</li>
+        <li>Balance comptable et rapports reconstruits</li>
+        <li>Notions de plan comptable OHADA</li>
+        <li>Analyse critique des risques techniques</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Expérience projet principale</h2>
+  <h3>ParabellumGroups ERP</h3>
+  <p><span class="role">Développeur Full-Stack / Backend / Comptabilité / DevOps</span><br>
+  <span class="period">Mars 2026 - avril 2026</span></p>
+  <p>
+    Projet ERP modulaire destiné à centraliser plusieurs fonctions d'entreprise : comptabilité, facturation, achats, inventaire, clients, projets, RH, communication, analytics et services techniques.
+  </p>
+
+  <h3>Réalisations principales</h3>
+  <ul>
+    <li>Analyse complète du module comptable existant et identification des risques techniques.</li>
+    <li>Sécurisation des familles comptables dynamiques côté backend.</li>
+    <li>Ajout d'une validation stricte du type de compte comptable attendu selon la famille.</li>
+    <li>Correction d'un bug critique dans la balance comptable lié à une mauvaise variable.</li>
+    <li>Ajout d'un diagnostic des familles comptables obligatoires pour identifier les configurations manquantes ou invalides.</li>
+    <li>Ajout d'une relation entre les comptes de trésorerie et les comptes comptables via Prisma.</li>
+    <li>Création d'une migration SQL pour relier <strong>treasury_accounts</strong> à <strong>accounting_accounts</strong>.</li>
+    <li>Validation backend des encaissements manuels avec obligation d'utiliser un compte de produit.</li>
+    <li>Validation backend des décaissements manuels avec obligation d'utiliser un compte de charge.</li>
+    <li>Adaptation des workflows pour utiliser le vrai compte comptable lié à la banque ou à la caisse.</li>
+    <li>Création et synchronisation des permissions comptables dédiées.</li>
+    <li>Mise à jour des rôles système et des scripts de synchronisation des permissions.</li>
+    <li>Mise à jour du frontend pour sélectionner et afficher le compte comptable lié à la trésorerie.</li>
+    <li>Documentation des commandes VPS pour migration Prisma, resynchronisation des permissions et vérifications SQL.</li>
+  </ul>
+
+  <h2>Technologies utilisées</h2>
+  <p>
+    JavaScript, TypeScript, Node.js, Express.js, Next.js, React, Prisma ORM, PostgreSQL, Docker, Docker Compose, Git, Linux VPS, REST API, RBAC, HTML, Markdown.
+  </p>
+
+  <h2>Résultats obtenus</h2>
+  <ul>
+    <li>Module comptable plus sécurisé côté backend.</li>
+    <li>Meilleure fiabilité des familles comptables dynamiques.</li>
+    <li>Compatibilité avec plusieurs banques et plusieurs caisses.</li>
+    <li>Réduction des risques d'erreurs comptables via API.</li>
+    <li>Permissions comptables mieux séparées des permissions dépenses/paiements.</li>
+    <li>Migration Prisma appliquée et validée.</li>
+    <li>Documentation VPS prête pour le déploiement.</li>
+  </ul>
+
+  <h2>Documentation réalisée</h2>
+  <ul>
+    <li>Rapport d'analyse critique du module comptable.</li>
+    <li>Rapport des modifications apportées.</li>
+    <li>Tutoriel Docker mis à jour avec commandes VPS.</li>
+    <li>Manuel d'utilisation détaillé du logiciel.</li>
+    <li>Rapport mensuel d'activité et suivi des heures.</li>
+  </ul>
+
+  <h2>Formation</h2>
+  <p><strong>Formation :</strong> à compléter<br>
+  <strong>Établissement :</strong> à compléter<br>
+  <strong>Année :</strong> à compléter</p>
+
+  <h2>Langues</h2>
+  <ul>
+    <li>Français : courant</li>
+    <li>Anglais : à compléter</li>
+  </ul>
+
+  <h2>Qualités professionnelles</h2>
+  <ul>
+    <li>Rigueur dans l'analyse technique</li>
+    <li>Sens du détail dans les règles métier</li>
+    <li>Capacité à documenter clairement</li>
+    <li>Autonomie dans le diagnostic et la correction</li>
+    <li>Vision full-stack, du frontend jusqu'au déploiement</li>
+  </ul>
+
+  <p class="small">CV généré à partir des travaux réalisés sur ParabellumGroups ERP - avril 2026.</p>
+</body>
+</html>

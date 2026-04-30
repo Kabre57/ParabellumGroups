@@ -23,6 +23,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatFCFA, textOrDash } from '@/components/printComponents/printUtils';
+import ImportCsvButton, { CsvImportRow } from '@/components/import/ImportCsvButton';
 
 type ProductStatus = 'active' | 'discontinued';
 
@@ -63,6 +64,21 @@ const UNIT_OPTIONS: { value: ArticleUnit; label: string }[] = [
   { value: 'KG', label: 'Kg' },
   { value: 'M', label: 'Metre' },
   { value: 'L', label: 'Litre' },
+];
+
+const PRODUCT_IMPORT_HEADERS = [
+  'reference',
+  'nom',
+  'description',
+  'categorie',
+  'unite',
+  'prixAchat',
+  'prixVente',
+  'quantiteStock',
+  'seuilAlerte',
+  'seuilRupture',
+  'emplacement',
+  'status',
 ];
 
 interface ProductFormValues {
@@ -197,6 +213,13 @@ export default function ProductsPage() {
     },
   });
 
+  const importMutation = useMutation({
+    mutationFn: (rows: CsvImportRow[]) => inventoryService.importArticles(rows),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
+    },
+  });
+
   const form = useForm<ProductFormValues>({
     defaultValues: {
       reference: '',
@@ -298,11 +321,19 @@ export default function ProductsPage() {
           </Button>
           <h1 className="mt-2 text-3xl font-bold">Catalogue produits</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="mr-2 h-4 w-4" />
             Imprimer
           </Button>
+          {canCreate && (
+            <ImportCsvButton
+              fileName="modele-produits.csv"
+              templateHeaders={PRODUCT_IMPORT_HEADERS}
+              disabled={importMutation.isPending}
+              onImport={(rows) => importMutation.mutateAsync(rows)}
+            />
+          )}
           {canCreate && (
             <Button onClick={openCreate}>
               <Package className="mr-2 h-4 w-4" />

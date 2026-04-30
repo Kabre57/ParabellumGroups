@@ -36,6 +36,11 @@ export default function PermissionsPage() {
     queryFn: () => adminPermissionsService.getPermissions(),
   });
 
+  const { data: permissionModulesData } = useQuery({
+    queryKey: ['admin-permission-modules'],
+    queryFn: () => adminPermissionsService.getPermissionModules(),
+  });
+
   const { data: rolesData } = useQuery({
     queryKey: ['admin-roles'],
     queryFn: () => adminRolesService.getRoles(),
@@ -53,6 +58,10 @@ export default function PermissionsPage() {
   });
 
   const permissions = useMemo(() => (Array.isArray(permissionsData?.data) ? permissionsData.data : []), [permissionsData]);
+  const registryModules = useMemo(
+    () => (Array.isArray(permissionModulesData?.data) ? permissionModulesData.data : []),
+    [permissionModulesData],
+  );
   const roles = useMemo(() => (Array.isArray(rolesData?.data) ? rolesData.data : []), [rolesData]);
 
   const filteredPermissions = useMemo(() => {
@@ -67,7 +76,10 @@ export default function PermissionsPage() {
     });
   }, [permissions, searchQuery]);
 
-  const permissionModules = useMemo(() => groupPermissionsByService(filteredPermissions), [filteredPermissions]);
+  const permissionModules = useMemo(
+    () => groupPermissionsByService(filteredPermissions, registryModules),
+    [filteredPermissions, registryModules],
+  );
 
   useEffect(() => {
     if (selectedModule === 'all' && permissionModules.length > 0) {
