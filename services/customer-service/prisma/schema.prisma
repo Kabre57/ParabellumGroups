@@ -240,6 +240,8 @@ model Client {
   // ===== INTEGRATION COMMERCIALE =====
   prospectId    String?         @unique
   commercialId  String?         // Référent commercial principal
+  enterpriseId  Int?
+  serviceId     Int?
   convertedAt   DateTime?
   
   // ===== RELATIONS =====
@@ -279,6 +281,8 @@ model Client {
   @@index([status])
   @@index([priorite])
   @@index([commercialId])
+  @@index([enterpriseId])
+  @@index([serviceId])
   @@index([createdAt])
   @@index([updatedAt])
   @@index([reference])

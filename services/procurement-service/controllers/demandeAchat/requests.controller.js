@@ -587,6 +587,9 @@ exports.getStats = async (req, res) => {
       where: {},
       requestedEnterpriseId: req.query.enterpriseId,
     });
+    if (req.query.serviceId) {
+      scopedOrderWhere.serviceId = Number(req.query.serviceId);
+    }
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);

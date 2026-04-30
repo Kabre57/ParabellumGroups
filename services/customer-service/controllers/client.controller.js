@@ -37,6 +37,39 @@ const toJsonSafe = (value) =>
     })
   );
 
+const isAdminLike = (user) => {
+  const role = String(user?.role || '').toLowerCase();
+  return role === 'admin' || role === 'super_admin';
+};
+
+const parseScopedInteger = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildClientScopeWhere = (req, explicitEnterpriseId, explicitServiceId) => {
+  const where = {};
+  const requestedEnterpriseId = parseScopedInteger(explicitEnterpriseId);
+  const requestedServiceId = parseScopedInteger(explicitServiceId);
+  const userEnterpriseId = parseScopedInteger(req.user?.enterpriseId);
+  const userServiceId = parseScopedInteger(req.user?.serviceId);
+
+  if (requestedEnterpriseId) {
+    where.enterpriseId = requestedEnterpriseId;
+  } else if (!isAdminLike(req.user) && userEnterpriseId) {
+    where.enterpriseId = userEnterpriseId;
+  }
+
+  if (requestedServiceId) {
+    where.serviceId = requestedServiceId;
+  } else if (!isAdminLike(req.user) && userServiceId) {
+    where.serviceId = userServiceId;
+  }
+
+  return where;
+};
+
 /**
  * Generate unique client reference in format CLI-YYYYMM-NNNN
  */
@@ -82,6 +115,8 @@ exports.getAll = async (req, res) => {
       commercialId,
       priorite,
       source,
+      enterpriseId,
+      serviceId,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
@@ -90,7 +125,7 @@ exports.getAll = async (req, res) => {
     const take = parseInt(limit);
 
     // Build dynamic where clause
-    const where = {};
+    const where = buildClientScopeWhere(req, enterpriseId, serviceId);
     
     if (status) where.status = status;
     if (typeClientId) where.typeClientId = typeClientId;
@@ -193,7 +228,9 @@ exports.getAll = async (req, res) => {
           status,
           typeClientId,
           search,
-          commercialId
+          commercialId,
+          enterpriseId,
+          serviceId
         }
       }
     });
@@ -354,7 +391,9 @@ exports.create = async (req, res) => {
       chiffreAffaireAnnuel,
       effectif,
       prospectId,
-      commercialId
+      commercialId,
+      enterpriseId,
+      serviceId
     } = req.body;
 
     // Check if email already exists
@@ -397,6 +436,8 @@ exports.create = async (req, res) => {
           effectif: effectif ? parseInt(effectif) : null,
           prospectId,
           commercialId,
+          enterpriseId: parseScopedInteger(enterpriseId) ?? parseScopedInteger(req.user?.enterpriseId),
+          serviceId: parseScopedInteger(serviceId) ?? parseScopedInteger(req.user?.serviceId),
           datePremierContact: new Date(),
           createdBy: req.user.id,
           updatedBy: req.user.id
@@ -481,6 +522,13 @@ exports.update = async (req, res) => {
 
     const { id } = req.params;
     const updateData = req.body;
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'enterpriseId')) {
+      updateData.enterpriseId = parseScopedInteger(updateData.enterpriseId);
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'serviceId')) {
+      updateData.serviceId = parseScopedInteger(updateData.serviceId);
+    }
 
     // Check if client exists
     const existingClient = await prisma.client.findUnique({
@@ -751,9 +799,9 @@ exports.updatePriority = async (req, res) => {
  */
 exports.getStats = async (req, res) => {
   try {
-    const { startDate, endDate, commercialId } = req.query;
+    const { startDate, endDate, commercialId, enterpriseId, serviceId } = req.query;
     
-    const where = {};
+    const where = buildClientScopeWhere(req, enterpriseId, serviceId);
     
     if (startDate || endDate) {
       where.createdAt = {};
@@ -875,7 +923,7 @@ exports.getStats = async (req, res) => {
 
     logger.info('Statistiques clients récupérées', {
       userId: req.user.id,
-      filters: { startDate, endDate, commercialId }
+      filters: { startDate, endDate, commercialId, enterpriseId, serviceId }
     });
 
     res.json({
@@ -886,7 +934,9 @@ exports.getStats = async (req, res) => {
         period: {
           startDate,
           endDate,
-          commercialId
+          commercialId,
+          enterpriseId,
+          serviceId
         }
       }
     });

@@ -8,6 +8,39 @@ const { syncMissionById, syncMissionsByClient } = require('../services/crmMissio
 const VALID_STATUSES = ['PLANIFIEE', 'EN_COURS', 'SUSPENDUE', 'TERMINEE', 'ANNULEE'];
 const VALID_PRIORITIES = ['BASSE', 'MOYENNE', 'HAUTE', 'URGENTE'];
 
+const isAdminLike = (user) => {
+  const role = String(user?.role || '').toLowerCase();
+  return role === 'admin' || role === 'super_admin';
+};
+
+const parseScopedInteger = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildMissionScopeWhere = (req, explicitEnterpriseId, explicitServiceId) => {
+  const where = {};
+  const requestedEnterpriseId = parseScopedInteger(explicitEnterpriseId);
+  const requestedServiceId = parseScopedInteger(explicitServiceId);
+  const userEnterpriseId = parseScopedInteger(req.user?.enterpriseId);
+  const userServiceId = parseScopedInteger(req.user?.serviceId);
+
+  if (requestedEnterpriseId) {
+    where.enterpriseId = requestedEnterpriseId;
+  } else if (!isAdminLike(req.user) && userEnterpriseId) {
+    where.enterpriseId = userEnterpriseId;
+  }
+
+  if (requestedServiceId) {
+    where.serviceId = requestedServiceId;
+  } else if (!isAdminLike(req.user) && userServiceId) {
+    where.serviceId = userServiceId;
+  }
+
+  return where;
+};
+
 const getMissionWithInterventionState = (id) =>
   prisma.mission.findUnique({
     where: { id },
@@ -146,10 +179,10 @@ const buildMissionPdfHtml = (mission) => {
 
 exports.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, priorite, search } = req.query;
+    const { page = 1, limit = 10, status, priorite, search, enterpriseId, serviceId } = req.query;
     const skip = (page - 1) * limit;
 
-    const where = {};
+    const where = buildMissionScopeWhere(req, enterpriseId, serviceId);
     if (status && VALID_STATUSES.includes(status)) {
       where.status = status;
     }
@@ -233,7 +266,9 @@ exports.create = async (req, res) => {
       dateFin,
       priorite = 'MOYENNE',
       budgetEstime,
-      notes
+      notes,
+      enterpriseId,
+      serviceId
     } = req.body;
 
     if (!titre || !clientNom || !adresse || !dateDebut) {
@@ -259,6 +294,8 @@ exports.create = async (req, res) => {
         description,
         crmClientId: clientId || null,
         crmAdresseId: adresseId || null,
+        enterpriseId: parseScopedInteger(enterpriseId) ?? parseScopedInteger(req.user?.enterpriseId),
+        serviceId: parseScopedInteger(serviceId) ?? parseScopedInteger(req.user?.serviceId),
         clientNom,
         nomAdresseChantier,
         clientContact,
@@ -548,6 +585,8 @@ exports.update = async (req, res) => {
       priorite,
       budgetEstime,
       notes,
+      enterpriseId,
+      serviceId,
       status,
     } = req.body;
 
@@ -588,6 +627,12 @@ exports.update = async (req, res) => {
         description,
         crmClientId: clientId || undefined,
         crmAdresseId: adresseId || undefined,
+        enterpriseId: Object.prototype.hasOwnProperty.call(req.body, 'enterpriseId')
+          ? parseScopedInteger(enterpriseId)
+          : undefined,
+        serviceId: Object.prototype.hasOwnProperty.call(req.body, 'serviceId')
+          ? parseScopedInteger(serviceId)
+          : undefined,
         clientNom,
         nomAdresseChantier,
         clientContact,
@@ -739,12 +784,13 @@ exports.delete = async (req, res) => {
 
 exports.getStats = async (req, res) => {
   try {
+    const scopeWhere = buildMissionScopeWhere(req, req.query.enterpriseId, req.query.serviceId);
     const stats = await Promise.all([
-      prisma.mission.count({ where: { status: 'PLANIFIEE' } }),
-      prisma.mission.count({ where: { status: 'EN_COURS' } }),
-      prisma.mission.count({ where: { status: 'TERMINEE' } }),
-      prisma.mission.count({ where: { status: 'ANNULEE' } }),
-      prisma.mission.count()
+      prisma.mission.count({ where: { ...scopeWhere, status: 'PLANIFIEE' } }),
+      prisma.mission.count({ where: { ...scopeWhere, status: 'EN_COURS' } }),
+      prisma.mission.count({ where: { ...scopeWhere, status: 'TERMINEE' } }),
+      prisma.mission.count({ where: { ...scopeWhere, status: 'ANNULEE' } }),
+      prisma.mission.count({ where: scopeWhere })
     ]);
 
     res.json({

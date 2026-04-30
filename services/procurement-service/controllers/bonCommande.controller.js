@@ -65,23 +65,34 @@ const buildLignePayload = (ligne) => {
 // Get all bons commande with pagination and filters
 exports.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, fournisseurId, search } = req.query;
+    const { page = 1, limit = 10, status, fournisseurId, search, serviceId } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    const where = {};
+    const { applyEnterpriseScope } = require('../utils/enterpriseScope');
+    const baseWhere = {};
     
     if (status) {
-      where.status = status;
+      baseWhere.status = status;
     }
     
     if (fournisseurId) {
-      where.fournisseurId = fournisseurId;
+      baseWhere.fournisseurId = fournisseurId;
+    }
+
+    if (serviceId) {
+      baseWhere.serviceId = Number(serviceId);
     }
     
     if (search) {
-      where.numeroBon = { contains: search, mode: 'insensitive' };
+      baseWhere.numeroBon = { contains: search, mode: 'insensitive' };
     }
+
+    const where = await applyEnterpriseScope({
+      req,
+      where: baseWhere,
+      requestedEnterpriseId: req.query.enterpriseId,
+    });
 
     const [bons, total] = await Promise.all([
       prisma.bonCommande.findMany({

@@ -45,6 +45,12 @@ import { enterpriseApi, serviceApi, type Enterprise, type Service } from '@/lib/
 import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 type DashboardPeriod = 'day' | 'week' | 'month' | 'year';
+type DashboardScopeCapability = {
+  enterprise: boolean;
+  service: boolean;
+};
+
+type DashboardModuleKey = 'overview' | 'finance' | 'procurement' | 'technical' | 'crm' | 'employees';
 type EnterpriseDashboardSnapshot = {
   overview: OverviewDashboard | null;
   financeOverview: AccountingOverview | null;
@@ -80,6 +86,15 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
 ];
 
 const chartMonthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jui', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const MODULE_SCOPE_CAPABILITIES: Record<DashboardModuleKey, DashboardScopeCapability> = {
+  overview: { enterprise: false, service: false },
+  finance: { enterprise: true, service: false },
+  procurement: { enterprise: true, service: true },
+  technical: { enterprise: true, service: true },
+  crm: { enterprise: true, service: true },
+  employees: { enterprise: true, service: true },
+};
 
 const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number.isFinite(value) ? value : 0)} F CFA`;
@@ -168,6 +183,15 @@ export function EnterpriseRealtimeDashboard({
   const rangeParams = useMemo(() => buildRangeParams(period), [period]);
   const selectedEnterpriseId = enterpriseView !== 'all' ? enterpriseView : undefined;
   const selectedServiceId = serviceView !== 'all' ? serviceView : undefined;
+  const hasEnterpriseScope = Boolean(selectedEnterpriseId);
+  const hasServiceScope = Boolean(selectedServiceId);
+
+  const supportsStrictScope = (moduleKey: DashboardModuleKey) => {
+    const capability = MODULE_SCOPE_CAPABILITIES[moduleKey];
+    if (hasServiceScope && !capability.service) return false;
+    if (hasEnterpriseScope && !capability.enterprise) return false;
+    return true;
+  };
 
   const enterprisesQuery = useQuery({
     queryKey: ['dashboard-enterprises'],
@@ -215,6 +239,21 @@ export function EnterpriseRealtimeDashboard({
     return `${enterpriseLabel} · ${serviceLabel}`;
   }, [selectedEnterprise?.name, selectedService?.nom]);
 
+  const hiddenModules = useMemo(() => {
+    const labels: Record<DashboardModuleKey, string> = {
+      overview: 'Cockpit global',
+      finance: 'Comptabilité',
+      procurement: 'Achats',
+      technical: 'Technique',
+      crm: 'CRM',
+      employees: 'Ressources humaines',
+    };
+
+    return (Object.keys(MODULE_SCOPE_CAPABILITIES) as DashboardModuleKey[])
+      .filter((moduleKey) => !supportsStrictScope(moduleKey))
+      .map((moduleKey) => labels[moduleKey]);
+  }, [hasEnterpriseScope, hasServiceScope]);
+
   const dashboardQuery = useQuery({
     queryKey: [
       'enterprise-dashboard',
@@ -246,17 +285,20 @@ export function EnterpriseRealtimeDashboard({
           enterpriseId: selectedEnterpriseId,
           serviceId: selectedServiceId,
         }),
-        canReadFinance
-          ? billingService.getAccountingOverview(normalizeAccountingPeriod(period), rangeParams)
+        canReadFinance && supportsStrictScope('finance')
+          ? billingService.getAccountingOverview(normalizeAccountingPeriod(period), {
+              ...rangeParams,
+              enterpriseId: selectedEnterpriseId,
+            })
           : Promise.resolve(null),
-        canReadProcurement
+        canReadProcurement && supportsStrictScope('procurement')
           ? procurementService.getRequestsStats({
               enterpriseId: selectedEnterpriseId,
               serviceId: selectedServiceId,
               ...rangeParams,
             })
           : Promise.resolve(null),
-        canReadProcurement
+        canReadProcurement && supportsStrictScope('procurement')
           ? procurementService.getRequests({
               limit: 5,
               sortBy: 'dateDemande',
@@ -266,18 +308,30 @@ export function EnterpriseRealtimeDashboard({
               ...rangeParams,
             })
           : Promise.resolve(null),
-        canReadProcurement
+        canReadProcurement && supportsStrictScope('procurement')
           ? procurementService.getOrders({
               limit: 5,
               sortBy: 'dateCommande',
               sortOrder: 'desc',
               enterpriseId: selectedEnterpriseId,
+              serviceId: selectedServiceId,
               ...rangeParams,
             })
           : Promise.resolve(null),
-        canReadTechnical ? missionsService.getMissionsStats() : Promise.resolve(null),
-        canReadCustomers ? clientsService.getClientsStats({ ...rangeParams }) : Promise.resolve(null),
-        canReadEmployees
+        canReadTechnical && supportsStrictScope('technical')
+          ? missionsService.getMissionsStats({
+              enterpriseId: selectedEnterpriseId,
+              serviceId: selectedServiceId,
+            })
+          : Promise.resolve(null),
+        canReadCustomers && supportsStrictScope('crm')
+          ? clientsService.getClientsStats({
+              ...rangeParams,
+              enterpriseId: selectedEnterpriseId,
+              serviceId: selectedServiceId,
+            })
+          : Promise.resolve(null),
+        canReadEmployees && supportsStrictScope('employees')
           ? adminUsersService.getUsers({
               page: 1,
               limit: 1,
@@ -285,7 +339,7 @@ export function EnterpriseRealtimeDashboard({
               serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
             })
           : Promise.resolve(null),
-        canReadEmployees
+        canReadEmployees && supportsStrictScope('employees')
           ? adminUsersService.getUsers({
               page: 1,
               limit: 1,
@@ -297,7 +351,10 @@ export function EnterpriseRealtimeDashboard({
       ]);
 
       return {
-        overview: overviewResult.status === 'fulfilled' ? overviewResult.value.data : null,
+        overview:
+          overviewResult.status === 'fulfilled' && supportsStrictScope('overview')
+            ? overviewResult.value.data
+            : null,
         financeOverview:
           financeResult.status === 'fulfilled' && financeResult.value
             ? financeResult.value.data
@@ -340,6 +397,8 @@ export function EnterpriseRealtimeDashboard({
   const kpis = useMemo(() => {
     const cards = [
       {
+        key: 'revenue',
+        moduleKey: 'finance' as DashboardModuleKey,
         title: "Chiffre d'affaires",
         value: snapshot?.financeOverview?.summary.totalRevenue ?? snapshot?.overview?.revenue ?? 0,
         format: 'currency' as const,
@@ -348,6 +407,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-green-100',
       },
       {
+        key: 'net-result',
+        moduleKey: 'finance' as DashboardModuleKey,
         title: 'Résultat net',
         value: snapshot?.financeOverview?.summary.netResult ?? snapshot?.overview?.profit ?? 0,
         format: 'currency' as const,
@@ -356,6 +417,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-emerald-100',
       },
       {
+        key: 'pending-quotes',
+        moduleKey: 'procurement' as DashboardModuleKey,
         title: 'Devis internes en attente',
         value: snapshot?.procurementStats?.pendingApproval ?? 0,
         format: 'number' as const,
@@ -364,6 +427,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-amber-100',
       },
       {
+        key: 'pending-orders',
+        moduleKey: 'procurement' as DashboardModuleKey,
         title: 'BC en attente',
         value: snapshot?.procurementStats?.pendingOrders ?? 0,
         format: 'number' as const,
@@ -372,6 +437,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-orange-100',
       },
       {
+        key: 'active-missions',
+        moduleKey: 'technical' as DashboardModuleKey,
         title: 'Missions actives',
         value: snapshot?.missionsStats?.enCours ?? snapshot?.overview?.active_missions ?? 0,
         format: 'number' as const,
@@ -380,6 +447,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-indigo-100',
       },
       {
+        key: 'active-clients',
+        moduleKey: 'crm' as DashboardModuleKey,
         title: 'Clients actifs',
         value: snapshot?.clientsStats?.totals.active ?? snapshot?.overview?.clients ?? 0,
         format: 'number' as const,
@@ -388,6 +457,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-blue-100',
       },
       {
+        key: 'employees-total',
+        moduleKey: 'employees' as DashboardModuleKey,
         title: 'Effectif total',
         value: snapshot?.employeesTotal ?? snapshot?.overview?.users ?? 0,
         format: 'number' as const,
@@ -396,6 +467,8 @@ export function EnterpriseRealtimeDashboard({
         bgColor: 'bg-purple-100',
       },
       {
+        key: 'employees-active',
+        moduleKey: 'employees' as DashboardModuleKey,
         title: 'Employés actifs',
         value: snapshot?.employeesActive ?? 0,
         format: 'number' as const,
@@ -405,20 +478,35 @@ export function EnterpriseRealtimeDashboard({
       },
     ];
 
-    return cards.filter((card) => card.value > 0 || isAdmin);
-  }, [isAdmin, snapshot]);
+    return cards.filter((card) => supportsStrictScope(card.moduleKey) && (card.value > 0 || isAdmin));
+  }, [isAdmin, snapshot, hasEnterpriseScope, hasServiceScope]);
 
   const serviceDistribution = useMemo(() => {
-    const data = [
-      snapshot?.procurementStats?.pendingApproval ?? 0,
-      snapshot?.procurementStats?.ordersThisMonth ?? 0,
-      snapshot?.missionsStats?.enCours ?? snapshot?.overview?.active_missions ?? 0,
-      snapshot?.clientsStats?.totals.active ?? 0,
-      snapshot?.employeesActive ?? 0,
-    ];
-    const labels = ['Achats en attente', 'BC du mois', 'Missions actives', 'Clients actifs', 'Employés actifs'];
+    const items = [
+      supportsStrictScope('procurement')
+        ? { label: 'Achats en attente', value: snapshot?.procurementStats?.pendingApproval ?? 0 }
+        : null,
+      supportsStrictScope('procurement')
+        ? { label: 'BC du mois', value: snapshot?.procurementStats?.ordersThisMonth ?? 0 }
+        : null,
+      supportsStrictScope('technical')
+        ? { label: 'Missions actives', value: snapshot?.missionsStats?.enCours ?? snapshot?.overview?.active_missions ?? 0 }
+        : null,
+      supportsStrictScope('crm')
+        ? { label: 'Clients actifs', value: snapshot?.clientsStats?.totals.active ?? 0 }
+        : null,
+      supportsStrictScope('employees')
+        ? { label: 'Employés actifs', value: snapshot?.employeesActive ?? 0 }
+        : null,
+    ].filter(Boolean) as Array<{ label: string; value: number }>;
+
+    if (items.length === 0) {
+      return { data: [], labels: [] };
+    }
+    const data = items.map((item) => item.value);
+    const labels = items.map((item) => item.label);
     return { data, labels };
-  }, [snapshot]);
+  }, [snapshot, hasEnterpriseScope, hasServiceScope]);
 
   const activityItems = useMemo(() => {
     const requestActivities = (snapshot?.recentRequests ?? []).map((request, index) => ({
@@ -451,6 +539,7 @@ export function EnterpriseRealtimeDashboard({
     return [
       {
         key: 'achats',
+        moduleKey: 'procurement' as DashboardModuleKey,
         title: 'Achats',
         icon: ClipboardList,
         accent: 'text-amber-600',
@@ -462,6 +551,7 @@ export function EnterpriseRealtimeDashboard({
       },
       {
         key: 'comptabilite',
+        moduleKey: 'finance' as DashboardModuleKey,
         title: 'Comptabilité',
         icon: Receipt,
         accent: 'text-green-600',
@@ -473,6 +563,7 @@ export function EnterpriseRealtimeDashboard({
       },
       {
         key: 'technique',
+        moduleKey: 'technical' as DashboardModuleKey,
         title: 'Technique',
         icon: Wrench,
         accent: 'text-indigo-600',
@@ -484,6 +575,7 @@ export function EnterpriseRealtimeDashboard({
       },
       {
         key: 'crm',
+        moduleKey: 'crm' as DashboardModuleKey,
         title: 'CRM',
         icon: Building2,
         accent: 'text-blue-600',
@@ -495,6 +587,7 @@ export function EnterpriseRealtimeDashboard({
       },
       {
         key: 'rh',
+        moduleKey: 'employees' as DashboardModuleKey,
         title: 'Ressources humaines',
         icon: Users,
         accent: 'text-purple-600',
@@ -504,8 +597,8 @@ export function EnterpriseRealtimeDashboard({
           { label: 'Comptes utilisateurs', value: String(snapshot?.overview?.users ?? 0) },
         ],
       },
-    ];
-  }, [snapshot]);
+    ].filter((card) => supportsStrictScope(card.moduleKey));
+  }, [snapshot, hasEnterpriseScope, hasServiceScope]);
 
   const lastRefresh = snapshot?.refreshedAt ? new Date(snapshot.refreshedAt) : null;
 
@@ -590,11 +683,18 @@ export function EnterpriseRealtimeDashboard({
             </Button>
           </div>
         </div>
+        {hiddenModules.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Certaines vues sont masquées pour respecter strictement le périmètre {scopeLabel} :
+            {' '}
+            <strong>{hiddenModules.join(', ')}</strong>.
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((kpi) => (
-          <KPICard key={kpi.title} {...kpi} />
+        {kpis.map(({ key, moduleKey: _moduleKey, ...kpi }) => (
+          <KPICard key={key} {...kpi} />
         ))}
       </div>
 
@@ -607,35 +707,43 @@ export function EnterpriseRealtimeDashboard({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <LineChart
-              data={snapshot?.overview?.monthly_revenue ?? []}
-              labels={chartMonthLabels}
-              label="Chiffre d'affaires"
-              color="rgb(37, 99, 235)"
-              backgroundColor="rgba(37, 99, 235, 0.12)"
-              fill
-              height={320}
-            />
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Marge</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
-                  {Number(snapshot?.overview?.margin ?? snapshot?.financeOverview?.reports.kpis.netMargin ?? 0).toFixed(1)}%
+            {supportsStrictScope('finance') || supportsStrictScope('overview') ? (
+              <>
+                <LineChart
+                  data={snapshot?.overview?.monthly_revenue ?? []}
+                  labels={chartMonthLabels}
+                  label="Chiffre d'affaires"
+                  color="rgb(37, 99, 235)"
+                  backgroundColor="rgba(37, 99, 235, 0.12)"
+                  fill
+                  height={320}
+                />
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border bg-slate-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Marge</div>
+                    <div className="mt-2 text-2xl font-semibold text-slate-900">
+                      {Number(snapshot?.overview?.margin ?? snapshot?.financeOverview?.reports.kpis.netMargin ?? 0).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-slate-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Créances clients</div>
+                    <div className="mt-2 text-2xl font-semibold text-slate-900">
+                      {formatCurrency(snapshot?.financeOverview?.summary.clientReceivables ?? 0)}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-slate-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Engagements en cours</div>
+                    <div className="mt-2 text-2xl font-semibold text-slate-900">
+                      {formatCurrency(snapshot?.financeOverview?.summary.pendingCommitted ?? 0)}
+                    </div>
+                  </div>
                 </div>
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed bg-slate-50 p-6 text-sm text-slate-600">
+                Les tendances financières ne sont affichées que lorsque le module peut respecter strictement le périmètre choisi.
               </div>
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Créances clients</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatCurrency(snapshot?.financeOverview?.summary.clientReceivables ?? 0)}
-                </div>
-              </div>
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Engagements en cours</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatCurrency(snapshot?.financeOverview?.summary.pendingCommitted ?? 0)}
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -647,12 +755,18 @@ export function EnterpriseRealtimeDashboard({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChart
-              data={serviceDistribution.data}
-              labels={serviceDistribution.labels}
-              height={320}
-              showLegend
-            />
+            {serviceDistribution.data.length > 0 ? (
+              <PieChart
+                data={serviceDistribution.data}
+                labels={serviceDistribution.labels}
+                height={320}
+                showLegend
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed bg-slate-50 p-6 text-sm text-slate-600">
+                Aucune répartition opérationnelle strictement compatible avec le périmètre actif.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

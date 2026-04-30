@@ -36,6 +36,7 @@ const authenticateToken = (req, res, next) => {
       userId: normalizedUserId ? String(normalizedUserId) : undefined,
       email: decoded.email || decoded.userEmail || null,
       role: normalizedRole ? String(normalizedRole).toLowerCase() : null,
+      enterpriseId: decoded.enterpriseId || decoded.enterprise_id || null,
       serviceId: decoded.serviceId || decoded.service_id || null,
       serviceName: decoded.serviceName || decoded.service?.name || null,
       permissions: normalizePermissions(decoded.permissions || decoded.permissionsList),

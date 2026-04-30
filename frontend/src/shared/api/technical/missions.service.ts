@@ -46,14 +46,17 @@ export const missionsService = {
     });
   },
 
-  async getMissionsStats(): Promise<{
+  async getMissionsStats(params?: {
+    enterpriseId?: string | number;
+    serviceId?: string | number;
+  }): Promise<{
     planifiees: number;
     enCours: number;
     terminees: number;
     annulees: number;
     total: number;
   }> {
-    const response = await apiClient.get('/missions/stats');
+    const response = await apiClient.get('/missions/stats', { params });
     return (response.data as any)?.data ?? response.data;
   },
 

@@ -41,16 +41,42 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
   const permissions = useMemo(() => permissionsData?.data || [], [permissionsData]);
   const userPermissions = useMemo(() => userPermissionsData?.data || [], [userPermissionsData]);
+  const userPermissionsById = useMemo(() => {
+    const map = new Map<number, any>();
+    userPermissions.forEach((permission: any) => {
+      const permissionId = Number(permission.permissionId || permission.permission?.id);
+      if (Number.isFinite(permissionId)) {
+        map.set(permissionId, permission);
+      }
+    });
+    return map;
+  }, [userPermissions]);
+
+  const effectivePermissions = useMemo(
+    () =>
+      permissions.map((permission: any) => ({
+        ...permission,
+        source: userPermissionsById.get(permission.id)?.source || null,
+      })),
+    [permissions, userPermissionsById]
+  );
+
+  const currentExceptionCount = useMemo(
+    () =>
+      Array.from(selectedPermissions).filter((permissionId) => userPermissionsById.get(permissionId)?.source !== 'role')
+        .length,
+    [selectedPermissions, userPermissionsById]
+  );
 
   const filteredPermissions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return permissions;
+    if (!query) return effectivePermissions;
 
-    return permissions.filter((perm: any) =>
+    return effectivePermissions.filter((perm: any) =>
       perm.name.toLowerCase().includes(query) ||
       (perm.description && perm.description.toLowerCase().includes(query)),
     );
-  }, [permissions, searchQuery]);
+  }, [effectivePermissions, searchQuery]);
 
   const permissionServices = useMemo(
     () => groupPermissionsByService(filteredPermissions),
@@ -100,7 +126,9 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
-      service.permissions.forEach((perm) => next.add(perm.id));
+      service.permissions
+        .filter((perm: any) => (perm as any).source !== 'role')
+        .forEach((perm) => next.add(perm.id));
       return next;
     });
   };
@@ -113,7 +141,9 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
-      service.permissions.forEach((perm) => next.delete(perm.id));
+      service.permissions
+        .filter((perm: any) => (perm as any).source !== 'role')
+        .forEach((perm) => next.delete(perm.id));
       return next;
     });
   };
@@ -124,7 +154,10 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
     try {
       setIsSubmitting(true);
       await adminUsersService.setUserPermissions(user.id, {
-        permissionIds: Array.from(selectedPermissions),
+        permissionIds: Array.from(selectedPermissions).filter((permissionId) => {
+          const source = userPermissionsById.get(permissionId)?.source;
+          return source !== 'role';
+        }),
       });
 
       toast.success('Permissions mises a jour avec succes');
@@ -171,6 +204,10 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pl-10 text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </div>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+            Les permissions <strong>héritées du rôle</strong> sont affichées pour information et restent gérées depuis le rôle.
+            Ici, tu ajoutes ou retires uniquement des <strong>exceptions utilisateur</strong>.
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -185,6 +222,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
             <div className="space-y-4">
               {permissionServices.map((service) => {
                 const selectedCount = service.permissions.filter((perm) => selectedPermissions.has(perm.id)).length;
+                const inheritedCount = service.permissions.filter((perm: any) => (perm as any).source === 'role').length;
+                const exceptionCount = service.permissions.filter((perm: any) => {
+                  const source = (perm as any).source;
+                  return source === 'user' || source === 'mixed';
+                }).length;
                 const isExpanded = expandedServices.has(service.id);
 
                 return (
@@ -199,6 +241,9 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                         <span className="font-medium text-gray-900 dark:text-white">{service.label}</span>
                         <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
                           ({selectedCount}/{service.permissions.length})
+                        </span>
+                        <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">
+                          {inheritedCount} héritée(s) · {exceptionCount} exception(s)
                         </span>
                       </button>
 
@@ -267,25 +312,32 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                             <div className="space-y-2">
                               {subgroup.permissions.map((permission) => {
                                 const isSelected = selectedPermissions.has(permission.id);
+                                const source = (permission as any).source;
+                                const isInheritedOnly = source === 'role';
+                                const isDirectException = source === 'user' || source === 'mixed';
                                 const sourceLabel =
-                                  (permission as any).source === 'role'
+                                  source === 'role'
                                     ? 'Hérité du rôle'
-                                    : (permission as any).source === 'mixed'
+                                    : source === 'mixed'
                                       ? 'Rôle + surcharge'
-                                      : (permission as any).source === 'user'
+                                      : source === 'user'
                                         ? 'Surcharge utilisateur'
                                         : null;
                                 return (
                                   <label
                                     key={permission.id}
-                                    className="flex cursor-pointer items-start rounded p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    className={`flex items-start rounded p-2 transition-colors ${
+                                      isInheritedOnly
+                                        ? 'bg-slate-50/80 dark:bg-slate-800/30'
+                                        : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
                                   >
                                     <div className="flex h-5 items-center">
                                       <input
                                         type="checkbox"
                                         checked={isSelected}
                                         onChange={() => togglePermission(permission.id)}
-                                        disabled={!canEdit}
+                                        disabled={!canEdit || isInheritedOnly}
                                         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                       />
                                     </div>
@@ -302,6 +354,21 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       </div>
                                       {permission.description && (
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{permission.description}</p>
+                                      )}
+                                      {isInheritedOnly && (
+                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                          Cette permission vient du rôle et ne peut pas être retirée depuis cette fenêtre.
+                                        </p>
+                                      )}
+                                      {!source && (
+                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                          Non accordée actuellement. Coche-la pour créer une exception utilisateur.
+                                        </p>
+                                      )}
+                                      {isDirectException && (
+                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                          Cette permission est portée par une exception utilisateur explicite.
+                                        </p>
                                       )}
                                     </div>
                                     {isSelected && <Check className="ml-3 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />}
@@ -322,7 +389,8 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{selectedPermissions.size}</span> permission(s) selectionnee(s)
+            <span className="font-medium">{selectedPermissions.size}</span> permission(s) effectives ·{' '}
+            <span className="font-medium">{currentExceptionCount}</span> exception(s) utilisateur
           </div>
           <div className="flex space-x-3">
             <button
