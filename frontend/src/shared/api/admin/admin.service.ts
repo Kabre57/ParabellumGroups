@@ -198,6 +198,7 @@ export interface UserFilters {
   search?: string;
   roleId?: number;
   serviceId?: number;
+  enterpriseId?: number;
   isActive?: boolean;
   page?: number;
   limit?: number;
@@ -226,6 +227,7 @@ export const adminUsersService = {
     if (filters?.roleId) params.append('roleId', String(filters.roleId));
     if (filters?.search) params.append('search', filters.search);
     if (filters?.serviceId) params.append('serviceId', String(filters.serviceId));
+    if (filters?.enterpriseId) params.append('enterpriseId', String(filters.enterpriseId));
     if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));

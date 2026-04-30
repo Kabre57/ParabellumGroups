@@ -496,6 +496,7 @@ export const procurementService = {
     status?: PurchaseRequestStatus;
     requesterId?: string;
     enterpriseId?: string | number;
+    serviceId?: string | number;
     startDate?: string;
     endDate?: string;
     search?: string;
@@ -539,8 +540,13 @@ export const procurementService = {
     };
   },
 
-  async getRequestsStats(): Promise<{ success: boolean; data: ProcurementStats }> {
-    const response = await apiClient.get('/procurement/devis-achat/stats');
+  async getRequestsStats(params?: {
+    enterpriseId?: string | number;
+    serviceId?: string | number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ success: boolean; data: ProcurementStats }> {
+    const response = await apiClient.get('/procurement/devis-achat/stats', { params });
     return normalizeStatsResponse<ProcurementStats>(response.data);
   },
 
@@ -790,6 +796,8 @@ export const procurementService = {
     limit?: number;
     status?: PurchaseOrderStatus;
     supplierId?: string;
+    enterpriseId?: string | number;
+    serviceId?: string | number;
     startDate?: string;
     endDate?: string;
     search?: string;

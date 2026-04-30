@@ -1,4 +1,9 @@
 const prisma = require('../config/database');
+const {
+  normalizeFlags,
+  mergeFlags,
+  computeMeaningfulOverride,
+} = require('../utils/userPermissionOverrides');
 
 /**
  * Get user permissions
@@ -62,15 +67,23 @@ const getUserPermissions = async (req, res) => {
       user.user_permissions.forEach(up => {
         const existing = permissionsMap.get(up.permission_id);
         if (existing && existing.source === 'role') {
-          // Fusionner : les permissions utilisateur écrasent celles du rôle
+          // Fusionner en mode additif : une permission utilisateur ajoute des flags
+          // au rôle mais ne doit pas masquer une permission déjà portée par le rôle.
+          const mergedFlags = mergeFlags(
+            normalizeFlags(existing),
+            normalizeFlags(up, {
+              canView: 'can_view',
+              canCreate: 'can_create',
+              canEdit: 'can_edit',
+              canDelete: 'can_delete',
+              canApprove: 'can_approve',
+            })
+          );
+
           permissionsMap.set(up.permission_id, {
             ...existing,
             source: 'mixed',
-            canView: up.can_view !== undefined ? up.can_view : existing.canView,
-            canCreate: up.can_create !== undefined ? up.can_create : existing.canCreate,
-            canEdit: up.can_edit !== undefined ? up.can_edit : existing.canEdit,
-            canDelete: up.can_delete !== undefined ? up.can_delete : existing.canDelete,
-            canApprove: up.can_approve !== undefined ? up.can_approve : existing.canApprove
+            ...mergedFlags,
           });
         } else {
           permissionsMap.set(up.permission_id, {
@@ -134,7 +147,10 @@ const updateUserPermissions = async (req, res) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) }
+      where: { id: parseInt(userId) },
+      include: {
+        role: true,
+      }
     });
 
     if (!user) {
@@ -143,6 +159,29 @@ const updateUserPermissions = async (req, res) => {
         message: 'Utilisateur non trouvé'
       });
     }
+
+    const rolePermissions = user.roleId
+      ? await prisma.rolePermission.findMany({
+          where: { roleId: user.roleId },
+          include: { permission: true },
+        })
+      : [];
+
+    const rolePermissionsByPermissionId = new Map(
+      rolePermissions.map((permission) => [permission.permissionId, normalizeFlags(permission)])
+    );
+
+    const existingPermissions = await prisma.permission.findMany({
+      where: {
+        id: {
+          in: permissions
+            .map((permission) => Number(permission.permissionId))
+            .filter((permissionId) => Number.isInteger(permissionId) && permissionId > 0),
+        },
+      },
+    });
+
+    const permissionsById = new Map(existingPermissions.map((permission) => [permission.id, permission]));
 
     // Supprimer toutes les permissions existantes
     await prisma.userPermission.deleteMany({
@@ -162,24 +201,32 @@ const updateUserPermissions = async (req, res) => {
       } = perm;
       
       // Vérifier si la permission existe
-      const permission = await prisma.permission.findUnique({
-        where: { id: parseInt(permissionId) }
-      });
+      const normalizedPermissionId = parseInt(permissionId);
+      const permission = permissionsById.get(normalizedPermissionId);
 
       if (!permission) {
         console.warn(`Permission ID ${permissionId} non trouvée, ignorée`);
         continue;
       }
 
+      const meaningfulOverride = computeMeaningfulOverride({
+        roleFlags: rolePermissionsByPermissionId.get(normalizedPermissionId) || null,
+        userFlags: { canView, canCreate, canEdit, canDelete, canApprove },
+      });
+
+      if (!meaningfulOverride) {
+        continue;
+      }
+
       const userPerm = await prisma.userPermission.create({
         data: {
           user_id: parseInt(userId),
-          permission_id: parseInt(permissionId),
-          can_view: canView,
-          can_create: canCreate,
-          can_edit: canEdit,
-          can_delete: canDelete,
-          can_approve: canApprove,
+          permission_id: normalizedPermissionId,
+          can_view: meaningfulOverride.canView,
+          can_create: meaningfulOverride.canCreate,
+          can_edit: meaningfulOverride.canEdit,
+          can_delete: meaningfulOverride.canDelete,
+          can_approve: meaningfulOverride.canApprove,
           updated_at: new Date()
         }
       });
@@ -277,65 +324,68 @@ const checkUserPermission = async (req, res) => {
     let hasPermission = false;
     let source = 'none';
 
-    // Vérifier permission utilisateur
     const userPerm = user.userPermissions.find(
       up => up.permission.name === permissionName
     );
 
-    if (userPerm) {
-      source = 'user';
-      switch (action) {
-        case 'view':
-          hasPermission = userPerm.canView;
-          break;
-        case 'create':
-          hasPermission = userPerm.canCreate;
-          break;
-        case 'edit':
-          hasPermission = userPerm.canEdit;
-          break;
-        case 'delete':
-          hasPermission = userPerm.canDelete;
-          break;
-        case 'approve':
-          hasPermission = userPerm.canApprove;
-          break;
-        default:
-          hasPermission = userPerm.canView || userPerm.canCreate || userPerm.canEdit || userPerm.canDelete || userPerm.canApprove;
-      }
-    } else if (user.roleId) {
-      // Vérifier permission du rôle
-      const rolePerm = await prisma.rolePermission.findUnique({
-        where: {
-          roleId_permissionId: {
-            roleId: user.roleId,
-            permissionId: permission.id
+    const rolePerm = user.roleId
+      ? await prisma.rolePermission.findUnique({
+          where: {
+            roleId_permissionId: {
+              roleId: user.roleId,
+              permissionId: permission.id
+            }
           }
-        }
-      });
+        })
+      : null;
 
-      if (rolePerm) {
-        source = 'role';
-        switch (action) {
-          case 'view':
-            hasPermission = rolePerm.canView;
-            break;
-          case 'create':
-            hasPermission = rolePerm.canCreate;
-            break;
-          case 'edit':
-            hasPermission = rolePerm.canEdit;
-            break;
-          case 'delete':
-            hasPermission = rolePerm.canDelete;
-            break;
-          case 'approve':
-            hasPermission = rolePerm.canApprove;
-            break;
-          default:
-            hasPermission = rolePerm.canView || rolePerm.canCreate || rolePerm.canEdit || rolePerm.canDelete || rolePerm.canApprove;
-        }
+    const readFlag = (perm, key) => {
+      if (!perm) return false;
+      switch (key) {
+        case 'view':
+          return Boolean(perm.canView);
+        case 'create':
+          return Boolean(perm.canCreate);
+        case 'edit':
+          return Boolean(perm.canEdit);
+        case 'delete':
+          return Boolean(perm.canDelete);
+        case 'approve':
+          return Boolean(perm.canApprove);
+        default:
+          return Boolean(perm.canView || perm.canCreate || perm.canEdit || perm.canDelete || perm.canApprove);
       }
+    };
+
+    const normalizedUserPerm = userPerm
+      ? {
+          canView: userPerm.canView ?? userPerm.can_view,
+          canCreate: userPerm.canCreate ?? userPerm.can_create,
+          canEdit: userPerm.canEdit ?? userPerm.can_edit,
+          canDelete: userPerm.canDelete ?? userPerm.can_delete,
+          canApprove: userPerm.canApprove ?? userPerm.can_approve,
+        }
+      : null;
+
+    const normalizedRolePerm = rolePerm
+      ? {
+          canView: rolePerm.canView,
+          canCreate: rolePerm.canCreate,
+          canEdit: rolePerm.canEdit,
+          canDelete: rolePerm.canDelete,
+          canApprove: rolePerm.canApprove,
+        }
+      : null;
+
+    if (normalizedUserPerm && normalizedRolePerm) {
+      source = 'mixed';
+      hasPermission = readFlag(mergeFlags(normalizedRolePerm, normalizedUserPerm), action);
+    } else if (normalizedUserPerm) {
+      source = 'user';
+      hasPermission = readFlag(normalizedUserPerm, action);
+    } else if (normalizedRolePerm) {
+      source = 'role';
+      hasPermission = readFlag(normalizedRolePerm, action);
     }
 
     return res.status(200).json({

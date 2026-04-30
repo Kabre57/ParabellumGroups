@@ -40,11 +40,11 @@ import type {
 import { missionsService } from '@/shared/api/technical/missions.service';
 import { clientsService } from '@/shared/api/crm/clients.service';
 import type { ClientsStats } from '@/shared/api/crm/types';
-import { employeesService } from '@/shared/api/hr/employees.service';
+import { adminUsersService } from '@/shared/api/admin/admin.service';
+import { enterpriseApi, serviceApi, type Enterprise, type Service } from '@/lib/api';
+import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
 type DashboardPeriod = 'day' | 'week' | 'month' | 'year';
-type ServiceView = 'all' | 'achats' | 'comptabilite' | 'technique' | 'crm' | 'rh';
-
 type EnterpriseDashboardSnapshot = {
   overview: OverviewDashboard | null;
   financeOverview: AccountingOverview | null;
@@ -77,15 +77,6 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
   { value: 'week', label: 'Semaine' },
   { value: 'month', label: 'Mois' },
   { value: 'year', label: 'Année' },
-];
-
-const serviceOptions: Array<{ value: ServiceView; label: string }> = [
-  { value: 'all', label: 'Tous les services' },
-  { value: 'achats', label: 'Achats' },
-  { value: 'comptabilite', label: 'Comptabilité' },
-  { value: 'technique', label: 'Technique' },
-  { value: 'crm', label: 'CRM' },
-  { value: 'rh', label: 'RH' },
 ];
 
 const chartMonthLabels = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jui', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -160,7 +151,10 @@ export function EnterpriseRealtimeDashboard({
 }: EnterpriseRealtimeDashboardProps) {
   const { user } = useAuth();
   const isAdmin = isAdminRole(user);
-  const [serviceView, setServiceView] = useState<ServiceView>('all');
+  const [enterpriseView, setEnterpriseView] = useState<string>(
+    user?.enterpriseId ? String(user.enterpriseId) : 'all'
+  );
+  const [serviceView, setServiceView] = useState<string>('all');
 
   const canReadFinance = isAdmin || hasPermission(user, 'reports.read_financial');
   const canReadProcurement =
@@ -172,9 +166,68 @@ export function EnterpriseRealtimeDashboard({
   const canReadCustomers = isAdmin || hasPermission(user, 'customers.read');
   const canReadEmployees = isAdmin || hasPermission(user, 'employees.read');
   const rangeParams = useMemo(() => buildRangeParams(period), [period]);
+  const selectedEnterpriseId = enterpriseView !== 'all' ? enterpriseView : undefined;
+  const selectedServiceId = serviceView !== 'all' ? serviceView : undefined;
+
+  const enterprisesQuery = useQuery({
+    queryKey: ['dashboard-enterprises'],
+    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
+    enabled: isAdmin || Boolean(user?.enterpriseId),
+    staleTime: 60_000,
+  });
+
+  const servicesQuery = useQuery({
+    queryKey: ['dashboard-services'],
+    queryFn: () => serviceApi.getAll({ limit: 200, actif: true }),
+    enabled: isAdmin || hasPermission(user, 'services.read'),
+    staleTime: 60_000,
+  });
+
+  const accessibleEnterprises = useMemo(
+    () => getAccessibleEnterprises((enterprisesQuery.data?.data ?? []) as Enterprise[], user?.enterpriseId),
+    [enterprisesQuery.data?.data, user?.enterpriseId]
+  );
+
+  const availableServices = useMemo(() => {
+    const services = (servicesQuery.data?.data ?? []) as Service[];
+    const normalizedEnterpriseId = selectedEnterpriseId ? String(selectedEnterpriseId) : null;
+
+    return services
+      .filter((service) => {
+        if (!normalizedEnterpriseId) return true;
+        return String(service.enterpriseId ?? '') === normalizedEnterpriseId;
+      })
+      .sort((left, right) => (left.nom || '').localeCompare(right.nom || '', 'fr'));
+  }, [selectedEnterpriseId, servicesQuery.data?.data]);
+
+  const selectedEnterprise = useMemo(
+    () => accessibleEnterprises.find((enterprise) => String(enterprise.id) === String(enterpriseView)) || null,
+    [accessibleEnterprises, enterpriseView]
+  );
+  const selectedService = useMemo(
+    () => availableServices.find((service) => String(service.id) === String(serviceView)) || null,
+    [availableServices, serviceView]
+  );
+
+  const scopeLabel = useMemo(() => {
+    const enterpriseLabel = selectedEnterprise?.name || 'Toutes les entreprises';
+    const serviceLabel = selectedService?.nom || 'Tous les services';
+    return `${enterpriseLabel} · ${serviceLabel}`;
+  }, [selectedEnterprise?.name, selectedService?.nom]);
 
   const dashboardQuery = useQuery({
-    queryKey: ['enterprise-dashboard', period, isAdmin, canReadFinance, canReadProcurement, canReadTechnical, canReadCustomers, canReadEmployees],
+    queryKey: [
+      'enterprise-dashboard',
+      period,
+      enterpriseView,
+      serviceView,
+      isAdmin,
+      canReadFinance,
+      canReadProcurement,
+      canReadTechnical,
+      canReadCustomers,
+      canReadEmployees,
+    ],
     queryFn: async (): Promise<EnterpriseDashboardSnapshot> => {
       const [
         overviewResult,
@@ -187,21 +240,60 @@ export function EnterpriseRealtimeDashboard({
         employeesTotalResult,
         employeesActiveResult,
       ] = await Promise.allSettled([
-        analyticsService.getOverviewDashboard({ period: normalizeAnalyticsPeriod(period), ...rangeParams }),
+        analyticsService.getOverviewDashboard({
+          period: normalizeAnalyticsPeriod(period),
+          ...rangeParams,
+          enterpriseId: selectedEnterpriseId,
+          serviceId: selectedServiceId,
+        }),
         canReadFinance
           ? billingService.getAccountingOverview(normalizeAccountingPeriod(period), rangeParams)
           : Promise.resolve(null),
-        canReadProcurement ? procurementService.getRequestsStats() : Promise.resolve(null),
         canReadProcurement
-          ? procurementService.getRequests({ limit: 5, sortBy: 'dateDemande', sortOrder: 'desc', ...rangeParams })
+          ? procurementService.getRequestsStats({
+              enterpriseId: selectedEnterpriseId,
+              serviceId: selectedServiceId,
+              ...rangeParams,
+            })
           : Promise.resolve(null),
         canReadProcurement
-          ? procurementService.getOrders({ limit: 5, sortBy: 'dateCommande', sortOrder: 'desc', ...rangeParams })
+          ? procurementService.getRequests({
+              limit: 5,
+              sortBy: 'dateDemande',
+              sortOrder: 'desc',
+              enterpriseId: selectedEnterpriseId,
+              serviceId: selectedServiceId,
+              ...rangeParams,
+            })
+          : Promise.resolve(null),
+        canReadProcurement
+          ? procurementService.getOrders({
+              limit: 5,
+              sortBy: 'dateCommande',
+              sortOrder: 'desc',
+              enterpriseId: selectedEnterpriseId,
+              ...rangeParams,
+            })
           : Promise.resolve(null),
         canReadTechnical ? missionsService.getMissionsStats() : Promise.resolve(null),
-        canReadCustomers ? clientsService.getClientsStats() : Promise.resolve(null),
-        canReadEmployees ? employeesService.getEmployees({ page: 1, pageSize: 1 }) : Promise.resolve(null),
-        canReadEmployees ? employeesService.getEmployees({ page: 1, pageSize: 1, filters: { isActive: true } }) : Promise.resolve(null),
+        canReadCustomers ? clientsService.getClientsStats({ ...rangeParams }) : Promise.resolve(null),
+        canReadEmployees
+          ? adminUsersService.getUsers({
+              page: 1,
+              limit: 1,
+              enterpriseId: selectedEnterpriseId ? Number(selectedEnterpriseId) : undefined,
+              serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
+            })
+          : Promise.resolve(null),
+        canReadEmployees
+          ? adminUsersService.getUsers({
+              page: 1,
+              limit: 1,
+              isActive: true,
+              enterpriseId: selectedEnterpriseId ? Number(selectedEnterpriseId) : undefined,
+              serviceId: selectedServiceId ? Number(selectedServiceId) : undefined,
+            })
+          : Promise.resolve(null),
       ]);
 
       return {
@@ -228,11 +320,11 @@ export function EnterpriseRealtimeDashboard({
           clientsResult.status === 'fulfilled' && clientsResult.value ? clientsResult.value.data : null,
         employeesTotal:
           employeesTotalResult.status === 'fulfilled' && employeesTotalResult.value
-            ? employeesTotalResult.value.pagination?.totalItems ?? employeesTotalResult.value.data.length
+            ? employeesTotalResult.value.pagination?.total ?? employeesTotalResult.value.data.length
             : null,
         employeesActive:
           employeesActiveResult.status === 'fulfilled' && employeesActiveResult.value
-            ? employeesActiveResult.value.pagination?.totalItems ?? employeesActiveResult.value.data.length
+            ? employeesActiveResult.value.pagination?.total ?? employeesActiveResult.value.data.length
             : null,
         refreshedAt: new Date().toISOString(),
       };
@@ -356,9 +448,9 @@ export function EnterpriseRealtimeDashboard({
   }, [snapshot]);
 
   const executiveServiceCards = useMemo(() => {
-    const cards = [
+    return [
       {
-        key: 'achats' as const,
+        key: 'achats',
         title: 'Achats',
         icon: ClipboardList,
         accent: 'text-amber-600',
@@ -369,7 +461,7 @@ export function EnterpriseRealtimeDashboard({
         ],
       },
       {
-        key: 'comptabilite' as const,
+        key: 'comptabilite',
         title: 'Comptabilité',
         icon: Receipt,
         accent: 'text-green-600',
@@ -380,7 +472,7 @@ export function EnterpriseRealtimeDashboard({
         ],
       },
       {
-        key: 'technique' as const,
+        key: 'technique',
         title: 'Technique',
         icon: Wrench,
         accent: 'text-indigo-600',
@@ -391,7 +483,7 @@ export function EnterpriseRealtimeDashboard({
         ],
       },
       {
-        key: 'crm' as const,
+        key: 'crm',
         title: 'CRM',
         icon: Building2,
         accent: 'text-blue-600',
@@ -402,7 +494,7 @@ export function EnterpriseRealtimeDashboard({
         ],
       },
       {
-        key: 'rh' as const,
+        key: 'rh',
         title: 'Ressources humaines',
         icon: Users,
         accent: 'text-purple-600',
@@ -413,9 +505,7 @@ export function EnterpriseRealtimeDashboard({
         ],
       },
     ];
-
-    return serviceView === 'all' ? cards : cards.filter((card) => card.key === serviceView);
-  }, [serviceView, snapshot]);
+  }, [snapshot]);
 
   const lastRefresh = snapshot?.refreshedAt ? new Date(snapshot.refreshedAt) : null;
 
@@ -434,11 +524,14 @@ export function EnterpriseRealtimeDashboard({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
               <Activity className="h-4 w-4" />
-              Pilotage consolidé multi-services
+              Pilotage ERP multi-entreprises et multi-services
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
               <p className="mt-1 text-sm text-gray-600">{description}</p>
+            </div>
+            <div className="text-sm font-medium text-slate-700">
+              Périmètre actif : {scopeLabel}
             </div>
             {lastRefresh ? (
               <div className="text-sm text-gray-500">
@@ -460,13 +553,30 @@ export function EnterpriseRealtimeDashboard({
               ))}
             </select>
             <select
-              value={serviceView}
-              onChange={(event) => setServiceView(event.target.value as ServiceView)}
+              value={enterpriseView}
+              onChange={(event) => {
+                const nextEnterprise = event.target.value;
+                setEnterpriseView(nextEnterprise);
+                setServiceView('all');
+              }}
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
-              {serviceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              <option value="all">Toutes les entreprises</option>
+              {accessibleEnterprises.map((enterprise) => (
+                <option key={String(enterprise.id)} value={String(enterprise.id)}>
+                  {enterprise.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={serviceView}
+              onChange={(event) => setServiceView(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Tous les services</option>
+              {availableServices.map((service) => (
+                <option key={String(service.id)} value={String(service.id)}>
+                  {service.nom}
                 </option>
               ))}
             </select>

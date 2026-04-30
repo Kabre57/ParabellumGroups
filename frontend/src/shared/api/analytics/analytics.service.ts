@@ -185,7 +185,13 @@ export interface DetailResponse<T> {
 
 export const analyticsService = {
   // --- Analytics Stats ---
-  async getOverviewDashboard(params?: { period?: string; startDate?: string; endDate?: string }): Promise<{ success: boolean; data: OverviewDashboard }> {
+  async getOverviewDashboard(params?: {
+    period?: string;
+    startDate?: string;
+    endDate?: string;
+    enterpriseId?: string | number;
+    serviceId?: string | number;
+  }): Promise<{ success: boolean; data: OverviewDashboard }> {
     const response = await apiClient.get('/analytics/overview', { params });
     return response.data;
   },

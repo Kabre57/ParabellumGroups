@@ -10,6 +10,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "sync:roles": "node scripts/sync-system-roles.js",
+    "cleanup:permission-overrides": "node scripts/prune-user-permission-overrides.js",
     "test": "node ../../scripts/run-node-tests.mjs tests"
   },
   "keywords": [
