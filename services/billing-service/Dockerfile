@@ -10,6 +10,12 @@ ARG PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 ENV PRISMA_ENGINES_MIRROR=${PRISMA_ENGINES_MIRROR} \
     PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 
+# Configure npm for better network reliability
+RUN npm config set fetch-timeout 60000 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5
+
 # Copy package files
 COPY package*.json ./
 
