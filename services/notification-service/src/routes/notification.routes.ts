@@ -49,8 +49,15 @@ router.get('/stream', (req: Request, res: Response) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
+  let isOpen = true;
   const send = (data: any) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (!isOpen || res.destroyed) return;
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      isOpen = false;
+      console.error('Notification stream write error:', error);
+    }
   };
 
   // Initial heartbeat to keep connection open
@@ -68,9 +75,12 @@ router.get('/stream', (req: Request, res: Response) => {
   const heartbeat = setInterval(() => send({ type: 'PING', ts: Date.now() }), 15000);
 
   req.on('close', () => {
+    isOpen = false;
     clearInterval(heartbeat);
     notificationEmitter.off('notification', handler);
-    res.end();
+    if (!res.destroyed) {
+      res.end();
+    }
   });
 });
 

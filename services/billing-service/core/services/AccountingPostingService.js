@@ -1,9 +1,13 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const {
-  amount,
   computeSignedDelta,
   serializeJournalEntry,
 } = require('../../utils/accounting');
+const {
+  amount,
+  normalizeAccountingLines,
+  validateBalancedAccountingLines,
+} = require('../../utils/accountingLines');
 const AccountingPeriodService = require('./AccountingPeriodService');
 const AccountingJournalService = require('./AccountingJournalService');
 
@@ -35,48 +39,11 @@ class AccountingPostingService {
   }
 
   normalizeLines(lines = [], label, enterpriseId = null) {
-    return lines
-      .filter((line) => line && line.accountId && amount(line.amount) > 0)
-      .map((line) => ({
-        accountId: String(line.accountId).trim(),
-        side: String(line.side || '').trim().toUpperCase(),
-        amount: amount(line.amount),
-        description: line.description ? String(line.description).trim() : label,
-        enterpriseId: Number.isInteger(enterpriseId) ? enterpriseId : line.enterpriseId ?? null,
-        thirdPartyId: line.thirdPartyId ? String(line.thirdPartyId).trim() : null,
-        thirdPartyName: line.thirdPartyName ? String(line.thirdPartyName).trim() : null,
-        currency: line.currency ? String(line.currency).trim().toUpperCase() : 'XOF',
-        exchangeRate: line.exchangeRate ?? null,
-        amountCurrency: line.amountCurrency ?? null,
-      }));
+    return normalizeAccountingLines(lines, label, enterpriseId);
   }
 
   validateBalancedLines(lines) {
-    if (!Array.isArray(lines) || lines.length < 2) {
-      const error = new Error('Une écriture comptable doit contenir au moins deux lignes.');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const invalidSide = lines.find((line) => ![AccountingEntrySide.DEBIT, AccountingEntrySide.CREDIT].includes(line.side));
-    if (invalidSide) {
-      const error = new Error('Chaque ligne doit avoir un sens débit ou crédit valide.');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const totalDebit = lines
-      .filter((line) => line.side === AccountingEntrySide.DEBIT)
-      .reduce((sum, line) => sum + amount(line.amount), 0);
-    const totalCredit = lines
-      .filter((line) => line.side === AccountingEntrySide.CREDIT)
-      .reduce((sum, line) => sum + amount(line.amount), 0);
-
-    if (Math.abs(totalDebit - totalCredit) > 0.0001) {
-      const error = new Error('L écriture comptable doit être équilibrée.');
-      error.statusCode = 400;
-      throw error;
-    }
+    validateBalancedAccountingLines(lines);
   }
 
   async postEntry(payload, client = prisma) {
@@ -96,7 +63,7 @@ class AccountingPostingService {
     const lines = this.normalizeLines(payload.lines, normalizedLabel, resolvedEnterpriseId);
     this.validateBalancedLines(lines);
 
-    return client.$transaction(async (tx) => {
+    const persistEntry = async (tx) => {
       const journal = await AccountingJournalService.getOrCreateJournal(tx, {
         journalCode: payload.journalCode,
         journalLabel: payload.journalLabel,
@@ -186,7 +153,13 @@ class AccountingPostingService {
       );
 
       return serializeJournalEntry(createdEntry);
-    });
+    };
+
+    if (typeof client.$transaction === 'function') {
+      return client.$transaction(persistEntry);
+    }
+
+    return persistEntry(client);
   }
 }
 

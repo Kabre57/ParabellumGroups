@@ -3,6 +3,8 @@ import prisma from '../prisma';
 import nodemailer from 'nodemailer';
 import notificationEmitter from '../emitter';
 
+type MailTransporter = ReturnType<typeof nodemailer.createTransport>;
+
 const isNotificationStorageUnavailable = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false;
 
@@ -19,15 +21,70 @@ const isNotificationStorageUnavailable = (error: unknown): boolean => {
   );
 };
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const isSmtpEnabled = () => {
+  const enabled = String(process.env.SMTP_ENABLED || '').trim().toLowerCase();
+  if (['false', '0', 'no', 'off'].includes(enabled)) return false;
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && getSmtpPassword());
+};
+
+const getSmtpPassword = () => process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
+
+const getSmtpPort = () => parseInt(process.env.SMTP_PORT || '587', 10);
+
+const isSecureSmtp = () => {
+  const secureFlag = String(process.env.SMTP_SECURE || '').trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(secureFlag)) return true;
+  if (['false', '0', 'no', 'off'].includes(secureFlag)) return false;
+  return getSmtpPort() === 465;
+};
+
+const createMailTransporter = (): MailTransporter | null => {
+  if (!isSmtpEnabled()) {
+    return null;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: getSmtpPort(),
+    secure: isSecureSmtp(),
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 5000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 5000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 8000),
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: getSmtpPassword(),
+    },
+  });
+
+  (transporter as any).on?.('error', (error: Error) => {
+    console.error('SMTP transporter error:', error.message);
+  });
+
+  return transporter;
+};
+
+const transporter = createMailTransporter();
+
+const sendEmailNotification = async (email: string, title: string, message: string) => {
+  if (!transporter) {
+    console.warn('SMTP disabled or incomplete configuration; email notification skipped.');
+    return;
+  }
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@parabellumgroups.com',
+      to: email,
+      subject: title,
+      html: `
+        <h2>${title}</h2>
+        <p>${message}</p>
+      `,
+    });
+  } catch (emailError) {
+    console.error('Email sending error:', emailError);
+  }
+};
 
 export const sendNotification = async (req: Request, res: Response) => {
   try {
@@ -46,19 +103,7 @@ export const sendNotification = async (req: Request, res: Response) => {
     notificationEmitter.emit('notification', { userId, notification });
 
     if (email) {
-      try {
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || 'noreply@delices-afro-caraibe.com',
-          to: email,
-          subject: title,
-          html: `
-            <h2>${title}</h2>
-            <p>${message}</p>
-          `,
-        });
-      } catch (emailError) {
-        console.error('Email sending error:', emailError);
-      }
+      await sendEmailNotification(email, title, message);
     }
 
     res.status(201).json(notification);

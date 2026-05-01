@@ -82,6 +82,7 @@ export function CreateDecaissementDialog({
     ]);
   const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment, userEnterpriseId));
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
+  const [vatAccountingAccountId, setVatAccountingAccountId] = useState<string>('');
 
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
@@ -111,13 +112,22 @@ export function CreateDecaissementDialog({
     () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
     [enterprises, form.enterpriseId]
   );
+  const hasVat = Number(form.amountTVA || 0) > 0;
+  const requiresManualVatAccount = hasVat && !form.commitmentId;
 
   useEffect(() => {
     if (open) {
       setForm(buildInitialState(defaultCommitment, userEnterpriseId));
       setAccountingAccountId('');
+      setVatAccountingAccountId('');
     }
   }, [open, defaultCommitment, userEnterpriseId]);
+
+  useEffect(() => {
+    if (!hasVat) {
+      setVatAccountingAccountId('');
+    }
+  }, [hasVat]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => {
@@ -145,18 +155,25 @@ export function CreateDecaissementDialog({
       notes: form.notes || undefined,
       commitmentId: form.commitmentId || undefined,
       accountingAccountId: accountingAccountId || undefined,
+      vatAccountingAccountId: hasVat ? vatAccountingAccountId || undefined : undefined,
     });
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
   const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => acc?.isActive !== false);
+  const vatAccounts = accountingAccounts.filter(
+    (acc: any) => acc.type === 'asset' && String(acc.code || '').startsWith('445')
+  );
+  const selectableVatAccounts = vatAccounts.length
+    ? vatAccounts
+    : accountingAccounts.filter((acc: any) => acc.type === 'asset');
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden flex flex-col border-rose-100">
+      <DialogContent className="max-h-[92vh] max-w-5xl overflow-hidden flex flex-col border-rose-100">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl font-bold text-rose-700">Nouveau Bon de Decaissement</DialogTitle>
           <DialogDescription>
@@ -171,7 +188,7 @@ export function CreateDecaissementDialog({
         )}
 
         <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Beneficiaire</Label>
               <Input
@@ -201,7 +218,7 @@ export function CreateDecaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Date de paiement</Label>
               <Input
@@ -229,7 +246,7 @@ export function CreateDecaissementDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Mode de reglement</Label>
               <Select value={form.paymentMethod} onValueChange={(v) => updateField('paymentMethod', v as any)}>
@@ -261,7 +278,7 @@ export function CreateDecaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 rounded-lg border border-rose-100 bg-rose-50 p-4 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 rounded-lg border border-rose-100 bg-rose-50 p-4 shadow-sm md:grid-cols-3">
             <div className="space-y-2">
               <Label>Montant HT</Label>
               <Input type="number" value={form.amountHT} onChange={(e) => updateField('amountHT', e.target.value)} />
@@ -281,7 +298,7 @@ export function CreateDecaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
               <Label>ID engagement (facultatif)</Label>
               <Input
@@ -303,6 +320,21 @@ export function CreateDecaissementDialog({
                 onSelect={setAccountingAccountId}
               />
             </div>
+
+            {hasVat && (
+              <div className="space-y-2 lg:col-span-2">
+                <Label>Compte TVA déductible</Label>
+                <AccountingAccountPickerDialog
+                  title="Choisissez le compte TVA déductible"
+                  description="Sélectionnez le compte de TVA à débiter pour la partie TVA de ce décaissement."
+                  placeholder="Aucun compte TVA sélectionné"
+                  selectedAccountId={vatAccountingAccountId}
+                  accounts={selectableVatAccounts}
+                  isSubmitting={isSubmitting}
+                  onSelect={setVatAccountingAccountId}
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -328,6 +360,7 @@ export function CreateDecaissementDialog({
               Number(form.amountTTC) <= 0 ||
               !form.treasuryAccountId ||
               !form.enterpriseId ||
+              (requiresManualVatAccount && !vatAccountingAccountId) ||
               (!form.commitmentId && !accountingAccountId)
             }
           >

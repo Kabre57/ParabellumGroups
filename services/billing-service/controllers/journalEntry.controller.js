@@ -61,6 +61,45 @@ const buildWhere = ({ startDate, endDate, search, journalId, periodId, status })
   return where;
 };
 
+const normalizeEntryLinesPayload = (body) => {
+  if (Array.isArray(body.lines)) {
+    return body.lines.map((line) => ({
+      accountId: line.accountId,
+      side: line.side,
+      amount: line.amount,
+      description: line.description,
+      thirdPartyId: line.thirdPartyId,
+      thirdPartyName: line.thirdPartyName,
+      currency: line.currency,
+      exchangeRate: line.exchangeRate,
+      amountCurrency: line.amountCurrency,
+    }));
+  }
+
+  const normalizedDebitAccountId = String(body.debitAccountId || '').trim();
+  const normalizedCreditAccountId = String(body.creditAccountId || '').trim();
+  const entryAmount = Number(body.amount);
+
+  if (!normalizedDebitAccountId || !normalizedCreditAccountId || entryAmount <= 0) {
+    return [];
+  }
+
+  return [
+    {
+      accountId: normalizedDebitAccountId,
+      side: 'DEBIT',
+      amount: entryAmount,
+      description: String(body.label || '').trim(),
+    },
+    {
+      accountId: normalizedCreditAccountId,
+      side: 'CREDIT',
+      amount: entryAmount,
+      description: String(body.label || '').trim(),
+    },
+  ];
+};
+
 exports.getAllJournalEntries = async (req, res) => {
   try {
     const accessError = ensureAccountingReadAccess(req);
@@ -127,7 +166,6 @@ exports.createJournalEntry = async (req, res) => {
       reference,
       debitAccountId,
       creditAccountId,
-      amount: entryAmount,
       sourceType,
       sourceId,
       enterpriseId,
@@ -135,10 +173,9 @@ exports.createJournalEntry = async (req, res) => {
       status,
     } = req.body;
 
-    const normalizedDebitAccountId = String(debitAccountId || '').trim();
-    const normalizedCreditAccountId = String(creditAccountId || '').trim();
     const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
     const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+    const lines = normalizeEntryLinesPayload(req.body);
 
     await assertEnterpriseInScope(
       req,
@@ -146,14 +183,14 @@ exports.createJournalEntry = async (req, res) => {
       "Vous n'avez pas acces a l'entreprise selectionnee pour cette ecriture."
     );
 
-    if (!String(label || '').trim() || !normalizedDebitAccountId || !normalizedCreditAccountId || Number(entryAmount) <= 0) {
+    if (!String(label || '').trim() || lines.length < 2) {
       return res.status(400).json({
         success: false,
-        message: 'Le libellé, les comptes débit/crédit et le montant sont obligatoires',
+        message: 'Le libellé et au moins deux lignes comptables sont obligatoires',
       });
     }
 
-    if (normalizedDebitAccountId === normalizedCreditAccountId) {
+    if (!Array.isArray(req.body.lines) && String(debitAccountId || '').trim() === String(creditAccountId || '').trim()) {
       return res.status(400).json({
         success: false,
         message: 'Les comptes débit et crédit doivent être différents',
@@ -173,20 +210,7 @@ exports.createJournalEntry = async (req, res) => {
       status: status || 'POSTED',
       createdByUserId: req.user?.userId ? String(req.user.userId) : null,
       createdByEmail: req.user?.email || null,
-      lines: [
-        {
-          accountId: normalizedDebitAccountId,
-          side: 'DEBIT',
-          amount: Number(entryAmount),
-          description: String(label || '').trim(),
-        },
-        {
-          accountId: normalizedCreditAccountId,
-          side: 'CREDIT',
-          amount: Number(entryAmount),
-          description: String(label || '').trim(),
-        },
-      ],
+      lines,
     });
 
     return res.status(201).json({
@@ -196,9 +220,9 @@ exports.createJournalEntry = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur création écriture comptable:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la création de l écriture comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la création de l écriture comptable',
     });
   }
 };

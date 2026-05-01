@@ -13,7 +13,7 @@ import { getCrudVisibility } from '@/shared/action-visibility';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { CreateJournalEntryDialog } from '@/components/accounting/CreateJournalEntryDialog';
 import { exportEntriesCsv } from '@/components/accounting/accountingExport';
-import type { AccountingEntry } from '@/shared/api/billing';
+import billingService, { type AccountingEntry } from '@/shared/api/billing';
 import { enterpriseApi } from '@/lib/api';
 import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
 
@@ -46,20 +46,33 @@ export default function EcrituresPage() {
 
   const { data, isLoading } = useEcritures(canRead, enterpriseFilter !== 'all' ? enterpriseFilter : undefined);
   const { data: accountsData } = useAccountsForEntry(canCreate);
+  const { data: familyRulesResponse } = useQuery({
+    queryKey: ['billing-accounting-family-rules', 'entry-dialog'],
+    queryFn: () => billingService.getAccountingFamilyRules(),
+    enabled: canCreate,
+  });
   const createEntryMutation = useCreateEntry(() => setCreateDialogOpen(false));
 
   const entries: AccountingEntry[] = data?.data ?? [];
   const accounts = accountsData?.data ?? [];
+  const familyRules = familyRulesResponse?.data ?? [];
+  const entrySearchText = (entry: AccountingEntry) =>
+    [
+      entry.label,
+      entry.reference,
+      entry.enterpriseName,
+      entry.accountDebit,
+      entry.accountCredit,
+      ...(entry.lines ?? []).flatMap((line) => [line.accountCode, line.accountLabel, line.description]),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
   const filtered = entries.filter(
-    (entry) =>
-      entry.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (entry.enterpriseName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.accountDebit.includes(searchQuery) ||
-      entry.accountCredit.includes(searchQuery)
+    (entry) => entrySearchText(entry).includes(searchQuery.toLowerCase())
   );
-  const totalDebit = entries.reduce((sum, entry) => sum + entry.debit, 0);
-  const totalCredit = entries.reduce((sum, entry) => sum + entry.credit, 0);
+  const totalDebit = entries.reduce((sum, entry) => sum + (entry.totalDebit ?? entry.debit), 0);
+  const totalCredit = entries.reduce((sum, entry) => sum + (entry.totalCredit ?? entry.credit), 0);
 
   if (!canRead) {
     return (
@@ -129,6 +142,7 @@ export default function EcrituresPage() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         accounts={accounts}
+        familyRules={familyRules}
         onSubmit={async (payload) => {
           await createEntryMutation.mutateAsync(payload);
         }}

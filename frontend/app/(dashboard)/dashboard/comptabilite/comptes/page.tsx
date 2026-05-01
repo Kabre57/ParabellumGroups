@@ -1,11 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
-import { toast } from 'sonner';
 import { useComptes, useCreateCompte, useDeleteCompte, useUpdateCompte } from '@/hooks/comptabilite/comptes/useComptes';
-import { AccountingFamilyAccountPicker, ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
+import { AccountingFamiliesManager, ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -18,19 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { accountingAccountTypeLabel, formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import billingService, { type AccountingAccount, type AccountingFamilyRule } from '@/shared/api/billing';
 
-const FAMILY_ORDER: AccountingFamilyRule['family'][] = [
-  'CUSTOMER_RECEIVABLE',
-  'SUPPLIER_PAYABLE',
-  'PURCHASE_EXPENSE',
-  'MISC_EXPENSE',
-  'REVENUE',
-  'TREASURY_BANK',
-  'TREASURY_CASH',
-];
-
 export default function ComptesPage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -68,37 +56,6 @@ export default function ComptesPage() {
       setSelected(null);
     }
   });
-  const addFamilyRuleMutation = useMutation({
-    mutationFn: ({ family, accountId }: { family: AccountingFamilyRule['family']; accountId: string }) =>
-      billingService.addAccountingFamilyRule(family, { accountId }),
-    onSuccess: () => {
-      toast.success('Compte rattaché à la famille comptable.');
-      queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de l’ajout du compte à la famille comptable.');
-    },
-  });
-  const makePrimaryRuleMutation = useMutation({
-    mutationFn: (ruleId: string) => billingService.updateAccountingFamilyRule(ruleId, { isPrimary: true }),
-    onSuccess: () => {
-      toast.success('Compte principal mis à jour.');
-      queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour du compte principal.');
-    },
-  });
-  const removeFamilyRuleMutation = useMutation({
-    mutationFn: (ruleId: string) => billingService.deleteAccountingFamilyRule(ruleId),
-    onSuccess: () => {
-      toast.success('Compte retiré de la famille.');
-      queryClient.invalidateQueries({ queryKey: ['billing-accounting-family-rules'] });
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression du compte rattaché.');
-    },
-  });
 
   const accounts: AccountingAccount[] = data?.data?.accounts ?? [];
   const familyRules: AccountingFamilyRule[] = familyRulesQuery.data?.data ?? [];
@@ -117,38 +74,6 @@ export default function ComptesPage() {
     },
     { assets: 0, liabilities: 0, revenues: 0, expenses: 0 }
   );
-  const accountsByType = useMemo(
-    () => ({
-      asset: accounts.filter((account) => account.type === 'asset'),
-      liability: accounts.filter((account) => account.type === 'liability'),
-      expense: accounts.filter((account) => account.type === 'expense'),
-      revenue: accounts.filter((account) => account.type === 'revenue'),
-    }),
-    [accounts]
-  );
-  const orderedFamilyRules = useMemo(() => {
-    const ruleMap = new Map(familyRules.map((rule) => [rule.family, rule]));
-    return FAMILY_ORDER.map((family) => ruleMap.get(family)).filter(Boolean) as AccountingFamilyRule[];
-  }, [familyRules]);
-
-  const accountsForFamily = (family: AccountingFamilyRule['family']) => {
-    switch (family) {
-      case 'CUSTOMER_RECEIVABLE':
-        return accountsByType.asset;
-      case 'SUPPLIER_PAYABLE':
-        return accountsByType.liability;
-      case 'PURCHASE_EXPENSE':
-      case 'MISC_EXPENSE':
-        return accountsByType.expense;
-      case 'REVENUE':
-        return accountsByType.revenue;
-      case 'TREASURY_BANK':
-      case 'TREASURY_CASH':
-        return accountsByType.asset;
-      default:
-        return accounts;
-    }
-  };
 
   if (!canRead) {
     return (
@@ -186,7 +111,7 @@ export default function ComptesPage() {
           <div className="text-sm text-muted-foreground">
             {activeView === 'accounts'
               ? `${filtered.length} compte(s) visible(s)`
-              : `${orderedFamilyRules.length} famille(s) à configurer`}
+              : `${familyRules.length} famille(s) à configurer`}
           </div>
         </div>
 
@@ -239,81 +164,14 @@ export default function ComptesPage() {
         </TabsContent>
 
         <TabsContent value="families" className="space-y-4">
-          <Card className="space-y-4 p-4">
-            <div>
-              <h2 className="text-lg font-semibold">Familles comptables</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Chaque famille peut pointer vers un ou plusieurs comptes réels du plan comptable.
-              </p>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-2">
-              {orderedFamilyRules.map((rule) => {
-                const availableAccounts = accountsForFamily(rule.family);
-                return (
-                  <div key={rule.family} className="rounded-lg border border-slate-200 p-3">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium">{rule.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {rule.description || 'Famille comptable configurable.'}
-                        </div>
-                      </div>
-                      <div className="text-right text-xs text-muted-foreground">
-                        {rule.primaryAccount ? `${rule.primaryAccount.code} principal` : 'Non configuré'}
-                      </div>
-                    </div>
-                    <AccountingFamilyAccountPicker
-                      familyRule={rule}
-                      accounts={availableAccounts}
-                      isSubmitting={addFamilyRuleMutation.isPending}
-                      onSelect={(accountId) => addFamilyRuleMutation.mutate({ family: rule.family, accountId })}
-                    />
-                    <div className="mt-3 space-y-2">
-                      {rule.rules.length ? (
-                        rule.rules.map((item) => (
-                          <div key={item.id} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium">
-                                {item.account ? `${item.account.code} - ${item.account.label}` : 'Compte indisponible'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {item.isPrimary ? 'Compte principal de la famille' : 'Compte secondaire rattaché'}
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              {!item.isPrimary && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={makePrimaryRuleMutation.isPending}
-                                  onClick={() => makePrimaryRuleMutation.mutate(item.id)}
-                                >
-                                  Définir principal
-                                </Button>
-                              )}
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={removeFamilyRuleMutation.isPending}
-                                onClick={() => removeFamilyRuleMutation.mutate(item.id)}
-                              >
-                                Retirer
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-muted-foreground">Aucun compte rattaché à cette famille.</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          <AccountingFamiliesManager
+            accounts={accounts}
+            families={familyRules}
+            isLoading={familyRulesQuery.isLoading}
+            canCreate={canCreate}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+          />
         </TabsContent>
       </Tabs>
 

@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "validate": "node scripts/run-validation.mjs"
+    "validate": "node scripts/run-validation.mjs",
+    "test:scripts": "node scripts/run-node-tests.mjs scripts/tests"
   },
   "dependencies": {
     "axios": "^1.13.6",

@@ -1,9 +1,10 @@
-const { PrismaClient, AccountingEntrySide } = require('@prisma/client');
-const { nextEntryNumber, computeSignedDelta, amount } = require('../utils/accounting');
+const { PrismaClient, AccountingAccountType } = require('@prisma/client');
+const { amount } = require('../utils/accounting');
 const MappingService = require('../core/services/AccountingMappingService');
+const AccountingPostingService = require('../core/services/AccountingPostingService');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
-const { getTreasuryAccountingAccountId } = require('../utils/treasury');
+const { getTreasuryAccountingAccountId, resolveTreasuryAccountId } = require('../utils/treasury');
 const {
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
@@ -30,6 +31,22 @@ const ensureManualAccountingAccount = (account) => {
   return account;
 };
 
+const ensureVatAccountingAccount = (account) => {
+  if (!account || account.isActive === false) {
+    throw validationError('Le compte TVA selectionne est introuvable ou inactif.');
+  }
+
+  if (account.type !== AccountingAccountType.LIABILITY) {
+    throw validationError('Le compte TVA d un encaissement doit etre un compte de passif, par exemple TVA collectee.');
+  }
+
+  if (account.allowManualPosting === false) {
+    throw validationError("Le compte TVA selectionne n'autorise pas la saisie manuelle.");
+  }
+
+  return account;
+};
+
 exports.create = async (req, res) => {
   try {
     const {
@@ -49,6 +66,7 @@ exports.create = async (req, res) => {
       notes,
       factureClientId,
       accountingAccountId,
+      vatAccountingAccountId,
     } = req.body;
 
     if (!factureClientId && !accountingAccountId) {
@@ -68,12 +86,31 @@ exports.create = async (req, res) => {
     );
 
     const result = await prisma.$transaction(async (tx) => {
+      const resolvedTreasuryAccountId = await resolveTreasuryAccountId(tx, {
+        treasuryAccountId,
+        paymentMethod,
+        user: req.user,
+      });
+
       if (accountingAccountId) {
         const revenueAccount = await tx.accountingAccount.findUnique({
           where: { id: String(accountingAccountId) },
         });
 
         ensureManualAccountingAccount(revenueAccount);
+      }
+
+      let resolvedVatAccountingAccountId = null;
+      if (vatAccountingAccountId) {
+        const vatAccount = await tx.accountingAccount.findUnique({
+          where: { id: String(vatAccountingAccountId) },
+        });
+
+        resolvedVatAccountingAccountId = ensureVatAccountingAccount(vatAccount).id;
+      }
+
+      if (!factureClientId && amount(amountTVA) > 0 && !resolvedVatAccountingAccountId) {
+        throw validationError('Veuillez selectionner un compte TVA collectee pour cet encaissement.');
       }
 
       const encaissement = await tx.encaissement.create({
@@ -87,8 +124,9 @@ exports.create = async (req, res) => {
           amountTVA: amount(amountTVA),
           amountTTC: amount(amountTTC),
           paymentMethod,
-          treasuryAccountId,
+          treasuryAccountId: resolvedTreasuryAccountId,
           accountingAccountId: accountingAccountId || null,
+          vatAccountingAccountId: resolvedVatAccountingAccountId,
           serviceId: serviceId ? Number(serviceId) : null,
           serviceName,
           dateEncaissement: dateEncaissement ? new Date(dateEncaissement) : new Date(),
@@ -160,9 +198,14 @@ exports.updateStatus = async (req, res) => {
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      const resolvedTreasuryAccountId = await resolveTreasuryAccountId(tx, {
+        treasuryAccountId: encaissement.treasuryAccountId,
+        paymentMethod: encaissement.paymentMethod,
+        user: req.user,
+      });
       const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
         tx,
-        encaissement.treasuryAccountId
+        resolvedTreasuryAccountId
       );
       const treasuryAccountingAccount = await resolveAccountingAccount(
         tx,
@@ -193,62 +236,80 @@ exports.updateStatus = async (req, res) => {
         throw new Error("Aucun compte de contrepartie n'est configuré pour cet encaissement.");
       }
 
-      const entryNumber = await nextEntryNumber(tx);
-      await tx.accountingJournalEntry.create({
-        data: {
-          entryNumber,
-          entryDate: encaissement.dateEncaissement || new Date(),
-          journalCode: treasuryJournal.journalCode,
-          journalLabel: treasuryJournal.journalLabel,
-          label: `${encaissement.numeroPiece} - ${encaissement.description}`,
-          reference: encaissement.reference || encaissement.numeroPiece,
-          sourceType: 'ENCAISSEMENT',
-          sourceId: encaissement.id,
-          enterpriseId: encaissement.enterpriseId ?? null,
-          enterpriseName: encaissement.enterpriseName || null,
-          createdByUserId: req.user?.userId ? String(req.user.userId) : null,
-          createdByEmail: req.user?.email || null,
-          lines: {
-            create: [
-              {
-                accountId: treasuryAccountingAccount.id,
-                side: AccountingEntrySide.DEBIT,
-                amount: encaissement.amountTTC,
-                description: `Encaissement ${encaissement.numeroPiece}`,
-              },
-              {
-                accountId: creditAccount.id,
-                side: AccountingEntrySide.CREDIT,
-                amount: encaissement.amountTTC,
-                description: encaissement.description,
-              },
-            ],
-          },
+      const totalAmount = amount(encaissement.amountTTC);
+      const vatAmount = amount(encaissement.amountTVA);
+      const baseAmount = amount(encaissement.amountHT) || Math.max(totalAmount - vatAmount, 0);
+      const shouldSplitVat = !encaissement.factureClientId && vatAmount > 0 && encaissement.vatAccountingAccountId;
+      const postingLines = [
+        {
+          accountId: treasuryAccountingAccount.id,
+          side: 'DEBIT',
+          amount: totalAmount,
+          description: `Encaissement ${encaissement.numeroPiece}`,
         },
-      });
+      ];
 
-      await tx.accountingAccount.update({
-        where: { id: treasuryAccountingAccount.id },
-        data: {
-          currentBalance: {
-            increment: computeSignedDelta(treasuryAccountingAccount.type, AccountingEntrySide.DEBIT, encaissement.amountTTC),
-          },
-        },
-      });
+      if (shouldSplitVat) {
+        const vatAccount = await tx.accountingAccount.findUnique({
+          where: { id: String(encaissement.vatAccountingAccountId) },
+        });
+        ensureVatAccountingAccount(vatAccount);
 
-      await tx.accountingAccount.update({
-        where: { id: creditAccount.id },
-        data: {
-          currentBalance: {
-            increment: computeSignedDelta(creditAccount.type, AccountingEntrySide.CREDIT, encaissement.amountTTC),
+        postingLines.push(
+          {
+            accountId: creditAccount.id,
+            side: 'CREDIT',
+            amount: baseAmount,
+            description: encaissement.description,
           },
-        },
-      });
+          {
+            accountId: vatAccount.id,
+            side: 'CREDIT',
+            amount: vatAmount,
+            description: `TVA collectee ${encaissement.numeroPiece}`,
+          }
+        );
+      } else {
+        postingLines.push({
+          accountId: creditAccount.id,
+          side: 'CREDIT',
+          amount: totalAmount,
+          description: encaissement.description,
+        });
+      }
+
+      await AccountingPostingService.postEntry({
+        entryDate: encaissement.dateEncaissement || new Date(),
+        journalCode: treasuryJournal.journalCode,
+        journalLabel: treasuryJournal.journalLabel,
+        label: `${encaissement.numeroPiece} - ${encaissement.description}`,
+        reference: encaissement.reference || encaissement.numeroPiece,
+        sourceType: 'ENCAISSEMENT',
+        sourceId: encaissement.id,
+        enterpriseId: encaissement.enterpriseId ?? null,
+        enterpriseName: encaissement.enterpriseName || null,
+        createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+        createdByEmail: req.user?.email || null,
+        manual: false,
+        lines: postingLines,
+      }, tx);
+
+      if (resolvedTreasuryAccountId) {
+        await tx.treasuryAccount.update({
+          where: { id: resolvedTreasuryAccountId },
+          data: {
+            currentBalance: {
+              increment: amount(encaissement.amountTTC),
+            },
+          },
+        });
+      }
 
       return tx.encaissement.update({
         where: { id },
         data: {
           status: 'VALIDE',
+          treasuryAccountId: resolvedTreasuryAccountId,
           approvedByUserId: req.user?.userId ? String(req.user.userId) : null,
           approvedByEmail: req.user?.email || null,
         },
@@ -259,7 +320,13 @@ exports.updateStatus = async (req, res) => {
     res.json({ success: true, data: enriched || updated });
   } catch (error) {
     console.error("Erreur validation encaissement:", error.message);
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message,
+      code: error.code,
+      family: error.family,
+      expectedType: error.expectedType,
+    });
   }
 };
 

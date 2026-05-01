@@ -1,12 +1,76 @@
-const { PrismaClient, AccountingFamily } = require('@prisma/client');
+const { PrismaClient, AccountingAccountType } = require('@prisma/client');
 const { ensureAccountingReadAccess, ensureAccountingRulesWriteAccess, serializeAccountingAccount } = require('../utils/accounting');
 const {
   FAMILY_DEFINITIONS,
   loadAccountingFamilyRules,
+  loadAccountingFamilyDefinitions,
   invalidateAccountingFamilyRulesCache,
+  normalizeFamilyCode,
 } = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
+
+const ACCOUNT_TYPES = Object.values(AccountingAccountType);
+const SYSTEM_FAMILY_CODES = Object.keys(FAMILY_DEFINITIONS);
+
+const removeAccents = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const normalizeDisplayType = (value, fallback = 'Autre') => String(value || fallback).trim();
+
+const accountTypeFromPayload = (payload = {}) => {
+  const explicitType = String(payload.accountType || payload.expectedType || '').trim().toUpperCase();
+  if (ACCOUNT_TYPES.includes(explicitType)) {
+    return explicitType;
+  }
+
+  const normalizedDisplayType = removeAccents(payload.displayType || payload.type).trim().toLowerCase();
+  if (['charge', 'charges', 'depense', 'depenses'].includes(normalizedDisplayType)) {
+    return AccountingAccountType.EXPENSE;
+  }
+  if (['produit', 'produits', 'vente', 'ventes', 'revenu', 'revenus'].includes(normalizedDisplayType)) {
+    return AccountingAccountType.REVENUE;
+  }
+  if (['dette', 'dettes', 'passif', 'fournisseur', 'fournisseurs'].includes(normalizedDisplayType)) {
+    return AccountingAccountType.LIABILITY;
+  }
+  if (['capital', 'capitaux', 'fonds propres'].includes(normalizedDisplayType)) {
+    return AccountingAccountType.EQUITY;
+  }
+  if (['tresorerie', 'banque', 'caisse', 'creance', 'creances', 'actif'].includes(normalizedDisplayType)) {
+    return AccountingAccountType.ASSET;
+  }
+
+  return null;
+};
+
+const defaultFamilyDefinitionRows = () =>
+  Object.values(FAMILY_DEFINITIONS).map((definition) => ({
+    id: `family_${definition.code.toLowerCase()}`,
+    code: definition.code,
+    label: definition.label,
+    description: definition.description || null,
+    displayType: definition.displayType || definition.accountType,
+    accountType: definition.accountType || definition.type,
+    isSystem: true,
+    sortOrder: definition.sortOrder || 100,
+  }));
+
+const ensureDefaultFamilyDefinitions = async (client = prisma) => {
+  await client.accountingFamilyDefinition.createMany({
+    data: defaultFamilyDefinitionRows(),
+    skipDuplicates: true,
+  });
+};
+
+const getFamilyDefinitions = async (client = prisma) => {
+  await ensureDefaultFamilyDefinitions(client);
+  return client.accountingFamilyDefinition.findMany({
+    orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+  });
+};
 
 const serializeFamilyRuleItem = (rule) => ({
   id: rule.id,
@@ -20,29 +84,34 @@ const serializeFamilyRuleItem = (rule) => ({
   updatedAt: rule.updatedAt,
 });
 
-const serializeFamilyGroup = (family, rules = []) => {
-  const definition = FAMILY_DEFINITIONS[family];
+const serializeFamilyGroup = (definition, rules = []) => {
   const serializedRules = rules.map(serializeFamilyRuleItem);
   const primaryRule = serializedRules.find((rule) => rule.isPrimary) || serializedRules[0] || null;
 
   return {
-    family,
+    family: definition.code,
+    code: definition.code,
     label: definition.label,
     description: definition.description || null,
+    type: definition.displayType,
+    displayType: definition.displayType,
+    expectedType: definition.accountType,
+    accountType: definition.accountType,
+    isSystem: Boolean(definition.isSystem),
+    sortOrder: definition.sortOrder,
     primaryAccountId: primaryRule?.accountId || null,
     primaryAccount: primaryRule?.account || null,
     rules: serializedRules,
   };
 };
 
-const serializeFamilyDiagnostic = (family, rules = []) => {
-  const definition = FAMILY_DEFINITIONS[family];
+const serializeFamilyDiagnostic = (definition, rules = []) => {
   const usableRules = rules.filter((rule) => rule.account);
   const primaryRule = usableRules.find((rule) => rule.isPrimary) || usableRules[0] || null;
   const invalidRuleCount = rules.length - usableRules.length;
   const issues = [];
 
-  if (!primaryRule) {
+  if (!primaryRule && definition.isSystem) {
     issues.push('Aucun compte actif compatible n est rattache a cette famille.');
   }
 
@@ -51,10 +120,12 @@ const serializeFamilyDiagnostic = (family, rules = []) => {
   }
 
   return {
-    family,
+    family: definition.code,
+    code: definition.code,
     label: definition.label,
-    expectedType: definition.type,
-    required: true,
+    type: definition.displayType,
+    expectedType: definition.accountType,
+    required: Boolean(definition.isSystem),
     isConfigured: Boolean(primaryRule),
     primaryAccountId: primaryRule?.accountId || null,
     primaryAccount: primaryRule?.account ? serializeAccountingAccount(primaryRule.account) : null,
@@ -67,13 +138,17 @@ const serializeFamilyDiagnostic = (family, rules = []) => {
 
 const refreshCache = async () => {
   invalidateAccountingFamilyRulesCache();
+  await loadAccountingFamilyDefinitions(prisma, { force: true });
   await loadAccountingFamilyRules(prisma, { force: true });
 };
 
 const validateFamilyAndAccount = async (family, accountId) => {
-  const normalizedFamily = String(family || '').trim().toUpperCase();
-  const definition = FAMILY_DEFINITIONS[normalizedFamily];
-  if (!definition || !Object.values(AccountingFamily).includes(normalizedFamily)) {
+  const normalizedFamily = normalizeFamilyCode(family);
+  const definition = await prisma.accountingFamilyDefinition.findUnique({
+    where: { code: normalizedFamily },
+  });
+
+  if (!definition) {
     return { error: { status: 400, message: 'Famille comptable inconnue' } };
   }
 
@@ -90,11 +165,11 @@ const validateFamilyAndAccount = async (family, accountId) => {
     return { error: { status: 404, message: 'Compte comptable introuvable ou inactif' } };
   }
 
-  if (definition.type && account.type !== definition.type) {
+  if (definition.accountType && account.type !== definition.accountType) {
     return {
       error: {
         status: 400,
-        message: `Le compte ${account.code} n est pas compatible avec cette famille comptable. Type attendu: ${definition.type}.`,
+        message: `Le compte ${account.code} n est pas compatible avec cette famille comptable. Type attendu: ${definition.accountType}.`,
       },
     };
   }
@@ -113,15 +188,14 @@ exports.getFamilyRules = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    const configuredRules = await loadAccountingFamilyRules(prisma, { force: true });
-    const rules = Object.values(AccountingFamily).map((family) => {
-      const familyRules = configuredRules.get(family) || [];
-      return serializeFamilyGroup(family, familyRules);
-    });
+    const [definitions, configuredRules] = await Promise.all([
+      getFamilyDefinitions(prisma),
+      loadAccountingFamilyRules(prisma, { force: true }),
+    ]);
 
     return res.json({
       success: true,
-      data: rules,
+      data: definitions.map((definition) => serializeFamilyGroup(definition, configuredRules.get(definition.code) || [])),
     });
   } catch (error) {
     console.error('Erreur récupération règles comptables par famille:', error.message);
@@ -139,11 +213,15 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    const configuredRules = await loadAccountingFamilyRules(prisma, { force: true });
-    const diagnostics = Object.values(AccountingFamily).map((family) =>
-      serializeFamilyDiagnostic(family, configuredRules.get(family) || [])
+    const [definitions, configuredRules] = await Promise.all([
+      getFamilyDefinitions(prisma),
+      loadAccountingFamilyRules(prisma, { force: true }),
+    ]);
+    const diagnostics = definitions.map((definition) =>
+      serializeFamilyDiagnostic(definition, configuredRules.get(definition.code) || [])
     );
-    const missingFamilies = diagnostics.filter((item) => !item.isConfigured);
+    const requiredDiagnostics = diagnostics.filter((item) => item.required);
+    const missingFamilies = requiredDiagnostics.filter((item) => !item.isConfigured);
     const invalidFamilies = diagnostics.filter((item) => item.invalidRulesCount > 0);
 
     return res.json({
@@ -151,7 +229,7 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
       data: {
         healthy: missingFamilies.length === 0 && invalidFamilies.length === 0,
         totalFamilies: diagnostics.length,
-        configuredFamilies: diagnostics.length - missingFamilies.length,
+        configuredFamilies: diagnostics.length - diagnostics.filter((item) => !item.isConfigured).length,
         missingFamilies: missingFamilies.map((item) => item.family),
         invalidFamilies: invalidFamilies.map((item) => item.family),
         families: diagnostics,
@@ -166,6 +244,202 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
   }
 };
 
+exports.createFamily = async (req, res) => {
+  try {
+    const accessError = ensureAccountingRulesWriteAccess(
+      req,
+      'Vous n avez pas la permission de modifier les familles comptables'
+    );
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const code = normalizeFamilyCode(req.body?.code);
+    const label = String(req.body?.label || '').trim();
+    const displayType = normalizeDisplayType(req.body?.displayType || req.body?.type);
+    const accountType = accountTypeFromPayload({ ...req.body, displayType });
+
+    if (!code || !label || !accountType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le code, l intitulé et le type de famille sont obligatoires.',
+      });
+    }
+
+    const maxSort = await prisma.accountingFamilyDefinition.aggregate({
+      _max: { sortOrder: true },
+    });
+
+    const created = await prisma.accountingFamilyDefinition.create({
+      data: {
+        code,
+        label,
+        description: String(req.body?.description || '').trim() || null,
+        displayType,
+        accountType,
+        isSystem: SYSTEM_FAMILY_CODES.includes(code),
+        sortOrder: Number(maxSort._max.sortOrder || 100) + 10,
+        createdByUserId: req.user?.userId ? String(req.user.userId) : null,
+        createdByEmail: req.user?.email || null,
+      },
+    });
+
+    await refreshCache();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Famille comptable créée',
+      data: serializeFamilyGroup(created, []),
+    });
+  } catch (error) {
+    console.error('Erreur création famille comptable:', error.message);
+    return res.status(error.code === 'P2002' ? 409 : 500).json({
+      success: false,
+      message: error.code === 'P2002' ? 'Ce code famille existe déjà' : 'Erreur lors de la création de la famille comptable',
+    });
+  }
+};
+
+exports.updateFamily = async (req, res) => {
+  try {
+    const accessError = ensureAccountingRulesWriteAccess(
+      req,
+      'Vous n avez pas la permission de modifier les familles comptables'
+    );
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const code = normalizeFamilyCode(req.params.family);
+    const existing = await prisma.accountingFamilyDefinition.findUnique({
+      where: { code },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Famille comptable introuvable',
+      });
+    }
+
+    const nextAccountType =
+      req.body?.accountType || req.body?.expectedType || req.body?.displayType || req.body?.type
+        ? accountTypeFromPayload(req.body)
+        : existing.accountType;
+
+    if (!nextAccountType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type comptable invalide.',
+      });
+    }
+
+    if (nextAccountType !== existing.accountType) {
+      const incompatibleRule = await prisma.accountingFamilyRule.findFirst({
+        where: {
+          family: code,
+          account: {
+            type: { not: nextAccountType },
+          },
+        },
+        include: { account: true },
+      });
+
+      if (incompatibleRule) {
+        return res.status(400).json({
+          success: false,
+          message: `Impossible de changer le type: le compte ${incompatibleRule.account.code} est déjà rattaché et incompatible.`,
+        });
+      }
+    }
+
+    const updated = await prisma.accountingFamilyDefinition.update({
+      where: { code },
+      data: {
+        label: req.body?.label !== undefined ? String(req.body.label || '').trim() || existing.label : existing.label,
+        description:
+          req.body?.description !== undefined
+            ? String(req.body.description || '').trim() || null
+            : existing.description,
+        displayType:
+          req.body?.displayType !== undefined || req.body?.type !== undefined
+            ? normalizeDisplayType(req.body.displayType || req.body.type, existing.displayType)
+            : existing.displayType,
+        accountType: nextAccountType,
+        sortOrder:
+          req.body?.sortOrder !== undefined && Number.isFinite(Number(req.body.sortOrder))
+            ? Number(req.body.sortOrder)
+            : existing.sortOrder,
+        createdByUserId: req.user?.userId ? String(req.user.userId) : existing.createdByUserId,
+        createdByEmail: req.user?.email || existing.createdByEmail,
+      },
+    });
+
+    const configuredRules = await loadAccountingFamilyRules(prisma, { force: true });
+    await refreshCache();
+
+    return res.json({
+      success: true,
+      message: 'Famille comptable mise à jour',
+      data: serializeFamilyGroup(updated, configuredRules.get(updated.code) || []),
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour famille comptable:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour de la famille comptable',
+    });
+  }
+};
+
+exports.deleteFamily = async (req, res) => {
+  try {
+    const accessError = ensureAccountingRulesWriteAccess(
+      req,
+      'Vous n avez pas la permission de modifier les familles comptables'
+    );
+    if (accessError) {
+      return res.status(accessError.status).json(accessError.body);
+    }
+
+    const code = normalizeFamilyCode(req.params.family);
+    const existing = await prisma.accountingFamilyDefinition.findUnique({
+      where: { code },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Famille comptable introuvable',
+      });
+    }
+
+    if (existing.isSystem) {
+      return res.status(400).json({
+        success: false,
+        message: 'Une famille système ne peut pas être supprimée.',
+      });
+    }
+
+    await prisma.accountingFamilyDefinition.delete({
+      where: { code },
+    });
+
+    await refreshCache();
+
+    return res.json({
+      success: true,
+      message: 'Famille comptable supprimée',
+    });
+  } catch (error) {
+    console.error('Erreur suppression famille comptable:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression de la famille comptable',
+    });
+  }
+};
+
 exports.addFamilyRule = async (req, res) => {
   try {
     const accessError = ensureAccountingRulesWriteAccess(
@@ -176,6 +450,7 @@ exports.addFamilyRule = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    await ensureDefaultFamilyDefinitions(prisma);
     const validation = await validateFamilyAndAccount(req.params.family, req.body?.accountId);
     if (validation.error) {
       return res.status(validation.error.status).json({

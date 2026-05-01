@@ -358,8 +358,31 @@ const computeSignedDelta = (accountType, side, value) => {
 };
 
 const serializeJournalEntry = (entry) => {
-  const debitLine = entry.lines.find((line) => line.side === AccountingEntrySide.DEBIT);
-  const creditLine = entry.lines.find((line) => line.side === AccountingEntrySide.CREDIT);
+  const lines = Array.isArray(entry.lines) ? entry.lines : [];
+  const debitLine = lines.find((line) => line.side === AccountingEntrySide.DEBIT);
+  const creditLine = lines.find((line) => line.side === AccountingEntrySide.CREDIT);
+  const serializedLines = lines.map((line) => ({
+    id: line.id,
+    accountId: line.accountId,
+    accountCode: line.account?.code || '',
+    accountLabel: line.account?.label || '',
+    accountType: line.account?.type || null,
+    side: line.side,
+    amount: amount(line.amount),
+    description: line.description || entry.label,
+    enterpriseId: line.enterpriseId ?? entry.enterpriseId ?? null,
+    thirdPartyId: line.thirdPartyId || null,
+    thirdPartyName: line.thirdPartyName || null,
+    currency: line.currency || 'XOF',
+    exchangeRate: line.exchangeRate ?? null,
+    amountCurrency: line.amountCurrency ?? null,
+  }));
+  const totalDebit = serializedLines
+    .filter((line) => line.side === AccountingEntrySide.DEBIT)
+    .reduce((sum, line) => sum + amount(line.amount), 0);
+  const totalCredit = serializedLines
+    .filter((line) => line.side === AccountingEntrySide.CREDIT)
+    .reduce((sum, line) => sum + amount(line.amount), 0);
 
   return {
     id: entry.id,
@@ -380,8 +403,12 @@ const serializeJournalEntry = (entry) => {
     accountCreditId: creditLine?.account?.id || null,
     accountCreditLabel: creditLine?.account?.label || '',
     label: entry.label,
-    debit: amount(debitLine?.amount),
-    credit: amount(creditLine?.amount),
+    debit: totalDebit,
+    credit: totalCredit,
+    totalDebit,
+    totalCredit,
+    lineCount: serializedLines.length,
+    lines: serializedLines,
     reference: entry.reference || entry.entryNumber,
     sourceType: entry.sourceType || null,
     sourceId: entry.sourceId || null,

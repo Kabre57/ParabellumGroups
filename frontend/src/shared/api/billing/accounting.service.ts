@@ -77,6 +77,36 @@ export const accountingService = {
     return normalizeDetailResponse<AccountingFamilyDiagnostic>(response.data);
   },
 
+  async createAccountingFamily(data: {
+    code: string;
+    label: string;
+    displayType: string;
+    accountType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+    description?: string;
+  }): Promise<DetailResponse<AccountingFamilyRule>> {
+    const response = await apiClient.post('/billing/accounting/family-rules', data);
+    return normalizeDetailResponse<AccountingFamilyRule>(response.data);
+  },
+
+  async updateAccountingFamily(
+    family: string,
+    data: {
+      label?: string;
+      displayType?: string;
+      accountType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+      description?: string | null;
+      sortOrder?: number;
+    }
+  ): Promise<DetailResponse<AccountingFamilyRule>> {
+    const response = await apiClient.patch(`/billing/accounting/family-rules/${family}`, data);
+    return normalizeDetailResponse<AccountingFamilyRule>(response.data);
+  },
+
+  async deleteAccountingFamily(family: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient.delete(`/billing/accounting/family-rules/${family}`);
+    return response.data;
+  },
+
   async createAccountingAccount(data: {
     code: string;
     label: string;
@@ -117,7 +147,7 @@ export const accountingService = {
       isPrimary?: boolean;
     }
   ): Promise<DetailResponse<AccountingFamilyRule['rules'][number]>> {
-    const response = await apiClient.post(`/billing/accounting/family-rules/${family}`, data);
+    const response = await apiClient.post(`/billing/accounting/family-rules/${family}/accounts`, data);
     return normalizeDetailResponse<AccountingFamilyRule['rules'][number]>(response.data);
   },
 
@@ -158,9 +188,15 @@ export const accountingService = {
     journalLabel?: string;
     label: string;
     reference?: string;
-    debitAccountId: string;
-    creditAccountId: string;
-    amount: number;
+    debitAccountId?: string;
+    creditAccountId?: string;
+    amount?: number;
+    lines?: Array<{
+      accountId: string;
+      side: 'DEBIT' | 'CREDIT';
+      amount: number;
+      description?: string;
+    }>;
     sourceType?: string;
     sourceId?: string;
   }): Promise<DetailResponse<AccountingEntry>> {

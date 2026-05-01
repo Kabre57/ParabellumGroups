@@ -298,6 +298,7 @@ model Encaissement {
   paymentMethod     MethodePaiement
   treasuryAccountId String?
   accountingAccountId String?
+  vatAccountingAccountId String?
   dateEncaissement  DateTime @default(now())
   reference         String?
   notes             String?
@@ -315,6 +316,7 @@ model Encaissement {
   @@index([enterpriseId])
   @@index([dateEncaissement])
   @@index([treasuryAccountId])
+  @@index([vatAccountingAccountId])
   @@map("encaissements")
 }
 
@@ -332,6 +334,7 @@ model Decaissement {
   paymentMethod     MethodePaiement
   treasuryAccountId String?
   accountingAccountId String?
+  vatAccountingAccountId String?
   serviceId         Int?
   serviceName       String?
   dateDecaissement  DateTime @default(now())
@@ -354,6 +357,7 @@ model Decaissement {
   @@index([enterpriseId])
   @@index([dateDecaissement])
   @@index([treasuryAccountId])
+  @@index([vatAccountingAccountId])
   @@map("decaissements")
 }
 
@@ -549,9 +553,31 @@ model AccountingAccount {
   treasuryAccounts TreasuryAccount[]
 }
 
+model AccountingFamilyDefinition {
+  id              String                @id @default(uuid())
+  code            String                @unique
+  label           String
+  description     String?
+  displayType     String
+  accountType     AccountingAccountType
+  isSystem        Boolean               @default(false)
+  sortOrder       Int                   @default(100)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  rules           AccountingFamilyRule[]
+
+  @@index([displayType])
+  @@index([accountType])
+  @@index([isSystem])
+  @@map("accounting_family_definitions")
+}
+
 model AccountingFamilyRule {
   id              String                @id @default(uuid())
-  family          AccountingFamily
+  family          String
   label           String
   description     String?
   accountId       String
@@ -562,6 +588,7 @@ model AccountingFamilyRule {
   updatedAt       DateTime              @updatedAt
 
   account         AccountingAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  familyDefinition AccountingFamilyDefinition @relation(fields: [family], references: [code], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([family, accountId])
   @@index([accountId])

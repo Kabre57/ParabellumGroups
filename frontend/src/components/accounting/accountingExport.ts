@@ -75,11 +75,17 @@ export const exportEntriesCsv = (entries: AccountingEntry[], fileName = 'ecritur
       date(entry.date),
       entry.entryNumber || entry.id,
       `${entry.journalCode} - ${entry.journalLabel}`,
-      `${entry.accountDebit} - ${entry.accountDebitLabel}`,
-      `${entry.accountCredit} - ${entry.accountCreditLabel}`,
+      (entry.lines ?? [])
+        .filter((line) => line.side === 'DEBIT')
+        .map((line) => `${line.accountCode} - ${line.accountLabel}`)
+        .join(' | ') || `${entry.accountDebit} - ${entry.accountDebitLabel}`,
+      (entry.lines ?? [])
+        .filter((line) => line.side === 'CREDIT')
+        .map((line) => `${line.accountCode} - ${line.accountLabel}`)
+        .join(' | ') || `${entry.accountCredit} - ${entry.accountCreditLabel}`,
       entry.label,
-      currency(entry.debit),
-      currency(entry.credit),
+      currency(entry.totalDebit ?? entry.debit),
+      currency(entry.totalCredit ?? entry.credit),
       entry.reference,
     ]),
   ];
@@ -203,8 +209,8 @@ const buildReportHtml = (title: string, overview: AccountingOverview) => `
         .map(
           (entry) =>
             `<tr><td>${date(entry.date)}</td><td>${entry.journalCode}</td><td>${entry.label}</td><td class="amount">${currency(
-              entry.debit
-            )}</td><td class="amount">${currency(entry.credit)}</td><td>${entry.reference}</td></tr>`
+              entry.totalDebit ?? entry.debit
+            )}</td><td class="amount">${currency(entry.totalCredit ?? entry.credit)}</td><td>${entry.reference}</td></tr>`
         )
         .join('')}
     </table>

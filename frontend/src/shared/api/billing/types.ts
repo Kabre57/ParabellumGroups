@@ -252,6 +252,7 @@ export interface Encaissement {
   notes?: string | null;
   status?: 'EN_ATTENTE' | 'VALIDE' | 'ANNULE' | null;
   accountingAccountId?: string | null;
+  vatAccountingAccountId?: string | null;
   createdAt?: string;
 }
 
@@ -277,6 +278,7 @@ export interface Decaissement {
   factureFournisseurId?: string | null;
   commitmentId?: string | null;
   accountingAccountId?: string | null;
+  vatAccountingAccountId?: string | null;
   createdAt?: string;
 }
 
@@ -433,16 +435,16 @@ export interface PurchaseCommitmentStats {
 }
 
 export interface AccountingFamilyRule {
-  family:
-    | 'CUSTOMER_RECEIVABLE'
-    | 'SUPPLIER_PAYABLE'
-    | 'PURCHASE_EXPENSE'
-    | 'MISC_EXPENSE'
-    | 'REVENUE'
-    | 'TREASURY_BANK'
-    | 'TREASURY_CASH';
+  family: string;
+  code?: string;
   label: string;
   description?: string | null;
+  type?: string;
+  displayType?: string;
+  expectedType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | string;
+  accountType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | string;
+  isSystem?: boolean;
+  sortOrder?: number;
   primaryAccountId?: string | null;
   primaryAccount?: AccountingAccount | null;
   rules: Array<{
@@ -466,7 +468,9 @@ export interface AccountingFamilyDiagnostic {
   invalidFamilies: AccountingFamilyRule['family'][];
   families: Array<{
     family: AccountingFamilyRule['family'];
+    code?: string;
     label: string;
+    type?: string;
     expectedType: string;
     required: boolean;
     isConfigured: boolean;
@@ -497,6 +501,23 @@ export interface AccountingMovement {
   treasuryAccountType?: string | null;
 }
 
+export interface AccountingEntryLine {
+  id?: string;
+  accountId: string;
+  accountCode: string;
+  accountLabel: string;
+  accountType?: string | null;
+  side: 'DEBIT' | 'CREDIT';
+  amount: number;
+  description?: string | null;
+  enterpriseId?: number | null;
+  thirdPartyId?: string | null;
+  thirdPartyName?: string | null;
+  currency?: string;
+  exchangeRate?: number | null;
+  amountCurrency?: number | null;
+}
+
 export interface AccountingEntry {
   id: string;
   entryNumber?: string;
@@ -518,6 +539,10 @@ export interface AccountingEntry {
   label: string;
   debit: number;
   credit: number;
+  totalDebit?: number;
+  totalCredit?: number;
+  lineCount?: number;
+  lines?: AccountingEntryLine[];
   reference: string;
   sourceType?: string | null;
   sourceId?: string | null;

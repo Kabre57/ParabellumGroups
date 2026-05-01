@@ -2,12 +2,15 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAccountingCurrency } from '@/components/accounting/accountingFormat';
+import { Pencil } from 'lucide-react';
 
 interface TresorerieAccountsListProps {
   accounts: any[];
+  canEdit?: boolean;
+  onEdit?: (account: any) => void;
 }
 
-export function TresorerieAccountsList({ accounts }: TresorerieAccountsListProps) {
+export function TresorerieAccountsList({ accounts, canEdit = false, onEdit }: TresorerieAccountsListProps) {
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between">
@@ -31,9 +34,23 @@ export function TresorerieAccountsList({ accounts }: TresorerieAccountsListProps
                   </p>
                 )}
               </div>
-              <span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">
-                {account.isDefault ? 'Par défaut' : 'Actif'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">
+                  {account.isDefault ? 'Par défaut' : 'Actif'}
+                </span>
+                {canEdit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onEdit?.(account)}
+                    aria-label={`Modifier ${account.name}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="mt-3 text-sm text-muted-foreground">Solde</div>
             <div className="text-xl font-bold">{formatAccountingCurrency(account.balance ?? account.currentBalance ?? 0)}</div>

@@ -1,5 +1,5 @@
-const { AccountingEntrySide, PurchaseCommitmentStatus } = require('@prisma/client');
-const { nextEntryNumber, computeSignedDelta } = require('./accounting');
+const { PurchaseCommitmentStatus } = require('@prisma/client');
+const AccountingPostingService = require('../core/services/AccountingPostingService');
 const { getTreasuryAccountingAccountId } = require('./treasury');
 const {
   getTreasuryFamilyFromPaymentMethod,
@@ -14,49 +14,39 @@ async function recordEngagement(tx, { commitment, user }) {
   const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
   const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
 
-  const entryNumber = await nextEntryNumber(tx);
   const label = `Engagement BC ${commitment.sourceNumber} - ${commitment.supplierName || 'Fournisseur'}`;
 
-  const entry = await tx.accountingJournalEntry.create({
-    data: {
-      entryNumber,
+  const entry = await AccountingPostingService.postEntry(
+    {
+      entryDate: commitment.createdAt || new Date(),
       journalCode: 'AC',
       journalLabel: 'Achats',
       label,
       reference: commitment.sourceNumber,
       sourceType: 'PURCHASE_ORDER',
       sourceId: commitment.sourceId,
+      enterpriseId: commitment.enterpriseId ?? null,
+      enterpriseName: commitment.enterpriseName || null,
       createdByUserId: user?.userId ? String(user.userId) : null,
       createdByEmail: user?.email || null,
-      lines: {
-        create: [
-          {
-            accountId: account607.id,
-            side: AccountingEntrySide.DEBIT,
-            amount: commitment.amountTTC,
-            description: `Charge engagement ${commitment.sourceNumber}`,
-          },
-          {
-            accountId: account401.id,
-            side: AccountingEntrySide.CREDIT,
-            amount: commitment.amountTTC,
-            description: `Dette fournisseur estimée ${commitment.sourceNumber}`,
-          },
-        ],
-      },
+      manual: false,
+      lines: [
+        {
+          accountId: account607.id,
+          side: 'DEBIT',
+          amount: commitment.amountTTC,
+          description: `Charge engagement ${commitment.sourceNumber}`,
+        },
+        {
+          accountId: account401.id,
+          side: 'CREDIT',
+          amount: commitment.amountTTC,
+          description: `Dette fournisseur estimée ${commitment.sourceNumber}`,
+        },
+      ],
     },
-  });
-
-  // Mise à jour des soldes
-  await tx.accountingAccount.update({
-    where: { id: account607.id },
-    data: { currentBalance: { increment: computeSignedDelta(account607.type, AccountingEntrySide.DEBIT, commitment.amountTTC) } },
-  });
-
-  await tx.accountingAccount.update({
-    where: { id: account401.id },
-    data: { currentBalance: { increment: computeSignedDelta(account401.type, AccountingEntrySide.CREDIT, commitment.amountTTC) } },
-  });
+    tx
+  );
 
   return entry;
 }
@@ -72,49 +62,39 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
     const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
     const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
 
-    const entryNumber = await nextEntryNumber(tx);
     const label = `Régularisation Engagement BC ${commitment.sourceNumber} / Facture ${invoice.numeroFacture}`;
 
-    await tx.accountingJournalEntry.create({
-      data: {
-        entryNumber,
+    await AccountingPostingService.postEntry(
+      {
+        entryDate: invoice.dateFacture || invoice.createdAt || new Date(),
         journalCode: 'AC',
         journalLabel: 'Achats',
         label,
         reference: invoice.numeroFacture,
         sourceType: 'SUPPLIER_INVOICE_REGUL',
         sourceId: invoice.id,
+        enterpriseId: commitment.enterpriseId ?? null,
+        enterpriseName: commitment.enterpriseName || null,
         createdByUserId: user?.userId ? String(user.userId) : null,
         createdByEmail: user?.email || null,
-        lines: {
-          create: [
-            {
-              accountId: account607.id,
-              side: difference > 0 ? AccountingEntrySide.DEBIT : AccountingEntrySide.CREDIT,
-              amount: Math.abs(difference),
-              description: `Ajustement charge facture ${invoice.numeroFacture}`,
-            },
-            {
-              accountId: account401.id,
-              side: difference > 0 ? AccountingEntrySide.CREDIT : AccountingEntrySide.DEBIT,
-              amount: Math.abs(difference),
-              description: `Ajustement dette fournisseur facture ${invoice.numeroFacture}`,
-            },
-          ],
-        },
+        manual: false,
+        lines: [
+          {
+            accountId: account607.id,
+            side: difference > 0 ? 'DEBIT' : 'CREDIT',
+            amount: Math.abs(difference),
+            description: `Ajustement charge facture ${invoice.numeroFacture}`,
+          },
+          {
+            accountId: account401.id,
+            side: difference > 0 ? 'CREDIT' : 'DEBIT',
+            amount: Math.abs(difference),
+            description: `Ajustement dette fournisseur facture ${invoice.numeroFacture}`,
+          },
+        ],
       },
-    });
-
-    // Mise à jour des soldes
-    await tx.accountingAccount.update({
-      where: { id: account607.id },
-      data: { currentBalance: { increment: computeSignedDelta(account607.type, difference > 0 ? AccountingEntrySide.DEBIT : AccountingEntrySide.CREDIT, Math.abs(difference)) } },
-    });
-
-    await tx.accountingAccount.update({
-      where: { id: account401.id },
-      data: { currentBalance: { increment: computeSignedDelta(account401.type, difference > 0 ? AccountingEntrySide.CREDIT : AccountingEntrySide.DEBIT, Math.abs(difference)) } },
-    });
+      tx
+    );
   }
 
   // Mise à jour du statut de l'engagement
@@ -147,49 +127,47 @@ async function recordPayment(tx, { commitment, decaissement, user }) {
     throw new Error('Comptes comptables fournisseur / trésorerie non configurés');
   }
 
-  const entryNumber = await nextEntryNumber(tx);
   const label = `Paiement ${decaissement.numeroPiece} - Engagement ${commitment.sourceNumber}`;
 
-  await tx.accountingJournalEntry.create({
-    data: {
-      entryNumber,
-      journalCode: treasuryJournal.journalCode,
-      journalLabel: treasuryJournal.journalLabel,
-      label,
-      reference: decaissement.numeroPiece,
-      sourceType: 'DECAISSEMENT',
-      sourceId: decaissement.id,
-      createdByUserId: user?.userId ? String(user.userId) : null,
-      createdByEmail: user?.email || null,
-      lines: {
-        create: [
-          {
-            accountId: account401.id,
-            side: AccountingEntrySide.DEBIT,
-            amount: decaissement.amountTTC,
-            description: `Règlement fournisseur BC ${commitment.sourceNumber}`,
-          },
-          {
-            accountId: accountTreasury.id,
-            side: AccountingEntrySide.CREDIT,
-            amount: decaissement.amountTTC,
-            description: `Sortie de fonds ${decaissement.numeroPiece}`,
-          },
-        ],
+  await AccountingPostingService.postEntry({
+    entryDate: decaissement.dateDecaissement || new Date(),
+    journalCode: treasuryJournal.journalCode,
+    journalLabel: treasuryJournal.journalLabel,
+    label,
+    reference: decaissement.numeroPiece,
+    sourceType: 'DECAISSEMENT',
+    sourceId: decaissement.id,
+    enterpriseId: decaissement.enterpriseId ?? commitment.enterpriseId ?? null,
+    enterpriseName: decaissement.enterpriseName || commitment.enterpriseName || null,
+    createdByUserId: user?.userId ? String(user.userId) : null,
+    createdByEmail: user?.email || null,
+    manual: false,
+    lines: [
+      {
+        accountId: account401.id,
+        side: 'DEBIT',
+        amount: decaissement.amountTTC,
+        description: `Règlement fournisseur BC ${commitment.sourceNumber}`,
       },
-    },
-  });
+      {
+        accountId: accountTreasury.id,
+        side: 'CREDIT',
+        amount: decaissement.amountTTC,
+        description: `Sortie de fonds ${decaissement.numeroPiece}`,
+      },
+    ],
+  }, tx);
 
-  // Mise à jour des soldes
-  await tx.accountingAccount.update({
-    where: { id: account401.id },
-    data: { currentBalance: { increment: computeSignedDelta(account401.type, AccountingEntrySide.DEBIT, decaissement.amountTTC) } },
-  });
-
-  await tx.accountingAccount.update({
-    where: { id: accountTreasury.id },
-    data: { currentBalance: { increment: computeSignedDelta(accountTreasury.type, AccountingEntrySide.CREDIT, decaissement.amountTTC) } },
-  });
+  if (decaissement.treasuryAccountId) {
+    await tx.treasuryAccount.update({
+      where: { id: decaissement.treasuryAccountId },
+      data: {
+        currentBalance: {
+          decrement: decaissement.amountTTC,
+        },
+      },
+    });
+  }
 
   // Mise à jour de l'engagement
   await tx.purchaseCommitment.update({

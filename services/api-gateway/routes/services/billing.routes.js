@@ -147,7 +147,7 @@ const billingPermissionRules = [
     }
   },
   {
-    pattern: /^\/accounting\/family-rules(?:\/(?:diagnostic|item\/[^/]+|[^/]+))?$/,
+    pattern: /^\/accounting\/family-rules(?:\/(?:diagnostic|item\/[^/]+|[^/]+(?:\/accounts)?))?$/,
     permissions: {
       GET: ['accounting.rules.read', 'accounting.diagnostics.read'],
       POST: 'accounting.rules.update',
@@ -163,7 +163,7 @@ const billingPermissionRules = [
     }
   },
   {
-    pattern: /^\/treasury-accounts$/,
+    pattern: /^\/treasury-accounts(?:\/[^/]+)?$/,
     permissions: {
       GET: 'accounting.read',
       POST: 'accounting.treasury.manage',

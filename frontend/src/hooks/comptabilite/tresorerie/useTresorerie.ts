@@ -41,10 +41,28 @@ export function useCreateTreasuryAccount(onSuccess?: () => void) {
     onSuccess: () => {
       toast.success('Compte de trésorerie créé.');
       queryClient.invalidateQueries({ queryKey: ['cash-flows'] });
+      queryClient.invalidateQueries({ queryKey: ['treasury-accounts'] });
       onSuccess?.();
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Impossible de créer le compte.');
+    },
+  });
+}
+
+export function useUpdateTreasuryAccount(onSuccess?: () => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof billingService.updateTreasuryAccount>[1] }) =>
+      billingService.updateTreasuryAccount(id, data),
+    onSuccess: () => {
+      toast.success('Compte de trésorerie mis à jour.');
+      queryClient.invalidateQueries({ queryKey: ['cash-flows'] });
+      queryClient.invalidateQueries({ queryKey: ['treasury-accounts'] });
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Impossible de modifier le compte.');
     },
   });
 }

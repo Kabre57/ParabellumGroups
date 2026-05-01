@@ -496,9 +496,9 @@ exports.createCashVoucher = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur création bon de caisse:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la création du bon de caisse',
+      message: error.statusCode ? error.message : 'Erreur lors de la création du bon de caisse',
     });
   }
 };

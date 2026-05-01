@@ -5,7 +5,7 @@ import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import billingService, { type AccountingMovement } from '@/shared/api/billing';
 import {
   useTresorerieFlows, useTreasuryClosures,
-  useCreateTreasuryAccount, useCreateClosure, useValidateClosure
+  useCreateTreasuryAccount, useUpdateTreasuryAccount, useCreateClosure, useValidateClosure
 } from '@/hooks/comptabilite/tresorerie/useTresorerie';
 import {
   TresorerieStats, TresorerieAccountsList,
@@ -27,6 +27,7 @@ export default function TresoreriePage() {
   const [customRange, setCustomRange] = useState<{startDate?:string;endDate?:string}|null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [editingTreasuryAccount, setEditingTreasuryAccount] = useState<any | null>(null);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const [printJournalOpen, setPrintJournalOpen] = useState(false);
   const [accountFilter, setAccountFilter] = useState('all');
@@ -57,7 +58,12 @@ export default function TresoreriePage() {
   const { data, isLoading } = useTresorerieFlows(period, customRange, canRead);
   const { data: closuresResponse } = useTreasuryClosures(periodRange, period, customRange, canRead);
 
-  const createAccountMutation = useCreateTreasuryAccount(() => setAccountDialogOpen(false));
+  const closeAccountDialog = () => {
+    setAccountDialogOpen(false);
+    setEditingTreasuryAccount(null);
+  };
+  const createAccountMutation = useCreateTreasuryAccount(closeAccountDialog);
+  const updateAccountMutation = useUpdateTreasuryAccount(closeAccountDialog);
   const createClosureMutation = useCreateClosure(() => setClosureDialogOpen(false));
   const validateClosureMutation = useValidateClosure();
 
@@ -85,7 +91,7 @@ export default function TresoreriePage() {
       <div className="space-y-4">
         <div><h1 className="text-3xl font-bold">Trésorerie</h1><p className="text-muted-foreground mt-2">Suivi des flux de trésorerie, soldes multi-banques et sous-caisses.</p></div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setAccountDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
+          <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
           <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>
           <select value={period} onChange={e => { setPeriod(e.target.value as any); setCustomRange(null); }} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
             <option value="week">Cette semaine</option><option value="month">Ce mois</option>
@@ -105,13 +111,45 @@ export default function TresoreriePage() {
         </div>
       </div>
 
-      <TresorerieAccountsList accounts={treasuryAccounts} />
+      <TresorerieAccountsList
+        accounts={treasuryAccounts}
+        canEdit={canValidateClosure}
+        onEdit={(account) => {
+          setEditingTreasuryAccount(account);
+          setAccountDialogOpen(true);
+        }}
+      />
       <TresorerieStats currentBalance={currentBalance} totalIncome={totalIncome} totalExpense={totalExpense} />
       <TresorerieFlowsTable flows={filteredFlows} isLoading={isLoading} />
       <TresorerieClosuresTable closures={closuresResponse?.data ?? []} canValidate={canValidateClosure} onValidate={id => validateClosureMutation.mutate(id)} />
 
       <AccountingDateRangeDialog open={dialogOpen} onOpenChange={setDialogOpen} defaultRange={customRange} onApply={r => setCustomRange(r.startDate||r.endDate ? r : null)} />
-      <CreateTreasuryAccountDialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen} isSubmitting={createAccountMutation.isPending} onSubmit={p => createAccountMutation.mutate(p)} />
+      <CreateTreasuryAccountDialog
+        open={accountDialogOpen}
+        onOpenChange={(open) => {
+          setAccountDialogOpen(open);
+          if (!open) setEditingTreasuryAccount(null);
+        }}
+        account={editingTreasuryAccount}
+        isSubmitting={createAccountMutation.isPending || updateAccountMutation.isPending}
+        onSubmit={(payload) => {
+          if (editingTreasuryAccount?.id) {
+            updateAccountMutation.mutate({
+              id: editingTreasuryAccount.id,
+              data: {
+                name: payload.name,
+                bankName: payload.bankName,
+                accountNumber: payload.accountNumber,
+                currency: payload.currency,
+                accountingAccountId: payload.accountingAccountId,
+                isDefault: payload.isDefault,
+              },
+            });
+            return;
+          }
+          createAccountMutation.mutate(payload);
+        }}
+      />
       <TreasuryClosureDialog open={closureDialogOpen} onOpenChange={setClosureDialogOpen} accounts={treasuryAccounts} isSubmitting={createClosureMutation.isPending}
         onSubmit={p => { const { status, ...rest } = p; createClosureMutation.mutate(rest as any); }} />
 

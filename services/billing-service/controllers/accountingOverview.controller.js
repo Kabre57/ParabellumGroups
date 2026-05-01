@@ -43,6 +43,10 @@ const pushMovement = (bucket, movement) => {
 };
 
 const buildEntryId = (...parts) => parts.filter(Boolean).join('-');
+const extractPaymentIdFromNotes = (notes) => {
+  const match = String(notes || '').match(/\[PAYMENT:([^\]]+)\]/);
+  return match?.[1] || null;
+};
 
 const buildAccountingReference = (account) =>
   account
@@ -373,7 +377,33 @@ const dynamicAccounts = evaluatedDynamicAccounts;
     const manualEntrySourceKeys = new Set(
       manualEntries
         .filter((entry) => entry.sourceType && entry.sourceId)
-        .map((entry) => `${entry.sourceType}:${entry.sourceId}`)
+        .map((entry) => `${String(entry.sourceType).toUpperCase()}:${entry.sourceId}`)
+    );
+    const treasuryAccountBySourceKey = new Map();
+    encaissements.forEach((item) => {
+      if (item.treasuryAccount) {
+        treasuryAccountBySourceKey.set(`ENCAISSEMENT:${item.id}`, item.treasuryAccount);
+      }
+      const paymentId = extractPaymentIdFromNotes(item.notes);
+      if (paymentId && item.treasuryAccount) {
+        treasuryAccountBySourceKey.set(`PAYMENT:${paymentId}`, item.treasuryAccount);
+      }
+    });
+    decaissements.forEach((item) => {
+      if (item.treasuryAccount) {
+        treasuryAccountBySourceKey.set(`DECAISSEMENT:${item.id}`, item.treasuryAccount);
+      }
+    });
+    paiements.forEach((item) => {
+      if (item.treasuryAccount) {
+        treasuryAccountBySourceKey.set(`PAYMENT:${item.id}`, item.treasuryAccount);
+      }
+    });
+    const postedPaymentIds = new Set(
+      validatedEncaissements
+        .filter((item) => manualEntrySourceKeys.has(`ENCAISSEMENT:${item.id}`))
+        .map((item) => extractPaymentIdFromNotes(item.notes))
+        .filter(Boolean)
     );
     const manualDeltasByType = manualJournalEntries.reduce(
       (accumulator, entry) => {
@@ -393,6 +423,7 @@ const dynamicAccounts = evaluatedDynamicAccounts;
     const movements = [];
 
     paiements.forEach((payment) => {
+      if (postedPaymentIds.has(String(payment.id))) return;
       const fallbackAccount = defaultTreasuryByType[treasuryTypeFromPaymentMethod(payment.methodePaiement)];
       const treasuryAccount = payment.treasuryAccount || fallbackAccount || null;
       pushMovement(movements, {
@@ -460,23 +491,33 @@ const dynamicAccounts = evaluatedDynamicAccounts;
     });
 
     for (const entry of manualJournalEntries) {
-      if (['ENCAISSEMENT', 'DECAISSEMENT', 'PAYMENT'].includes(String(entry.sourceType || '').toUpperCase())) {
-        continue;
-      }
-
+      const sourceType = String(entry.sourceType || '').toUpperCase();
+      const sourceKey = entry.sourceType && entry.sourceId ? `${sourceType}:${entry.sourceId}` : null;
+      const sourceTreasuryAccount = sourceKey ? treasuryAccountBySourceKey.get(sourceKey) : null;
       for (const line of entry.lines) {
         if (!(await isTreasuryAccountingCode(prisma, line.account))) {
           continue;
         }
 
         const treasuryJournal = await getTreasuryJournalMeta(prisma, line.account);
-        const manualAccountType = (await isCashAccountingCode(prisma, line.account)) ? 'CASH' : 'BANK';
+        const manualAccountType =
+          sourceTreasuryAccount?.type ||
+          ((await isCashAccountingCode(prisma, line.account)) ? 'CASH' : 'BANK');
         const fallbackAccount = defaultTreasuryByType[manualAccountType];
+        const treasuryAccount = sourceTreasuryAccount || fallbackAccount || null;
+        const category =
+          sourceType === 'ENCAISSEMENT'
+            ? 'Encaissement'
+            : sourceType === 'DECAISSEMENT'
+            ? 'Décaissement'
+            : manualAccountType === 'CASH'
+            ? 'Mouvement de caisse'
+            : 'Mouvement bancaire';
         pushMovement(movements, {
           id: `manual-${entry.id}-${line.id}`,
           date: entry.entryDate,
           type: line.side === AccountingEntrySide.DEBIT ? 'income' : 'expense',
-          category: manualAccountType === 'CASH' ? 'Mouvement de caisse' : 'Mouvement bancaire',
+          category,
           description: `${entry.journalCode} - ${entry.label}`,
           amount: amount(line.amount),
           enterpriseId: entry.enterpriseId || null,
@@ -484,9 +525,9 @@ const dynamicAccounts = evaluatedDynamicAccounts;
           reference: entry.reference || entry.entryNumber,
           sourceType: entry.sourceType || 'MANUAL_ENTRY',
           paymentMethod: treasuryJournal.defaultPaymentMethod,
-          treasuryAccountId: fallbackAccount?.id,
-          treasuryAccountName: fallbackAccount?.name,
-          treasuryAccountType: fallbackAccount?.type,
+          treasuryAccountId: treasuryAccount?.id,
+          treasuryAccountName: treasuryAccount?.name,
+          treasuryAccountType: treasuryAccount?.type,
         });
       }
     }

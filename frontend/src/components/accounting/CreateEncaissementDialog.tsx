@@ -65,6 +65,7 @@ export function CreateEncaissementDialog({
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(initialState);
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
+  const [vatAccountingAccountId, setVatAccountingAccountId] = useState<string>('');
   const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
   const canChooseEnterprise =
     isAdminRole(user) ||
@@ -105,6 +106,7 @@ export function CreateEncaissementDialog({
     () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
     [enterprises, form.enterpriseId]
   );
+  const hasVat = Number(form.amountTVA || 0) > 0;
 
   useEffect(() => {
     if (open) {
@@ -113,8 +115,15 @@ export function CreateEncaissementDialog({
         enterpriseId: userEnterpriseId,
       });
       setAccountingAccountId('');
+      setVatAccountingAccountId('');
     }
   }, [open, userEnterpriseId]);
+
+  useEffect(() => {
+    if (!hasVat) {
+      setVatAccountingAccountId('');
+    }
+  }, [hasVat]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => {
@@ -143,18 +152,25 @@ export function CreateEncaissementDialog({
       reference: form.reference || undefined,
       notes: form.notes || undefined,
       accountingAccountId: accountingAccountId || undefined,
+      vatAccountingAccountId: hasVat ? vatAccountingAccountId || undefined : undefined,
     });
   };
 
   const treasuryAccounts = treasuryAccountsResponse?.data ?? [];
   const accountingAccounts = (accountingAccountsResponse?.data ?? []).filter((acc: any) => acc?.isActive !== false);
+  const vatAccounts = accountingAccounts.filter(
+    (acc: any) => acc.type === 'liability' && String(acc.code || '').startsWith('445')
+  );
+  const selectableVatAccounts = vatAccounts.length
+    ? vatAccounts
+    : accountingAccounts.filter((acc: any) => acc.type === 'liability');
   const filteredAccounts = treasuryAccounts.filter((acc) =>
     form.paymentMethod === 'ESPECES' ? acc.type === 'CASH' : acc.type === 'BANK'
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden flex flex-col">
+      <DialogContent className="max-h-[92vh] max-w-5xl overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-emerald-700">Nouveau Bon d&apos;Encaissement</DialogTitle>
           <DialogDescription>
@@ -169,7 +185,7 @@ export function CreateEncaissementDialog({
         )}
 
         <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Source / Client</Label>
               <Input
@@ -199,7 +215,7 @@ export function CreateEncaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Date d&apos;encaissement</Label>
               <Input
@@ -227,7 +243,7 @@ export function CreateEncaissementDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Mode de reglement</Label>
               <Select value={form.paymentMethod} onValueChange={(v) => updateField('paymentMethod', v as any)}>
@@ -259,7 +275,7 @@ export function CreateEncaissementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Montant HT</Label>
               <Input type="number" value={form.amountHT} onChange={(e) => updateField('amountHT', e.target.value)} />
@@ -279,17 +295,34 @@ export function CreateEncaissementDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Imputation comptable</Label>
-            <AccountingAccountPickerDialog
-              title="Choisissez un compte comptable"
-              description="Sélectionnez le compte d'imputation dans le plan comptable pour cet encaissement."
-              placeholder="Aucun compte comptable sélectionné"
-              selectedAccountId={accountingAccountId}
-              accounts={accountingAccounts}
-              isSubmitting={isSubmitting}
-              onSelect={setAccountingAccountId}
-            />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Imputation comptable</Label>
+              <AccountingAccountPickerDialog
+                title="Choisissez un compte comptable"
+                description="Sélectionnez le compte d'imputation dans le plan comptable pour cet encaissement."
+                placeholder="Aucun compte comptable sélectionné"
+                selectedAccountId={accountingAccountId}
+                accounts={accountingAccounts}
+                isSubmitting={isSubmitting}
+                onSelect={setAccountingAccountId}
+              />
+            </div>
+
+            {hasVat && (
+              <div className="space-y-2">
+                <Label>Compte TVA collectée</Label>
+                <AccountingAccountPickerDialog
+                  title="Choisissez le compte TVA collectée"
+                  description="Sélectionnez le compte de TVA à créditer pour la partie TVA de cet encaissement."
+                  placeholder="Aucun compte TVA sélectionné"
+                  selectedAccountId={vatAccountingAccountId}
+                  accounts={selectableVatAccounts}
+                  isSubmitting={isSubmitting}
+                  onSelect={setVatAccountingAccountId}
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -315,6 +348,7 @@ export function CreateEncaissementDialog({
               Number(form.amountTTC) <= 0 ||
               !form.treasuryAccountId ||
               !accountingAccountId ||
+              (hasVat && !vatAccountingAccountId) ||
               !form.enterpriseId
             }
           >

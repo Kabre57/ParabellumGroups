@@ -12,6 +12,7 @@ import billingService, { type AccountingAccount, type TreasuryAccount } from '@/
 interface CreateTreasuryAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  account?: TreasuryAccount | null;
   onSubmit: (payload: {
     name: string;
     type: TreasuryAccount['type'];
@@ -50,10 +51,12 @@ const defaultState: FormState = {
 export function CreateTreasuryAccountDialog({
   open,
   onOpenChange,
+  account,
   onSubmit,
   isSubmitting = false,
 }: CreateTreasuryAccountDialogProps) {
   const [form, setForm] = useState<FormState>(defaultState);
+  const isEditing = Boolean(account?.id);
   const { data: accountingAccountsResponse } = useQuery({
     queryKey: ['accounting-accounts'],
     queryFn: () => billingService.getAccountingAccounts(),
@@ -70,34 +73,54 @@ export function CreateTreasuryAccountDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(defaultState);
+      setForm(
+        account
+          ? {
+              name: account.name || '',
+              type: account.type,
+              bankName: account.bankName || '',
+              accountNumber: account.accountNumber || '',
+              openingBalance: String(account.openingBalance ?? 0),
+              currency: account.currency || 'XOF',
+              accountingAccountId: account.accountingAccountId || '',
+              isDefault: Boolean(account.isDefault),
+            }
+          : defaultState
+      );
     }
-  }, [open]);
+  }, [open, account]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
   const handleSubmit = async () => {
-    await onSubmit({
+    const payload: Parameters<CreateTreasuryAccountDialogProps['onSubmit']>[0] = {
       name: form.name.trim(),
       type: form.type,
       bankName: form.bankName.trim() || null,
       accountNumber: form.accountNumber.trim() || null,
-      openingBalance: Number(form.openingBalance || 0),
       currency: form.currency.trim() || 'XOF',
       accountingAccountId: form.accountingAccountId || null,
       isDefault: form.isDefault,
-    });
+    };
+
+    if (!isEditing) {
+      payload.openingBalance = Number(form.openingBalance || 0);
+    }
+
+    await onSubmit(payload);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Nouveau compte de trésorerie</DialogTitle>
+          <DialogTitle>{isEditing ? 'Modifier le compte de trésorerie' : 'Nouveau compte de trésorerie'}</DialogTitle>
           <DialogDescription>
-            Ajoutez une banque ou une sous-caisse pour suivre les soldes séparément.
+            {isEditing
+              ? 'Mettez à jour les informations et le compte comptable lié.'
+              : 'Ajoutez une banque ou une sous-caisse pour suivre les soldes séparément.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -108,7 +131,11 @@ export function CreateTreasuryAccountDialog({
           </div>
           <div className="space-y-2">
             <Label>Type</Label>
-            <Select value={form.type} onValueChange={(value) => updateField('type', value as FormState['type'])}>
+            <Select
+              value={form.type}
+              onValueChange={(value) => updateField('type', value as FormState['type'])}
+              disabled={isEditing}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
@@ -165,6 +192,7 @@ export function CreateTreasuryAccountDialog({
               type="number"
               value={form.openingBalance}
               onChange={(event) => updateField('openingBalance', event.target.value)}
+              disabled={isEditing}
             />
           </div>
           <div className="flex items-center gap-2 md:col-span-2">
@@ -183,7 +211,7 @@ export function CreateTreasuryAccountDialog({
             Annuler
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || !form.name.trim()}>
-            Créer le compte
+            {isSubmitting ? 'Enregistrement...' : isEditing ? 'Enregistrer' : 'Créer le compte'}
           </Button>
         </DialogFooter>
       </DialogContent>

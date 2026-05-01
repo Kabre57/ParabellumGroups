@@ -38,6 +38,12 @@ const serializeTreasuryAccount = (account) => ({
 const treasuryTypeFromPaymentMethod = (paymentMethod) =>
   String(paymentMethod || '').toUpperCase() === 'ESPECES' ? TreasuryAccountType.CASH : TreasuryAccountType.BANK;
 
+const validationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
 const ensureDefaultTreasuryAccounts = async (client, user) => {
   const existing = await client.treasuryAccount.findMany({
     where: { isActive: true },
@@ -103,20 +109,26 @@ const ensureDefaultTreasuryAccounts = async (client, user) => {
 };
 
 const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMethod, user }) => {
+  const expectedType = treasuryTypeFromPaymentMethod(paymentMethod);
+
   if (treasuryAccountId) {
     const found = await client.treasuryAccount.findUnique({ where: { id: treasuryAccountId } });
     if (found && found.isActive !== false) {
+      if (found.type !== expectedType) {
+        throw validationError(
+          "Le compte de tresorerie selectionne n'est pas compatible avec le mode de paiement."
+        );
+      }
       return found.id;
     }
   }
 
   await ensureDefaultTreasuryAccounts(client, user);
 
-  const accountType = treasuryTypeFromPaymentMethod(paymentMethod);
   const fallback = await client.treasuryAccount.findFirst({
     where: {
       isActive: true,
-      type: accountType,
+      type: expectedType,
       isDefault: true,
     },
     orderBy: [{ createdAt: 'asc' }],
