@@ -11,8 +11,9 @@ const {
  * Enregistre l'engagement comptable (charge achat / dette fournisseur configurée)
  */
 async function recordEngagement(tx, { commitment, user }) {
-  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
-  const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
+  const eid = commitment.enterpriseId ?? null;
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { enterpriseId: eid });
+  const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { enterpriseId: eid });
 
   const label = `Engagement BC ${commitment.sourceNumber} - ${commitment.supplierName || 'Fournisseur'}`;
 
@@ -59,8 +60,9 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
 
   if (Math.abs(difference) > 0.01) {
     // Écriture de régularisation séparée
-    const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
-    const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE');
+    const eid = commitment.enterpriseId ?? null;
+    const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { enterpriseId: eid });
+    const account607 = await resolveAccountingAccount(tx, 'PURCHASE_EXPENSE', { enterpriseId: eid });
 
     const label = `Régularisation Engagement BC ${commitment.sourceNumber} / Facture ${invoice.numeroFacture}`;
 
@@ -108,7 +110,8 @@ async function recordLiquidation(tx, { commitment, invoice, user }) {
  * Enregistre le paiement (débit fournisseur / crédit trésorerie)
  */
 async function recordPayment(tx, { commitment, decaissement, user }) {
-  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE');
+  const eid = decaissement.enterpriseId ?? commitment.enterpriseId ?? null;
+  const account401 = await resolveAccountingAccount(tx, 'SUPPLIER_PAYABLE', { enterpriseId: eid });
   const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
     tx,
     decaissement.treasuryAccountId
@@ -118,10 +121,11 @@ async function recordPayment(tx, { commitment, decaissement, user }) {
     getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
     {
       preferredAccountId: preferredTreasuryAccountingAccountId,
+      enterpriseId: eid,
       user,
     }
   );
-  const treasuryJournal = await getTreasuryJournalMeta(tx, accountTreasury);
+  const treasuryJournal = await getTreasuryJournalMeta(tx, accountTreasury, { enterpriseId: eid });
 
   if (!account401 || !accountTreasury) {
     throw new Error('Comptes comptables fournisseur / trésorerie non configurés');

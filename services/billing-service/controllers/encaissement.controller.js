@@ -212,17 +212,19 @@ exports.updateStatus = async (req, res) => {
         getTreasuryFamilyFromPaymentMethod(encaissement.paymentMethod),
         {
           preferredAccountId: preferredTreasuryAccountingAccountId,
+          enterpriseId: encaissement.enterpriseId,
           user: req.user,
         }
       );
-      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount);
+      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount, { enterpriseId: encaissement.enterpriseId });
 
       let creditAccount = null;
       if (encaissement.factureClientId) {
-        const customerAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER');
+        const customerAccount = await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER', encaissement.enterpriseId);
         creditAccount = await resolveAccountingAccount(tx, 'CUSTOMER_RECEIVABLE', {
           preferredAccountId: customerAccount?.accountId,
           preferredCode: customerAccount?.code,
+          enterpriseId: encaissement.enterpriseId,
           user: req.user,
         });
       } else if (encaissement.accountingAccountId) {

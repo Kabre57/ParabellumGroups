@@ -7,6 +7,10 @@ const {
   invalidateAccountingFamilyRulesCache,
   normalizeFamilyCode,
 } = require('../utils/accountingAccountResolver');
+const {
+  assertEnterpriseInScope,
+  resolveEnterpriseContext,
+} = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -80,6 +84,7 @@ const serializeFamilyRuleItem = (rule) => ({
   accountId: rule.accountId,
   account: rule.account ? serializeAccountingAccount(rule.account) : null,
   isPrimary: Boolean(rule.isPrimary),
+  enterpriseId: rule.enterpriseId ?? null,
   createdAt: rule.createdAt,
   updatedAt: rule.updatedAt,
 });
@@ -136,13 +141,18 @@ const serializeFamilyDiagnostic = (definition, rules = []) => {
   };
 };
 
-const refreshCache = async () => {
-  invalidateAccountingFamilyRulesCache();
-  await loadAccountingFamilyDefinitions(prisma, { force: true });
-  await loadAccountingFamilyRules(prisma, { force: true });
+const resolveRuleEnterpriseId = async (req, requestedEnterpriseId = req.body?.enterpriseId ?? req.query?.enterpriseId) => {
+  const context = await resolveEnterpriseContext(req, requestedEnterpriseId);
+  return context.enterpriseId;
 };
 
-const validateFamilyAndAccount = async (family, accountId) => {
+const refreshCache = async (enterpriseId = null) => {
+  await invalidateAccountingFamilyRulesCache(prisma, enterpriseId);
+  await loadAccountingFamilyDefinitions(prisma, { force: true });
+  await loadAccountingFamilyRules(prisma, { enterpriseId, force: true });
+};
+
+const validateFamilyAndAccount = async (family, accountId, enterpriseId = null) => {
   const normalizedFamily = normalizeFamilyCode(family);
   const definition = await prisma.accountingFamilyDefinition.findUnique({
     where: { code: normalizedFamily },
@@ -163,6 +173,15 @@ const validateFamilyAndAccount = async (family, accountId) => {
 
   if (!account || account.isActive === false) {
     return { error: { status: 404, message: 'Compte comptable introuvable ou inactif' } };
+  }
+
+  if (enterpriseId !== null && Number(account.enterpriseId) !== Number(enterpriseId)) {
+    return {
+      error: {
+        status: 400,
+        message: 'Ce compte comptable n appartient pas a l entreprise selectionnee.',
+      },
+    };
   }
 
   if (definition.accountType && account.type !== definition.accountType) {
@@ -188,9 +207,10 @@ exports.getFamilyRules = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    const enterpriseId = await resolveRuleEnterpriseId(req, req.query?.enterpriseId);
     const [definitions, configuredRules] = await Promise.all([
       getFamilyDefinitions(prisma),
-      loadAccountingFamilyRules(prisma, { force: true }),
+      loadAccountingFamilyRules(prisma, { enterpriseId, force: true }),
     ]);
 
     return res.json({
@@ -199,9 +219,9 @@ exports.getFamilyRules = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur récupération règles comptables par famille:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la récupération des familles comptables',
+      message: error.statusCode ? error.message : 'Erreur lors de la récupération des familles comptables',
     });
   }
 };
@@ -213,9 +233,10 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    const enterpriseId = await resolveRuleEnterpriseId(req, req.query?.enterpriseId);
     const [definitions, configuredRules] = await Promise.all([
       getFamilyDefinitions(prisma),
-      loadAccountingFamilyRules(prisma, { force: true }),
+      loadAccountingFamilyRules(prisma, { enterpriseId, force: true }),
     ]);
     const diagnostics = definitions.map((definition) =>
       serializeFamilyDiagnostic(definition, configuredRules.get(definition.code) || [])
@@ -237,9 +258,9 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur diagnostic familles comptables:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors du diagnostic des familles comptables',
+      message: error.statusCode ? error.message : 'Erreur lors du diagnostic des familles comptables',
     });
   }
 };
@@ -451,7 +472,8 @@ exports.addFamilyRule = async (req, res) => {
     }
 
     await ensureDefaultFamilyDefinitions(prisma);
-    const validation = await validateFamilyAndAccount(req.params.family, req.body?.accountId);
+    const enterpriseId = await resolveRuleEnterpriseId(req, req.body?.enterpriseId);
+    const validation = await validateFamilyAndAccount(req.params.family, req.body?.accountId, enterpriseId);
     if (validation.error) {
       return res.status(validation.error.status).json({
         success: false,
@@ -470,7 +492,7 @@ exports.addFamilyRule = async (req, res) => {
 
     const createdRule = await prisma.$transaction(async (tx) => {
       const existingFamilyRules = await tx.accountingFamilyRule.findMany({
-        where: { family },
+        where: { family, enterpriseId },
         orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
       });
 
@@ -485,7 +507,7 @@ exports.addFamilyRule = async (req, res) => {
 
       if (shouldBePrimary) {
         await tx.accountingFamilyRule.updateMany({
-          where: { family },
+          where: { family, enterpriseId },
           data: { isPrimary: false },
         });
       }
@@ -497,6 +519,7 @@ exports.addFamilyRule = async (req, res) => {
           description: nextDescription,
           accountId: account.id,
           isPrimary: shouldBePrimary,
+          enterpriseId,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
         },
@@ -504,7 +527,7 @@ exports.addFamilyRule = async (req, res) => {
       });
     });
 
-    await refreshCache();
+    await refreshCache(enterpriseId);
 
     return res.status(201).json({
       success: true,
@@ -547,6 +570,12 @@ exports.updateFamilyRule = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(
+      req,
+      existingRule.enterpriseId,
+      "Vous n'avez pas acces a cette règle comptable."
+    );
+
     const nextLabel = String(req.body?.label || '').trim() || existingRule.label;
     const nextDescription =
       typeof req.body?.description === 'undefined'
@@ -560,6 +589,7 @@ exports.updateFamilyRule = async (req, res) => {
         await tx.accountingFamilyRule.updateMany({
           where: {
             family: existingRule.family,
+            enterpriseId: existingRule.enterpriseId,
             id: { not: existingRule.id },
           },
           data: { isPrimary: false },
@@ -579,7 +609,7 @@ exports.updateFamilyRule = async (req, res) => {
       });
     });
 
-    await refreshCache();
+    await refreshCache(existingRule.enterpriseId);
 
     return res.json({
       success: true,
@@ -588,9 +618,9 @@ exports.updateFamilyRule = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur mise à jour règle comptable par famille:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour de la règle comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la mise à jour de la règle comptable',
     });
   }
 };
@@ -616,6 +646,12 @@ exports.deleteFamilyRule = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(
+      req,
+      existingRule.enterpriseId,
+      "Vous n'avez pas acces a cette règle comptable."
+    );
+
     await prisma.$transaction(async (tx) => {
       await tx.accountingFamilyRule.delete({
         where: { id: existingRule.id },
@@ -623,12 +659,18 @@ exports.deleteFamilyRule = async (req, res) => {
 
       if (existingRule.isPrimary) {
         const nextRule = await tx.accountingFamilyRule.findFirst({
-          where: { family: existingRule.family },
+          where: {
+            family: existingRule.family,
+            enterpriseId: existingRule.enterpriseId,
+          },
           orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
         });
         if (nextRule) {
           await tx.accountingFamilyRule.updateMany({
-            where: { family: existingRule.family },
+            where: {
+              family: existingRule.family,
+              enterpriseId: existingRule.enterpriseId,
+            },
             data: { isPrimary: false },
           });
           await tx.accountingFamilyRule.update({
@@ -639,7 +681,7 @@ exports.deleteFamilyRule = async (req, res) => {
       }
     });
 
-    await refreshCache();
+    await refreshCache(existingRule.enterpriseId);
 
     return res.json({
       success: true,
@@ -647,9 +689,9 @@ exports.deleteFamilyRule = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur suppression règle comptable par famille:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la suppression de la règle comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la suppression de la règle comptable',
     });
   }
 };

@@ -28,6 +28,7 @@ import { CreateFactureFournisseurDialog } from '@/components/accounting/CreateFa
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import CashVoucherPrint from '@/components/printComponents/CashVoucherPrint';
 import { formatFCFA } from '@/components/printComponents/printUtils';
+import { AccountingDateRangeDialog } from '@/components/accounting/AccountingDateRangeDialog';
 import {
   DepensesHeader,
   DepensesStats,
@@ -74,7 +75,10 @@ export default function DepensesPage() {
     isAdminRole(user) || permissionSet.has('expenses.approve') || permissionSet.has('payments.validate');
 
   const [search, setSearch] = useState('');
-  const [period, setPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
+  const [customRange, setCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
   const [enterpriseFilter, setEnterpriseFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
   const [encaissementOpen, setEncaissementOpen] = useState(false);
@@ -90,8 +94,26 @@ export default function DepensesPage() {
   const [printListOpen, setPrintListOpen] = useState(false);
 
   const range = useMemo(() => {
+    if (customRange) return customRange;
     if (period === 'all') return {};
     const now = new Date();
+    if (period === 'day') {
+      const day = selectedDay ? new Date(`${selectedDay}T00:00:00`) : now;
+      const start = new Date(day);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(day);
+      end.setHours(23, 59, 59, 999);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
+    if (period === 'week') {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { startDate: start.toISOString(), endDate: end.toISOString() };
+    }
     if (period === 'month') {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -106,7 +128,7 @@ export default function DepensesPage() {
     const start = new Date(now.getFullYear(), 0, 1);
     const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
     return { startDate: start.toISOString(), endDate: end.toISOString() };
-  }, [period]);
+  }, [customRange, period, selectedDay]);
 
   const { data: enterprisesResponse } = useQuery({
     queryKey: ['enterprise-filter-options', 'depenses'],
@@ -125,7 +147,7 @@ export default function DepensesPage() {
       : accessibleEnterprises.find((enterprise) => String(enterprise.id) === enterpriseFilter)?.name || null;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['billing-spending-overview', period, enterpriseFilter],
+    queryKey: ['billing-spending-overview', period, selectedDay, customRange?.startDate ?? null, customRange?.endDate ?? null, enterpriseFilter],
     queryFn: () =>
       billingService.getSpendingOverview(
         enterpriseFilter !== 'all'
@@ -147,7 +169,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Erreur lors de la creation de l'encaissement.");
+      toast.error(error?.response?.data?.message || error?.message || "Erreur lors de la creation de l'encaissement.");
     },
   });
 
@@ -164,7 +186,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la creation du decaissement.');
+      toast.error(error?.response?.data?.message || error?.message || 'Erreur lors de la creation du decaissement.');
     },
   });
 
@@ -177,7 +199,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la liquidation.');
+      toast.error(error?.response?.data?.message || error?.message || 'Erreur lors de la liquidation.');
     },
   });
 
@@ -190,7 +212,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['purchaseCommitmentStats'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Erreur lors de la validation de l'engagement.");
+      toast.error(error?.response?.data?.message || error?.message || "Erreur lors de la validation de l'engagement.");
     },
   });
 
@@ -204,7 +226,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['accounting-balance'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Erreur lors de la validation de l'encaissement.");
+      toast.error(error?.response?.data?.message || error?.message || "Erreur lors de la validation de l'encaissement.");
     },
   });
 
@@ -218,7 +240,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['accounting-balance'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la comptabilisation du décaissement.');
+      toast.error(error?.response?.data?.message || error?.message || 'Erreur lors de la comptabilisation du décaissement.');
     },
   });
 
@@ -236,7 +258,7 @@ export default function DepensesPage() {
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Erreur lors de la mise a jour du bon de caisse.');
+      toast.error(error?.response?.data?.message || error?.message || 'Erreur lors de la mise a jour du bon de caisse.');
     },
   });
 
@@ -318,6 +340,7 @@ export default function DepensesPage() {
     const commitmentRows = filteredCommitments.map((item: any) => ({
       id: `commitment-${item.id}`,
       kind: 'commitment' as const,
+      entity: item,
       date: item.createdAt || null,
       number: item.sourceNumber,
       label: sourceLabels[item.sourceType] || item.sourceType,
@@ -325,11 +348,13 @@ export default function DepensesPage() {
       thirdParty: item.supplierName || '-',
       amount: item.amountTTC,
       status: item.status,
+      sourceStatus: item.sourceStatus,
     }));
 
     const voucherRows = filteredVouchers.map((item: any) => ({
       id: `voucher-${item.id}`,
       kind: 'voucher' as const,
+      entity: item,
       date: item.issueDate,
       number: item.voucherNumber,
       label: 'Piece de caisse',
@@ -337,11 +362,13 @@ export default function DepensesPage() {
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
       status: item.status,
+      reference: item.reference,
     }));
 
     const encaissementRows = filteredEncaissements.map((item: any) => ({
       id: `encaissement-${item.id}`,
       kind: 'encaissement' as const,
+      entity: item,
       date: item.dateEncaissement,
       number: item.numeroPiece,
       label: 'Paiement client recu',
@@ -349,11 +376,13 @@ export default function DepensesPage() {
       thirdParty: item.clientName,
       amount: item.amountTTC,
       status: item.status || 'EN_ATTENTE',
+      reference: item.reference,
     }));
 
     const decaissementRows = filteredDecaissements.map((item: any) => ({
       id: `decaissement-${item.id}`,
       kind: 'decaissement' as const,
+      entity: item,
       date: item.dateDecaissement,
       number: item.numeroPiece,
       label: item.commitmentId ? 'Paiement fournisseur saisi' : 'Decaissement saisi',
@@ -361,6 +390,7 @@ export default function DepensesPage() {
       thirdParty: item.beneficiaryName,
       amount: item.amountTTC,
       status: item.status || 'DECAISSE',
+      reference: item.reference,
     }));
 
     return [...voucherRows, ...commitmentRows, ...encaissementRows, ...decaissementRows].sort((left, right) => {
@@ -382,7 +412,17 @@ export default function DepensesPage() {
     <div className="space-y-6">
       <DepensesHeader
         period={period}
-        onPeriodChange={setPeriod}
+        selectedDay={selectedDay}
+        hasCustomRange={Boolean(customRange)}
+        onPeriodChange={(nextPeriod) => {
+          setPeriod(nextPeriod);
+          setCustomRange(null);
+        }}
+        onSelectedDayChange={(day) => {
+          setSelectedDay(day);
+          setCustomRange(null);
+        }}
+        onCustomRange={() => setRangeDialogOpen(true)}
         onPrintList={() => setPrintListOpen(true)}
         onImport={() => setImportOpen(true)}
         onNewEncaissement={() => setEncaissementOpen(true)}
@@ -392,6 +432,15 @@ export default function DepensesPage() {
         }}
         canCreate={canCreateVoucher}
         canImport={canImportVoucher}
+      />
+
+      <AccountingDateRangeDialog
+        open={rangeDialogOpen}
+        onOpenChange={setRangeDialogOpen}
+        defaultRange={customRange}
+        onApply={(nextRange) => {
+          setCustomRange(nextRange.startDate || nextRange.endDate ? nextRange : null);
+        }}
       />
 
       <DepensesStats

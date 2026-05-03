@@ -3,12 +3,17 @@ import type {
   AccountingAccount,
   AccountingBalanceResponse,
   AccountingEntry,
+  AccountingBalanceSheetResponse,
+  AccountingClosing,
+  AccountingDiagnosticRun,
   AccountingFamilyDiagnostic,
   AccountingFamilyRule,
   AccountingGeneralLedgerResponse,
+  AccountingIncomeStatementResponse,
   AccountingJournal,
   AccountingOverview,
   AccountingPeriod,
+  AccountingReportSnapshot,
   DetailResponse,
   FiscalYear,
   GetAccountingBalanceParams,
@@ -43,6 +48,65 @@ export const accountingService = {
   }): Promise<{ success: boolean; data: AccountingGeneralLedgerResponse }> {
     const response = await apiClient.get('/billing/accounting/general-ledger', { params });
     return normalizeStatsResponse<AccountingGeneralLedgerResponse>(response.data);
+  },
+
+  async getBalanceSheet(params?: GetAccountingBalanceParams): Promise<{ success: boolean; data: AccountingBalanceSheetResponse }> {
+    const response = await apiClient.get('/billing/accounting/balance-sheet', { params });
+    return normalizeStatsResponse<AccountingBalanceSheetResponse>(response.data);
+  },
+
+  async getIncomeStatement(params?: GetAccountingBalanceParams): Promise<{ success: boolean; data: AccountingIncomeStatementResponse }> {
+    const response = await apiClient.get('/billing/accounting/income-statement', { params });
+    return normalizeStatsResponse<AccountingIncomeStatementResponse>(response.data);
+  },
+
+  async getAccountingClosings(params?: {
+    periodId?: string;
+    status?: string;
+  }): Promise<ListResponse<AccountingClosing>> {
+    const response = await apiClient.get('/billing/accounting/closings', { params });
+    return normalizeListResponse<AccountingClosing>(response.data);
+  },
+
+  async createAccountingClosing(data: {
+    periodId: string;
+    status?: 'DRAFT' | 'CLOSED' | 'VALIDATED';
+    notes?: string;
+  }): Promise<DetailResponse<AccountingClosing>> {
+    const response = await apiClient.post('/billing/accounting/closings', data);
+    return normalizeDetailResponse<AccountingClosing>(response.data);
+  },
+
+  async getAccountingDiagnostics(params?: { limit?: number }): Promise<ListResponse<AccountingDiagnosticRun>> {
+    const response = await apiClient.get('/billing/accounting/diagnostics', { params });
+    return normalizeListResponse<AccountingDiagnosticRun>(response.data);
+  },
+
+  async runAccountingDiagnostic(data?: { scope?: string }): Promise<DetailResponse<AccountingDiagnosticRun>> {
+    const response = await apiClient.post('/billing/accounting/diagnostics/run', data || {});
+    return normalizeDetailResponse<AccountingDiagnosticRun>(response.data);
+  },
+
+  async getAccountingReportSnapshots(params?: {
+    reportType?: string;
+    periodId?: string;
+    fiscalYearId?: string;
+    enterpriseId?: string | number;
+  }): Promise<ListResponse<AccountingReportSnapshot>> {
+    const response = await apiClient.get('/billing/accounting/report-snapshots', { params });
+    return normalizeListResponse<AccountingReportSnapshot>(response.data);
+  },
+
+  async createAccountingReportSnapshot(data: {
+    reportType: string;
+    periodId?: string | null;
+    fiscalYearId?: string | null;
+    enterpriseId?: string | number | null;
+    parameters: any;
+    payload: any;
+  }): Promise<DetailResponse<AccountingReportSnapshot>> {
+    const response = await apiClient.post('/billing/accounting/report-snapshots', data);
+    return normalizeDetailResponse<AccountingReportSnapshot>(response.data);
   },
 
   async getAccountingAccounts(): Promise<ListResponse<AccountingAccount>> {
@@ -202,5 +266,32 @@ export const accountingService = {
   }): Promise<DetailResponse<AccountingEntry>> {
     const response = await apiClient.post('/billing/accounting/entries', data);
     return normalizeDetailResponse<AccountingEntry>(response.data);
+  },
+
+  async getTrialBalance(params?: {
+    periodId?: string;
+    fiscalYearId?: string;
+    enterpriseId?: string | number;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const response = await apiClient.get('/billing/accounting/trial-balance', { params });
+    return response.data;
+  },
+
+  async getLedger(params?: {
+    periodId?: string;
+    fiscalYearId?: string;
+    enterpriseId?: string | number;
+    accountIds?: string;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const response = await apiClient.get('/billing/accounting/ledger', { params });
+    return response.data;
+  },
+
+  async generateSyscoaReport(data: {
+    fiscalYearId: string;
+    enterpriseId?: string | number;
+  }): Promise<{ success: boolean; data: any }> {
+    const response = await apiClient.post('/billing/accounting/regulatory-reports/syscoa', data);
+    return response.data;
   },
 };

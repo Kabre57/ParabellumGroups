@@ -291,10 +291,11 @@ exports.updateStatus = async (req, res) => {
         getTreasuryFamilyFromPaymentMethod(decaissement.paymentMethod),
         {
           preferredAccountId: preferredTreasuryAccountingAccountId,
+          enterpriseId: decaissement.enterpriseId,
           user: req.user,
         }
       );
-      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount);
+      const treasuryJournal = await getTreasuryJournalMeta(tx, treasuryAccountingAccount, { enterpriseId: decaissement.enterpriseId });
       const totalAmount = amount(decaissement.amountTTC);
       const vatAmount = amount(decaissement.amountTVA);
       const baseAmount = amount(decaissement.amountHT) || Math.max(totalAmount - vatAmount, 0);

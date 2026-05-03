@@ -94,3 +94,20 @@ test('manual encaissements and decaissements can post VAT on dedicated accounts'
   assert.match(decaissementController, /TVA deductible/);
   assert.match(decaissementController, /AccountingAccountType\.ASSET/);
 });
+
+test('account creation and family rules are scoped by enterprise', () => {
+  const accountController = read('controllers', 'account.controller.js');
+  const familyRuleController = read('controllers', 'accountingFamilyRule.controller.js');
+  const accountResolver = read('utils', 'accountingAccountResolver.js');
+
+  assert.match(accountController, /resolveEnterpriseContext/);
+  assert.match(accountController, /code: normalizedCode,[\s\S]*enterpriseId/);
+  assert.doesNotMatch(accountController, /findUnique\(\{\s*where: \{ code: normalizedCode \}/);
+
+  assert.match(familyRuleController, /resolveRuleEnterpriseId/);
+  assert.match(familyRuleController, /where: \{ family, enterpriseId \}/);
+  assert.match(familyRuleController, /enterpriseId,\s*\n\s*createdByUserId/);
+
+  assert.match(accountResolver, /OR:\s*\[\s*\{ enterpriseId: eid \}/);
+  assert.match(accountResolver, /account\.enterpriseId !== null/);
+});

@@ -178,13 +178,13 @@ const pickPreferredRule = (rules = [], accountOrCode) => {
   return rules.find((rule) => rule.isPrimary) || rules[0] || null;
 };
 
-const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFamily = null) => {
+const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFamily = null, enterpriseId = null) => {
   const { accountId, code } = getAccountIdentity(accountOrCode);
   if (!accountId && !code) {
     return fallbackFamily;
   }
 
-  const rules = await loadAccountingFamilyRules(client);
+  const rules = await loadAccountingFamilyRules(client, { enterpriseId });
   const cashRules = rules.get(AccountingFamily.TREASURY_CASH) || [];
   if (cashRules.some((rule) => matchesConfiguredFamilyRule(rule, accountOrCode))) {
     return AccountingFamily.TREASURY_CASH;
@@ -198,22 +198,22 @@ const resolveConfiguredTreasuryFamily = async (client, accountOrCode, fallbackFa
   return fallbackFamily;
 };
 
-const isCashAccountingCode = async (client, accountOrCode) =>
-  (await resolveConfiguredTreasuryFamily(client, accountOrCode)) === AccountingFamily.TREASURY_CASH;
+const isCashAccountingCode = async (client, accountOrCode, enterpriseId = null) =>
+  (await resolveConfiguredTreasuryFamily(client, accountOrCode, null, enterpriseId)) === AccountingFamily.TREASURY_CASH;
 
-const isBankAccountingCode = async (client, accountOrCode) =>
-  (await resolveConfiguredTreasuryFamily(client, accountOrCode)) === AccountingFamily.TREASURY_BANK;
+const isBankAccountingCode = async (client, accountOrCode, enterpriseId = null) =>
+  (await resolveConfiguredTreasuryFamily(client, accountOrCode, null, enterpriseId)) === AccountingFamily.TREASURY_BANK;
 
-const isTreasuryAccountingCode = async (client, accountOrCode) =>
-  Boolean(await resolveConfiguredTreasuryFamily(client, accountOrCode));
+const isTreasuryAccountingCode = async (client, accountOrCode, enterpriseId = null) =>
+  Boolean(await resolveConfiguredTreasuryFamily(client, accountOrCode, null, enterpriseId));
 
 const getTreasuryFamilyFromPaymentMethod = (paymentMethod) =>
   String(paymentMethod || '').toUpperCase() === 'ESPECES'
     ? AccountingFamily.TREASURY_CASH
     : AccountingFamily.TREASURY_BANK;
 
-const getTreasuryJournalMeta = async (client, accountOrCode, { fallbackFamily = AccountingFamily.TREASURY_BANK } = {}) => {
-  const family = await resolveConfiguredTreasuryFamily(client, accountOrCode, fallbackFamily);
+const getTreasuryJournalMeta = async (client, accountOrCode, { fallbackFamily = AccountingFamily.TREASURY_BANK, enterpriseId = null } = {}) => {
+  const family = await resolveConfiguredTreasuryFamily(client, accountOrCode, fallbackFamily, enterpriseId);
   const isCash = family === AccountingFamily.TREASURY_CASH;
   return {
     journalCode: isCash ? 'CA' : 'BQ',
@@ -222,20 +222,58 @@ const getTreasuryJournalMeta = async (client, accountOrCode, { fallbackFamily = 
   };
 };
 
-let familyRulesCache = null;
+let familyRulesCache = new Map(); // Map<enterpriseId, Map<family, rules[]>>
 let familyDefinitionsCache = null;
-let familyRulesLoadedAt = 0;
+let familyRulesLoadedAt = new Map(); // Map<enterpriseId, timestamp>
+let familyCacheVersions = new Map(); // Map<enterpriseId, version>
 const CACHE_TTL_MS = 60 * 1000;
 
-const invalidateAccountingFamilyRulesCache = () => {
-  familyRulesCache = null;
+/** Récupère la version de cache en BDD pour une entreprise. */
+const fetchDbCacheVersion = async (client, enterpriseId) => {
+  const eid = enterpriseId ? Number(enterpriseId) : 1; // 1 par défaut si nul
+  try {
+    const config = await client.accountingCacheConfig.findUnique({
+      where: { enterpriseId: eid }
+    });
+    return config?.cacheVersion || 1;
+  } catch (e) {
+    console.error('[Resolver] Error fetching cache version:', e.message);
+    return 1;
+  }
+};
+
+/** Incrémente la version de cache en BDD pour forcer l'invalidation globale. */
+const bumpDbCacheVersion = async (client, enterpriseId) => {
+  const eid = enterpriseId ? Number(enterpriseId) : 1;
+  try {
+    await client.accountingCacheConfig.upsert({
+      where: { enterpriseId: eid },
+      update: { cacheVersion: { increment: 1 } },
+      create: { enterpriseId: eid, cacheVersion: 2 }
+    });
+  } catch (e) {
+    console.error('[Resolver] Error bumping cache version:', e.message);
+  }
+};
+
+const invalidateAccountingFamilyRulesCache = async (client, enterpriseId = null) => {
+  if (enterpriseId) {
+    const eid = Number(enterpriseId);
+    familyRulesCache.delete(eid);
+    familyRulesLoadedAt.delete(eid);
+    familyCacheVersions.delete(eid);
+    if (client) await bumpDbCacheVersion(client, eid);
+  } else {
+    familyRulesCache.clear();
+    familyRulesLoadedAt.clear();
+    familyCacheVersions.clear();
+    // On ne bump pas tout d'un coup sauf si nécessaire
+  }
   familyDefinitionsCache = null;
-  familyRulesLoadedAt = 0;
 };
 
 const loadAccountingFamilyDefinitions = async (client, { force = false } = {}) => {
-  const cacheExpired = Date.now() - familyRulesLoadedAt > CACHE_TTL_MS;
-  if (!force && familyDefinitionsCache && !cacheExpired) {
+  if (!force && familyDefinitionsCache) {
     return familyDefinitionsCache;
   }
 
@@ -267,27 +305,52 @@ const loadAccountingFamilyDefinitions = async (client, { force = false } = {}) =
   }
 
   familyDefinitionsCache = definitions;
-  familyRulesLoadedAt = Date.now();
   return familyDefinitionsCache;
 };
 
-const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
-  const cacheExpired = Date.now() - familyRulesLoadedAt > CACHE_TTL_MS;
-  if (!force && familyRulesCache && !cacheExpired) {
-    return familyRulesCache;
+const loadAccountingFamilyRules = async (client, { enterpriseId = null, force = false } = {}) => {
+  const eid = enterpriseId ? Number(enterpriseId) : null;
+  const loadedAt = familyRulesLoadedAt.get(eid) || 0;
+  const cacheExpired = Date.now() - loadedAt > CACHE_TTL_MS;
+
+  // Check version in DB to see if cache was invalidated elsewhere
+  const dbVersion = await fetchDbCacheVersion(client, eid);
+  const localVersion = familyCacheVersions.get(eid) || 0;
+  const versionMismatch = dbVersion !== localVersion;
+
+  if (!force && familyRulesCache.has(eid) && !cacheExpired && !versionMismatch) {
+    // Sliding TTL: refresh timestamp on access
+    familyRulesLoadedAt.set(eid, Date.now());
+    return familyRulesCache.get(eid);
   }
 
   const definitions = await loadAccountingFamilyDefinitions(client, { force });
   const rules = await client.accountingFamilyRule.findMany({
+    where: eid === null
+      ? { enterpriseId: null }
+      : {
+          OR: [
+            { enterpriseId: eid },
+            { enterpriseId: null },
+          ],
+        },
     include: {
       account: true,
       familyDefinition: true,
     },
     orderBy: [{ family: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }],
   });
+  const orderedRules = [...rules].sort((left, right) => {
+    const leftScopeRank = eid !== null && Number(left.enterpriseId) === eid ? 0 : 1;
+    const rightScopeRank = eid !== null && Number(right.enterpriseId) === eid ? 0 : 1;
+    if (leftScopeRank !== rightScopeRank) return leftScopeRank - rightScopeRank;
+    if (left.family !== right.family) return left.family.localeCompare(right.family);
+    if (left.isPrimary !== right.isPrimary) return left.isPrimary ? -1 : 1;
+    return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+  });
 
-  familyRulesCache = new Map();
-  rules.forEach((rule) => {
+  const enterpriseRulesMap = new Map();
+  orderedRules.forEach((rule) => {
     const definition =
       definitions.get(rule.family) ||
       normalizeFamilyDefinition(rule.family, {
@@ -306,34 +369,60 @@ const loadAccountingFamilyRules = async (client, { force = false } = {}) => {
       ...rule,
       account: isUsableAccount ? rule.account : null,
     };
-    const bucket = familyRulesCache.get(rule.family) || [];
+    const bucket = enterpriseRulesMap.get(rule.family) || [];
     bucket.push(normalizedRule);
-    familyRulesCache.set(rule.family, bucket);
+    enterpriseRulesMap.set(rule.family, bucket);
   });
-  familyRulesLoadedAt = Date.now();
-  return familyRulesCache;
+  
+  familyRulesCache.set(eid, enterpriseRulesMap);
+  familyRulesLoadedAt.set(eid, Date.now());
+  familyCacheVersions.set(eid, dbVersion);
+  return enterpriseRulesMap;
 };
 
-const findAccountById = async (client, accountId, type = null) => {
+const findAccountById = async (client, accountId, enterpriseId = null, type = null) => {
   if (!accountId) return null;
+  const eid = enterpriseId ? Number(enterpriseId) : null;
   const account = await client.accountingAccount.findUnique({
-    where: { id: String(accountId) },
+    where: { 
+      id: String(accountId),
+      // enterpriseId: eid // Optionnel si l'ID est globalement unique (UUID)
+    },
   });
   if (!account || account.isActive === false) return null;
+  if (eid !== null && account.enterpriseId !== null && account.enterpriseId !== eid) return null;
   if (type && account.type !== type) return null;
   return account;
 };
 
-const findAccountByCode = async (client, code, type) => {
+const findAccountByCode = async (client, code, enterpriseId, type) => {
   const normalizedCode = normalizeText(code);
+  const eid = enterpriseId ? Number(enterpriseId) : null;
   if (!normalizedCode) return null;
+
+  const scopedAccount = eid === null
+    ? null
+    : await client.accountingAccount.findFirst({
+        where: {
+          code: normalizedCode,
+          enterpriseId: eid,
+          isActive: true,
+        },
+      });
+  if (scopedAccount) {
+    if (type && scopedAccount.type !== type) return null;
+    return scopedAccount;
+  }
+
   const account = await client.accountingAccount.findFirst({
     where: {
       code: normalizedCode,
-      ...(type ? { type } : {}),
+      enterpriseId: null,
       isActive: true,
     },
+    orderBy: [{ createdAt: 'asc' }],
   });
+  if (account && type && account.type !== type) return null;
   return account || null;
 };
 
@@ -344,11 +433,15 @@ const resolveAccountingAccount = async (
     preferredAccountId = null,
     preferredCode = null,
     strict = true,
+    enterpriseId = null,
+    withAudit = false,
   } = {}
 ) => {
   const normalizedFamily = normalizeFamilyCode(family);
   const definitions = await loadAccountingFamilyDefinitions(client);
   const definition = definitions.get(normalizedFamily);
+  let audit = { family: normalizedFamily, strategy: null, ruleId: null };
+
   if (!definition) {
     if (strict) {
       const error = new Error(`Famille comptable inconnue: ${normalizedFamily}`);
@@ -356,23 +449,33 @@ const resolveAccountingAccount = async (
       error.code = 'ACCOUNTING_FAMILY_UNKNOWN';
       throw error;
     }
-    return null;
+    return withAudit ? { account: null, audit } : null;
   }
 
-  let account = await findAccountById(client, preferredAccountId, definition.type);
-  if (!account) {
-    account = await findAccountByCode(client, preferredCode, definition.type);
+  let account = await findAccountById(client, preferredAccountId, enterpriseId, definition.type);
+  if (account) {
+    audit.strategy = 'PREFERRED_ID';
+  } else {
+    account = await findAccountByCode(client, preferredCode, enterpriseId, definition.type);
+    if (account) audit.strategy = 'PREFERRED_CODE';
   }
-
+  
   if (!account) {
-    const rules = await loadAccountingFamilyRules(client);
-    const configuredRule = pickPreferredRule(rules.get(normalizedFamily) || [], preferredAccountId || preferredCode || null);
+    const rules = await loadAccountingFamilyRules(client, { enterpriseId });
+    const configuredRules = rules.get(normalizedFamily) || [];
+    const configuredRule = pickPreferredRule(configuredRules, preferredAccountId || preferredCode || null);
+    
     if (configuredRule?.account) {
       account = configuredRule.account;
+      audit.strategy = 'FAMILY_RULE';
+      audit.ruleId = configuredRule.id;
     } else if (configuredRule?.accountId) {
-      account = await findAccountById(client, configuredRule.accountId, definition.type);
-      if (!account) {
-        invalidateAccountingFamilyRulesCache();
+      account = await findAccountById(client, configuredRule.accountId, enterpriseId, definition.type);
+      if (account) {
+        audit.strategy = 'FAMILY_RULE_DEFERRED';
+        audit.ruleId = configuredRule.id;
+      } else {
+        await invalidateAccountingFamilyRulesCache(client, enterpriseId);
       }
     }
   }
@@ -381,7 +484,7 @@ const resolveAccountingAccount = async (
     throw accountingConfigurationError(definition.errorMessage, normalizedFamily, definition);
   }
 
-  return account;
+  return withAudit ? { account, audit } : account;
 };
 
 const resolveAccountingReference = async (client, family, options = {}) => {

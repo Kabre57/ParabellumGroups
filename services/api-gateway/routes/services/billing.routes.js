@@ -112,6 +112,33 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/accounting\/(?:balance-sheet|income-statement)$/,
+    permissions: {
+      GET: ['accounting.statements.read', 'accounting.read', 'reports.read_financial']
+    }
+  },
+  {
+    pattern: /^\/accounting\/closings$/,
+    permissions: {
+      GET: ['accounting.read', 'accounting.statements.read'],
+      POST: ['accounting.statements.generate', 'accounting.periods.manage']
+    }
+  },
+  {
+    pattern: /^\/accounting\/diagnostics(?:\/run)?$/,
+    permissions: {
+      GET: ['accounting.diagnostics.read', 'accounting.read'],
+      POST: ['accounting.diagnostics.read', 'accounting.periods.manage']
+    }
+  },
+  {
+    pattern: /^\/accounting\/report-snapshots$/,
+    permissions: {
+      GET: ['accounting.reports.read', 'accounting.read'],
+      POST: ['accounting.reports.export', 'accounting.statements.generate']
+    }
+  },
+  {
     pattern: /^\/accounting\/overview$/,
     permissions: {
       GET: 'accounting.read'

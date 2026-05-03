@@ -1,4 +1,4 @@
-oici le plan d’architecture détaillé pour:
+ovici le plan d’architecture détaillé pour pour ajouter :
 
 module placements
 module états financiers / réglementaires robustes

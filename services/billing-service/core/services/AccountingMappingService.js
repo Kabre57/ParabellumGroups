@@ -7,45 +7,49 @@ const prisma = new PrismaClient();
 
 class AccountingMappingService {
   constructor() {
-    this.mappings = null;
+    this.mappings = new Map(); // Map<enterpriseId, mappings[]>
   }
 
   /**
    * Charge tous les mappings actifs en mémoire pour des performances optimales
    */
-  async refreshCache() {
+  async refreshCache(enterpriseId = null) {
     try {
+      const eid = enterpriseId ? Number(enterpriseId) : null;
       // Vérification sécurisée de l'existence du modèle
       if (!prisma.accountingMapping) {
         console.warn('[AccountingMappingService] Prisma model accountingMapping is undefined. Using emergency fallback.');
-        this.mappings = [];
+        this.mappings.set(eid, []);
         return;
       }
 
-      this.mappings = await prisma.accountingMapping.findMany({
-        where: { isActive: true },
+      const mps = await prisma.accountingMapping.findMany({
+        where: { isActive: true, enterpriseId: eid },
         include: { account: true },
         orderBy: { priority: 'desc' }
       });
-      console.log(`[AccountingMappingService] Cache refreshed: ${this.mappings.length} mappings.`);
+      this.mappings.set(eid, mps);
+      console.log(`[AccountingMappingService] Cache refreshed for enterprise ${eid}: ${mps.length} mappings.`);
     } catch (error) {
-      console.error('[AccountingMappingService] Error refreshing cache (Database might be out of sync):', error.message);
-      this.mappings = [];
+      console.error('[AccountingMappingService] Error refreshing cache:', error.message);
+      this.mappings.set(enterpriseId ? Number(enterpriseId) : null, []);
     }
   }
 
   /**
    * Résout un compte comptable basé sur la source et la catégorie
    */
-  async resolveAccount(sourceType, category) {
-    if (this.mappings === null) await this.refreshCache();
+  async resolveAccount(sourceType, category, enterpriseId = null) {
+    const eid = enterpriseId ? Number(enterpriseId) : null;
+    if (!this.mappings.has(eid)) await this.refreshCache(eid);
 
     const normalizedCategory = String(category || '').trim();
     const normalizedSource = String(sourceType || '').toUpperCase();
+    const enterpriseMappings = this.mappings.get(eid) || [];
 
     // 1. Recherche dans le cache DB si disponible
-    if (this.mappings && this.mappings.length > 0) {
-      const found = this.mappings.find(m => {
+    if (enterpriseMappings.length > 0) {
+      const found = enterpriseMappings.find(m => {
         if (m.sourceType !== normalizedSource) return false;
         if (m.categoryKey === '*') return true;
         return String(normalizedCategory).toLowerCase().includes(m.categoryKey.toLowerCase());
@@ -62,14 +66,14 @@ class AccountingMappingService {
 
     const semanticFamily = this.resolveSemanticFamily(normalizedSource, normalizedCategory);
     if (semanticFamily) {
-      const resolved = await resolveAccountingReference(prisma, semanticFamily);
+      const resolved = await resolveAccountingReference(prisma, semanticFamily, { enterpriseId: eid });
       if (resolved) {
         return resolved;
       }
     }
 
     // 3. Fallback ultime sans code hardcodé
-    console.log(`[AccountingMappingService] No mapping found for ${normalizedSource}:${normalizedCategory}. Returning semantic fallback.`);
+    console.log(`[AccountingMappingService] No mapping found for ${normalizedSource}:${normalizedCategory} (Ent: ${eid}). Returning semantic fallback.`);
     return {
       code: null,
       label: semanticFamily ? `Famille comptable à configurer: ${semanticFamily}` : 'Famille comptable à configurer',

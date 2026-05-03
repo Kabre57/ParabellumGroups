@@ -1,0 +1,1084 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Facture {
+  id             String          @id @default(uuid())
+  numeroFacture  String          @unique
+  clientId       String
+  enterpriseId   Int?
+  enterpriseName String?
+  serviceId      Int?
+  serviceName    String?
+  serviceLogoUrl String?
+  dateEmission   DateTime        @default(now())
+  dateEcheance   DateTime
+  montantHT      Float
+  montantTVA     Float
+  montantTTC     Float
+  status         FactureStatus   @default(BROUILLON)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  lignes         LigneFacture[]
+  paiements      Paiement[]
+  avoirs         Avoir[]
+
+  @@index([clientId])
+  @@index([enterpriseId])
+  @@index([status])
+  @@index([dateEmission])
+  @@map("factures")
+}
+
+model LigneFacture {
+  id            String   @id @default(uuid())
+  factureId     String
+  description   String
+  imageUrl      String?
+  quantite      Float
+  prixUnitaire  Float
+  tauxTVA       Float
+  montantHT     Float
+  montantTVA    Float
+  montantTTC    Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  facture       Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
+
+  @@index([factureId])
+  @@map("lignes_facture")
+}
+
+model Paiement {
+  id               String          @id @default(uuid())
+  factureId        String
+  enterpriseId     Int?
+  enterpriseName   String?
+  montant          Float
+  datePaiement     DateTime        @default(now())
+  methodePaiement  MethodePaiement
+  serviceId        Int?
+  serviceName      String?
+  treasuryAccountId String?
+  reference        String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  facture          Facture         @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  treasuryAccount  TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
+  @@index([factureId])
+  @@index([enterpriseId])
+  @@index([datePaiement])
+  @@index([treasuryAccountId])
+  @@map("paiements")
+}
+
+model Avoir {
+  id               String       @id @default(uuid())
+  numeroAvoir      String       @unique
+  factureId        String
+  factureNumero    String
+  clientId         String
+  enterpriseId     Int?
+  enterpriseName   String?
+  serviceId        String?
+  serviceName      String?
+  serviceLogoUrl   String?
+  motif            String
+  notes            String?
+  montantHT        Float
+  montantTVA       Float
+  montantTTC       Float
+  status           AvoirStatus  @default(BROUILLON)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  facture          Facture      @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  lignes           LigneAvoir[]
+
+  @@index([factureId])
+  @@index([clientId])
+  @@index([enterpriseId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("avoirs")
+}
+
+model LigneAvoir {
+  id            String   @id @default(uuid())
+  avoirId       String
+  description   String
+  quantite      Float
+  prixUnitaire  Float
+  tauxTVA       Float
+  montantHT     Float
+  montantTVA    Float
+  montantTTC    Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  avoir         Avoir    @relation(fields: [avoirId], references: [id], onDelete: Cascade)
+
+  @@index([avoirId])
+  @@map("lignes_avoir")
+}
+
+model Devis {
+  id            String       @id @default(uuid())
+  numeroDevis   String       @unique
+  clientId      String
+  enterpriseId  Int?
+  enterpriseName String?
+  objet         String?
+  notes         String?
+  modeLivraison String?
+  modalitePaiement String?
+  serviceId     Int?
+  serviceName   String?
+  serviceLogoUrl String?
+  commercialId  String?
+  commercialName String?
+  commercialEmail String?
+  prospectId    String?
+  opportuniteId String?
+  dateEmission  DateTime     @default(now())
+  dateValidite  DateTime
+  montantHT     Float
+  montantTVA    Float
+  montantTTC    Float
+  status        DevisStatus  @default(BROUILLON)
+  sentAt        DateTime?
+  clientRespondedAt DateTime?
+  clientComment String?
+  revisionNumber Int         @default(1)
+  clientAccessToken String?  @unique
+  clientAccessTokenExpiresAt DateTime?
+  forwardedToBillingAt DateTime?
+  forwardedToBillingBy String?
+  convertedInvoiceId String?
+  convertedInvoiceNumber String?
+  acceptedAt    DateTime?
+  refusedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  lignes        LigneDevis[]
+  evenements    DevisEvent[]
+
+  @@index([clientId])
+  @@index([enterpriseId])
+  @@index([prospectId])
+  @@index([opportuniteId])
+  @@index([status])
+  @@index([dateEmission])
+  @@map("devis")
+}
+
+model LigneDevis {
+  id            String   @id @default(uuid())
+  devisId       String
+  description   String
+  imageUrl      String?
+  quantite      Float
+  prixUnitaire  Float
+  tauxTVA       Float
+  montantHT     Float
+  montantTVA    Float
+  montantTTC    Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  devis         Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@index([devisId])
+  @@map("lignes_devis")
+}
+
+model DevisEvent {
+  id          String   @id @default(uuid())
+  devisId     String
+  type        String
+  actorId     String?
+  actorEmail  String?
+  actorRole   String?
+  note        String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  devis       Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@index([devisId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("devis_events")
+}
+
+model PurchaseCommitment {
+  id             String   @id @default(uuid())
+  sourceType     String
+  sourceId       String
+  sourceNumber   String
+  enterpriseId   Int?
+  enterpriseName String?
+  serviceId      Int?
+  serviceName    String?
+  supplierId     String?
+  supplierName   String?
+  sourceStatus   String?
+  amountHT       Float
+  amountTVA      Float
+  amountTTC      Float
+  currency       String   @default("XOF")
+  status         PurchaseCommitmentStatus?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  factureFournisseurId String?
+  factureFournisseur   FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id])
+  decaissements        Decaissement[]
+
+  @@unique([sourceType, sourceId])
+  @@index([enterpriseId])
+  @@index([status])
+  @@map("purchase_commitments")
+}
+
+model FactureFournisseur {
+  id             String   @id @default(uuid())
+  numeroFacture  String   @unique
+  enterpriseId   Int?
+  enterpriseName String?
+  fournisseurId  String?
+  fournisseurNom String?
+  dateFacture    DateTime @default(now())
+  dateEcheance   DateTime?
+  montantHT      Float
+  montantTVA     Float
+  montantTTC     Float
+  currency       String   @default("XOF")
+  status         String   @default("A_PAYER") // A_PAYER, PARTIELLEMENT_PAYEE, PAYEE, ANNULEE
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  commitmentId   String?
+  commitment     PurchaseCommitment[]
+  decaissements  Decaissement[]
+
+  @@index([enterpriseId])
+  @@index([fournisseurId])
+  @@index([status])
+  @@map("factures_fournisseurs")
+}
+
+model Encaissement {
+  id                String   @id @default(uuid())
+  numeroPiece       String   @unique
+  clientId          String?
+  clientName        String
+  description       String
+  enterpriseId      Int?
+  enterpriseName    String?
+  serviceId         Int?
+  serviceName       String?
+  amountHT          Float    @default(0)
+  amountTVA         Float    @default(0)
+  amountTTC         Float
+  currency          String   @default("XOF")
+  paymentMethod     MethodePaiement
+  treasuryAccountId String?
+  accountingAccountId String?
+  vatAccountingAccountId String?
+  dateEncaissement  DateTime @default(now())
+  reference         String?
+  notes             String?
+  status            String   @default("EN_ATTENTE") // EN_ATTENTE, VALIDE, ANNULE
+  createdByUserId   String?
+  createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  factureClientId   String?
+
+  @@index([enterpriseId])
+  @@index([dateEncaissement])
+  @@index([treasuryAccountId])
+  @@index([vatAccountingAccountId])
+  @@map("encaissements")
+}
+
+model Decaissement {
+  id                String   @id @default(uuid())
+  numeroPiece       String   @unique
+  beneficiaryName   String
+  description       String
+  enterpriseId      Int?
+  enterpriseName    String?
+  amountHT          Float    @default(0)
+  amountTVA         Float    @default(0)
+  amountTTC         Float
+  currency          String   @default("XOF")
+  paymentMethod     MethodePaiement
+  treasuryAccountId String?
+  accountingAccountId String?
+  vatAccountingAccountId String?
+  serviceId         Int?
+  serviceName       String?
+  dateDecaissement  DateTime @default(now())
+  reference         String?
+  notes             String?
+  status            String   @default("VALIDE") // VALIDE, DECAISSE, ANNULE
+  createdByUserId   String?
+  createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  treasuryAccount      TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  factureFournisseurId String?
+  factureFournisseur   FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id])
+  commitmentId         String?
+  commitment           PurchaseCommitment? @relation(fields: [commitmentId], references: [id])
+
+  @@index([enterpriseId])
+  @@index([dateDecaissement])
+  @@index([treasuryAccountId])
+  @@index([vatAccountingAccountId])
+  @@map("decaissements")
+}
+
+model TreasuryAccount {
+  id              String               @id @default(uuid())
+  name            String
+  type            TreasuryAccountType
+  bankName        String?
+  accountNumber   String?
+  currency        String               @default("XOF")
+  openingBalance  Float                @default(0)
+  currentBalance  Float                @default(0)
+  accountingAccountId String?
+  isDefault       Boolean              @default(false)
+  isActive        Boolean              @default(true)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  payments        Paiement[]
+  encaissements   Encaissement[]
+  decaissements   Decaissement[]
+  cashVouchers    CashVoucher[]
+  closures        TreasuryClosure[]
+  accountingAccount   AccountingAccount? @relation(fields: [accountingAccountId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([isActive])
+  @@index([accountingAccountId])
+  @@map("treasury_accounts")
+}
+
+model TreasuryClosure {
+  id                 String                @id @default(uuid())
+  treasuryAccountId  String?
+  periodType         TreasuryClosurePeriod
+  periodLabel        String?
+  periodStart        DateTime
+  periodEnd          DateTime
+  expectedCash       Float                 @default(0)
+  expectedCheque     Float                 @default(0)
+  expectedCard       Float                 @default(0)
+  expectedOther      Float                 @default(0)
+  expectedTotal      Float                 @default(0)
+  countedCash        Float                 @default(0)
+  countedCheque      Float                 @default(0)
+  countedCard        Float                 @default(0)
+  countedOther       Float                 @default(0)
+  countedTotal       Float                 @default(0)
+  ticketZ            Float                 @default(0)
+  variance           Float                 @default(0)
+  status             TreasuryClosureStatus @default(DRAFT)
+  notes              String?
+  createdByUserId    String?
+  createdByEmail     String?
+  validatedByUserId  String?
+  validatedByEmail   String?
+  closedAt           DateTime?
+  validatedAt        DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  treasuryAccount TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
+  @@index([periodStart])
+  @@index([periodEnd])
+  @@index([treasuryAccountId])
+  @@map("treasury_closures")
+}
+
+model BillingProcessedEvent {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  eventType    String
+  source       String
+  processedAt  DateTime @default(now())
+
+  @@map("billing_processed_events")
+}
+
+model FiscalYear {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  label       String
+  startDate   DateTime
+  endDate     DateTime
+  status      FiscalYearStatus @default(OPEN)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  periods     AccountingPeriod[]
+  journalEntries AccountingJournalEntry[]
+  closings       AccountingClosing[]
+  reportSnapshots AccountingReportSnapshot[]
+
+  @@index([startDate, endDate])
+  @@map("fiscal_years")
+}
+
+model AccountingPeriod {
+  id              String                 @id @default(uuid())
+  fiscalYearId    String
+  code            String
+  label           String
+  startDate       DateTime
+  endDate         DateTime
+  periodType      AccountingPeriodType
+  status          AccountingPeriodStatus @default(OPEN)
+  closedAt        DateTime?
+  closedByUserId  String?
+  lockedAt        DateTime?
+  lockedByUserId  String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  fiscalYear      FiscalYear             @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  journalEntries  AccountingJournalEntry[]
+  sequences       AccountingEntrySequence[]
+  closings        AccountingClosing[]
+  reportSnapshots AccountingReportSnapshot[]
+
+  @@unique([fiscalYearId, code])
+  @@index([fiscalYearId])
+  @@index([startDate, endDate])
+  @@map("accounting_periods")
+}
+
+model AccountingJournal {
+  id           String                @id @default(uuid())
+  code         String                @unique
+  label        String
+  type         AccountingJournalType
+  description  String?
+  isActive     Boolean               @default(true)
+  enterpriseId Int?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  entries      AccountingJournalEntry[]
+  sequences    AccountingEntrySequence[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("accounting_journals")
+}
+
+model AccountingEntrySequence {
+  id         String            @id @default(uuid())
+  journalId  String
+  periodId   String
+  nextNumber Int               @default(1)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  journal    AccountingJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  period     AccountingPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, periodId])
+  @@index([periodId])
+  @@map("accounting_entry_sequences")
+}
+
+model AccountingAccount {
+  id              String                @id @default(uuid())
+  code            String                @unique
+  label           String
+  type            AccountingAccountType
+  description     String?
+  isSystem        Boolean               @default(false)
+  isActive        Boolean               @default(true)
+  openingBalance  Float                 @default(0)
+  currentBalance  Float                 @default(0)
+  isDynamic       Boolean               @default(false)
+  formula         Json?
+  parentId        String?
+  level           Int                   @default(1)
+  categoryCode    String?
+  allowManualPosting Boolean            @default(true)
+  requiresThirdParty Boolean            @default(false)
+  requiresCostCenter Boolean            @default(false)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  parent          AccountingAccount?    @relation("AccountingAccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children        AccountingAccount[]   @relation("AccountingAccountTree")
+  journalLines    AccountingJournalLine[]
+
+  @@index([type])
+  @@index([isActive])
+  @@index([parentId])
+  @@map("accounting_accounts")
+  mappings        AccountingMapping[]
+  familyRules     AccountingFamilyRule[]
+  treasuryAccounts TreasuryAccount[]
+}
+
+model AccountingFamilyDefinition {
+  id              String                @id @default(uuid())
+  code            String                @unique
+  label           String
+  description     String?
+  displayType     String
+  accountType     AccountingAccountType
+  isSystem        Boolean               @default(false)
+  sortOrder       Int                   @default(100)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  rules           AccountingFamilyRule[]
+
+  @@index([displayType])
+  @@index([accountType])
+  @@index([isSystem])
+  @@map("accounting_family_definitions")
+}
+
+model AccountingFamilyRule {
+  id              String                @id @default(uuid())
+  family          String
+  label           String
+  description     String?
+  accountId       String
+  isPrimary       Boolean               @default(false)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  account         AccountingAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  familyDefinition AccountingFamilyDefinition @relation(fields: [family], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([family, accountId])
+  @@index([accountId])
+  @@index([family, isPrimary])
+  @@map("accounting_family_rules")
+}
+
+model AccountingJournalEntry {
+  id              String                  @id @default(uuid())
+  entryNumber     String                  @unique
+  entryDate       DateTime                @default(now())
+  journalCode     String
+  journalLabel    String
+  label           String
+  reference       String?
+  sourceType      String?
+  sourceId        String?
+  enterpriseId    Int?
+  enterpriseName  String?
+  journalId       String?
+  periodId        String?
+  fiscalYearId    String?
+  status          AccountingJournalEntryStatus @default(DRAFT)
+  postedAt        DateTime?
+  validatedAt     DateTime?
+  validatedByUserId String?
+  reversedEntryId String?
+  isLocked        Boolean                 @default(false)
+  createdByUserId String?
+  createdByEmail  String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  journal         AccountingJournal?      @relation(fields: [journalId], references: [id], onDelete: SetNull)
+  period          AccountingPeriod?       @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  fiscalYear      FiscalYear?             @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+  lines           AccountingJournalLine[]
+
+  @@index([entryDate])
+  @@index([enterpriseId])
+  @@index([journalCode])
+  @@index([journalId])
+  @@index([periodId])
+  @@index([status])
+  @@map("accounting_journal_entries")
+}
+
+model AccountingJournalLine {
+  id          String                 @id @default(uuid())
+  entryId     String
+  accountId   String
+  side        AccountingEntrySide
+  amount      Float
+  description String?
+  enterpriseId Int?
+  thirdPartyId String?
+  thirdPartyName String?
+  currency    String                 @default("XOF")
+  exchangeRate Float?
+  amountCurrency Float?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  entry       AccountingJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account     AccountingAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([side])
+  @@index([enterpriseId])
+  @@index([thirdPartyId])
+  @@map("accounting_journal_lines")
+}
+
+model AccountingClosing {
+  id                String                  @id @default(uuid())
+  periodId          String
+  status            AccountingClosingStatus @default(DRAFT)
+  notes             String?
+  snapshotData      Json?
+  createdByUserId   String?
+  validatedByUserId String?
+  createdAt         DateTime                @default(now())
+  validatedAt       DateTime?
+  updatedAt         DateTime                @updatedAt
+
+  period            AccountingPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+  @@index([status])
+  @@map("accounting_closings")
+}
+
+model AccountingReportSnapshot {
+  id                String               @id @default(uuid())
+  reportType        AccountingReportType
+  periodId          String?
+  fiscalYearId      String?
+  enterpriseId      Int?
+  generatedAt       DateTime             @default(now())
+  generatedByUserId String?
+  parameters        Json
+  payload           Json
+
+  period            AccountingPeriod?     @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  fiscalYear        FiscalYear?           @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+
+  @@index([reportType])
+  @@index([periodId])
+  @@index([fiscalYearId])
+  @@index([enterpriseId])
+  @@map("accounting_report_snapshots")
+}
+
+model AccountingDiagnosticRun {
+  id              String                    @id @default(uuid())
+  runDate         DateTime                  @default(now())
+  scope           String                    @default("GLOBAL")
+  status          String
+  summary         Json
+  createdByUserId String?
+  createdAt       DateTime                  @default(now())
+
+  issues          AccountingDiagnosticIssue[]
+
+  @@index([runDate])
+  @@index([status])
+  @@map("accounting_diagnostic_runs")
+}
+
+model AccountingDiagnosticIssue {
+  id          String                @id @default(uuid())
+  runId       String
+  issueType   String
+  severity    String
+  entityType  String
+  entityId    String?
+  message     String
+  details     Json?
+  createdAt   DateTime              @default(now())
+
+  run         AccountingDiagnosticRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([issueType])
+  @@index([severity])
+  @@map("accounting_diagnostic_issues")
+}
+
+enum FactureStatus {
+  BROUILLON
+  EMISE
+  PAYEE
+  EN_RETARD
+  ANNULEE
+}
+
+enum DevisStatus {
+  BROUILLON
+  ENVOYE
+  MODIFICATION_DEMANDEE
+  ACCEPTE
+  REFUSE
+  EXPIRE
+  TRANSMIS_FACTURATION
+  FACTURE
+}
+
+enum MethodePaiement {
+  VIREMENT
+  CHEQUE
+  CARTE
+  ESPECES
+}
+
+enum PurchaseCommitmentStatus {
+  ENGAGE
+  LIQUIDE
+  ORDONNANCE
+  PAYE
+}
+
+enum TreasuryClosureStatus {
+  DRAFT
+  CLOSED
+  VALIDATED
+}
+
+enum TreasuryClosurePeriod {
+  MONTH
+  QUARTER
+  YEAR
+  CUSTOM
+}
+
+enum TreasuryAccountType {
+  BANK
+  CASH
+}
+
+enum AvoirStatus {
+  BROUILLON
+  EMISE
+  APPLIQUE
+  ANNULE
+}
+
+enum AccountingAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountingEntrySide {
+  DEBIT
+  CREDIT
+}
+
+enum FiscalYearStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum AccountingPeriodType {
+  MONTH
+  QUARTER
+  SEMESTER
+  YEAR
+  CUSTOM
+}
+
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum AccountingJournalType {
+  SALES
+  PURCHASE
+  BANK
+  CASH
+  GENERAL
+  PAYROLL
+  INVESTMENT
+}
+
+enum AccountingJournalEntryStatus {
+  DRAFT
+  VALIDATED
+  POSTED
+  REVERSED
+}
+
+enum AccountingClosingStatus {
+  DRAFT
+  CLOSED
+  VALIDATED
+  CANCELLED
+}
+
+enum AccountingReportType {
+  TRIAL_BALANCE
+  GENERAL_LEDGER
+  BALANCE_SHEET
+  INCOME_STATEMENT
+  REGULATORY
+  DIAGNOSTIC
+}
+
+enum AccountingFamily {
+  CUSTOMER_RECEIVABLE
+  SUPPLIER_PAYABLE
+  PURCHASE_EXPENSE
+  MISC_EXPENSE
+  REVENUE
+  TREASURY_BANK
+  TREASURY_CASH
+}
+
+model CashVoucher {
+  id                String          @id @default(uuid())
+  voucherNumber     String          @unique
+  sourceType        String
+  sourceId          String?
+  sourceNumber      String?
+  expenseCategory   String?
+  enterpriseId      Int?
+  enterpriseName    String?
+  serviceId         Int?
+  serviceName       String?
+  supplierId        String?
+  supplierName      String?
+  beneficiaryName   String
+  beneficiaryPhone  String?
+  description       String
+  amountHT          Float
+  amountTVA         Float
+  amountTTC         Float
+  currency          String          @default("XOF")
+  paymentMethod     MethodePaiement
+  flowType          CashVoucherFlowType @default(DECAISSEMENT)
+  treasuryAccountId String?
+  status            CashVoucherStatus   @default(BROUILLON)
+  issueDate         DateTime        @default(now())
+  disbursementDate  DateTime?
+  reference         String?
+  notes             String?
+  createdByUserId   String?
+  createdByEmail    String?
+  approvedByUserId  String?
+  approvedByEmail   String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  treasuryAccount   TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+
+  @@index([enterpriseId])
+  @@index([issueDate])
+  @@index([status])
+  @@index([treasuryAccountId])
+  @@map("cash_vouchers")
+}
+
+enum CashVoucherStatus {
+  BROUILLON
+  EN_ATTENTE
+  VALIDE
+  DECAISSE
+  ANNULE
+}
+
+enum CashVoucherFlowType {
+  ENCAISSEMENT
+  DECAISSEMENT
+}
+
+// --- MODULE PLACEMENTS ---
+
+model Placement {
+  id              String          @id @default(uuid())
+  type            PlacementType
+  name            String
+  issuer          String?         // Émetteur
+  country         String?         // Pays d'exposition
+  currency        String          @default("XOF")
+  quantity        Float           @default(1)
+  purchasePrice   Float           // Prix d'acquisition unitaire
+  totalCost       Float           // Coût total d'acquisition
+  purchaseDate    DateTime        @default(now())
+  maturityDate    DateTime?       // Date d'échéance (obligations/TCN)
+  interestRate    Float?          // Taux d'intérêt nominal
+  serviceId       Int?            // Liaison à la filiale (modèle Service)
+  serviceName     String?
+  status          PlacementStatus @default(ACTIF)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  courses         AssetCourse[]
+
+  @@index([type])
+  @@index([serviceId])
+  @@map("placements")
+}
+
+model AssetCourse {
+  id          String    @id @default(uuid())
+  placementId String
+  atDate      DateTime  @default(now())
+  value       Float     // Cours ou valorisation à cette date
+  createdAt   DateTime  @default(now())
+
+  placement   Placement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@index([placementId])
+  @@index([atDate])
+  @@map("asset_courses")
+}
+
+enum PlacementType {
+  ACTION
+  OBLIGATION
+  TCN
+  IMMOBILIER
+}
+
+enum PlacementStatus {
+  ACTIF
+  CEDE
+  FRACTIONNE
+  ANNULE
+}
+
+// --- MODULE BUDGET ET ANALYTIQUE ---
+
+model Budget {
+  id              String          @id @default(uuid())
+  name            String
+  fiscalYear      Int
+  serviceId       Int?            // Entité / Filiale
+  serviceName     String?
+  description     String?
+  totalAllocated  Float           @default(0)
+  status          BudgetStatus    @default(BROUILLON)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  versions        BudgetVersion[]
+  allocations     BudgetAllocation[]
+
+  @@index([fiscalYear])
+  @@index([serviceId])
+  @@map("budgets")
+}
+
+model BudgetVersion {
+  id            String       @id @default(uuid())
+  budgetId      String
+  versionNumber Int          @default(1)
+  label         String?
+  totalAmount   Float
+  isCurrent     Boolean      @default(false)
+  status        BudgetStatus @default(BROUILLON)
+  createdAt     DateTime     @default(now())
+
+  budget        Budget       @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@map("budget_versions")
+}
+
+model AnalyticCenter {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  serviceId       Int?     // Centre rattaché à une filiale
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  allocations     BudgetAllocation[]
+
+  @@map("analytic_centers")
+}
+
+model BudgetAllocation {
+  id               String   @id @default(uuid())
+  budgetId         String
+  analyticCenterId String
+  amount           Float
+  spent            Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  budget           Budget         @relation(fields: [budgetId], references: [id])
+  analyticCenter   AnalyticCenter @relation(fields: [analyticCenterId], references: [id])
+
+  @@index([budgetId])
+  @@index([analyticCenterId])
+  @@map("budget_allocations")
+}
+
+enum BudgetStatus {
+  BROUILLON
+  EN_REVISION
+  VALIDE
+  CLOTURE
+}
+
+model AccountingMapping {
+  id              String   @id @default(uuid())
+  sourceType      String   // ex: 'CASH_VOUCHER', 'DECAISSEMENT', 'FACTURE'
+  categoryKey     String   // la valeur ou le pattern à matcher (ex: 'transport')
+  accountId       String   // ID du compte comptable dans accounting_accounts
+  priority        Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account         AccountingAccount @relation(fields: [accountId], references: [id])
+
+  @@index([sourceType, categoryKey])
+  @@index([accountId])
+  @@map("accounting_mappings")
+}

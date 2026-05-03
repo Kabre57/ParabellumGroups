@@ -23,7 +23,8 @@ import { exportTreasuryCsv } from '@/components/accounting/accountingExport';
 
 export default function TresoreriePage() {
   const { user } = useAuth();
-  const [period, setPeriod] = useState<'week'|'month'|'quarter'|'year'|'all'>('month');
+  const [period, setPeriod] = useState<'day'|'week'|'month'|'quarter'|'year'|'all'>('month');
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
   const [customRange, setCustomRange] = useState<{startDate?:string;endDate?:string}|null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
@@ -49,13 +50,21 @@ export default function TresoreriePage() {
     if (customRange) return customRange;
     if (period === 'all') return null;
     const now = new Date();
+    if (period === 'day') {
+      const day = selectedDay ? new Date(`${selectedDay}T00:00:00`) : now;
+      const s = new Date(day);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(day);
+      e.setHours(23, 59, 59, 999);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
     if (period === 'week') { const s = new Date(now); s.setDate(now.getDate()-now.getDay()); const e = new Date(s); e.setDate(s.getDate()+6); return {startDate:s.toISOString(),endDate:e.toISOString()}; }
     if (period === 'month') { const s = new Date(now.getFullYear(),now.getMonth(),1); const e = new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59); return {startDate:s.toISOString(),endDate:e.toISOString()}; }
     if (period === 'quarter') { const qm = Math.floor(now.getMonth()/3)*3; const s = new Date(now.getFullYear(),qm,1); const e = new Date(now.getFullYear(),qm+3,0,23,59,59); return {startDate:s.toISOString(),endDate:e.toISOString()}; }
     return { startDate: new Date(now.getFullYear(),0,1).toISOString(), endDate: new Date(now.getFullYear(),11,31,23,59,59).toISOString() };
-  }, [customRange, period]);
+  }, [customRange, period, selectedDay]);
 
-  const { data, isLoading } = useTresorerieFlows(period, customRange, canRead);
+  const { data, isLoading } = useTresorerieFlows(period, periodRange, canRead);
   const { data: closuresResponse } = useTreasuryClosures(periodRange, period, customRange, canRead);
 
   const closeAccountDialog = () => {
@@ -94,9 +103,17 @@ export default function TresoreriePage() {
           <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
           <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>
           <select value={period} onChange={e => { setPeriod(e.target.value as any); setCustomRange(null); }} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
-            <option value="week">Cette semaine</option><option value="month">Ce mois</option>
-            <option value="quarter">Ce trimestre</option><option value="year">Cette année</option>
+            <option value="day">Jour</option><option value="week">Cette semaine</option><option value="month">Ce mois</option>
+            <option value="quarter">Ce trimestre</option><option value="year">Cette année</option><option value="all">Toutes les périodes</option>
           </select>
+          {period === 'day' && (
+            <input
+              type="date"
+              value={selectedDay}
+              onChange={e => { setSelectedDay(e.target.value); setCustomRange(null); }}
+              className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700"
+            />
+          )}
           <Button variant="outline" onClick={() => setPrintJournalOpen(true)}>Imprimer le journal</Button>
           <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
             <option value="all">Tous les comptes</option>

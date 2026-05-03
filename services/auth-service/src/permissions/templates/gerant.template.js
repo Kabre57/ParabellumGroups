@@ -10,6 +10,8 @@ module.exports = [
   "reports.read_technical",
   "reports.export",
   "accounting.read",
+  "accounting.reports.read",
+  "accounting.statements.read",
   "enterprises.read",
   "enterprises.read_all",
   "services.read",

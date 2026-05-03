@@ -37,6 +37,22 @@ const groups = {
       {
         "name": "accounting.diagnostics.read",
         "description": "Consulter le diagnostic comptable"
+      },
+      {
+        "name": "accounting.reports.read",
+        "description": "Consulter les rapports comptables figes"
+      },
+      {
+        "name": "accounting.reports.export",
+        "description": "Exporter et figer les rapports comptables"
+      },
+      {
+        "name": "accounting.statements.read",
+        "description": "Consulter le bilan et le compte de resultat"
+      },
+      {
+        "name": "accounting.statements.generate",
+        "description": "Generer les etats financiers et clotures"
       }
     ]
   },

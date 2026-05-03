@@ -30,6 +30,7 @@ const treasuryClosureRoutes = require('./routes/treasuryClosure.routes');
 const cashVoucherRoutes = require('./routes/cashVoucher.routes');
 const placementRoutes = require('./routes/placement.routes');
 const budgetRoutes = require('./routes/budget.routes');
+const investmentsRoutes = require('./routes/investments.routes');
 
 // Public routes
 app.use('/api/devis', devisRoutes);
@@ -47,6 +48,7 @@ app.use('/api/accounting', accountingRoutes);
 app.use('/api/cash-vouchers', cashVoucherRoutes);
 app.use('/api/placements', placementRoutes);
 app.use('/api/budgets', budgetRoutes);
+app.use('/api/investments', investmentsRoutes);
 app.use('/api/internal/procurement-events', internalProcurementEventRoutes);
 
 // Route de santé
@@ -121,6 +123,9 @@ const startServer = async () => {
       console.log(`🏦 API Comptes de trésorerie: http://localhost:${PORT}/api/treasury-accounts`);
       console.log(`🧾 API Clôtures de caisse: http://localhost:${PORT}/api/treasury-closures`);
       console.log(`📚 API Comptable: http://localhost:${PORT}/api/accounting/overview`);
+      console.log(`⚖️  API Balance: http://localhost:${PORT}/api/accounting/trial-balance`);
+      console.log(`📖 API Grand Livre: http://localhost:${PORT}/api/accounting/ledger`);
+      console.log(`📈 API Placements: http://localhost:${PORT}/api/investments/portfolios`);
     });
   } catch (error) {
     console.error('❌ Échec critique lors de la connexion à la base de données:', error.message);

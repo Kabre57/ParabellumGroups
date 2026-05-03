@@ -1,8 +1,15 @@
 const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
 const XLSX = require('xlsx');
-const { resolveTreasuryAccountId } = require('../utils/treasury');
+const { resolveTreasuryAccountId, getTreasuryAccountingAccountId } = require('../utils/treasury');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
+const AccountingPostingService = require('../core/services/AccountingPostingService');
+const MappingService = require('../core/services/AccountingMappingService');
+const {
+  resolveAccountingAccount,
+  getTreasuryFamilyFromPaymentMethod,
+  getTreasuryJournalMeta,
+} = require('../utils/accountingAccountResolver');
 
 const prisma = new PrismaClient();
 
@@ -612,24 +619,99 @@ exports.updateCashVoucherStatus = async (req, res) => {
 
     await assertEnterpriseInScope(req, existing.enterpriseId, "Vous n'avez pas acces a ce bon de caisse.");
 
-    const updated = await prisma.cashVoucher.update({
-      where: { id },
-      data: {
-        status,
-        disbursementDate:
-          status === 'DECAISSE'
-            ? parseDate(disbursementDate) || existing.disbursementDate || new Date()
-            : parseDate(disbursementDate) || existing.disbursementDate,
-        reference: reference !== undefined ? reference || null : existing.reference,
-        notes: notes !== undefined ? notes || null : existing.notes,
-        approvedByUserId: String(req.user?.userId || req.user?.id || ''),
-        approvedByEmail: req.user?.email || null,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedVoucher = await tx.cashVoucher.update({
+        where: { id },
+        data: {
+          status,
+          disbursementDate:
+            (status === 'DECAISSE' || status === 'ENCAISSEMENT')
+              ? parseDate(disbursementDate) || existing.disbursementDate || new Date()
+              : parseDate(disbursementDate) || existing.disbursementDate,
+          reference: reference !== undefined ? reference || null : existing.reference,
+          notes: notes !== undefined ? notes || null : existing.notes,
+          approvedByUserId: String(req.user?.userId || req.user?.id || ''),
+          approvedByEmail: req.user?.email || null,
+        },
+      });
+
+      // Si le statut passe à DECAISSE ou ENCAISSEMENT, on comptabilise
+      if ((status === 'DECAISSE' || status === 'ENCAISSEMENT') && existing.status !== status) {
+        const resolvedTreasuryAccountId = await resolveTreasuryAccountId(tx, {
+          treasuryAccountId: updatedVoucher.treasuryAccountId,
+          paymentMethod: updatedVoucher.paymentMethod,
+          user: req.user,
+        });
+
+        const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(tx, resolvedTreasuryAccountId);
+        const treasuryAccount = await resolveAccountingAccount(tx, getTreasuryFamilyFromPaymentMethod(updatedVoucher.paymentMethod), {
+          preferredAccountId: preferredTreasuryAccountingAccountId,
+          enterpriseId: updatedVoucher.enterpriseId,
+          user: req.user,
+        });
+
+        const journalMeta = await getTreasuryJournalMeta(tx, treasuryAccount, { enterpriseId: updatedVoucher.enterpriseId });
+
+        const mappingType = updatedVoucher.flowType === 'DECAISSEMENT' ? 'CASH_VOUCHER' : 'ENCAISSEMENT';
+        const counterpartMapping = await MappingService.resolveAccount(mappingType, updatedVoucher.expenseCategory || updatedVoucher.description, updatedVoucher.enterpriseId);
+        const counterpartAccount = await resolveAccountingAccount(tx, updatedVoucher.flowType === 'DECAISSEMENT' ? 'MISC_EXPENSE' : 'REVENUE', {
+          preferredAccountId: counterpartMapping?.accountId,
+          preferredCode: counterpartMapping?.code,
+          enterpriseId: updatedVoucher.enterpriseId,
+          user: req.user,
+        });
+
+        const isDecaissement = updatedVoucher.flowType === 'DECAISSEMENT';
+        const amountValue = Number(updatedVoucher.amountTTC);
+
+        const postingLines = [
+          {
+            accountId: treasuryAccount.id,
+            side: isDecaissement ? 'CREDIT' : 'DEBIT',
+            amount: amountValue,
+            description: `${updatedVoucher.voucherNumber} - ${updatedVoucher.description}`,
+          },
+          {
+            accountId: counterpartAccount.id,
+            side: isDecaissement ? 'DEBIT' : 'CREDIT',
+            amount: amountValue,
+            description: updatedVoucher.description,
+          },
+        ];
+
+        await AccountingPostingService.postEntry({
+          entryDate: updatedVoucher.disbursementDate || new Date(),
+          journalCode: journalMeta.journalCode,
+          journalLabel: journalMeta.journalLabel,
+          label: `${updatedVoucher.voucherNumber} - ${updatedVoucher.description}`,
+          reference: updatedVoucher.reference || updatedVoucher.voucherNumber,
+          sourceType: 'CASH_VOUCHER',
+          sourceId: updatedVoucher.id,
+          enterpriseId: updatedVoucher.enterpriseId,
+          enterpriseName: updatedVoucher.enterpriseName,
+          createdByUserId: String(req.user?.userId || req.user?.id || ''),
+          createdByEmail: req.user?.email || null,
+          lines: postingLines,
+        }, tx);
+
+        if (resolvedTreasuryAccountId) {
+          await tx.treasuryAccount.update({
+            where: { id: resolvedTreasuryAccountId },
+            data: {
+              currentBalance: {
+                increment: isDecaissement ? -amountValue : amountValue,
+              },
+            },
+          });
+        }
+      }
+
+      return updatedVoucher;
     });
 
     return res.json({
       success: true,
-      message: 'Statut du bon de caisse mis à jour',
+      message: 'Statut du bon de caisse mis à jour et comptabilisé',
       data: serializeCashVoucher(updated),
     });
   } catch (error) {

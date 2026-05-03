@@ -7,6 +7,11 @@ const {
   getDynamicAccountTemplate,
   serializeAccountingAccount,
 } = require('../utils/accounting');
+const {
+  applyEnterpriseScope,
+  assertEnterpriseInScope,
+  resolveEnterpriseContext,
+} = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -18,7 +23,10 @@ exports.getAllAccounts = async (req, res) => {
     }
 
     const accounts = await prisma.accountingAccount.findMany({
-      where: { isActive: true },
+      where: await applyEnterpriseScope({
+        req,
+        where: { isActive: true },
+      }),
       orderBy: [{ code: 'asc' }],
     });
 
@@ -54,8 +62,13 @@ exports.createAccount = async (req, res) => {
       });
     }
 
-    const existing = await prisma.accountingAccount.findUnique({
-      where: { code: normalizedCode },
+    const { enterpriseId } = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+
+    const existing = await prisma.accountingAccount.findFirst({
+      where: {
+        code: normalizedCode,
+        enterpriseId,
+      },
       select: { id: true },
     });
 
@@ -79,6 +92,7 @@ exports.createAccount = async (req, res) => {
         currentBalance: initialBalance,
         isDynamic: Boolean(dynamicTemplate),
         formula: dynamicTemplate?.formula || null,
+        enterpriseId,
         createdByUserId: req.user?.userId ? String(req.user.userId) : null,
         createdByEmail: req.user?.email || null,
       },
@@ -93,9 +107,9 @@ exports.createAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur création compte comptable:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la création du compte comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la création du compte comptable',
     });
   }
 };
@@ -121,12 +135,18 @@ exports.updateAccount = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(req, account.enterpriseId, "Vous n'avez pas acces a ce compte comptable.");
+
     const data = {};
     if (code) {
       const normalizedCode = String(code).trim();
       if (normalizedCode && normalizedCode !== account.code) {
-        const existing = await prisma.accountingAccount.findUnique({
-          where: { code: normalizedCode },
+        const existing = await prisma.accountingAccount.findFirst({
+          where: {
+            code: normalizedCode,
+            enterpriseId: account.enterpriseId,
+            id: { not: account.id },
+          },
           select: { id: true },
         });
         if (existing) {
@@ -185,9 +205,9 @@ exports.updateAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur mise à jour compte comptable:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour du compte comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la mise à jour du compte comptable',
     });
   }
 };
@@ -220,6 +240,8 @@ exports.deleteAccount = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(req, account.enterpriseId, "Vous n'avez pas acces a ce compte comptable.");
+
     const hasDependencies =
       account._count.journalLines > 0 ||
       account._count.mappings > 0 ||
@@ -247,9 +269,9 @@ exports.deleteAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur suppression compte comptable:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la suppression du compte comptable',
+      message: error.statusCode ? error.message : 'Erreur lors de la suppression du compte comptable',
     });
   }
 };

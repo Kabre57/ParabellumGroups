@@ -13,7 +13,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { CreateAccountingAccountDialog } from '@/components/accounting/CreateAccountingAccountDialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { accountingAccountTypeLabel, formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import billingService, { type AccountingAccount, type AccountingFamilyRule } from '@/shared/api/billing';
 
@@ -207,6 +207,9 @@ export default function ComptesPage() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Détails du compte</DialogTitle>
+            <DialogDescription>
+              Consultez les informations principales du compte comptable sélectionné.
+            </DialogDescription>
           </DialogHeader>
           {selected ? (
             <div className="space-y-3 text-sm">

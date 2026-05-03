@@ -170,7 +170,7 @@ class ApiClient {
         throw this.formatError(404, 'Ressource non trouvée');
 
       case 422:
-        throw this.formatError(422, 'Données invalides', data);
+        throw this.formatError(422, (data as any)?.message || 'Données invalides', data);
 
       case 500:
         throw this.formatError(500, 'Un incident interne est survenu. Réessayez plus tard ou contactez l’assistance.');
@@ -310,5 +310,4 @@ export default apiClient;
 
 // Export de l'instance Axios pour compatibilité
 export const axiosInstance = apiClient.getAxiosInstance();
-
 

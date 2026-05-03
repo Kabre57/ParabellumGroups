@@ -1,11 +1,15 @@
 'use client';
 
-import { FileSpreadsheet, Plus, Printer } from 'lucide-react';
+import { Calendar, FileSpreadsheet, Plus, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DepensesHeaderProps {
-  period: 'month' | 'quarter' | 'year' | 'all';
-  onPeriodChange: (period: 'month' | 'quarter' | 'year' | 'all') => void;
+  period: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
+  selectedDay: string;
+  hasCustomRange: boolean;
+  onPeriodChange: (period: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all') => void;
+  onSelectedDayChange: (day: string) => void;
+  onCustomRange: () => void;
   onPrintList: () => void;
   onImport: () => void;
   onNewEncaissement: () => void;
@@ -16,7 +20,11 @@ interface DepensesHeaderProps {
 
 export function DepensesHeader({
   period,
+  selectedDay,
+  hasCustomRange,
   onPeriodChange,
+  onSelectedDayChange,
+  onCustomRange,
   onPrintList,
   onImport,
   onNewEncaissement,
@@ -39,11 +47,25 @@ export function DepensesHeader({
           onChange={(event) => onPeriodChange(event.target.value as any)}
           className="px-4 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
         >
+          <option value="day">Jour</option>
+          <option value="week">Cette semaine</option>
           <option value="month">Ce mois</option>
           <option value="quarter">Ce trimestre</option>
           <option value="year">Cette année</option>
           <option value="all">Toutes les périodes</option>
         </select>
+        {period === 'day' && (
+          <input
+            type="date"
+            value={selectedDay}
+            onChange={(event) => onSelectedDayChange(event.target.value)}
+            className="rounded-md border bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        )}
+        <Button variant={hasCustomRange ? 'default' : 'outline'} onClick={onCustomRange}>
+          <Calendar className="mr-2 h-4 w-4" />
+          {hasCustomRange ? 'Période active' : 'Période'}
+        </Button>
         <Button variant="outline" onClick={onPrintList}>
           <Printer className="mr-2 h-4 w-4" />
           Imprimer la liste

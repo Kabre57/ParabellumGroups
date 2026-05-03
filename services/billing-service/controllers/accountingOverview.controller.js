@@ -58,13 +58,13 @@ const buildAccountingReference = (account) =>
       }
     : null;
 
-const resolveTreasuryAccountingReference = async (treasuryAccount, paymentMethod) => {
+const resolveTreasuryAccountingReference = async (treasuryAccount, paymentMethod, enterpriseId = null) => {
   const linkedAccount = treasuryAccount?.accountingAccount;
   const linkedReference = linkedAccount && linkedAccount.isActive !== false
     ? buildAccountingReference(linkedAccount)
     : null;
 
-  return linkedReference || MappingService.resolveAccount('PAYMENT', paymentMethod);
+  return linkedReference || MappingService.resolveAccount('PAYMENT', paymentMethod, enterpriseId);
 };
 
 const buildDateWhere = (field, startDate, endDate) => {
@@ -177,9 +177,14 @@ exports.getAccountingOverview = async (req, res) => {
       where: buildDateWhere('entryDate', startDate, endDate),
       requestedEnterpriseId,
     });
+    const accountingAccountWhere = await applyEnterpriseScope({
+      req,
+      where: { isActive: true },
+      requestedEnterpriseId,
+    });
 
     console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
-    await MappingService.refreshCache();
+    await MappingService.refreshCache(requestedEnterpriseId);
 
     // Helper pour sécuriser les appels Prisma
     const safeQuery = async (promise, label) => {
@@ -217,7 +222,7 @@ exports.getAccountingOverview = async (req, res) => {
         orderBy: [{ dateDecaissement: 'desc' }, { createdAt: 'desc' }],
       }), 'decaissements'),
       safeQuery(prisma.accountingAccount.findMany({
-        where: { isActive: true },
+        where: accountingAccountWhere,
         orderBy: [{ code: 'asc' }],
       }), 'persistedAccounts'),
       safeQuery(prisma.accountingJournalEntry.findMany({
@@ -495,14 +500,14 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       const sourceKey = entry.sourceType && entry.sourceId ? `${sourceType}:${entry.sourceId}` : null;
       const sourceTreasuryAccount = sourceKey ? treasuryAccountBySourceKey.get(sourceKey) : null;
       for (const line of entry.lines) {
-        if (!(await isTreasuryAccountingCode(prisma, line.account))) {
+        if (!(await isTreasuryAccountingCode(prisma, line.account, entry.enterpriseId))) {
           continue;
         }
 
-        const treasuryJournal = await getTreasuryJournalMeta(prisma, line.account);
+        const treasuryJournal = await getTreasuryJournalMeta(prisma, line.account, { enterpriseId: entry.enterpriseId });
         const manualAccountType =
           sourceTreasuryAccount?.type ||
-          ((await isCashAccountingCode(prisma, line.account)) ? 'CASH' : 'BANK');
+          ((await isCashAccountingCode(prisma, line.account, entry.enterpriseId)) ? 'CASH' : 'BANK');
         const fallbackAccount = defaultTreasuryByType[manualAccountType];
         const treasuryAccount = sourceTreasuryAccount || fallbackAccount || null;
         const category =
@@ -575,8 +580,9 @@ const dynamicAccounts = evaluatedDynamicAccounts;
     const entries = [];
 
     for (const invoice of factures.filter((i) => !['BROUILLON', 'ANNULEE'].includes(String(i.status)))) {
-      const revenueAccount = await MappingService.resolveAccount('INVOICE', 'REVENUE'); 
-      const clientAccount = await MappingService.resolveAccount('INVOICE', 'DEBIT_CUSTOMER');
+      const eid = invoice.enterpriseId || requestedEnterpriseId;
+      const revenueAccount = await MappingService.resolveAccount('INVOICE', 'REVENUE', eid); 
+      const clientAccount = await MappingService.resolveAccount('INVOICE', 'DEBIT_CUSTOMER', eid);
 
       entries.push({
         id: buildEntryId('invoice', invoice.id),
@@ -600,8 +606,9 @@ const dynamicAccounts = evaluatedDynamicAccounts;
 
     for (const d of disbursedVouchers) {
       if (manualEntrySourceKeys.has(`DECAISSEMENT:${d.id}`)) continue;
-      const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', d.expenseCategory);
-      const supplierAccount = await MappingService.resolveAccount('DECAISSEMENT', 'CREDIT_SUPPLIER');
+      const eid = d.enterpriseId || requestedEnterpriseId;
+      const expenseAccount = await MappingService.resolveAccount('DECAISSEMENT', d.expenseCategory, eid);
+      const supplierAccount = await MappingService.resolveAccount('DECAISSEMENT', 'CREDIT_SUPPLIER', eid);
 
       entries.push({
         id: buildEntryId('decaissement-booking', d.id),
@@ -623,9 +630,11 @@ const dynamicAccounts = evaluatedDynamicAccounts;
       });
 
       if (d.status === 'DECAISSE') {
-        const treasuryAccount = await resolveTreasuryAccountingReference(d.treasuryAccount, d.paymentMethod);
-        const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER');
+        const eid = d.enterpriseId || requestedEnterpriseId;
+        const treasuryAccount = await resolveTreasuryAccountingReference(d.treasuryAccount, d.paymentMethod, eid);
+        const supplierDebitAccount = await MappingService.resolveAccount('DECAISSEMENT', 'DEBIT_SUPPLIER', eid);
         const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+          enterpriseId: eid,
           fallbackFamily: treasuryTypeFromPaymentMethod(d.paymentMethod) === 'CASH' ? 'TREASURY_CASH' : 'TREASURY_BANK',
         });
 
@@ -652,11 +661,13 @@ const dynamicAccounts = evaluatedDynamicAccounts;
 
     for (const e of receivedVouchers) {
       if (manualEntrySourceKeys.has(`ENCAISSEMENT:${e.id}`)) continue;
-      const treasuryAccount = await resolveTreasuryAccountingReference(e.treasuryAccount, e.paymentMethod);
+      const eid = e.enterpriseId || requestedEnterpriseId;
+      const treasuryAccount = await resolveTreasuryAccountingReference(e.treasuryAccount, e.paymentMethod, eid);
       const creditAccount = e.factureClientId
-        ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER')
-        : await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory);
+        ? await MappingService.resolveAccount('PAYMENT', 'CREDIT_CUSTOMER', eid)
+        : await MappingService.resolveAccount('ENCAISSEMENT', e.expenseCategory, eid);
       const treasuryJournal = await getTreasuryJournalMeta(prisma, treasuryAccount, {
+        enterpriseId: eid,
         fallbackFamily: treasuryTypeFromPaymentMethod(e.paymentMethod) === 'CASH' ? 'TREASURY_CASH' : 'TREASURY_BANK',
       });
 

@@ -35,7 +35,8 @@ class AccountingPostingService {
     });
 
     const sequenceNumber = sequence.nextNumber - 1;
-    return `${journal.code}-${period.code.replace('-', '')}-${String(sequenceNumber).padStart(4, '0')}`;
+    const entPart = journal.enterpriseId ? `E${journal.enterpriseId}-` : '';
+    return `${entPart}${journal.code}-${period.code.replace('-', '')}-${String(sequenceNumber).padStart(4, '0')}`;
   }
 
   normalizeLines(lines = [], label, enterpriseId = null) {
@@ -44,6 +45,25 @@ class AccountingPostingService {
 
   validateBalancedLines(lines) {
     validateBalancedAccountingLines(lines);
+  }
+
+  validateJournalPaymentConsistency(journal, paymentMethod) {
+    if (!paymentMethod) return;
+
+    const method = String(paymentMethod).trim().toUpperCase();
+    const journalType = String(journal.type).trim().toUpperCase();
+
+    if (journalType === 'CASH' && method !== 'ESPECES') {
+      const error = new Error(`Cohérence : Un journal de CAISSE ne peut pas recevoir un règlement de type ${method}.`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (journalType === 'BANK' && method === 'ESPECES') {
+      const error = new Error('Cohérence : Un journal de BANQUE ne peut pas recevoir un règlement en ESPECES (utiliser le journal de CAISSE).');
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   async postEntry(payload, client = prisma) {
@@ -104,6 +124,8 @@ class AccountingPostingService {
         }
       });
 
+      this.validateJournalPaymentConsistency(journal, payload.paymentMethod);
+
       const createdEntry = await tx.accountingJournalEntry.create({
         data: {
           entryNumber,
@@ -115,6 +137,7 @@ class AccountingPostingService {
           fiscalYearId,
           label: normalizedLabel,
           reference: payload.reference ? String(payload.reference).trim() : null,
+          paymentMethod: payload.paymentMethod ? String(payload.paymentMethod).trim().toUpperCase() : null,
           sourceType: payload.sourceType ? String(payload.sourceType).trim() : null,
           sourceId: payload.sourceId ? String(payload.sourceId).trim() : null,
           enterpriseId: Number.isInteger(resolvedEnterpriseId) ? resolvedEnterpriseId : null,

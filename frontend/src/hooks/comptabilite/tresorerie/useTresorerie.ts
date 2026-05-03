@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import billingService from '@/shared/api/billing';
 
-type Period = 'week' | 'month' | 'quarter' | 'year' | 'all';
+type Period = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 export function useTresorerieFlows(
   period: Period,
@@ -11,7 +11,7 @@ export function useTresorerieFlows(
 ) {
   return useQuery({
     queryKey: ['cash-flows', period, customRange?.startDate ?? null, customRange?.endDate ?? null],
-    queryFn: () => billingService.getAccountingOverview(period, customRange || undefined),
+    queryFn: () => billingService.getAccountingOverview(period as any, customRange || undefined),
     enabled,
   });
 }
@@ -28,7 +28,7 @@ export function useTreasuryClosures(
       billingService.getTreasuryClosures({
         startDate: periodRange?.startDate,
         endDate: periodRange?.endDate,
-        period: customRange ? undefined : period,
+        period: customRange ? undefined : (period as any),
       }),
     enabled,
   });

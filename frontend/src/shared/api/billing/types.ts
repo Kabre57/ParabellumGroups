@@ -333,6 +333,7 @@ export interface AccountingAccount {
   label: string;
   type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
   description?: string | null;
+  enterpriseId?: number | null;
   isSystem?: boolean;
   isActive?: boolean;
   isDynamic?: boolean;
@@ -455,6 +456,7 @@ export interface AccountingFamilyRule {
     accountId: string;
     account?: AccountingAccount | null;
     isPrimary: boolean;
+    enterpriseId?: number | null;
     createdAt?: string | null;
     updatedAt?: string | null;
   }>;
@@ -763,6 +765,235 @@ export interface GetAccountingBalanceParams {
   scope?: 'all' | 'parent' | 'subsidiaries' | 'single';
   groupBy?: 'consolidated' | 'enterprise';
   includeZeroRows?: boolean;
+}
+
+export interface AccountingStatementRow {
+  accountId?: string | null;
+  code: string;
+  label: string;
+  type: string;
+  amount: number;
+  debit: number;
+  credit: number;
+}
+
+export interface AccountingIncomeStatementResponse {
+  reportType: 'INCOME_STATEMENT';
+  period: { startDate?: string | null; endDate?: string | null };
+  generatedAt: string;
+  sections: {
+    revenues: AccountingStatementRow[];
+    expenses: AccountingStatementRow[];
+  };
+  totals: {
+    totalRevenue: number;
+    totalExpense: number;
+    netResult: number;
+  };
+  source: string;
+}
+
+export interface AccountingBalanceSheetResponse {
+  reportType: 'BALANCE_SHEET';
+  period: { startDate?: string | null; endDate?: string | null };
+  generatedAt: string;
+  sections: {
+    assets: AccountingStatementRow[];
+    liabilities: AccountingStatementRow[];
+    equity: AccountingStatementRow[];
+    netResult: { label: string; amount: number };
+  };
+  totals: {
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+    totalLiabilitiesAndEquity: number;
+    imbalance: number;
+  };
+  source: string;
+}
+
+// ─── PLACEMENTS / INVESTMENTS ──────────────────────────────────────────────────
+
+export interface InvestmentAsset {
+  id: string;
+  assetCode: string;
+  label: string;
+  assetType: 'EQUITY' | 'BOND' | 'TREASURY_BILL' | 'TERM_DEPOSIT' | 'REAL_ESTATE' | 'FUND_UNIT' | 'OTHER';
+  assetClass: 'CASH_EQUIVALENT' | 'FIXED_INCOME' | 'EQUITY' | 'REAL_ESTATE' | 'ALTERNATIVE';
+  issuerName?: string | null;
+  currency: string;
+  isin?: string | null;
+  couponRate?: number | null;
+  nominalValue?: number | null;
+  issueDate?: string | null;
+  maturityDate?: string | null;
+  paymentFrequency?: 'MONTHLY' | 'QUARTERLY' | 'SEMESTER' | 'ANNUAL' | 'AT_MATURITY';
+  riskCategory?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestmentPortfolio {
+  id: string;
+  code: string;
+  label: string;
+  enterpriseId?: number | null;
+  enterpriseName?: string | null;
+  regimeCode?: string | null;
+  baseCurrency: string;
+  description?: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestmentHolding {
+  id: string;
+  portfolioId: string;
+  assetId: string;
+  asset?: InvestmentAsset;
+  quantity: number;
+  bookValue: number;
+  averageCost: number;
+  marketValue?: number | null;
+  accruedInterest?: number | null;
+  unrealizedGainLoss?: number | null;
+  valuationDate?: string | null;
+  status: 'OPEN' | 'CLOSED' | 'SUSPENDED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestmentTransaction {
+  id: string;
+  portfolioId: string;
+  assetId: string;
+  asset?: InvestmentAsset;
+  counterpartyId?: string | null;
+  transactionType: 'BUY' | 'SELL' | 'COUPON' | 'DIVIDEND' | 'INTEREST' | 'FEE' | 'TAX' | 'MATURITY' | 'REINVESTMENT';
+  tradeDate: string;
+  settlementDate?: string | null;
+  quantity: number;
+  unitPrice: number;
+  grossAmount: number;
+  fees: number;
+  taxes: number;
+  netAmount: number;
+  currency: string;
+  exchangeRate?: number | null;
+  reference?: string | null;
+  notes?: string | null;
+  status: 'DRAFT' | 'PENDING_SETTLEMENT' | 'SETTLED' | 'CANCELLED';
+  createdByUserId?: string | null;
+  validatedByUserId?: string | null;
+  validatedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpectedCashflow {
+  id: string;
+  portfolioId: string;
+  assetId: string;
+  asset?: InvestmentAsset;
+  flowType: 'COUPON' | 'DIVIDEND' | 'INTEREST' | 'RENT' | 'MATURITY' | 'TERM_DEPOSIT_MATURITY';
+  dueDate: string;
+  expectedAmount: number;
+  receivedAmount: number;
+  currency: string;
+  status: 'PENDING' | 'RECEIVED' | 'PARTIAL' | 'CANCELLED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaturityAlert {
+  id: string;
+  portfolioId: string;
+  assetId: string;
+  asset?: InvestmentAsset;
+  alertType: 'MATURITY' | 'COUPON' | 'VALUATION' | 'RISK';
+  triggerDate: string;
+  dueDate: string;
+  message: string;
+  status: 'PENDING' | 'TRIGGERED' | 'DISMISSED';
+  sentAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestmentPortfolioSummary {
+  portfolio: InvestmentPortfolio;
+  holdings: InvestmentHolding[];
+  summary: {
+    totalBookValue: number;
+    totalMarketValue: number;
+    totalAccruedInterest: number;
+    unrealizedGainLoss: number;
+    positionsCount: number;
+  };
+  byAssetClass: Record<string, { bookValue: number; marketValue: number; count: number }>;
+}
+
+export interface PortfolioPerformance {
+  portfolioId: string;
+  asOfDate: string;
+  totalInvested: number;
+  currentValue: number;
+  totalIncome: number;
+  totalReturn: number;
+  totalReturnPct: number;
+  ytdReturnPct: number;
+}
+
+export interface PortfolioRisk {
+  portfolioId: string;
+  asOfDate: string;
+  totalValue: number;
+  concentration: Array<{ assetClass: string; value: number; percentage: number }>;
+  weightedDuration: number;
+  currencyExposure: Record<string, number>;
+  riskScore: number;
+  riskLabel: string;
+}
+
+export interface AccountingClosing {
+  id: string;
+  periodId: string;
+  status: 'DRAFT' | 'CLOSED' | 'VALIDATED' | 'CANCELLED';
+  notes?: string | null;
+  snapshotData?: any;
+  createdAt: string;
+  validatedAt?: string | null;
+}
+
+export interface AccountingDiagnosticRun {
+  id: string;
+  runDate: string;
+  scope: string;
+  status: 'HEALTHY' | 'WARNING' | 'FAILED' | string;
+  summary: any;
+  issues: Array<{
+    id: string;
+    issueType: string;
+    severity: string;
+    entityType: string;
+    entityId?: string | null;
+    message: string;
+    details?: any;
+  }>;
+}
+
+export interface AccountingReportSnapshot {
+  id: string;
+  reportType: string;
+  periodId?: string | null;
+  fiscalYearId?: string | null;
+  enterpriseId?: number | null;
+  generatedAt: string;
+  parameters: any;
+  payload: any;
 }
 
 export interface PlacementsResponse {

@@ -4,6 +4,7 @@ import { paymentsService } from './payments.service';
 import { placementsService } from './placements.service';
 import { quotesService } from './quotes.service';
 import { treasuryService } from './treasury.service';
+import { investmentsService } from './investments.service';
 
 export * from './types';
 
@@ -14,6 +15,7 @@ export const billingService = {
   ...accountingService,
   ...treasuryService,
   ...placementsService,
+  ...investmentsService,
 };
 
 export default billingService;

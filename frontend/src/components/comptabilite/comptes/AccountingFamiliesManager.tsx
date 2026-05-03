@@ -6,7 +6,7 @@ import { Circle, CircleDot, Link2, Pencil, Plus, Save, Search, Settings2, Trash2
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -471,7 +471,12 @@ export function AccountingFamiliesManager({
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-4">
             <div className="flex items-center justify-between gap-3">
-              <DialogTitle>{activeFamily ? 'Modifier la famille' : 'Nouvelle famille comptable'}</DialogTitle>
+              <div>
+                <DialogTitle>{activeFamily ? 'Modifier la famille' : 'Nouvelle famille comptable'}</DialogTitle>
+                <DialogDescription>
+                  Configurez les comptes personnalisés utilisés automatiquement par les validations comptables.
+                </DialogDescription>
+              </div>
               <Button type="button" onClick={saveFamily} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
                 Enregistrer

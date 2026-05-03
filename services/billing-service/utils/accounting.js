@@ -23,6 +23,8 @@ const ensureAccountingReadAccess = (req) => {
       'accounting.read',
       'accounting.rules.read',
       'accounting.diagnostics.read',
+      'accounting.reports.read',
+      'accounting.statements.read',
       'reports.read_financial',
       'expenses.read',
       'expenses.read_all',
@@ -52,6 +54,9 @@ const ensureAccountingWriteAccess = (req, message = 'Vous n avez pas la permissi
       'accounting.entries.create',
       'accounting.rules.update',
       'accounting.treasury.manage',
+      'accounting.periods.manage',
+      'accounting.reports.export',
+      'accounting.statements.generate',
       'expenses.create',
       'expenses.update',
       'payments.create',
@@ -315,6 +320,7 @@ const serializeAccountingAccount = (account) => ({
   allowManualPosting: account.allowManualPosting !== false,
   requiresThirdParty: Boolean(account.requiresThirdParty),
   requiresCostCenter: Boolean(account.requiresCostCenter),
+  enterpriseId: account.enterpriseId ?? null,
 });
 
 const nextEntryNumber = async (client) => {
