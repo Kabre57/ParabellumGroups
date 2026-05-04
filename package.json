@@ -1,7 +1,9 @@
 {
   "scripts": {
     "validate": "node scripts/run-validation.mjs",
-    "test:scripts": "node scripts/run-node-tests.mjs scripts/tests"
+    "test:scripts": "node scripts/run-node-tests.mjs scripts/tests",
+    "clean:non-auth": "bash scripts/reset-non-auth-data.sh",
+    "clean:non-auth:dry-run": "bash scripts/reset-non-auth-data.sh --dry-run"
   },
   "dependencies": {
     "axios": "^1.13.6",

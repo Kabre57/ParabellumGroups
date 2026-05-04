@@ -97,6 +97,25 @@ export function CreateJournalEntryDialog({
     () => new Map(accounts.map((account) => [account.id, account])),
     [accounts]
   );
+  const accountOptionsByFamily = useMemo(() => {
+    const result = new Map<string, AccountingAccount[]>();
+
+    sortedFamilies.forEach((family) => {
+      const options = new Map<string, AccountingAccount>();
+      family.rules.forEach((rule) => {
+        const account = rule.account || accountById.get(rule.accountId);
+        if (account?.id && account.isActive !== false) {
+          options.set(account.id, account);
+        }
+      });
+      result.set(
+        family.family,
+        Array.from(options.values()).sort((left, right) => left.code.localeCompare(right.code, 'fr'))
+      );
+    });
+
+    return result;
+  }, [accountById, sortedFamilies]);
   const useFamilies = sortedFamilies.length > 0;
 
   const normalizedLines = useMemo(
@@ -151,10 +170,10 @@ export function CreateJournalEntryDialog({
   };
 
   const selectFamily = (lineId: string, familyCode: string) => {
-    const family = sortedFamilies.find((item) => item.family === familyCode);
+    const familyAccounts = accountOptionsByFamily.get(familyCode) ?? [];
     updateLine(lineId, {
       family: familyCode,
-      accountId: family?.primaryAccountId || '',
+      accountId: familyAccounts.length === 1 ? familyAccounts[0].id : '',
     });
   };
 
@@ -253,6 +272,7 @@ export function CreateJournalEntryDialog({
               <tbody>
                 {lines.map((line, index) => {
                   const account = accountById.get(line.accountId);
+                  const familyAccounts = accountOptionsByFamily.get(line.family) ?? [];
                   return (
                     <tr key={line.id} className="border-b align-top">
                       <td className="px-3 py-3 text-xs font-semibold text-muted-foreground">{index + 1}</td>
@@ -286,9 +306,28 @@ export function CreateJournalEntryDialog({
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="min-h-10 rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                          {account ? `${account.code} - ${account.label}` : 'Compte non configuré'}
-                        </div>
+                        {useFamilies ? (
+                          <Select
+                            value={line.accountId}
+                            onValueChange={(value) => updateLine(line.id, { accountId: value })}
+                            disabled={!line.family || familyAccounts.length === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={line.family ? 'Choisir le compte' : 'Choisir une famille'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {familyAccounts.map((item) => (
+                                <SelectItem key={item.id} value={item.id}>
+                                  {item.code} - {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="min-h-10 rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                            {account ? `${account.code} - ${account.label}` : 'Compte non configuré'}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <Input

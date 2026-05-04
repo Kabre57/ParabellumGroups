@@ -1,5 +1,31 @@
-Le script n'était pas accessible dans le conteneur car le dossier scripts n'est pas synchronisé par défaut. Je vais donc copier manuellement le script dans le conteneur puis l'exécuter.
+# Nettoyage des donnees hors auth-service
 
-Voici les commandes que je vais lancer :
-docker cp services/billing-service/scripts/test-investment-flow.js billing-service:/app/scripts/test-investment-flow.js
-docker compose exec billing-service node scripts/test-investment-flow.js
+Le test Node verifie seulement que le script est protege. Il ne vide aucune donnee.
+
+Verifier ce qui sera nettoye :
+
+```bash
+npm run clean:non-auth:dry-run
+```
+
+Nettoyer les bases applicatives hors `parabellum_auth`, puis redemarrer les services applicatifs :
+
+```bash
+npm run clean:non-auth
+```
+
+Le script demandera de taper `NETTOYER`.
+
+Commande sans confirmation, a utiliser seulement si tu es sur :
+
+```bash
+bash scripts/reset-non-auth-data.sh --yes
+```
+
+Avec vidage Redis en plus :
+
+```bash
+bash scripts/reset-non-auth-data.sh --yes --flush-redis
+```
+
+La base `parabellum_auth` reste protegee dans tous les cas.

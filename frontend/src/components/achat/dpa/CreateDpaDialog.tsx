@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -82,7 +81,7 @@ export function CreateDpaDialog({
 }: CreateDpaDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[min(98vw,1680px)] max-w-none overflow-y-auto px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
+      <DialogContent className="grid max-h-[92vh] w-[min(98vw,1680px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden px-4 sm:max-w-[min(98vw,1680px)] sm:px-5 lg:px-6">
         <DialogHeader>
           <DialogTitle>Nouveau devis interne</DialogTitle>
           <DialogDescription>
@@ -90,7 +89,7 @@ export function CreateDpaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
           <DpaFormFields
             title={title}
             onTitleChange={onTitleChange}
@@ -115,7 +114,7 @@ export function CreateDpaDialog({
             description="Saisie compacte inspirée des ERP: travaille par grille et fais défiler les lignes sans étirer toute la fenêtre."
             lines={lines}
             articles={articles}
-            maxBodyHeightClass="min-h-[320px] max-h-[52vh]"
+            maxBodyHeightClass="max-h-[42vh]"
             tableMinWidthClass="min-w-[1100px]"
             onAddLine={onAddLine}
             onDuplicateLine={onDuplicateLine}
@@ -124,15 +123,16 @@ export function CreateDpaDialog({
             onSelectArticle={onSelectArticle}
             formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
           />
+        </div>
 
-          <DialogFooter className="gap-3 border-t bg-background pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
-            <div className="min-w-0 text-sm text-muted-foreground">
-              Total estimé : {totalTTC.toLocaleString('fr-FR')} F
-            </div>
-            <Button className="shrink-0" onClick={onSubmit} disabled={!canSubmit || isPending}>
-              {isPending ? 'Enregistrement...' : 'Créer le devis'}
-            </Button>
-          </DialogFooter>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t bg-background pt-4">
+          <div className="min-w-0 text-sm text-muted-foreground">
+            Total estimé : {totalTTC.toLocaleString('fr-FR')} F
+          </div>
+          <Button className="shrink-0" onClick={onSubmit} disabled={!canSubmit || isPending}>
+            {isPending ? 'Enregistrement...' : 'Créer le devis'}
+          </Button>
+          <div aria-hidden="true" />
         </div>
       </DialogContent>
     </Dialog>

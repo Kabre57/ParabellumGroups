@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER="${POSTGRES_CONTAINER:-parabellum-db}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+load_env_value() {
+  local key="$1"
+  local env_file="$ROOT_DIR/.env"
+  local line
+  [[ -f "$env_file" ]] || return 0
+  line="$(grep -E "^${key}=" "$env_file" | tail -n 1 || true)"
+  [[ -n "$line" ]] || return 0
+  printf '%s' "${line#*=}" | sed -E 's/^["'\'']?|["'\'']?$//g'
+}
+
+CONTAINER="${POSTGRES_CONTAINER:-$(load_env_value POSTGRES_CONTAINER)}"
+CONTAINER="${CONTAINER:-parabellum-db}"
+DB_USER="${DB_USER:-$(load_env_value DB_USER)}"
+DB_USER="${DB_USER:-${POSTGRES_USER:-$(load_env_value POSTGRES_USER)}}"
 DB_USER="${DB_USER:-postgres}"
 AUTH_DATABASE="${AUTH_DATABASE:-parabellum_auth}"
 DATABASE_PATTERN="${DATABASE_PATTERN:-parabellum_%}"
@@ -39,6 +54,12 @@ trim() {
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
   printf '%s' "$value"
+}
+
+sql_literal() {
+  local value="$1"
+  value="${value//\'/\'\'}"
+  printf "'%s'" "$value"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -109,11 +130,11 @@ if [[ -n "$DATABASES_CSV" ]]; then
     DATABASES_TO_CLEAN+=("$database")
   done
 else
+  auth_database_sql="$(sql_literal "$AUTH_DATABASE")"
+  database_pattern_sql="$(sql_literal "$DATABASE_PATTERN")"
   mapfile -t DATABASES_TO_CLEAN < <(
     psql_postgres \
-      -v auth_db="$AUTH_DATABASE" \
-      -v pattern="$DATABASE_PATTERN" \
-      -Atc "SELECT datname FROM pg_database WHERE datistemplate = false AND datname <> :'auth_db' AND datname LIKE :'pattern' ORDER BY datname;"
+      -Atc "SELECT datname FROM pg_database WHERE datistemplate = false AND datname <> $auth_database_sql AND datname LIKE $database_pattern_sql ORDER BY datname;"
   )
 fi
 

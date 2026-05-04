@@ -66,7 +66,7 @@ export function PurchaseLinesGrid({
   }, [lines]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex min-h-0 flex-col gap-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold">{title}</h3>
@@ -83,7 +83,7 @@ export function PurchaseLinesGrid({
         </div>
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background">
+      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background">
         <div className={`min-h-0 overflow-auto ${maxBodyHeightClass}`}>
           <table className={`w-full ${tableMinWidthClass} text-sm`}>
             <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">

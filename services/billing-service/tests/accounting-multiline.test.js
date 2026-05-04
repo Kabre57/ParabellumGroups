@@ -111,3 +111,15 @@ test('account creation and family rules are scoped by enterprise', () => {
   assert.match(accountResolver, /OR:\s*\[\s*\{ enterpriseId: eid \}/);
   assert.match(accountResolver, /account\.enterpriseId !== null/);
 });
+
+test('manual journal creation supports global journals and old decaissements without stored account', () => {
+  const journalService = read('core', 'services', 'AccountingJournalService.js');
+  const decaissementController = read('controllers', 'decaissement.controller.js');
+
+  assert.match(journalService, /accountingJournal\.findFirst/);
+  assert.match(journalService, /enterpriseId: eid/);
+  assert.doesNotMatch(journalService, /code_enterpriseId/);
+
+  assert.match(decaissementController, /AccountingFamily\.PURCHASE_EXPENSE/);
+  assert.match(decaissementController, /resolveAccountingAccount\(tx, AccountingFamily\.PURCHASE_EXPENSE/);
+});

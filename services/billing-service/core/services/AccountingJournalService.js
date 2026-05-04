@@ -65,14 +65,12 @@ class AccountingJournalService {
     const normalizedLabel = String(journalLabel || 'Opérations diverses').trim() || 'Opérations diverses';
     const eid = enterpriseId ? Number(enterpriseId) : null;
 
-    // Utilisation de la clé composée code_enterpriseId
-    let journal = await client.accountingJournal.findUnique({
-      where: { 
-        code_enterpriseId: {
-          code: normalizedCode,
-          enterpriseId: eid
-        }
+    let journal = await client.accountingJournal.findFirst({
+      where: {
+        code: normalizedCode,
+        enterpriseId: eid,
       },
+      orderBy: [{ createdAt: 'asc' }],
     });
 
     if (!journal) {

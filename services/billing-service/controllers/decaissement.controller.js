@@ -5,6 +5,7 @@ const AccountingPostingService = require('../core/services/AccountingPostingServ
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { getTreasuryAccountingAccountId, resolveTreasuryAccountId } = require('../utils/treasury');
 const {
+  AccountingFamily,
   getTreasuryFamilyFromPaymentMethod,
   getTreasuryJournalMeta,
   resolveAccountingAccount,
@@ -274,11 +275,18 @@ exports.updateStatus = async (req, res) => {
         return updatedDecaissement;
       }
 
-      const expenseAccount = decaissement.accountingAccountId
+      let expenseAccount = decaissement.accountingAccountId
         ? await tx.accountingAccount.findUnique({
             where: { id: String(decaissement.accountingAccountId) },
           })
         : null;
+
+      if (!expenseAccount || expenseAccount.isActive === false) {
+        expenseAccount = await resolveAccountingAccount(tx, AccountingFamily.PURCHASE_EXPENSE, {
+          enterpriseId: decaissement.enterpriseId,
+          user: req.user,
+        });
+      }
 
       ensureManualAccountingAccount(expenseAccount);
 

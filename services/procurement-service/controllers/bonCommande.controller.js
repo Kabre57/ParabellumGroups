@@ -551,7 +551,7 @@ exports.updateStatus = async (req, res) => {
             action: resolvedAction,
             fromStatus: existing.status,
             toStatus: status,
-            createdById: req.userId || null
+            createdById: req.userId ? String(req.userId) : null
           }
         });
 
