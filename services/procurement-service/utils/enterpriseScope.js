@@ -8,6 +8,14 @@ let enterpriseCache = {
   data: null,
 };
 
+const resolveEnterpriseLabel = (enterprise) =>
+  enterprise?.name ||
+  enterprise?.nom ||
+  enterprise?.label ||
+  enterprise?.libelle ||
+  enterprise?.title ||
+  null;
+
 const parseEnterpriseId = (value) => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number(value);
@@ -139,7 +147,7 @@ const resolveEnterpriseContext = async (req, requestedEnterpriseId = req.body?.e
   return {
     enterpriseId: targetEnterpriseId,
     enterpriseName:
-      targetEnterprise?.name ||
+      resolveEnterpriseLabel(targetEnterprise) ||
       (userEnterpriseId === targetEnterpriseId ? req.user?.enterpriseName || null : null),
   };
 };

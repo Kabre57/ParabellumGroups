@@ -1,5 +1,5 @@
 const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
-const { applyEnterpriseScope } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, getEnterpriseList } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -11,6 +11,13 @@ const normalizeNumber = (value, fallback = 0) => {
 };
 
 const resolveAccountingCommitmentStatus = () => null;
+
+const pickCommitmentValue = (nextValue, previousValue) => {
+  if (nextValue === undefined || nextValue === null || nextValue === '') {
+    return previousValue ?? null;
+  }
+  return nextValue;
+};
 
 const ensureInternalEventSecret = (req, res, next) => {
   const secret = req.headers['x-event-secret'];
@@ -36,15 +43,24 @@ const upsertCommitment = async (tx, data) => {
     where: key,
   });
   const nextStatus = data.status ?? existing?.status ?? null;
+  const mergedData = {
+    ...data,
+    enterpriseId: pickCommitmentValue(data.enterpriseId, existing?.enterpriseId),
+    enterpriseName: pickCommitmentValue(data.enterpriseName, existing?.enterpriseName),
+    serviceId: pickCommitmentValue(data.serviceId, existing?.serviceId),
+    serviceName: pickCommitmentValue(data.serviceName, existing?.serviceName),
+    supplierId: pickCommitmentValue(data.supplierId, existing?.supplierId),
+    supplierName: pickCommitmentValue(data.supplierName, existing?.supplierName),
+  };
 
   return tx.purchaseCommitment.upsert({
     where: key,
     update: {
-      ...data,
+      ...mergedData,
       status: nextStatus,
     },
     create: {
-      ...data,
+      ...mergedData,
       status: nextStatus,
     },
   });
@@ -233,10 +249,23 @@ exports.getAllPurchaseCommitments = async (req, res) => {
       where: scopedWhere,
       orderBy: { createdAt: 'desc' },
     });
+    const enterprises = await getEnterpriseList(req).catch(() => []);
+    const enterpriseNameById = new Map(
+      (Array.isArray(enterprises) ? enterprises : []).map((enterprise) => [
+        Number(enterprise.id),
+        enterprise.name || enterprise.nom || enterprise.label || enterprise.libelle || null,
+      ])
+    );
+    const hydratedCommitments = commitments.map((commitment) => ({
+      ...commitment,
+      enterpriseName:
+        commitment.enterpriseName ||
+        (commitment.enterpriseId != null ? enterpriseNameById.get(Number(commitment.enterpriseId)) || null : null),
+    }));
 
     res.json({
       success: true,
-      data: commitments,
+      data: hydratedCommitments,
     });
   } catch (error) {
     console.error('Erreur lecture engagements achats:', error.message);

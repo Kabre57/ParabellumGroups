@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { RejectPurchaseRequestDialog } from '@/components/procurement/RejectPurchaseRequestDialog';
 import { CreateDpaDialog } from '@/components/achat/dpa/CreateDpaDialog';
+import { ArticlePickerDialog } from '@/components/inventory/ArticlePickerDialog';
+import { QuickCreateArticleDialog } from '@/components/inventory/QuickCreateArticleDialog';
 import {
   createEmptyDpaDraftLine,
   type DpaDraftLine,
@@ -67,6 +69,8 @@ export default function PurchaseQuotesPage() {
   const [manualSupplierName, setManualSupplierName] = useState('');
   const [dateBesoin, setDateBesoin] = useState('');
   const [lines, setLines] = useState<DpaDraftLine[]>([createEmptyDpaDraftLine()]);
+  const [articlePickerLineIndex, setArticlePickerLineIndex] = useState<number | null>(null);
+  const [articleCreateLineIndex, setArticleCreateLineIndex] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PurchaseRequest | null>(null);
 
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
@@ -247,6 +251,24 @@ export default function PurchaseQuotesPage() {
   const updateLine = (index: number, patch: Partial<DpaDraftLine>) => {
     setLines((current) =>
       current.map((line, lineIndex) => (lineIndex === index ? { ...line, ...patch } : line))
+    );
+  };
+
+  const applyArticleToLine = (index: number, article: any) => {
+    setLines((current) =>
+      current.map((line, lineIndex) =>
+        lineIndex === index
+          ? {
+              ...line,
+              articleId: article?.id || '',
+              imageUrl: article?.imageUrl || '',
+              designation: article?.nom || line.designation,
+              categorie: article?.categorie || '',
+              unite: article?.unite || line.unite,
+              prixUnitaire: Number(article?.prixAchat ?? article?.prixVente ?? line.prixUnitaire ?? 0),
+            }
+          : line
+      )
     );
   };
 
@@ -437,10 +459,40 @@ export default function PurchaseQuotesPage() {
         onRemoveLine={(index) => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}
         onUpdateLine={updateLine}
         onSelectArticle={updateLineArticle}
+        onOpenArticlePicker={setArticlePickerLineIndex}
+        onOpenCreateArticle={setArticleCreateLineIndex}
         totalTTC={draftTotals.montantTTC}
         isPending={createMutation.isPending}
         canSubmit={Boolean(title && enterpriseId && (supplierId || manualSupplierName.trim()))}
         onSubmit={() => createMutation.mutate()}
+      />
+
+
+      <ArticlePickerDialog
+        open={articlePickerLineIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setArticlePickerLineIndex(null);
+        }}
+        articles={articles}
+        onSelect={(article) => {
+          if (articlePickerLineIndex === null) return;
+          applyArticleToLine(articlePickerLineIndex, article);
+          setArticlePickerLineIndex(null);
+        }}
+        title="Choisir dans la liste complete"
+        description="Sélectionnez un produit du catalogue pour remplir rapidement la ligne du devis interne."
+      />
+
+      <QuickCreateArticleDialog
+        open={articleCreateLineIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setArticleCreateLineIndex(null);
+        }}
+        onCreated={(article) => {
+          if (articleCreateLineIndex === null) return;
+          applyArticleToLine(articleCreateLineIndex, article);
+          setArticleCreateLineIndex(null);
+        }}
       />
 
       <RejectPurchaseRequestDialog

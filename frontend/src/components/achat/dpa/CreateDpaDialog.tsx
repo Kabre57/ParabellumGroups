@@ -42,6 +42,8 @@ interface CreateDpaDialogProps {
   onRemoveLine: (index: number) => void;
   onUpdateLine: (index: number, patch: Partial<DpaDraftLine>) => void;
   onSelectArticle: (index: number, articleId: string) => void;
+  onOpenArticlePicker?: (index: number) => void;
+  onOpenCreateArticle?: (index: number) => void;
   totalTTC: number;
   isPending?: boolean;
   canSubmit: boolean;
@@ -74,6 +76,8 @@ export function CreateDpaDialog({
   onRemoveLine,
   onUpdateLine,
   onSelectArticle,
+  onOpenArticlePicker,
+  onOpenCreateArticle,
   totalTTC,
   isPending = false,
   canSubmit,
@@ -121,6 +125,8 @@ export function CreateDpaDialog({
             onRemoveLine={onRemoveLine}
             onUpdateLine={onUpdateLine}
             onSelectArticle={onSelectArticle}
+            onOpenArticlePicker={onOpenArticlePicker}
+            onOpenCreateArticle={onOpenCreateArticle}
             formatCurrency={(amount) => `${amount.toLocaleString('fr-FR')} F`}
           />
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, List, Plus, Trash2 } from 'lucide-react';
 import type { InventoryArticle } from '@/shared/api/inventory/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,8 @@ interface PurchaseLinesGridProps {
   onRemoveLine: (index: number) => void;
   onUpdateLine: (index: number, patch: Partial<PurchaseLineDraft>) => void;
   onSelectArticle: (index: number, articleId: string) => void;
+  onOpenArticlePicker?: (index: number) => void;
+  onOpenCreateArticle?: (index: number) => void;
   formatCurrency?: (amount: number) => string;
 }
 
@@ -50,6 +52,8 @@ export function PurchaseLinesGrid({
   onRemoveLine,
   onUpdateLine,
   onSelectArticle,
+  onOpenArticlePicker,
+  onOpenCreateArticle,
   formatCurrency = defaultFormatCurrency,
 }: PurchaseLinesGridProps) {
   const totals = useMemo(() => {
@@ -125,19 +129,49 @@ export function PurchaseLinesGrid({
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <select
-                        value={line.articleId}
-                        onChange={(event) => onSelectArticle(index, event.target.value)}
-                        disabled={disabled}
-                        className="h-12 w-full rounded-md border border-input bg-background px-3 text-base"
-                      >
-                        <option value="">Sélectionner un article</option>
-                        {articles.map((article) => (
-                          <option key={article.id} value={article.id}>
-                            {article.nom} {article.categorie ? `- ${article.categorie}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        {onOpenArticlePicker ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => onOpenArticlePicker(index)}
+                            disabled={disabled}
+                            title="Choisir dans la liste complète"
+                            aria-label="Choisir dans la liste complète"
+                            className="h-12 w-12 shrink-0"
+                          >
+                            <List className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                        {onOpenCreateArticle ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => onOpenCreateArticle(index)}
+                            disabled={disabled}
+                            title="Nouveau produit"
+                            aria-label="Nouveau produit"
+                            className="h-12 w-12 shrink-0"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                        <select
+                          value={line.articleId}
+                          onChange={(event) => onSelectArticle(index, event.target.value)}
+                          disabled={disabled}
+                          className="h-12 w-full rounded-md border border-input bg-background px-3 text-base"
+                        >
+                          <option value="">Sélectionner un article</option>
+                          {articles.map((article) => (
+                            <option key={article.id} value={article.id}>
+                              {article.nom} {article.categorie ? `- ${article.categorie}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <Input
