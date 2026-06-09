@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:22-slim
 
 # Install openssl for Prisma
@@ -20,7 +21,13 @@ RUN npm config set fetch-timeout 60000 && \
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm,sharing=locked \
+    for attempt in 1 2 3; do \
+      npm ci --prefer-offline --no-audit --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=300000 && break; \
+      if [ "$attempt" = "3" ]; then exit 1; fi; \
+      echo "npm ci failed, retrying in 10s..."; \
+      sleep 10; \
+    done
 
 # Copy source code
 COPY . .

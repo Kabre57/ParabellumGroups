@@ -5,7 +5,6 @@ const { body, validationResult } = require('express-validator');
 
 // Middleware de validation basique
 const validateEmploye = [
-    body('matricule').notEmpty().withMessage('Le matricule est requis'),
     body('nom').notEmpty().withMessage('Le nom est requis'),
     body('prenoms').notEmpty().withMessage('Les prénoms sont requis'),
     (req, res, next) => {

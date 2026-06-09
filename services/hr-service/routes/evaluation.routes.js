@@ -7,6 +7,7 @@ router.use(authenticateUser);
 
 router.get('/', evaluationController.getAllEvaluations);
 router.post('/', evaluationController.createEvaluation);
+router.get('/employe/:employeId', evaluationController.getAllEvaluations);
 router.get('/:id', evaluationController.getEvaluation);
 router.put('/:id', evaluationController.updateEvaluation);
 router.delete('/:id', evaluationController.deleteEvaluation);

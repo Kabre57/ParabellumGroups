@@ -60,16 +60,19 @@ const mapContractFromApi = (c: any): Contract => ({
     : undefined,
 });
 
-const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) => ({
-  matricule: 'employeeId' in c ? c.employeeId : undefined,
-  typeContrat: c.contractType,
-  dateDebut: c.startDate,
-  dateFinPrevue: c.endDate ?? null,
-  salaireBaseMensuel: c.salary,
-  posteOccupe: c.position,
-  service: c.department,
-  statutContrat: 'status' in c ? (c.status ?? 'ACTIF') : 'ACTIF',
-});
+const mapContractToApi = (c: CreateContractRequest | UpdateContractRequest) =>
+  Object.fromEntries(
+    Object.entries({
+      matricule: 'employeeId' in c ? c.employeeId : undefined,
+      typeContrat: c.contractType,
+      dateDebut: c.startDate,
+      dateFinPrevue: c.endDate,
+      salaireBaseMensuel: c.salary,
+      posteOccupe: c.position,
+      service: c.department,
+      statutContrat: 'status' in c ? c.status : 'ACTIF',
+    }).filter(([, value]) => value !== undefined)
+  );
 
 export const contractsService = {
   async getContracts(params?: {
@@ -120,16 +123,15 @@ export const contractsService = {
   },
 
   async terminateContract(id: string, endDate: string, reason?: string): Promise<DetailResponse<Contract>> {
-    const response = await apiClient.put(`/hr/contracts/${id}`, {
-      statut: 'TERMINE',
-      dateFin: endDate,
-      terminationReason: reason,
+    const response = await apiClient.post(`/hr/contracts/${id}/rupture`, {
+      dateRupture: endDate,
+      motifRupture: reason,
     });
-    return { success: true, data: mapContractFromApi(response.data?.data || response.data) };
+    return { success: true, data: mapContractFromApi(response.data?.contrat || response.data?.data || response.data) };
   },
 
   async downloadContractPdf(id: string): Promise<Blob> {
-    const response = await apiClient.get(`/hr/contracts/${id}/pdf`, {
+    const response = await apiClient.get(`/hr/documents/contract/${id}`, {
       responseType: 'blob',
     });
     return response.data;

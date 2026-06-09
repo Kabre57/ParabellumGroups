@@ -2,9 +2,14 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const asyncHandler = require('express-async-handler');
 
+const activeStringFilter = () => ({
+    equals: 'Actif',
+    mode: 'insensitive'
+});
+
 // Statistiques globales pour le dashboard d'accueil
 exports.getGlobalStats = asyncHandler(async (req, res) => {
-    const totalEmployes = await prisma.employe.count({ where: { statut: 'Actif' } });
+    const totalEmployes = await prisma.employe.count({ where: { statut: activeStringFilter() } });
     
     // Dernier mois de paie traité
     const lastPayroll = await prisma.bulletinPaie.findFirst({
@@ -38,14 +43,14 @@ exports.getIndicators = asyncHandler(async (req, res) => {
     // Répartition par Sexe
     const byGender = await prisma.employe.groupBy({
         by: ['sexe'],
-        where: { statut: 'Actif' },
+        where: { statut: activeStringFilter() },
         _count: { id: true }
     });
 
     // Répartition par Département
-    const byDept = await prisma.employe.groupBy({
-        by: ['direction'],
-        where: { statut: 'Actif' },
+    const byDept = await prisma.contrat.groupBy({
+        by: ['service'],
+        where: { employe: { statut: activeStringFilter() } },
         _count: { id: true }
     });
 

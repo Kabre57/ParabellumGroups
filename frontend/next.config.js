@@ -8,6 +8,25 @@ const nextConfig = {
     API_GATEWAY_URL: process.env.API_GATEWAY_URL || 'http://localhost:3001',
   },
 
+  async rewrites() {
+    if (process.env.NODE_ENV === 'production') {
+      return [];
+    }
+
+    const gatewayUrl = (
+      process.env.API_GATEWAY_URL ||
+      process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
+      'http://localhost:3001'
+    ).replace(/\/api\/?$/, '');
+
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${gatewayUrl}/api/:path*`,
+      },
+    ];
+  },
+
   images: {
     remotePatterns: [
       {

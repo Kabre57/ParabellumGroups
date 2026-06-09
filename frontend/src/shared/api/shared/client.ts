@@ -20,9 +20,15 @@ class ApiClient {
   }
 
   constructor() {
-    // Utilisation de /api comme base URL par défaut pour le proxy ou le gateway
-    // Si NEXT_PUBLIC_API_GATEWAY_URL est défini, on l'utilise, sinon on utilise /api
-    const baseURL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || '/api';
+    // Utilisation de /api comme base URL par défaut pour le proxy ou le gateway.
+    // Les URLs gateway sans suffixe /api sont normalisées pour le développement local.
+    const configuredBaseURL =
+      process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      '/api';
+    const baseURL = configuredBaseURL.endsWith('/api') || configuredBaseURL === '/api'
+      ? configuredBaseURL
+      : `${configuredBaseURL.replace(/\/$/, '')}/api`;
     
     this.instance = axios.create({
       baseURL: baseURL,
@@ -310,4 +316,3 @@ export default apiClient;
 
 // Export de l'instance Axios pour compatibilité
 export const axiosInstance = apiClient.getAxiosInstance();
-

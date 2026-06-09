@@ -79,6 +79,29 @@ export interface UpdateEvaluationRequest {
   status?: 'BROUILLON' | 'EN_COURS' | 'TERMINE' | 'VALIDE';
 }
 
+const getLatestContract = (employee: any) => {
+  if (Array.isArray(employee?.contrats) && employee.contrats.length > 0) return employee.contrats[0];
+  return null;
+};
+
+const mapEmployee = (employee: any) => {
+  if (!employee) return undefined;
+  const contract = getLatestContract(employee);
+  return {
+    ...employee,
+    prenom: employee.prenom ?? employee.prenoms ?? employee.firstName,
+    poste: employee.poste ?? contract?.posteOccupe,
+    departement: employee.departement ?? contract?.service ?? contract?.direction,
+  };
+};
+
+const mapEvaluationFromApi = (evaluation: any): Evaluation => ({
+  ...evaluation,
+  employe: mapEmployee(evaluation.employe),
+  evaluateur: mapEmployee(evaluation.evaluateur),
+  status: evaluation.status ?? 'TERMINE',
+});
+
 export const evaluationsService = {
   async getEvaluations(params?: {
     page?: number;
@@ -96,29 +119,31 @@ export const evaluationsService = {
     const pagination = response.data?.pagination ?? payload?.pagination;
     return {
       success: true,
-      data: list,
+      data: list.map(mapEvaluationFromApi),
       meta: pagination ? { pagination } : undefined,
     };
   },
 
   async getEvaluation(id: string): Promise<DetailResponse<Evaluation>> {
     const response = await apiClient.get(`/hr/evaluations/${id}`);
-    return response.data;
+    return { success: true, data: mapEvaluationFromApi(response.data?.data || response.data) };
   },
 
   async getEvaluationsByEmploye(employeId: string): Promise<ListResponse<Evaluation>> {
     const response = await apiClient.get(`/hr/evaluations/employe/${employeId}`);
-    return response.data;
+    const payload = response.data?.data ?? response.data ?? [];
+    const list = Array.isArray(payload) ? payload : payload?.data ?? [];
+    return { success: true, data: list.map(mapEvaluationFromApi) };
   },
 
   async createEvaluation(data: CreateEvaluationRequest): Promise<DetailResponse<Evaluation>> {
     const response = await apiClient.post('/hr/evaluations', data);
-    return response.data;
+    return { success: true, data: mapEvaluationFromApi(response.data?.data || response.data) };
   },
 
   async updateEvaluation(id: string, data: UpdateEvaluationRequest): Promise<DetailResponse<Evaluation>> {
     const response = await apiClient.put(`/hr/evaluations/${id}`, data);
-    return response.data;
+    return { success: true, data: mapEvaluationFromApi(response.data?.data || response.data) };
   },
 
   async deleteEvaluation(id: string): Promise<{ success: boolean; message?: string }> {
