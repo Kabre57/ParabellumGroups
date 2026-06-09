@@ -1,7 +1,7 @@
 import { apiClient } from '../shared/client';
 
 const list = async (path: string, params?: Record<string, any>) => {
-  const response = await apiClient.get(`/api/logipaie/${path}`, { params });
+  const response = await apiClient.get(`/hr/logipaie/${path}`, { params });
   return response.data;
 };
 

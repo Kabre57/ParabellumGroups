@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const asyncHandler = require('express-async-handler');
 const logipaieService = require('../services/logipaie.service');
+const configService = require('../services/config.service');
 
 const toNumber = (value) => (value !== undefined && value !== null && value !== '' ? Number(value) : undefined);
 
@@ -26,6 +27,18 @@ const activeStringFilter = () => ({
     mode: 'insensitive'
 });
 
+const bulletinInclude = {
+    employe: {
+        include: {
+            contrats: {
+                orderBy: { dateDebut: 'desc' },
+                take: 1
+            }
+        }
+    },
+    variablesMensuelle: true
+};
+
 const bulletinCalculationFields = [
     'salaireBase',
     'heuresSuppMontant',
@@ -47,6 +60,12 @@ const pickBulletinCalculationData = (result = {}) =>
             .filter((field) => result[field] !== undefined)
             .map((field) => [field, result[field]])
     );
+
+const toDisplayPercent = (value) => {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) return 0;
+    return numeric > 1 ? numeric : numeric * 100;
+};
 
 const normalizeStatus = (value) => {
     const status = String(value || '').toUpperCase();
@@ -130,7 +149,7 @@ exports.getAllBulletins = asyncHandler(async (req, res) => {
     const [data, total] = await Promise.all([
         prisma.bulletinPaie.findMany({
             where,
-            include: { employe: true },
+            include: bulletinInclude,
             orderBy: { dateGeneration: 'desc' },
             skip,
             take
@@ -150,7 +169,7 @@ exports.getAllBulletins = asyncHandler(async (req, res) => {
 exports.getBulletin = asyncHandler(async (req, res) => {
     const bulletin = await prisma.bulletinPaie.findUnique({
         where: { id: Number(req.params.id) },
-        include: { employe: true }
+        include: bulletinInclude
     });
 
     if (!bulletin) return res.status(404).json({ error: 'Bulletin introuvable' });
@@ -175,7 +194,7 @@ exports.createBulletin = asyncHandler(async (req, res) => {
             statutPaiement: data.statutPaiement || 'GENERE',
             ...data
         },
-        include: { employe: true }
+        include: bulletinInclude
     });
 
     res.status(201).json(bulletin);
@@ -185,7 +204,7 @@ exports.updateBulletin = asyncHandler(async (req, res) => {
     const bulletin = await prisma.bulletinPaie.update({
         where: { id: Number(req.params.id) },
         data: buildBulletinData(req.body),
-        include: { employe: true }
+        include: bulletinInclude
     });
     res.status(200).json(bulletin);
 });
@@ -199,9 +218,16 @@ exports.getPayrollOverview = asyncHandler(async (req, res) => {
     const periode = getPeriod(req.query);
     const { year, month } = splitPeriod(periode);
 
-    const [employeesTotal, employeesActive, bulletins, sums] = await Promise.all([
+    const [employeesTotal, employeesActive, bulletins, sums, config] = await Promise.all([
         prisma.employe.count(),
-        prisma.employe.count({ where: { statut: activeStringFilter() } }),
+        prisma.employe.count({
+            where: {
+                OR: [
+                    { statut: activeStringFilter() },
+                    { isActive: true }
+                ]
+            }
+        }),
         prisma.bulletinPaie.findMany({ where: { periode } }),
         prisma.bulletinPaie.aggregate({
             where: { periode },
@@ -215,7 +241,8 @@ exports.getPayrollOverview = asyncHandler(async (req, res) => {
                 impotCn: true,
                 impotIgr: true
             }
-        })
+        }),
+        configService.getActiveConfiguration(prisma)
     ]);
 
     const paidCount = bulletins.filter((b) => ['PAYE', 'PAYÉ', 'PAID'].includes(String(b.statutPaiement || '').toUpperCase())).length;
@@ -249,7 +276,13 @@ exports.getPayrollOverview = asyncHandler(async (req, res) => {
         },
         compliance: [],
         features: [],
-        legalRates: [],
+        legalRates: [
+            { key: 'smig', label: 'SMIG', value: config.smig, unit: 'FCFA' },
+            { key: 'plafondCnps', label: 'Plafond CNPS', value: config.plafondCnps, unit: 'FCFA' },
+            { key: 'tauxCnpsSalarial', label: 'CNPS salarie', value: toDisplayPercent(config.tauxCnpsSalarial), unit: '%' },
+            { key: 'tauxCnpsPatronal', label: 'CNPS employeur', value: toDisplayPercent(config.tauxCnpsPatronal), unit: '%' },
+            { key: 'tauxIs', label: 'IS', value: toDisplayPercent(config.tauxIs), unit: '%' }
+        ],
         declarations: []
     });
 });
@@ -286,7 +319,7 @@ exports.calculerPaie = asyncHandler(async (req, res) => {
 
     const contrat = employe.contrats[0];
     const variables = await prisma.variablesMensuelle.findFirst({ where: { matricule, periode } });
-    const config = await prisma.configuration.findFirst();
+    const config = await configService.getActiveConfiguration(prisma);
     const calculResult = logipaieService.calculerBulletin(employe, contrat, variables || {}, config);
     const bulletinData = pickBulletinCalculationData(calculResult);
 
@@ -299,7 +332,7 @@ exports.calculerPaie = asyncHandler(async (req, res) => {
             statutPaiement: "GENERE",
             coutTotalEmployeur: bulletinData.coutTotalEmployeur
         },
-        include: { employe: true }
+        include: bulletinInclude
     });
 
     res.status(201).json(bulletin);
@@ -310,14 +343,24 @@ exports.traitementMasse = asyncHandler(async (req, res) => {
     const periode = getPeriod(req.body);
 
     const employes = await prisma.employe.findMany({
-        where: { statut: activeStringFilter() },
+        where: {
+            OR: [
+                { statut: activeStringFilter() },
+                { isActive: true }
+            ]
+        },
         include: {
-            contrats: { where: { statutContrat: activeStringFilter() } },
+            contrats: {
+                where: { statutContrat: activeStringFilter() },
+                orderBy: { dateDebut: 'desc' },
+                take: 1
+            },
             prets: { where: { statut: 'En cours' } }
         }
     });
 
     const bulletinsCrees = [];
+    const config = await configService.getActiveConfiguration(prisma);
 
     for (const employe of employes) {
         if (employe.contrats.length === 0) continue;
@@ -326,31 +369,41 @@ exports.traitementMasse = asyncHandler(async (req, res) => {
             where: { matricule: employe.matricule, periode }
         }) || {};
 
-        const result = pickBulletinCalculationData(logipaieService.calculerBulletin(employe, contrat, variables, {}));
-        let totalPretsADeduire = 0;
-
-        for (const pret of employe.prets) {
-            const mensualite = Number(pret.montantTotalPrete || 0) / Math.max(1, Number(pret.nombreMoisRemboursement || 1));
-            const deduction = Math.min(mensualite, Number(pret.montantRestantDu || 0));
-            totalPretsADeduire += deduction;
-
-            await prisma.pretAvance.update({
-                where: { id: pret.id },
-                data: {
-                    montantRestantDu: { decrement: deduction },
-                    nombreMoisPayes: { increment: 1 },
-                    statut: (Number(pret.montantRestantDu || 0) - deduction) <= 0 ? "Terminé" : "En cours"
-                }
-            });
-        }
-
+        const result = pickBulletinCalculationData(logipaieService.calculerBulletin(employe, contrat, variables, config));
         const existing = await prisma.bulletinPaie.findFirst({
             where: { matricule: employe.matricule, periode }
         });
+        let totalPretsADeduire = existing
+            ? Math.max(
+                0,
+                Number(existing.salaireBrut || 0) -
+                Number(existing.totalRetenues || 0) -
+                Number(existing.salaireNet || 0)
+            )
+            : 0;
 
+        if (!existing) {
+            for (const pret of employe.prets) {
+                const mensualite = Number(pret.montantTotalPrete || 0) / Math.max(1, Number(pret.nombreMoisRemboursement || 1));
+                const deduction = Math.min(mensualite, Number(pret.montantRestantDu || 0));
+                totalPretsADeduire += deduction;
+
+                await prisma.pretAvance.update({
+                    where: { id: pret.id },
+                    data: {
+                        montantRestantDu: { decrement: deduction },
+                        nombreMoisPayes: { increment: 1 },
+                        statut: (Number(pret.montantRestantDu || 0) - deduction) <= 0 ? "Terminé" : "En cours"
+                    }
+                });
+            }
+        }
+
+        const totalRetenues = Number(result.totalRetenues || 0) + totalPretsADeduire;
         const payload = {
             ...result,
-            salaireNet: Number(result.salaireNet || 0) - totalPretsADeduire,
+            totalRetenues,
+            salaireNet: Number(result.salaireBrut || 0) - totalRetenues,
             statutPaiement: "GENERE"
         };
 

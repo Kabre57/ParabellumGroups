@@ -89,6 +89,7 @@ const buildEmployeeData = async (body = {}, client = prisma, { isCreate = false 
   const nom = pickText(body.nom, body.lastName, body.lastname);
   const prenoms = pickText(body.prenoms, body.prenom, body.firstName, body.firstname);
   const matricule = pickText(body.matricule, body.employeeNumber, body.employeeId);
+  const statut = normalizeActiveStatus(body.statut ?? body.status ?? body.isActive, isCreate ? 'Actif' : undefined);
 
   const data = {
     matricule: isCreate ? (matricule || await generateMatricule(client)) : undefined,
@@ -111,11 +112,13 @@ const buildEmployeeData = async (body = {}, client = prisma, { isCreate = false 
     naturePieceIdentite: pickText(body.naturePieceIdentite, body.identityDocumentType),
     numeroPieceIdentite: pickText(body.numeroPieceIdentite, body.identityDocumentNumber),
     numeroCnps: pickText(body.numeroCnps, body.cnpsNumber),
+    numeroCnam: pickText(body.numeroCnam, body.cnamNumber, body.cnam_number),
     nonSoumisCnps: body.nonSoumisCnps,
     modePaiement: pickText(body.modePaiement, body.paymentMode),
     rib: pickText(body.rib, body.bankAccount),
     banque: pickText(body.banque, body.bank),
-    statut: normalizeActiveStatus(body.statut ?? body.status ?? body.isActive, isCreate ? 'Actif' : undefined)
+    statut,
+    isActive: statut === undefined ? undefined : String(statut).toLowerCase() === 'actif'
   };
 
   Object.keys(data).forEach((key) => data[key] === undefined && delete data[key]);
@@ -173,7 +176,18 @@ exports.getAllEmployes = asyncHandler(async (req, res, next) => {
     
     // Supporte les deux noms de paramètres (statut en fr, status de l'url)
     const activeStatus = statut || status;
-    if (activeStatus) where.statut = { equals: activeStatus, mode: 'insensitive' };
+    if (activeStatus) {
+      const normalizedStatus = normalizeActiveStatus(activeStatus);
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { statut: { equals: normalizedStatus, mode: 'insensitive' } },
+            { isActive: normalizedStatus === 'Actif' }
+          ]
+        }
+      ];
+    }
     
     if (search) {
         where.OR = [

@@ -12,7 +12,12 @@ model Configuration {
   nomEntreprise     String?
   sigle             String?
   numeroCc          String?
+  compteContribuable String?
+  idu               String?
+  rccm              String?
   numeroCnps        String?
+  numeroCnam        String?
+  numeroFdfp        String?
   adresseSiege      String?
   telephone         String?
   email             String?
@@ -26,6 +31,7 @@ model Configuration {
   plafondCnps       Decimal?  @db.Decimal(12, 2)
   baremesIgr        Json?
   dateMiseAJour     DateTime? @default(now())
+  isActive          Boolean   @default(true)
 }
 
 model Employe {
@@ -50,11 +56,13 @@ model Employe {
   naturePieceIdentite   String?
   numeroPieceIdentite   String?
   numeroCnps            String?
+  numeroCnam            String?
   nonSoumisCnps         Boolean?
   modePaiement          String?
   rib                   String?
   banque                String?
   statut                String?
+  isActive              Boolean  @default(true)
   dateCreation          DateTime? @default(now())
   dateModification      DateTime? @updatedAt
 
@@ -65,6 +73,7 @@ model Employe {
   cumuls               CumulAnnuel[]
   conges               GestionConge[]
   provisionsConges     ProvisionCongeCalc[]
+  presences            Presence[]
   absences             Absence[]
   prets                PretAvance[]
   ruptures             RuptureContrat[]
@@ -237,9 +246,25 @@ model Absence {
   employe Employe @relation(fields: [matricule], references: [matricule])
 }
 
+model Presence {
+  id                Int      @id @default(autoincrement())
+  matricule         String
+  date              DateTime
+  type              String?  @default("BUREAU")
+  heureArrivee      DateTime?
+  heureDepart       DateTime?
+  heuresTravaillees Decimal? @db.Decimal(8, 2)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  employe Employe @relation(fields: [matricule], references: [matricule])
+}
+
 model PretAvance {
   id                     Int      @id @default(autoincrement())
   matricule              String
+  type                   String?  @default("PRET")
   datePret               DateTime?
   montantTotalPrete      Decimal? @db.Decimal(12, 2)
   montantRestantDu       Decimal? @db.Decimal(12, 2)

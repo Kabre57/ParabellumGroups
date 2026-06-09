@@ -81,6 +81,11 @@ export interface Payroll {
     cnpsNumber?: string;
     cnamNumber?: string;
     position?: string;
+    department?: string;
+    category?: string;
+    hireDate?: string;
+    contractType?: string;
+    taxParts?: number;
   };
   [key: string]: any;
 }

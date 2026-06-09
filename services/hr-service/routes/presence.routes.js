@@ -5,6 +5,14 @@ const { authenticateUser } = require('../middleware/auth.middleware');
 
 router.use(authenticateUser);
 
+router.get('/employe/:employeId', presenceController.getPresencesByEmploye);
+router.get('/stats', presenceController.getPresenceStats);
+router.get('/export', presenceController.exportPresences);
+router.post('/pointage', presenceController.pointage);
+router.post('/', presenceController.createPresence);
+router.put('/:id', presenceController.updatePresence);
+router.patch('/:id', presenceController.updatePresence);
+
 router.get('/absences', presenceController.getAllAbsences);
 router.post('/absences', presenceController.createAbsence);
 router.get('/absences/:id', presenceController.getAbsence);

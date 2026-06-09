@@ -8,5 +8,6 @@ router.use(authenticateUser);
 router.get('/disa', logipaieController.generateDisa);
 router.get('/its', logipaieController.generateIts);
 router.get('/payslip/:bulletinId', logipaieController.printPayslip);
+router.get('/:resource', logipaieController.listResource);
 
 module.exports = router;

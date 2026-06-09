@@ -22,7 +22,7 @@ export interface LoanPayload {
 const mapLoan = (l: any): LoanPayload => ({
   id: l.id,
   employeId: l.employeId ?? l.matricule,
-  type: l.type ?? 'PRET',
+  type: l.type ?? l.typePret ?? 'PRET',
   motif: l.motif ?? l.motifPret,
   montantInitial: Number(l.montantInitial ?? l.montantTotalPrete ?? 0),
   restantDu: Number(l.restantDu ?? l.montantRestantDu ?? 0),

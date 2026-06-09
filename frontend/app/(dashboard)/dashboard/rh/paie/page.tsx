@@ -68,6 +68,78 @@ const openBlob = (blob: Blob, filename: string) => {
   }, 15000);
 };
 
+const toNumber = (value: unknown) => {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const toRatePercent = (value: unknown) => {
+  const number = toNumber(value);
+  if (!number) return undefined;
+  return number > 1 ? number : number * 100;
+};
+
+const buildCompanyInfo = (configuration: any) => ({
+  name: configuration?.nomEntreprise || configuration?.companyName || 'Parabellum Groups',
+  sigle: configuration?.sigle || configuration?.nomEntreprise || 'Parabellum Groups',
+  address: configuration?.adresseSiege || configuration?.address || '',
+  immatriculationCNPS: configuration?.immatriculationCNPS || configuration?.numeroCnps || '',
+  cnamNumber: configuration?.numeroCnam || configuration?.cnamNumber || '',
+  fdfpNumber: configuration?.numeroFdfp || configuration?.fdfpNumber || '',
+  idu: configuration?.idu || '',
+  rccm: configuration?.rccm || '',
+  compteContribuable: configuration?.compteContribuable || configuration?.numeroCc || '',
+  phone: configuration?.telephone || '',
+  email: configuration?.email || '',
+});
+
+const buildPrintRows = (payroll: Payroll) => {
+  const variables = payroll.variablesMensuelle || {};
+  const baseSalary = toNumber(payroll.salaireBase || payroll.baseSalary || payroll.grossSalary);
+  const overtime = toNumber(payroll.heuresSuppMontant || payroll.heuresSup);
+  const primes = toNumber(payroll.primesTotal || payroll.bonuses);
+  const transport = toNumber(variables.primeTransport);
+  const gross = toNumber(payroll.grossSalary);
+  const gains = [
+    { code: 100, label: 'SALAIRE DE BASE', base: baseSalary, workDays: 30, amount: baseSalary },
+    { code: 210, label: 'HEURES SUPPLEMENTAIRES', base: baseSalary, hourDay: '', amount: overtime },
+    { code: 300, label: 'PRIMES', base: 0, hourDay: '', amount: primes },
+    { code: 740, label: 'INDEMNITE DE TRANSPORT', base: 0, hourDay: '', amount: transport },
+  ].filter((row) => row.code === 100 || row.amount > 0);
+
+  const gainsTotal = gains.reduce((sum, row) => sum + row.amount, 0);
+  if (gross > gainsTotal + 1) {
+    gains.push({ code: 780, label: 'AUTRES GAINS', base: 0, hourDay: '', amount: gross - gainsTotal });
+  }
+
+  const totalRetenues = toNumber(payroll.totalRetenues || payroll.deductions);
+  const deductions = [
+    {
+      code: 610,
+      label: 'C.N.P.S',
+      base: baseSalary,
+      rate: undefined,
+      amount: toNumber(payroll.cotisationCnpsSalariale),
+    },
+    { code: 600, label: 'I.S', base: baseSalary, rate: undefined, amount: toNumber(payroll.impotIs) },
+    { code: 620, label: 'C.N', base: baseSalary, rate: undefined, amount: toNumber(payroll.impotCn) },
+    { code: 640, label: 'I.G.R', base: baseSalary, rate: undefined, amount: toNumber(payroll.impotIgr || payroll.taxAmount) },
+  ].filter((row) => row.amount > 0);
+
+  const deductionsTotal = deductions.reduce((sum, row) => sum + row.amount, 0);
+  if (totalRetenues > deductionsTotal + 1) {
+    deductions.push({
+      code: 800,
+      label: 'AUTRES RETENUES',
+      base: 0,
+      rate: undefined,
+      amount: totalRetenues - deductionsTotal,
+    });
+  }
+
+  return { gains, deductions };
+};
+
 export default function PaiePage() {
   const { user } = useAuth();
   const periodOptions = useMemo(buildPeriodOptions, []);
@@ -101,6 +173,10 @@ export default function PaiePage() {
     queryKey: ['payroll-overview', periodFilter],
     queryFn: () => hrService.getPayrollOverview({ year, month }),
   });
+  const { data: payrollConfiguration } = useQuery({
+    queryKey: ['payroll-configuration'],
+    queryFn: () => hrService.getPayrollConfiguration(),
+  });
 
   const validateMutation = useMutation({
     mutationFn: (payroll: Payroll) => hrService.updatePayroll(payroll.id, { statut: 'VALIDE' }),
@@ -124,24 +200,35 @@ export default function PaiePage() {
 
   const handlePrint = (payroll: Payroll) => {
     const employeeAny = payroll.employee as any;
+    const { gains, deductions } = buildPrintRows(payroll);
+    const companyInfo = buildCompanyInfo(payrollConfiguration);
     const printData = {
       id: payroll.id,
+      employer: companyInfo,
       employee: payroll.employee
         ? {
             firstName: payroll.employee.firstName || '',
             lastName: payroll.employee.lastName || '',
             matricule: payroll.employee.matricule || '',
-            cnpsNumber: payroll.employee.cnpsNumber || employeeAny?.cnps_number || '',
-            cnamNumber: payroll.employee.cnamNumber || employeeAny?.cnam_number || '',
+            cnpsNumber: payroll.employee.cnpsNumber || employeeAny?.numeroCnps || employeeAny?.cnps_number || '',
+            cnamNumber: payroll.employee.cnamNumber || employeeAny?.numeroCnam || employeeAny?.cnam_number || '',
             position: payroll.employee.position || '',
+            department: payroll.employee.department || '',
+            category: payroll.employee.category || '',
+            taxParts: payroll.employee.taxParts || 1,
+            hireDate: payroll.employee.hireDate || '',
+            salaryType: payroll.employee.contractType || 'Mensuel',
           }
         : undefined,
       period: payroll.period,
-      baseSalary: payroll.grossSalary || 0,
-      overtime: payroll.heuresSup || 0,
-      bonuses: payroll.bonuses || 0,
-      allowances: payroll.indemnite || 0,
-      deductions: payroll.deductions || [],
+      gains,
+      deductions: deductions.map((row) => ({
+        ...row,
+        rate:
+          row.code === 610
+            ? toRatePercent(payrollConfiguration?.tauxCnpsSalarial)
+            : undefined,
+      })),
       netSalary: payroll.netSalary || 0,
       createdAt: payroll.createdAt || new Date().toISOString(),
     };

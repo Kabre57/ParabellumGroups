@@ -17,6 +17,11 @@ type PayrollListParams = {
   year?: number;
 }
 
+const getLatestContract = (employee: any) => {
+  if (Array.isArray(employee?.contrats) && employee.contrats.length > 0) return employee.contrats[0];
+  return employee?.contrat ?? employee?.contract ?? null;
+};
+
 const mapPayrollFromApi = (p: any): Payroll => ({
   id: p.id,
   employeeId: p.matricule ?? p.employeId ?? p.employeeId,
@@ -35,12 +40,33 @@ const mapPayrollFromApi = (p: any): Payroll => ({
   taxAmount: Number(p.impotIgr ?? p.igr ?? p.taxAmount ?? 0),
   createdAt: p.dateGeneration ?? p.createdAt ?? '',
   updatedAt: p.updatedAt ?? '',
+  salaireBase: Number(p.salaireBase ?? p.baseSalary ?? 0),
+  heuresSuppMontant: Number(p.heuresSuppMontant ?? p.overtimeAmount ?? 0),
+  cotisationCnpsSalariale: Number(p.cotisationCnpsSalariale ?? 0),
+  cotisationCnpsPatronale: Number(p.cotisationCnpsPatronale ?? 0),
+  impotIs: Number(p.impotIs ?? 0),
+  impotCn: Number(p.impotCn ?? 0),
+  impotIgr: Number(p.impotIgr ?? 0),
+  totalRetenues: Number(p.totalRetenues ?? p.deductions ?? 0),
+  coutTotalEmployeur: Number(p.coutTotalEmployeur ?? 0),
+  variablesMensuelle: p.variablesMensuelle,
   employee: p.employe
-    ? {
-        ...p.employe,
-        firstName: p.employe.prenoms ?? p.employe.prenom ?? p.employe.firstName,
-        lastName: p.employe.nom ?? p.employe.lastName,
-      }
+    ? (() => {
+        const contract = getLatestContract(p.employe);
+        return {
+          ...p.employe,
+          firstName: p.employe.prenoms ?? p.employe.prenom ?? p.employe.firstName,
+          lastName: p.employe.nom ?? p.employe.lastName,
+          cnpsNumber: p.employe.numeroCnps ?? p.employe.cnpsNumber,
+          cnamNumber: p.employe.numeroCnam ?? p.employe.cnamNumber,
+          position: contract?.posteOccupe ?? p.employe.position,
+          department: contract?.service ?? contract?.direction ?? p.employe.department,
+          category: contract?.categorieProfessionnelle ?? p.employe.category,
+          hireDate: contract?.dateDebut ?? p.employe.hireDate,
+          contractType: contract?.typeContrat,
+          taxParts: Number(p.employe.nombrePartsIgr ?? 1),
+        };
+      })()
     : p.employee
     ? {
         ...p.employee,
@@ -105,6 +131,11 @@ export const payrollService = {
 
   async getPayrollOverview(params?: { month?: number; year?: number }): Promise<PayrollOverview> {
     const response = await apiClient.get('/payroll/overview', { params });
+    return response.data?.data || response.data;
+  },
+
+  async getPayrollConfiguration(): Promise<any> {
+    const response = await apiClient.get('/hr/configuration');
     return response.data?.data || response.data;
   },
 
