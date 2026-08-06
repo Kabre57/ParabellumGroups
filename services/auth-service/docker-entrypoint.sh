@@ -39,21 +39,20 @@ else
   DB_FALLBACK_MODE=true
 fi
 
-# Vérifier si les tables existent uniquement si Prisma fonctionne
+# Apply all pending migrations on every startup.  Previously this ran only for
+# an empty database, leaving upgrades unapplied on existing installations.
 if [ "$DB_FALLBACK_MODE" = "false" ]; then
+  echo "🔄 Application des migrations Prisma..."
+  if ! npx prisma migrate deploy; then
+    echo "❌ Impossible d'appliquer les migrations Prisma"
+    exit 1
+  fi
+
   echo "🔍 Vérification de l'état de la base de données..."
   TABLE_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';" 2>/dev/null || echo "0")
 
   if [ "$TABLE_COUNT" -eq "0" ]; then
-    echo "📦 Base de données vide détectée - Application des migrations..."
-    if npx prisma migrate deploy; then
-      echo "✅ Prisma migrations applied."
-    else
-      echo "⚠️ Prisma migrate deploy failed, retrying SQL fallback bootstrap..."
-      npx prisma generate --schema=prisma/schema.prisma || echo "⚠️ Prisma generate fallback failed, continuing..."
-      node scripts/bootstrap-auth-fallback.js || echo "⚠️ SQL fallback bootstrap failed, continuing startup..."
-    fi
-    
+    echo "📦 Base de données vide détectée - initialisation..."
     echo "🌱 Seed de la base de données..."
     node prisma/seed.js || echo "⚠️ Seed step failed, continuing startup..."
     

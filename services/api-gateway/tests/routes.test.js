@@ -65,3 +65,12 @@ test('billing route config protects accounting balance endpoint with financial r
   assert.match(content, /reports\.read_financial/);
   assert.match(content, /expenses\.read_all/);
 });
+
+test('billing requests use separate read and write rate limits', () => {
+  const content = read('middleware', 'serviceLimiters.js');
+
+  assert.match(content, /billingReadServiceLimiter/);
+  assert.match(content, /BILLING_READ_RATE_LIMIT_MAX/);
+  assert.match(content, /billingWriteServiceLimiter/);
+  assert.match(content, /\['GET', 'HEAD', 'OPTIONS'\]/);
+});

@@ -112,14 +112,27 @@ const hrServiceLimiter = createServiceLimiter('hr', {
 });
 
 /**
- * Rate limiter pour le service Billing
- * Plus strict - 50 requêtes / 15 minutes
- * (opérations financières sensibles)
+ * Le tableau de bord comptable charge plusieurs ressources en parallèle.
+ * Les consultations ont donc leur propre budget, tandis que les écritures
+ * financières restent soumises à la limite stricte historique.
  */
-const billingServiceLimiter = createServiceLimiter('billing', {
+const billingReadServiceLimiter = createServiceLimiter('billing-read', {
+  windowMs: 15 * 60 * 1000,
+  max: parseInt(process.env.BILLING_READ_RATE_LIMIT_MAX, 10) || 300
+});
+
+const billingWriteServiceLimiter = createServiceLimiter('billing-write', {
   windowMs: 15 * 60 * 1000,
   max: 50
 });
+
+const billingServiceLimiter = (req, res, next) => {
+  const limiter = ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+    ? billingReadServiceLimiter
+    : billingWriteServiceLimiter;
+
+  return limiter(req, res, next);
+};
 
 /**
  * Rate limiter pour le service Analytics

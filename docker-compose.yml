@@ -152,6 +152,8 @@ services:
       - BILLING_SERVICE_URL=http://billing-service:4010
       - ANALYTICS_SERVICE_URL=http://analytics-service:4011
       - NOTIFICATIONS_SERVICE_URL=http://notification-service:4012
+      # Accounting screens make several read requests in parallel; writes stay at 50/15 min.
+      - BILLING_READ_RATE_LIMIT_MAX=${BILLING_READ_RATE_LIMIT_MAX:-300}
     depends_on:
       - auth-service
       - communication-service
@@ -170,12 +172,19 @@ services:
   auth-service:
     build: ./services/auth-service
     container_name: auth-service
+    restart: always
     ports:
       - "4001:4001"
     environment:
       - PORT=4001
       - NODE_ENV=${NODE_ENV:-development}
       - JWT_SECRET=${JWT_SECRET}
+      # Used by the entrypoint health and initialization checks.
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - DB_NAME=parabellum_auth
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_auth?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       - SMTP_HOST=${SMTP_HOST}
@@ -199,6 +208,7 @@ services:
   communication-service:
     build: ./services/communication-service
     container_name: communication-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4002:4002"
@@ -221,6 +231,7 @@ services:
   technical-service:
     build: ./services/technical-service
     container_name: technical-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4003:4003"
@@ -253,6 +264,7 @@ services:
   commercial-service:
     build: ./services/commercial-service
     container_name: commercial-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4004:4004"
@@ -270,6 +282,7 @@ services:
   inventory-service:
     build: ./services/inventory-service
     container_name: inventory-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4005:4005"
@@ -294,6 +307,7 @@ services:
   project-service:
     build: ./services/project-service
     container_name: project-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4006:4006"
@@ -314,6 +328,7 @@ services:
   procurement-service:
     build: ./services/procurement-service
     container_name: procurement-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4007:4007"
@@ -334,6 +349,7 @@ services:
   customer-service:
     build: ./services/customer-service
     container_name: customer-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4008:4008"
@@ -354,6 +370,7 @@ services:
   hr-service:
     build: ./services/hr-service
     container_name: hr-service
+    restart: always
     ports:
       - "4009:4009"
     environment:
@@ -376,6 +393,7 @@ services:
   billing-service:
     build: ./services/billing-service
     container_name: billing-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "${BILLING_SERVICE_HOST_IP:-0.0.0.0}:${BILLING_SERVICE_HOST_PORT:-4010}:4010"
@@ -403,6 +421,7 @@ services:
   analytics-service:
     build: ./services/analytics-service
     container_name: analytics-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4011:4011"
@@ -420,6 +439,7 @@ services:
   notification-service:
     build: ./services/notification-service
     container_name: notification-service
+    restart: always
     entrypoint: ["sh", "/usr/local/bin/service-entrypoint.sh"]
     ports:
       - "4012:4012"
