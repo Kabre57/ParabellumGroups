@@ -19,6 +19,10 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm,sharing=locked \
 # Copie du reste du code source
 COPY . .
 
+# The Next.js rewrite runs inside the frontend container in production.
+ARG API_GATEWAY_URL=http://api-gateway:3001
+ENV API_GATEWAY_URL=${API_GATEWAY_URL}
+
 # Construction de l'application Next.js
 RUN npm run build
 

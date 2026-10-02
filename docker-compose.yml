@@ -62,7 +62,13 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Build the archived community release locally; upstream image pulls return 401.
+    image: parabellum/minio-community:${MINIO_IMAGE_TAG:-RELEASE.2025-10-15T17-29-55Z}
+    build:
+      context: ./docker/minio
+      dockerfile: Dockerfile.server
+      args:
+        MINIO_VERSION: ${MINIO_IMAGE_TAG:-RELEASE.2025-10-15T17-29-55Z}
     container_name: parabellum-minio
     command: server /data --console-address ":9001"
     ports:
@@ -80,7 +86,12 @@ services:
       retries: 5
 
   minio-init:
-    image: minio/mc:latest
+    image: parabellum/minio-mc:${MINIO_MC_IMAGE_TAG:-RELEASE.2025-08-13T08-35-41Z}
+    build:
+      context: ./docker/minio
+      dockerfile: Dockerfile.mc
+      args:
+        MC_VERSION: ${MINIO_MC_IMAGE_TAG:-RELEASE.2025-08-13T08-35-41Z}
     container_name: parabellum-minio-init
     depends_on:
       minio:
@@ -105,7 +116,7 @@ services:
     container_name: parabellum-frontend
     restart: always
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${FRONTEND_HOST_IP:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=/api
@@ -187,18 +198,18 @@ services:
       - DB_NAME=parabellum_auth
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_auth?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
-      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-465}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - EMAIL_FROM=${EMAIL_FROM:-admin@parabellum-erp.online}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-parabellum-groups}
       - S3_REGION=${S3_REGION:-us-east-1}
-      - S3_ENDPOINT=${S3_ENDPOINT}
-      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT}
-      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
-      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
-      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
+      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-minioadmin}}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -217,10 +228,10 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_communication?schema=public
-      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-465}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - EMAIL_FROM=${EMAIL_FROM:-admin@parabellum-erp.online}
     volumes:
       - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
@@ -292,12 +303,12 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_inventory?schema=public
       - AUTH_SERVICE_URL=http://auth-service:4001
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-parabellum-groups}
       - S3_REGION=${S3_REGION:-us-east-1}
-      - S3_ENDPOINT=${S3_ENDPOINT}
-      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
-      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
-      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-minioadmin}}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}
     volumes:
       - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:
@@ -379,10 +390,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_hr?schema=public
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
-      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-465}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - EMAIL_FROM=${EMAIL_FROM:-admin@parabellum-erp.online}
     depends_on:
       postgres:
@@ -404,12 +415,12 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       - PROJECTS_SERVICE_URL=http://project-service:4006
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-parabellum-groups}
       - S3_REGION=${S3_REGION:-us-east-1}
-      - S3_ENDPOINT=${S3_ENDPOINT}
-      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
-      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
-      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-minioadmin}}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}
     volumes:
       - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro
     depends_on:

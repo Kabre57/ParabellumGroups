@@ -1,4 +1,5 @@
 const { AccountingAccountType } = require('@prisma/client');
+const { isAccountAllowedForFamilyScope } = require('./accountingScope');
 
 const AccountingFamily = {
   CUSTOMER_RECEIVABLE: 'CUSTOMER_RECEIVABLE',
@@ -364,6 +365,7 @@ const loadAccountingFamilyRules = async (client, { enterpriseId = null, force = 
     const isUsableAccount =
       rule.account &&
       rule.account.isActive !== false &&
+      isAccountAllowedForFamilyScope(rule.account.enterpriseId, rule.enterpriseId) &&
       (!definition?.type || rule.account.type === definition.type);
     const normalizedRule = {
       ...rule,

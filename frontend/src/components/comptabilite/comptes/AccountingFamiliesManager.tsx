@@ -59,6 +59,19 @@ const ACCOUNT_TYPE_LABELS: Record<FamilyAccountType, string> = {
   EXPENSE: 'Charge',
 };
 
+const SYSTEM_FAMILY_LABELS: Record<string, string> = {
+  CUSTOMER_RECEIVABLE: 'Créances clients',
+  SUPPLIER_PAYABLE: 'Dettes fournisseurs',
+  PURCHASE_EXPENSE: 'Achats et approvisionnements',
+  MISC_EXPENSE: 'Charges diverses',
+  REVENUE: 'Ventes et prestations',
+  TREASURY_BANK: 'Trésorerie — Banque',
+  TREASURY_CASH: 'Trésorerie — Caisse',
+};
+
+const getFamilyLabel = (family: AccountingFamilyRule) =>
+  SYSTEM_FAMILY_LABELS[family.family] || family.label || 'Famille comptable';
+
 const DEFAULT_FORM: FamilyFormState = {
   code: '',
   label: '',
@@ -124,6 +137,7 @@ export function AccountingFamiliesManager({
       const matchesSearch =
         !query ||
         family.family.toLowerCase().includes(query) ||
+        getFamilyLabel(family).toLowerCase().includes(query) ||
         family.label.toLowerCase().includes(query) ||
         linkedAccountCodes(family).toLowerCase().includes(query);
       return matchesType && matchesSearch;
@@ -388,7 +402,7 @@ export function AccountingFamiliesManager({
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead className="w-[150px]">Code</TableHead>
+              <TableHead className="w-[220px]">Famille</TableHead>
               <TableHead>Intitulé famille</TableHead>
               <TableHead className="w-[160px]">Type</TableHead>
               <TableHead>Comptes réels liés</TableHead>
@@ -409,9 +423,7 @@ export function AccountingFamiliesManager({
                 return (
                   <TableRow key={family.family}>
                     <TableCell>
-                      <code className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800">
-                        {family.family}
-                      </code>
+                      <span className="font-medium text-slate-800">{getFamilyLabel(family)}</span>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium text-slate-950">{family.label}</div>
@@ -443,7 +455,7 @@ export function AccountingFamiliesManager({
                             size="icon"
                             variant="outline"
                             onClick={() => {
-                              if (window.confirm(`Supprimer la famille ${family.family} ?`)) {
+                              if (window.confirm(`Supprimer la famille « ${getFamilyLabel(family)} » ?`)) {
                                 deleteFamilyMutation.mutate(family.family);
                               }
                             }}
@@ -487,14 +499,25 @@ export function AccountingFamiliesManager({
           <div className="max-h-[calc(90vh-88px)] overflow-y-auto px-6 py-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="family-code">Code famille *</Label>
+                <Label htmlFor="family-code">
+                  {activeFamily && SYSTEM_FAMILY_LABELS[activeFamily.family]
+                    ? 'Famille sélectionnée'
+                    : 'Identifiant technique de la famille *'}
+                </Label>
                 <Input
                   id="family-code"
-                  value={form.code}
+                  value={activeFamily && SYSTEM_FAMILY_LABELS[activeFamily.family]
+                    ? getFamilyLabel(activeFamily)
+                    : form.code}
                   disabled={Boolean(activeFamily)}
                   onChange={(event) => updateForm('code', normalizeFamilyCode(event.target.value))}
                   placeholder="ACHAT_M"
                 />
+                <p className="text-xs text-slate-500">
+                  {activeFamily && SYSTEM_FAMILY_LABELS[activeFamily.family]
+                    ? 'Le code technique associé est conservé automatiquement par l’application.'
+                    : 'Cet identifiant technique relie cette famille aux opérations comptables.'}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="family-label">Intitulé *</Label>

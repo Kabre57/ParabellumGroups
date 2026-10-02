@@ -1,6 +1,7 @@
 {
   "scripts": {
     "validate": "node scripts/run-validation.mjs",
+    "test:e2e": "node scripts/run-e2e-smoke.mjs",
     "test:scripts": "node scripts/run-node-tests.mjs scripts/tests",
     "clean:non-auth": "bash scripts/reset-non-auth-data.sh",
     "clean:non-auth:dry-run": "bash scripts/reset-non-auth-data.sh --dry-run"

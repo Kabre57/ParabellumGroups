@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 set -e
 
 # Creates multiple databases listed in POSTGRES_MULTIPLE_DATABASES

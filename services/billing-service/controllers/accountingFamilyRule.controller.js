@@ -11,6 +11,7 @@ const {
   assertEnterpriseInScope,
   resolveEnterpriseContext,
 } = require('../utils/enterpriseScope');
+const { isAccountAllowedForFamilyScope } = require('../utils/accountingScope');
 
 const prisma = new PrismaClient();
 
@@ -175,7 +176,7 @@ const validateFamilyAndAccount = async (family, accountId, enterpriseId = null) 
     return { error: { status: 404, message: 'Compte comptable introuvable ou inactif' } };
   }
 
-  if (enterpriseId !== null && Number(account.enterpriseId) !== Number(enterpriseId)) {
+  if (!isAccountAllowedForFamilyScope(account.enterpriseId, enterpriseId)) {
     return {
       error: {
         status: 400,

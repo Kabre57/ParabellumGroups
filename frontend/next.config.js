@@ -9,14 +9,12 @@ const nextConfig = {
   },
 
   async rewrites() {
-    if (process.env.NODE_ENV === 'production') {
-      return [];
-    }
-
     const gatewayUrl = (
       process.env.API_GATEWAY_URL ||
       process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
-      'http://localhost:3001'
+      (process.env.NODE_ENV === 'production'
+        ? 'http://api-gateway:3001'
+        : 'http://localhost:3001')
     ).replace(/\/api\/?$/, '');
 
     return [
