@@ -42,11 +42,8 @@ export default function TresoreriePage() {
     ['accounting.read', 'accounting.treasury.manage', 'accounting.diagnostics.read', 'expenses.read', 'expenses.read_all'].some((p) =>
       permissionSet.has(p)
     );
-  const canValidateClosure =
-    isAdminRole(user) ||
-    ['accounting.treasury.manage', 'payments.validate', 'expenses.approve', 'expenses.update'].some((p) =>
-      permissionSet.has(p)
-    );
+  // La passerelle réserve création et validation des clôtures à cette permission.
+  const canValidateClosure = isAdminRole(user) || permissionSet.has('accounting.treasury.manage');
 
   const periodRange = useMemo(() => {
     if (customRange) return customRange;
@@ -79,6 +76,16 @@ export default function TresoreriePage() {
   const validateClosureMutation = useValidateClosure();
   const createTransferMutation = useCreateTreasuryTransfer(() => setTransferDialogOpen(false));
 
+  const requestClosureValidation = (closure: any) => {
+    let notes = String(closure.notes || '').trim();
+    if (Math.abs(Number(closure.variance || 0)) > 0.005 && !notes) {
+      const explanation = window.prompt('Expliquez l’écart avant de valider cette clôture :');
+      if (!explanation?.trim()) return;
+      notes = explanation.trim();
+    }
+    validateClosureMutation.mutate({ id: closure.id, notes });
+  };
+
   const cashFlows: AccountingMovement[] = data?.data?.treasuryMovements ?? [];
   const report = data?.data?.reports?.treasury;
   const treasuryAccounts = report?.accounts ?? [];
@@ -105,7 +112,7 @@ export default function TresoreriePage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
           {canValidateClosure && <Button variant="outline" onClick={() => setTransferDialogOpen(true)}>Transfert interne</Button>}
-          <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>
+          {canValidateClosure && <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>}
           <select value={period} onChange={e => { setPeriod(e.target.value as any); setCustomRange(null); }} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
             <option value="day">Jour</option><option value="week">Cette semaine</option><option value="month">Ce mois</option>
             <option value="quarter">Ce trimestre</option><option value="year">Cette année</option><option value="all">Toutes les périodes</option>
@@ -142,7 +149,7 @@ export default function TresoreriePage() {
       />
       <TresorerieStats currentBalance={currentBalance} totalIncome={totalIncome} totalExpense={totalExpense} />
       <TresorerieFlowsTable flows={filteredFlows} isLoading={isLoading} />
-      <TresorerieClosuresTable closures={closuresResponse?.data ?? []} canValidate={canValidateClosure} onValidate={id => validateClosureMutation.mutate(id)} />
+      <TresorerieClosuresTable closures={closuresResponse?.data ?? []} canValidate={canValidateClosure} onValidate={requestClosureValidation} />
 
       <AccountingDateRangeDialog open={dialogOpen} onOpenChange={setDialogOpen} defaultRange={customRange} onApply={r => setCustomRange(r.startDate||r.endDate ? r : null)} />
       <CreateTreasuryAccountDialog

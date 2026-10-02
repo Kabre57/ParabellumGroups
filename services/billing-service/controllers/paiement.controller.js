@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { resolveTreasuryAccountId } = require('../utils/treasury');
 const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
 const { fetchClientMeta } = require('../utils/encaissementEnrichment');
+const AccountingPostingService = require('../core/services/AccountingPostingService');
 
 const prisma = new PrismaClient();
 
@@ -84,15 +85,17 @@ exports.createPaiement = async (req, res) => {
       paymentMethod: normalizedMethod,
       user: req.user,
     });
+    const paymentDate = datePaiement ? new Date(datePaiement) : new Date();
 
     const resultPaiement = await prisma.$transaction(async (tx) => {
+      await AccountingPostingService.assertTreasuryAccountPeriodOpen(resolvedTreasuryAccountId, paymentDate, tx);
       const paiement = await tx.paiement.create({
         data: {
           factureId,
           enterpriseId,
           enterpriseName,
           montant: montantNumerique,
-          datePaiement: datePaiement ? new Date(datePaiement) : new Date(),
+          datePaiement: paymentDate,
           methodePaiement: normalizedMethod,
           treasuryAccountId: resolvedTreasuryAccountId,
           reference,
@@ -113,7 +116,7 @@ exports.createPaiement = async (req, res) => {
           amountTTC: montantNumerique,
           paymentMethod: normalizedMethod,
           treasuryAccountId: resolvedTreasuryAccountId,
-          dateEncaissement: datePaiement ? new Date(datePaiement) : new Date(),
+          dateEncaissement: paymentDate,
           reference: reference || null,
           notes:
             [clientPhone ? `clientPhone:${clientPhone}` : null, notes, buildPaymentEncaissementMarker(paiement.id)]

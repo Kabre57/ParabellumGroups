@@ -17,6 +17,7 @@ import {
 import { investmentsService } from '@/shared/api/billing/investments.service';
 import type { InvestmentPortfolioSummary, InvestmentPortfolio } from '@/shared/api/billing/types';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency, formatDate } from '@/shared/utils/format';
 
 import { CreatePlacementDialog } from '../placements/CreatePlacementDialog';
 
@@ -31,6 +32,8 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
   const [summary, setSummary] = useState<InvestmentPortfolioSummary | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -46,9 +49,15 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
         if (data.success) {
           setSummary(data.data);
         }
+        const history = await investmentsService.listTransactions({ portfolioId: targetId });
+        setTransactions(history.data || []);
+      } else {
+        setSummary(null);
+        setTransactions([]);
       }
     } catch (error) {
       console.error("Erreur chargement dashboard placements:", error);
+      setErrorMessage("Impossible de charger les placements. Vérifiez vos droits et la connexion au service.");
     } finally {
       setLoading(false);
     }
@@ -75,9 +84,10 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
       } as any);
       
       setIsCreateDialogOpen(false);
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Erreur création placement:", error);
+      setErrorMessage("Impossible d'enregistrer le placement. Vérifiez les données et le portefeuille sélectionné.");
     } finally {
       setIsPending(false);
     }
@@ -101,6 +111,7 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {portfolios.length > 1 && <select aria-label="Choisir un portefeuille" className="h-9 rounded-md border bg-background px-3 text-sm" value={selectedPortfolioId || ''} onChange={(event) => setSelectedPortfolioId(event.target.value)}>{portfolios.map((portfolio) => <option key={portfolio.id} value={portfolio.id}>{portfolio.label}</option>)}</select>}
           <Button variant="outline" size="sm" onClick={loadData}>
             <RefreshCcw className="h-4 w-4 mr-2" /> Actualiser
           </Button>
@@ -110,12 +121,16 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
         </div>
       </div>
 
+      {errorMessage && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div>}
+
       <CreatePlacementDialog 
         open={isCreateDialogOpen} 
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreatePlacement}
         isPending={isPending}
       />
+
+      {!summary && !loading && <Card><CardContent className="p-8 text-center text-muted-foreground">Aucun portefeuille de placement n'est disponible pour votre entreprise.</CardContent></Card>}
 
       {summary && (
         <>
@@ -154,7 +169,7 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
                   <CardContent>
                     <div className="space-y-4">
                       {Object.entries(summary.byAssetClass).map(([cls, data]) => {
-                        const percent = (data.marketValue / summary.summary.totalMarketValue) * 100;
+                        const percent = summary.summary.totalMarketValue > 0 ? (data.marketValue / summary.summary.totalMarketValue) * 100 : 0;
                         return (
                           <div key={cls} className="space-y-1">
                             <div className="flex items-center justify-between text-xs font-medium">
@@ -187,11 +202,7 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
             </TabsContent>
 
             <TabsContent value="transactions" className="mt-0">
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground italic">
-                  Chargement de l'historique des transactions...
-                </CardContent>
-              </Card>
+              <Card><CardContent className="overflow-x-auto p-0"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/30 text-left"><th className="p-3">Date</th><th className="p-3">Opération</th><th className="p-3">Actif</th><th className="p-3 text-right">Quantité</th><th className="p-3 text-right">Montant net</th><th className="p-3">Statut</th><th className="p-3">Référence</th></tr></thead><tbody>{transactions.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Aucune transaction dans ce portefeuille.</td></tr> : transactions.map((transaction) => <tr className="border-b last:border-0" key={transaction.id}><td className="p-3">{formatDate(transaction.tradeDate)}</td><td className="p-3">{transaction.transactionType}</td><td className="p-3">{transaction.asset?.label || transaction.assetId}</td><td className="p-3 text-right">{Number(transaction.quantity).toLocaleString('fr-FR')}</td><td className="p-3 text-right">{formatCurrency(Number(transaction.netAmount || 0), transaction.currency || 'XOF')}</td><td className="p-3">{transaction.status}</td><td className="p-3">{transaction.reference || '—'}</td></tr>)}</tbody></table></CardContent></Card>
             </TabsContent>
           </Tabs>
         </>

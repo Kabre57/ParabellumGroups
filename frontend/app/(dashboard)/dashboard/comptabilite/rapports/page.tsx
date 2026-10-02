@@ -17,6 +17,7 @@ export default function RapportsPage() {
   const permissionSet = buildPermissionSet(user);
   const canRead = isAdminRole(user) || permissionSet.has('reports.read_financial');
   const { canExport } = getCrudVisibility(user, { read: ['reports.read_financial'], export: ['reports.export'] });
+  const canGenerateSyscoa = isAdminRole(user) || permissionSet.has('accounting.reports.export');
 
   const { data, isLoading } = useRapports(period, canRead);
 
@@ -33,10 +34,10 @@ export default function RapportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Button variant="outline" className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsSyscoaOpen(true)}>
+        {canGenerateSyscoa && <Button variant="outline" className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsSyscoaOpen(true)}>
           <FileText className="h-4 w-4" />
           Générer États Réglementaires (SYSCOA)
-        </Button>
+        </Button>}
       </div>
 
       <RapportsHeader period={period} onPeriodChange={setPeriod} canExport={canExport} overview={overview} />

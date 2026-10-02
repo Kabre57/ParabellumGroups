@@ -13,7 +13,7 @@ import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 export default function GrandLivrePage() {
   const { user } = useAuth();
   const permissionSet = buildPermissionSet(user);
-  const canRead = isAdminRole(user) || permissionSet.has('accounting.read') || permissionSet.has('reports.read_financial');
+  const canRead = isAdminRole(user) || permissionSet.has('accounting.reports.read');
   
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -22,6 +22,8 @@ export default function GrandLivrePage() {
     fiscalYearId: '',
     enterpriseId: user?.enterpriseId || '',
     accountIds: '',
+    startDate: '',
+    endDate: '',
   });
 
   const loadData = async () => {
@@ -64,8 +66,13 @@ export default function GrandLivrePage() {
           <Button variant="outline" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Actualiser
           </Button>
-          <Button>
-            <Download className="h-4 w-4 mr-2" /> Exporter PDF
+          <Button variant="outline" onClick={() => {
+            const rows = [['Compte', 'Intitulé', 'Date', 'Journal', 'N° pièce', 'Libellé', 'Débit', 'Crédit', 'Solde']];
+            accounts.forEach((account) => account.lines.forEach((line: any) => rows.push([account.accountCode, account.accountLabel, new Date(line.date).toLocaleDateString('fr-FR'), line.journal, line.entryNumber, line.label, line.debit, line.credit, line.runningBalance])));
+            const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'grand-livre.csv'; link.click(); URL.revokeObjectURL(url);
+          }} disabled={!accounts.length}>
+            <Download className="h-4 w-4 mr-2" /> Exporter CSV
           </Button>
         </div>
       </div>
@@ -81,8 +88,8 @@ export default function GrandLivrePage() {
               onChange={(e) => setFilters({...filters, accountIds: e.target.value})}
             />
           </div>
-          <Input type="date" className="h-10" />
-          <Input type="date" className="h-10" />
+          <Input aria-label="Date de début" type="date" className="h-10" value={filters.startDate} onChange={(e) => setFilters({...filters, startDate: e.target.value})} />
+          <Input aria-label="Date de fin" type="date" className="h-10" value={filters.endDate} onChange={(e) => setFilters({...filters, endDate: e.target.value})} />
         </div>
       </Card>
 

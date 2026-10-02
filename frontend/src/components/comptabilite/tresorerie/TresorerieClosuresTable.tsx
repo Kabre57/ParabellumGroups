@@ -6,7 +6,7 @@ import { formatAccountingCurrency } from '@/components/accounting/accountingForm
 interface TresorerieClosuresTableProps {
   closures: any[];
   canValidate: boolean;
-  onValidate: (id: string) => void;
+  onValidate: (closure: any) => void;
 }
 
 export function TresorerieClosuresTable({ closures, canValidate, onValidate }: TresorerieClosuresTableProps) {
@@ -35,7 +35,7 @@ export function TresorerieClosuresTable({ closures, canValidate, onValidate }: T
                 <td className="py-3 px-4 text-sm">{closure.status}</td>
                 <td className="py-3 px-4 text-right">
                   {canValidate && closure.status !== 'VALIDATED'
-                    ? <Button size="sm" onClick={() => onValidate(closure.id)}>Valider clôture</Button>
+                    ? <Button size="sm" onClick={() => onValidate(closure)}>Valider clôture</Button>
                     : <span className="text-xs text-muted-foreground">-</span>}
                 </td>
               </tr>

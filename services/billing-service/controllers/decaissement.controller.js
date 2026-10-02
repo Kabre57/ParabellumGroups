@@ -92,6 +92,8 @@ exports.create = async (req, res) => {
         paymentMethod,
         user: req.user,
       });
+      const operationDate = dateDecaissement ? new Date(dateDecaissement) : new Date();
+      await AccountingPostingService.assertTreasuryAccountPeriodOpen(resolvedTreasuryAccountId, operationDate, tx);
 
       if (accountingAccountId) {
         const expenseAccount = await tx.accountingAccount.findUnique({
@@ -130,7 +132,7 @@ exports.create = async (req, res) => {
           vatAccountingAccountId: resolvedVatAccountingAccountId,
           serviceId: serviceId ? Number(serviceId) : null,
           serviceName,
-          dateDecaissement: dateDecaissement ? new Date(dateDecaissement) : new Date(),
+          dateDecaissement: operationDate,
           reference,
           notes,
           status: 'VALIDE',
@@ -190,6 +192,7 @@ exports.updateStatus = async (req, res) => {
     );
 
     if (nextStatus === 'ANNULE') {
+      await AccountingPostingService.assertSourceNotPosted('DECAISSEMENT', decaissement.id);
       const updated = await prisma.decaissement.update({
         where: { id },
         data: {

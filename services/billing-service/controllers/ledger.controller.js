@@ -23,13 +23,16 @@ exports.getLedger = async (req, res) => {
     // accountIds peut être passé comme chaîne séparée par des virgules
     const accountIdsArray = accountIds ? accountIds.split(',').map(id => id.trim()) : undefined;
 
+    const inclusiveEndDate = endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate)
+      ? `${endDate}T23:59:59.999Z`
+      : endDate;
     const data = await GeneralLedgerService.generateLedger({ 
       periodId, 
       fiscalYearId, 
       enterpriseId: resolvedEnterpriseId, 
       accountIds: accountIdsArray,
       startDate,
-      endDate
+      endDate: inclusiveEndDate
     });
 
     return res.json({ success: true, data });

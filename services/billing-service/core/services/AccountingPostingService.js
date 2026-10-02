@@ -14,6 +14,60 @@ const AccountingJournalService = require('./AccountingJournalService');
 const prisma = new PrismaClient();
 
 class AccountingPostingService {
+  async assertTreasuryPeriodOpen(client, accountIds, entryDate) {
+    const treasuryAccounts = await client.treasuryAccount.findMany({
+      where: { accountingAccountId: { in: accountIds }, isActive: true },
+      select: { id: true },
+    });
+    const treasuryAccountIds = treasuryAccounts.map((account) => account.id);
+    if (!treasuryAccountIds.length) return;
+
+    const lockedClosure = await client.treasuryClosure.findFirst({
+      where: {
+        status: 'VALIDATED',
+        periodStart: { lte: entryDate },
+        periodEnd: { gte: entryDate },
+        OR: [
+          { treasuryAccountId: null },
+          { treasuryAccountId: { in: treasuryAccountIds } },
+        ],
+      },
+      include: { treasuryAccount: true },
+    });
+    if (lockedClosure) {
+      const error = new Error(
+        `La caisse ${lockedClosure.treasuryAccount?.name || ''} est clôturée et validée pour cette date. Aucune nouvelle écriture rétroactive n’est autorisée.`.trim()
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  async assertTreasuryAccountPeriodOpen(treasuryAccountId, entryDate, client = prisma) {
+    if (!treasuryAccountId) return;
+    const account = await client.treasuryAccount.findUnique({
+      where: { id: String(treasuryAccountId) },
+      select: { accountingAccountId: true },
+    });
+    if (account?.accountingAccountId && entryDate && !Number.isNaN(new Date(entryDate).getTime())) {
+      await this.assertTreasuryPeriodOpen(client, [account.accountingAccountId], new Date(entryDate));
+    }
+  }
+
+  async assertSourceNotPosted(sourceType, sourceId, client = prisma) {
+    const entry = await client.accountingJournalEntry.findFirst({
+      where: { sourceType, sourceId, status: { in: ['POSTED', 'VALIDATED'] } },
+      select: { id: true, entryNumber: true },
+    });
+    if (entry) {
+      const error = new Error(
+        `Cette opération est déjà comptabilisée (${entry.entryNumber}). Passez une écriture de contrepassation avant de l’annuler ou de modifier son statut.`
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
   async nextEntryNumber(client, journal, period) {
     const sequence = await client.accountingEntrySequence.upsert({
       where: {
@@ -123,6 +177,9 @@ class AccountingPostingService {
           throw error;
         }
       });
+
+      // Les transferts et opérations passés sur une période verrouillée sont refusés.
+      await this.assertTreasuryPeriodOpen(tx, lines.map((line) => line.accountId), entryDate);
 
       this.validateJournalPaymentConsistency(journal, payload.paymentMethod);
 

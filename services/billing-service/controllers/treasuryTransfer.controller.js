@@ -79,7 +79,11 @@ exports.create = async (req, res) => {
         data: { currentBalance: { decrement: transferAmount } },
       });
       if (!debit.count) {
-        const error = new Error('Le solde disponible de la caisse source est insuffisant.'); error.statusCode = 422; throw error;
+        const available = Number(source.currentBalance || 0).toLocaleString('fr-FR');
+        const requested = transferAmount.toLocaleString('fr-FR');
+        const error = new Error(`Solde enregistré insuffisant pour la caisse source : ${available} ${source.currency} disponible, ${requested} demandé.`);
+        error.statusCode = 422;
+        throw error;
       }
       const credit = await tx.treasuryAccount.updateMany({
         where: { id: destination.id, isActive: true },

@@ -282,6 +282,8 @@ export const accountingService = {
     fiscalYearId?: string;
     enterpriseId?: string | number;
     accountIds?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<{ success: boolean; data: any[] }> {
     const response = await apiClient.get('/billing/accounting/ledger', { params });
     return response.data;

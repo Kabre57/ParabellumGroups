@@ -85,7 +85,7 @@ export function useCreateClosure(onSuccess?: () => void) {
 export function useValidateClosure() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: billingService.validateTreasuryClosure,
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) => billingService.validateTreasuryClosure(id, notes),
     onSuccess: () => {
       toast.success('Clôture validée.');
       queryClient.invalidateQueries({ queryKey: ['treasury-closures'] });
@@ -107,7 +107,12 @@ export function useCreateTreasuryTransfer(onSuccess?: () => void) {
       onSuccess?.();
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Impossible d’enregistrer le transfert.');
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        error?.data?.message;
+      toast.error(message || 'Impossible d’enregistrer le transfert.');
     },
   });
 }

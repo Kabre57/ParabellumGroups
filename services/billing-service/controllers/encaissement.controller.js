@@ -91,6 +91,8 @@ exports.create = async (req, res) => {
         paymentMethod,
         user: req.user,
       });
+      const operationDate = dateEncaissement ? new Date(dateEncaissement) : new Date();
+      await AccountingPostingService.assertTreasuryAccountPeriodOpen(resolvedTreasuryAccountId, operationDate, tx);
 
       if (accountingAccountId) {
         const revenueAccount = await tx.accountingAccount.findUnique({
@@ -129,7 +131,7 @@ exports.create = async (req, res) => {
           vatAccountingAccountId: resolvedVatAccountingAccountId,
           serviceId: serviceId ? Number(serviceId) : null,
           serviceName,
-          dateEncaissement: dateEncaissement ? new Date(dateEncaissement) : new Date(),
+          dateEncaissement: operationDate,
           reference,
           notes,
           status: 'EN_ATTENTE',
@@ -179,6 +181,7 @@ exports.updateStatus = async (req, res) => {
     );
 
     if (nextStatus === 'ANNULE') {
+      await AccountingPostingService.assertSourceNotPosted('ENCAISSEMENT', encaissement.id);
       const updated = await prisma.encaissement.update({
         where: { id },
         data: {

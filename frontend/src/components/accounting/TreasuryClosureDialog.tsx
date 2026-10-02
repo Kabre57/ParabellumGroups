@@ -30,7 +30,12 @@ interface TreasuryClosureDialogProps {
   }) => void | Promise<void>;
 }
 
-const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const computePeriod = (periodType: PeriodType) => {
   const now = new Date();
@@ -84,12 +89,13 @@ export function TreasuryClosureDialog({
   };
 
   const handleSubmit = async () => {
+    if (!treasuryAccountId || !periodStart || !periodEnd || periodStart > periodEnd) return;
     await onSubmit({
-      treasuryAccountId: treasuryAccountId || null,
+      treasuryAccountId,
       periodType,
       periodLabel: periodType === 'CUSTOM' ? 'Période personnalisée' : undefined,
-      periodStart: new Date(periodStart).toISOString(),
-      periodEnd: new Date(periodEnd).toISOString(),
+      periodStart,
+      periodEnd,
       countedCash: Number(countedCash || 0),
       countedCheque: Number(countedCheque || 0),
       countedCard: Number(countedCard || 0),
@@ -105,7 +111,7 @@ export function TreasuryClosureDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Clôture de caisse</DialogTitle>
-          <DialogDescription>Comptez votre caisse et validez la clôture de période.</DialogDescription>
+          <DialogDescription>Comptez cette caisse. Après validation comptable, aucune nouvelle écriture ne pourra être passée sur cette caisse pour cette période.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -117,7 +123,7 @@ export function TreasuryClosureDialog({
                 value={treasuryAccountId}
                 onChange={(event) => setTreasuryAccountId(event.target.value)}
               >
-                <option value="">Toutes les caisses</option>
+                <option value="">Choisir une caisse</option>
                 {cashAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.name}
@@ -158,30 +164,31 @@ export function TreasuryClosureDialog({
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="block text-xs font-medium mb-1">Espèces comptées</label>
-              <Input value={countedCash} onChange={(event) => setCountedCash(event.target.value)} />
+              <Input type="number" min="0" step="0.01" value={countedCash} onChange={(event) => setCountedCash(event.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1">Chèques comptés</label>
-              <Input value={countedCheque} onChange={(event) => setCountedCheque(event.target.value)} />
+              <Input type="number" min="0" step="0.01" value={countedCheque} onChange={(event) => setCountedCheque(event.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1">Carte bancaire</label>
-              <Input value={countedCard} onChange={(event) => setCountedCard(event.target.value)} />
+              <Input type="number" min="0" step="0.01" value={countedCard} onChange={(event) => setCountedCard(event.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1">Autres moyens</label>
-              <Input value={countedOther} onChange={(event) => setCountedOther(event.target.value)} />
+              <Input type="number" min="0" step="0.01" value={countedOther} onChange={(event) => setCountedOther(event.target.value)} />
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="block text-xs font-medium mb-1">Ticket Z / Solde théorique</label>
-              <Input value={ticketZ} onChange={(event) => setTicketZ(event.target.value)} />
+              <Input type="number" min="0" step="0.01" value={ticketZ} onChange={(event) => setTicketZ(event.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1">Notes</label>
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observations..." />
+              <p className="mt-1 text-xs text-muted-foreground">Expliquez tout écart entre le montant compté et le solde théorique avant de demander la validation.</p>
             </div>
           </div>
 
@@ -189,7 +196,7 @@ export function TreasuryClosureDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting || !treasuryAccountId || !periodStart || !periodEnd || periodStart > periodEnd}>
               Enregistrer la clôture
             </Button>
           </div>

@@ -64,8 +64,8 @@ export const treasuryService = {
     return normalizeDetailResponse<TreasuryClosure>(response.data);
   },
 
-  async validateTreasuryClosure(id: string): Promise<DetailResponse<TreasuryClosure>> {
-    const response = await apiClient.post(`/billing/treasury-closures/${id}/validate`);
+  async validateTreasuryClosure(id: string, notes?: string): Promise<DetailResponse<TreasuryClosure>> {
+    const response = await apiClient.post(`/billing/treasury-closures/${id}/validate`, { notes });
     return normalizeDetailResponse<TreasuryClosure>(response.data);
   },
 

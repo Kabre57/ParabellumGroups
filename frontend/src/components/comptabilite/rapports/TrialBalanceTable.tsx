@@ -30,10 +30,12 @@ interface TrialBalanceTableProps {
 export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({ data, loading }) => {
   const totals = data.reduce(
     (acc, row) => ({
+      opening: acc.opening + row.openingBalance,
       debit: acc.debit + row.debit,
       credit: acc.credit + row.credit,
+      closing: acc.closing + row.closingBalance,
     }),
-    { debit: 0, credit: 0 }
+    { opening: 0, debit: 0, credit: 0, closing: 0 }
   );
 
   return (
@@ -88,7 +90,8 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({ data, load
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/30 font-bold">
-                    <TableCell colSpan={3}>TOTAUX</TableCell>
+                    <TableCell colSpan={2}>TOTAUX</TableCell>
+                    <TableCell className="text-right">{formatCurrency(totals.opening)}</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(totals.debit)}
                     </TableCell>
@@ -96,7 +99,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({ data, load
                       {formatCurrency(totals.credit)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(totals.debit - totals.credit)}
+                      {formatCurrency(totals.closing)}
                     </TableCell>
                   </TableRow>
                 </>

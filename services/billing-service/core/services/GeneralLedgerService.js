@@ -47,9 +47,34 @@ class GeneralLedgerService {
 
     if (enterpriseId) entryFilters.enterpriseId = Number(enterpriseId);
 
+    let openingDate = startDate ? new Date(startDate) : null;
+    if (!openingDate && resolvedPeriodId) {
+      const period = await client.accountingPeriod.findUnique({ where: { id: resolvedPeriodId }, select: { startDate: true } });
+      openingDate = period?.startDate || null;
+    }
+    if (!openingDate && resolvedFiscalYearId) {
+      const year = await client.fiscalYear.findUnique({ where: { id: resolvedFiscalYearId }, select: { startDate: true } });
+      openingDate = year?.startDate || null;
+    }
+    const openingByAccount = new Map();
+    if (openingDate) {
+      const priorLines = await client.accountingJournalLine.findMany({
+        where: { entry: { status: 'POSTED', entryDate: { lt: openingDate }, ...(enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}) } },
+        select: { accountId: true, side: true, amount: true }
+      });
+      for (const line of priorLines) {
+        const amount = Number(line.amount) * (line.side === 'DEBIT' ? 1 : -1);
+        openingByAccount.set(line.accountId, (openingByAccount.get(line.accountId) || 0) + amount);
+      }
+    }
+
     const lineFilters = { entry: entryFilters };
     if (accountIds && accountIds.length > 0) {
-      lineFilters.accountId = { in: accountIds };
+      const matchingAccounts = await client.accountingAccount.findMany({
+        where: { OR: accountIds.flatMap((value) => [{ id: value }, { code: { startsWith: value } }]) },
+        select: { id: true }
+      });
+      lineFilters.accountId = { in: matchingAccounts.map((account) => account.id) };
     }
 
     // Récupération des lignes avec jointure sur l'entrée pour les dates et libellés
@@ -84,10 +109,10 @@ class GeneralLedgerService {
           accountId: line.account.id,
           accountCode: line.account.code,
           accountLabel: line.account.label,
-          openingBalance: line.account.openingBalance || 0,
+          openingBalance: Number(line.account.openingBalance || 0) + (openingByAccount.get(accountId) || 0),
           totalDebit: 0,
           totalCredit: 0,
-          currentBalance: line.account.openingBalance || 0,
+          currentBalance: Number(line.account.openingBalance || 0) + (openingByAccount.get(accountId) || 0),
           lines: []
         });
       }

@@ -47,6 +47,28 @@ class TrialBalanceService {
 
     if (enterpriseId) entryFilters.enterpriseId = Number(enterpriseId);
 
+    // Le solde d'ouverture cumule le solde initial et les écritures antérieures au périmètre.
+    let openingDate = startDate ? new Date(startDate) : null;
+    if (!openingDate && resolvedPeriodId) {
+      const period = await client.accountingPeriod.findUnique({ where: { id: resolvedPeriodId }, select: { startDate: true } });
+      openingDate = period?.startDate || null;
+    }
+    if (!openingDate && resolvedFiscalYearId) {
+      const year = await client.fiscalYear.findUnique({ where: { id: resolvedFiscalYearId }, select: { startDate: true } });
+      openingDate = year?.startDate || null;
+    }
+    const openingByAccount = new Map();
+    if (openingDate) {
+      const priorLines = await client.accountingJournalLine.findMany({
+        where: { entry: { status: 'POSTED', entryDate: { lt: openingDate }, ...(enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}) } },
+        select: { accountId: true, side: true, amount: true }
+      });
+      for (const line of priorLines) {
+        const amount = Number(line.amount) * (line.side === 'DEBIT' ? 1 : -1);
+        openingByAccount.set(line.accountId, (openingByAccount.get(line.accountId) || 0) + amount);
+      }
+    }
+
     // 2. Récupérer toutes les lignes d'écritures correspondantes
     // Note: Dans un environnement avec d'énormes volumes, on privilégierait une requête SQL native avec SUM() et GROUP BY.
     const journalLines = await client.accountingJournalLine.findMany({
@@ -69,7 +91,7 @@ class TrialBalanceService {
           accountId: line.account.id,
           accountCode: line.account.code,
           accountLabel: line.account.label,
-          openingBalance: line.account.openingBalance || 0, // Idéalement, calculer depuis la clôture de la période N-1
+          openingBalance: Number(line.account.openingBalance || 0) + (openingByAccount.get(accountId) || 0),
           debit: 0,
           credit: 0,
           closingBalance: 0

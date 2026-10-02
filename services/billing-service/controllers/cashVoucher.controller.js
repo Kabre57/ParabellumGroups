@@ -462,6 +462,11 @@ exports.createCashVoucher = async (req, res) => {
       "Vous n'avez pas acces a l'entreprise selectionnee pour ce bon de caisse."
     );
 
+    await AccountingPostingService.assertTreasuryAccountPeriodOpen(
+      resolvedTreasuryAccountId,
+      parseDate(disbursementDate) || parseDate(issueDate) || new Date()
+    );
+
     const voucher = await prisma.cashVoucher.create({
       data: {
         voucherNumber: await nextVoucherNumber(),
@@ -563,6 +568,10 @@ exports.importCashVouchers = async (req, res) => {
           defaultFlowType,
           defaultStatus,
         });
+        await AccountingPostingService.assertTreasuryAccountPeriodOpen(
+          voucherData.treasuryAccountId,
+          voucherData.disbursementDate || voucherData.issueDate || new Date()
+        );
         const voucher = await prisma.cashVoucher.create({ data: voucherData });
         imported.push(serializeCashVoucher(voucher));
       } catch (error) {
@@ -620,6 +629,9 @@ exports.updateCashVoucherStatus = async (req, res) => {
     await assertEnterpriseInScope(req, existing.enterpriseId, "Vous n'avez pas acces a ce bon de caisse.");
 
     const updated = await prisma.$transaction(async (tx) => {
+      if (existing.status !== status) {
+        await AccountingPostingService.assertSourceNotPosted('CASH_VOUCHER', existing.id, tx);
+      }
       const updatedVoucher = await tx.cashVoucher.update({
         where: { id },
         data: {
@@ -716,9 +728,9 @@ exports.updateCashVoucherStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur mise à jour bon de caisse:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour du bon de caisse',
+      message: error.statusCode ? error.message : 'Erreur lors de la mise à jour du bon de caisse',
     });
   }
 };

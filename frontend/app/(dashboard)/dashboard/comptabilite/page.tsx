@@ -68,7 +68,7 @@ const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
 export default function AccountingDashboardPage() {
   const [period, setPeriod] = useState<Period>('month');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['accounting-dashboard', period],
     queryFn: () => billingService.getAccountingOverview(period),
   });
@@ -167,7 +167,7 @@ export default function AccountingDashboardPage() {
     },
   ];
 
-  if (isLoading || !overview || !summary || !reports) {
+  if (isLoading) {
     return (
       <Card className="p-10">
         <div className="flex justify-center">
@@ -175,6 +175,10 @@ export default function AccountingDashboardPage() {
         </div>
       </Card>
     );
+  }
+
+  if (isError || !overview || !summary || !reports) {
+    return <Card className="space-y-3 p-8 text-center"><p className="text-sm text-muted-foreground">Impossible de charger les indicateurs comptables pour cette période.</p><Button variant="outline" onClick={() => refetch()}>Réessayer</Button></Card>;
   }
 
   return (

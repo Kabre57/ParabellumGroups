@@ -152,6 +152,19 @@ exports.updateTreasuryAccount = async (req, res) => {
       });
     }
 
+    if (existing.type === 'CASH' && (openingBalance !== undefined || accountingAccountId !== undefined || isActive === false)) {
+      const validatedClosure = await prisma.treasuryClosure.findFirst({
+        where: { treasuryAccountId: id, status: 'VALIDATED' },
+        select: { id: true },
+      });
+      if (validatedClosure) {
+        return res.status(409).json({
+          success: false,
+          message: 'Le solde initial, le compte comptable et l’état d’activité d’une caisse ayant une clôture validée sont verrouillés.',
+        });
+      }
+    }
+
     if (isDefault) {
       await prisma.treasuryAccount.updateMany({
         where: { type: existing.type, isDefault: true },
