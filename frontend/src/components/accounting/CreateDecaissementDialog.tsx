@@ -299,7 +299,7 @@ export function CreateDecaissementDialog({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>ID engagement (facultatif)</Label>
               <Input
                 value={form.commitmentId}
@@ -308,7 +308,7 @@ export function CreateDecaissementDialog({
                 className="bg-slate-50 text-slate-500"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Imputation comptable</Label>
               <AccountingAccountPickerDialog
                 title="Choisissez un compte comptable"

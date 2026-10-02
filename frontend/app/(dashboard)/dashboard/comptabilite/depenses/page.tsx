@@ -33,7 +33,6 @@ import {
   DepensesHeader,
   DepensesStats,
   DepensesTable,
-  DepensesWorkflowGuide,
 } from '@/components/comptabilite/depenses';
 
 const formatCurrency = (value: number) =>
@@ -450,8 +449,6 @@ export default function DepensesPage() {
         totalReceived={data?.data?.totals?.totalReceived || 0}
         pendingVouchersAmount={data?.data?.totals?.pendingVouchersAmount || 0}
       />
-
-      <DepensesWorkflowGuide />
 
       <Card className="p-4 shadow-sm">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">

@@ -296,7 +296,7 @@ export function CreateEncaissementDialog({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Imputation comptable</Label>
               <AccountingAccountPickerDialog
                 title="Choisissez un compte comptable"
@@ -310,7 +310,7 @@ export function CreateEncaissementDialog({
             </div>
 
             {hasVat && (
-              <div className="space-y-2">
+              <div className="space-y-2 lg:col-span-2">
                 <Label>Compte TVA collectée</Label>
                 <AccountingAccountPickerDialog
                   title="Choisissez le compte TVA collectée"
