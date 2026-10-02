@@ -366,6 +366,18 @@ export interface TreasuryAccount {
   updatedAt?: string;
 }
 
+export interface TreasuryTransfer {
+  id: string;
+  sourceTreasuryAccountId: string;
+  destinationTreasuryAccountId: string;
+  amount: number;
+  date: string;
+  reference: string;
+  notes?: string | null;
+  sourceAccount?: TreasuryAccount;
+  destinationAccount?: TreasuryAccount;
+}
+
 export interface SpendingOverview {
   totals: {
     totalCommitted: number;

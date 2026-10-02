@@ -5,6 +5,11 @@ const amount = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeTreasuryCurrency = (currency) => {
+  const normalized = String(currency || 'XOF').trim().toUpperCase().replace(/[\s._-]/g, '');
+  return ['FCFA', 'CFA'].includes(normalized) ? 'XOF' : normalized;
+};
+
 const serializeLinkedAccountingAccount = (account) =>
   account
     ? {
@@ -165,6 +170,7 @@ const getTreasuryAccountingAccountId = async (client, treasuryAccountId) => {
 
 module.exports = {
   serializeTreasuryAccount,
+  normalizeTreasuryCurrency,
   treasuryTypeFromPaymentMethod,
   ensureDefaultTreasuryAccounts,
   resolveTreasuryAccountId,

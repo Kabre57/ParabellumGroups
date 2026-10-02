@@ -182,6 +182,11 @@ exports.getAccountingOverview = async (req, res) => {
       where: { isActive: true },
       requestedEnterpriseId,
     });
+    const treasuryTransferWhere = await applyEnterpriseScope({
+      req,
+      where: buildDateWhere('date', startDate, endDate),
+      requestedEnterpriseId,
+    });
 
     console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
     await MappingService.refreshCache(requestedEnterpriseId);
@@ -240,9 +245,14 @@ exports.getAccountingOverview = async (req, res) => {
         include: { accountingAccount: true },
         orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       }), 'treasuryAccounts'),
+      safeQuery(prisma.treasuryTransfer.findMany({
+        where: treasuryTransferWhere,
+        include: { sourceAccount: true, destinationAccount: true },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      }), 'treasuryTransfers'),
     ]);
 
-    const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts] = results;
+    const [factures, paiements, commitments, encaissements, decaissements, persistedAccounts, manualJournalEntries, treasuryAccounts, treasuryTransfers] = results;
 
     console.log('[DEBUG] Step 2: Data fetched successfully', {
       factures: factures.length,
@@ -497,6 +507,7 @@ const dynamicAccounts = evaluatedDynamicAccounts;
 
     for (const entry of manualJournalEntries) {
       const sourceType = String(entry.sourceType || '').toUpperCase();
+      if (sourceType === 'TREASURY_TRANSFER') continue;
       const sourceKey = entry.sourceType && entry.sourceId ? `${sourceType}:${entry.sourceId}` : null;
       const sourceTreasuryAccount = sourceKey ? treasuryAccountBySourceKey.get(sourceKey) : null;
       for (const line of entry.lines) {
@@ -535,6 +546,36 @@ const dynamicAccounts = evaluatedDynamicAccounts;
           treasuryAccountType: treasuryAccount?.type,
         });
       }
+    }
+
+    for (const transfer of treasuryTransfers) {
+      const movementBase = {
+        date: transfer.date,
+        category: 'Transfert interne',
+        description: `Transfert ${transfer.sourceAccount.name} → ${transfer.destinationAccount.name}`,
+        reference: transfer.reference,
+        sourceType: 'TREASURY_TRANSFER',
+        enterpriseId: transfer.enterpriseId || null,
+        enterpriseName: transfer.enterpriseName || null,
+      };
+      pushMovement(movements, {
+        ...movementBase,
+        id: `transfer-out-${transfer.id}`,
+        type: 'expense',
+        amount: amount(transfer.amount),
+        treasuryAccountId: transfer.sourceTreasuryAccountId,
+        treasuryAccountName: transfer.sourceAccount.name,
+        treasuryAccountType: transfer.sourceAccount.type,
+      });
+      pushMovement(movements, {
+        ...movementBase,
+        id: `transfer-in-${transfer.id}`,
+        type: 'income',
+        amount: amount(transfer.amount),
+        treasuryAccountId: transfer.destinationTreasuryAccountId,
+        treasuryAccountName: transfer.destinationAccount.name,
+        treasuryAccountType: transfer.destinationAccount.type,
+      });
     }
 
     const movementsChronological = [...movements].sort(

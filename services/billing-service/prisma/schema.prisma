@@ -383,12 +383,38 @@ model TreasuryAccount {
   decaissements     Decaissement[]
   cashVouchers      CashVoucher[]
   closures          TreasuryClosure[]
+  transfersFrom     TreasuryTransfer[] @relation("TreasuryTransferSource")
+  transfersTo       TreasuryTransfer[] @relation("TreasuryTransferDestination")
   accountingAccount AccountingAccount? @relation(fields: [accountingAccountId], references: [id], onDelete: SetNull)
 
   @@index([type])
   @@index([isActive])
   @@index([accountingAccountId])
   @@map("treasury_accounts")
+}
+
+model TreasuryTransfer {
+  id                    String   @id @default(uuid())
+  sourceTreasuryAccountId String
+  destinationTreasuryAccountId String
+  amount                Float
+  date                  DateTime
+  reference             String
+  notes                 String?
+  enterpriseId          Int?
+  enterpriseName        String?
+  createdByUserId       String?
+  createdByEmail        String?
+  createdAt             DateTime @default(now())
+
+  sourceAccount      TreasuryAccount @relation("TreasuryTransferSource", fields: [sourceTreasuryAccountId], references: [id], onDelete: Restrict)
+  destinationAccount TreasuryAccount @relation("TreasuryTransferDestination", fields: [destinationTreasuryAccountId], references: [id], onDelete: Restrict)
+
+  @@index([date])
+  @@index([sourceTreasuryAccountId])
+  @@index([destinationTreasuryAccountId])
+  @@index([enterpriseId])
+  @@map("treasury_transfers")
 }
 
 model TreasuryClosure {

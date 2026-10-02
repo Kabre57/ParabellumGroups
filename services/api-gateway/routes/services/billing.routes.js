@@ -198,6 +198,13 @@ const billingPermissionRules = [
     }
   },
   {
+    pattern: /^\/treasury-transfers$/,
+    permissions: {
+      GET: 'accounting.read',
+      POST: 'accounting.treasury.manage'
+    }
+  },
+  {
     pattern: /^\/treasury-closures/,
     permissions: {
       GET: 'accounting.read',

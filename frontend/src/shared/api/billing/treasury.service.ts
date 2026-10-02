@@ -1,8 +1,20 @@
 import { apiClient } from '../shared/client';
-import type { DetailResponse, ListResponse, TreasuryAccount, TreasuryClosure } from './types';
+import type { DetailResponse, ListResponse, TreasuryAccount, TreasuryClosure, TreasuryTransfer } from './types';
 import { normalizeDetailResponse, normalizeListResponse } from './utils';
 
 export const treasuryService = {
+  async createTreasuryTransfer(data: {
+    sourceTreasuryAccountId: string;
+    destinationTreasuryAccountId: string;
+    amount: number;
+    date: string;
+    reference: string;
+    notes?: string;
+  }): Promise<DetailResponse<TreasuryTransfer>> {
+    const response = await apiClient.post('/billing/treasury-transfers', data);
+    return normalizeDetailResponse<TreasuryTransfer>(response.data);
+  },
+
   async getTreasuryAccounts(): Promise<ListResponse<TreasuryAccount>> {
     const response = await apiClient.get('/billing/treasury-accounts');
     return normalizeListResponse<TreasuryAccount>(response.data);

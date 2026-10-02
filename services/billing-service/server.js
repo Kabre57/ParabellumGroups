@@ -27,6 +27,7 @@ const factureFournisseurRoutes = require('./routes/factureFournisseur.routes');
 const accountingRoutes = require('./routes/accounting.routes');
 const treasuryAccountRoutes = require('./routes/treasuryAccount.routes');
 const treasuryClosureRoutes = require('./routes/treasuryClosure.routes');
+const treasuryTransferRoutes = require('./routes/treasuryTransfer.routes');
 const cashVoucherRoutes = require('./routes/cashVoucher.routes');
 const placementRoutes = require('./routes/placement.routes');
 const budgetRoutes = require('./routes/budget.routes');
@@ -44,6 +45,7 @@ app.use('/api/decaissements', decaissementRoutes);
 app.use('/api/factures-fournisseurs', factureFournisseurRoutes);
 app.use('/api/treasury-accounts', treasuryAccountRoutes);
 app.use('/api/treasury-closures', treasuryClosureRoutes);
+app.use('/api/treasury-transfers', treasuryTransferRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/cash-vouchers', cashVoucherRoutes);
 app.use('/api/placements', placementRoutes);
@@ -77,6 +79,7 @@ app.get('/', (req, res) => {
       facturesFournisseurs: '/api/factures-fournisseurs',
       treasuryAccounts: '/api/treasury-accounts',
       treasuryClosures: '/api/treasury-closures',
+      treasuryTransfers: '/api/treasury-transfers',
       accounting: '/api/accounting/overview',
       health: '/health'
     }

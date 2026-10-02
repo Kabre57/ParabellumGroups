@@ -116,6 +116,12 @@ Choisir une période (jour, semaine, mois, trimestre, année, toutes les périod
 
 Les commandes **Imprimer le journal** et **Exporter Excel** produisent une sortie des mouvements filtrés. Vérifier les filtres avant export ou impression.
 
+### Transfert interne entre caisses
+
+Le bouton **Transfert interne** déplace des fonds d’un compte de trésorerie vers un autre, par exemple de la caisse principale vers une caisse secondaire. Sélectionner la caisse source et la caisse destinataire, saisir le montant, la date et une référence. Les deux comptes doivent être actifs, utiliser la même devise et être associés à des comptes comptables actifs de type **Actif**. Le montant ne peut pas dépasser le solde disponible de la caisse source.
+
+L’application enregistre les deux mouvements dans une seule transaction : débit du compte comptable lié à la caisse destinataire et crédit de celui lié à la caisse source. Les soldes des deux comptes de trésorerie sont mis à jour ensemble. Le journal affiche une sortie sur la caisse source et une entrée sur la caisse destinataire. Aucune famille de charge ou de produit n’intervient dans cette opération. La référence permet de retrouver le transfert dans le journal.
+
 ### Clôture de caisse
 
 1. Ouvrir **Clôturer la caisse**.

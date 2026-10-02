@@ -14,6 +14,14 @@ const {
   calculateTotal,
   isValidTauxTVA,
 } = require('../utils/tvaCalculator');
+const { normalizeTreasuryCurrency } = require('../utils/treasury');
+
+test('les devises CFA équivalentes sont normalisées sans confondre XOF et XAF', () => {
+  assert.equal(normalizeTreasuryCurrency('FCFA'), 'XOF');
+  assert.equal(normalizeTreasuryCurrency('F CFA'), 'XOF');
+  assert.equal(normalizeTreasuryCurrency('xof'), 'XOF');
+  assert.equal(normalizeTreasuryCurrency('XAF'), 'XAF');
+});
 
 test('billing number generators use the expected prefixes, year-month and zero padding', () => {
   const yearMonth = moment().format('YYYYMM');

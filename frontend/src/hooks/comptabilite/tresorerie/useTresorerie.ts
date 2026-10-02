@@ -95,3 +95,19 @@ export function useValidateClosure() {
     },
   });
 }
+
+export function useCreateTreasuryTransfer(onSuccess?: () => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: billingService.createTreasuryTransfer,
+    onSuccess: () => {
+      toast.success('Transfert interne enregistré.');
+      queryClient.invalidateQueries({ queryKey: ['cash-flows'] });
+      queryClient.invalidateQueries({ queryKey: ['treasury-accounts'] });
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Impossible d’enregistrer le transfert.');
+    },
+  });
+}

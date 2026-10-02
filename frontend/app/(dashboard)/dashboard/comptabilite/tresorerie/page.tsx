@@ -5,7 +5,7 @@ import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import billingService, { type AccountingMovement } from '@/shared/api/billing';
 import {
   useTresorerieFlows, useTreasuryClosures,
-  useCreateTreasuryAccount, useUpdateTreasuryAccount, useCreateClosure, useValidateClosure
+  useCreateTreasuryAccount, useUpdateTreasuryAccount, useCreateClosure, useValidateClosure, useCreateTreasuryTransfer
 } from '@/hooks/comptabilite/tresorerie/useTresorerie';
 import {
   TresorerieStats, TresorerieAccountsList,
@@ -16,6 +16,7 @@ import { Calendar, PlusCircle } from 'lucide-react';
 import { AccountingDateRangeDialog } from '@/components/accounting/AccountingDateRangeDialog';
 import { CreateTreasuryAccountDialog } from '@/components/accounting/CreateTreasuryAccountDialog';
 import { TreasuryClosureDialog } from '@/components/accounting/TreasuryClosureDialog';
+import { TreasuryTransferDialog } from '@/components/accounting/TreasuryTransferDialog';
 import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import { formatFCFA } from '@/components/printComponents/printUtils';
@@ -30,6 +31,7 @@ export default function TresoreriePage() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [editingTreasuryAccount, setEditingTreasuryAccount] = useState<any | null>(null);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [printJournalOpen, setPrintJournalOpen] = useState(false);
   const [accountFilter, setAccountFilter] = useState('all');
   const [closureFilter, setClosureFilter] = useState('all');
@@ -75,6 +77,7 @@ export default function TresoreriePage() {
   const updateAccountMutation = useUpdateTreasuryAccount(closeAccountDialog);
   const createClosureMutation = useCreateClosure(() => setClosureDialogOpen(false));
   const validateClosureMutation = useValidateClosure();
+  const createTransferMutation = useCreateTreasuryTransfer(() => setTransferDialogOpen(false));
 
   const cashFlows: AccountingMovement[] = data?.data?.treasuryMovements ?? [];
   const report = data?.data?.reports?.treasury;
@@ -101,6 +104,7 @@ export default function TresoreriePage() {
         <div><h1 className="text-3xl font-bold">Trésorerie</h1><p className="text-muted-foreground mt-2">Suivi des flux de trésorerie, soldes multi-banques et sous-caisses.</p></div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
+          {canValidateClosure && <Button variant="outline" onClick={() => setTransferDialogOpen(true)}>Transfert interne</Button>}
           <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>
           <select value={period} onChange={e => { setPeriod(e.target.value as any); setCustomRange(null); }} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
             <option value="day">Jour</option><option value="week">Cette semaine</option><option value="month">Ce mois</option>
@@ -169,6 +173,13 @@ export default function TresoreriePage() {
       />
       <TreasuryClosureDialog open={closureDialogOpen} onOpenChange={setClosureDialogOpen} accounts={treasuryAccounts} isSubmitting={createClosureMutation.isPending}
         onSubmit={p => { const { status, ...rest } = p; createClosureMutation.mutate(rest as any); }} />
+      <TreasuryTransferDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        accounts={treasuryAccounts}
+        isSubmitting={createTransferMutation.isPending}
+        onSubmit={(payload) => createTransferMutation.mutate(payload)}
+      />
 
       {printJournalOpen && (
         <TabularListPrint title="Journal de trésorerie" subtitle="Mouvements de trésorerie sur la période"
