@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
 import communicationService from '@/shared/api/communication';
 import { useNotificationStream } from './useNotificationStream';
+import { useCommunicationMessageStream } from './useCommunicationMessageStream';
 
 export interface Notification {
   id: string;
@@ -19,6 +20,7 @@ interface NotificationsResponse {
   success: boolean;
   data: Notification[];
   unreadCount: number;
+  errors: string[];
 }
 
 export function useNotifications() {
@@ -30,6 +32,7 @@ export function useNotifications() {
   const currentUserId = user?.id != null ? String(user.id) : '';
   const currentUserEmail = user?.email ? String(user.email).trim().toLowerCase() : '';
   useNotificationStream(canReadSystemNotifications);
+  useCommunicationMessageStream(canReadMessages);
 
   return useQuery<NotificationsResponse>({
     queryKey: [
@@ -40,22 +43,22 @@ export function useNotifications() {
       canReadMessages,
     ],
     queryFn: async () => {
-      const [notificationResponse, inboxById, inboxByEmail] = await Promise.all([
-        canReadSystemNotifications
-          ? apiClient.get('/notifications')
-          : Promise.resolve({ data: { data: [], unreadCount: 0 } }),
-        canReadMessages && currentUserId
-          ? communicationService.getMessages({ destinataireId: currentUserId })
-          : Promise.resolve([]),
-        canReadMessages && currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()
-          ? communicationService.getMessages({ destinataireId: currentUserEmail })
-          : Promise.resolve([]),
+      const sources = await Promise.allSettled([
+        canReadSystemNotifications ? apiClient.get('/notifications') : Promise.resolve({ data: { data: [], unreadCount: 0 } }),
+        canReadMessages && currentUserId ? communicationService.getMessages({ destinataireId: currentUserId }) : Promise.resolve([]),
+        canReadMessages && currentUserEmail && currentUserEmail !== currentUserId.toLowerCase() ? communicationService.getMessages({ destinataireId: currentUserEmail }) : Promise.resolve([]),
       ]);
-
-      const systemNotifications = notificationResponse.data?.data || [];
-      const unreadCount = Number(notificationResponse.data?.unreadCount || 0);
-
-      const unreadMessages = [...inboxById, ...inboxByEmail]
+      const errors: string[] = [];
+      const systemResult = sources[0];
+      const idResult = sources[1];
+      const emailResult = sources[2];
+      const systemNotifications = systemResult.status === 'fulfilled' ? systemResult.value.data?.data || [] : (errors.push('Les notifications système sont indisponibles.'), []);
+      const unreadCount = systemResult.status === 'fulfilled' ? Number(systemResult.value.data?.unreadCount || 0) : 0;
+      if (idResult.status === 'rejected') errors.push('La messagerie interne est indisponible.');
+      if (emailResult.status === 'rejected' && currentUserEmail && currentUserEmail !== currentUserId.toLowerCase()) errors.push('Une partie des messages n’a pas pu être chargée.');
+      const messagesById = idResult.status === 'fulfilled' ? idResult.value : [];
+      const messagesByEmail = emailResult.status === 'fulfilled' ? emailResult.value : [];
+      const unreadMessages = [...messagesById, ...messagesByEmail]
         .filter((message) => message.status !== 'LU' && message.status !== 'ARCHIVE')
         .map((message) => ({
           id: `message:${message.id}`,
@@ -74,6 +77,7 @@ export function useNotifications() {
 
       return {
         success: true,
+        errors,
         data: Array.from(merged.values()).sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         ),

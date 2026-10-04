@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useNotifications, useMarkAllNotificationsAsRead, useMarkNotificationAsRead } from '@/hooks/useNotifications'
 
 export default function NotificationsPage() {
-  const { data, isLoading, refetch } = useNotifications()
+  const { data, isLoading, isError, error, refetch } = useNotifications()
   const markAsRead = useMarkNotificationAsRead()
   const markAllAsRead = useMarkAllNotificationsAsRead()
 
@@ -29,8 +29,7 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <Button
               onClick={async () => {
-                await markAllAsRead()
-                refetch()
+                try { await markAllAsRead(); await refetch() } catch { await refetch() }
               }}
             >
               <Check className="mr-2 h-4 w-4" />
@@ -39,6 +38,9 @@ export default function NotificationsPage() {
           )}
         </div>
       </div>
+
+      {isError && <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">Impossible de charger les notifications. {error instanceof Error ? error.message : 'Vérifiez la connexion aux services.'}</div>}
+      {data?.errors?.map((message) => <div key={message} role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{message}</div>)}
 
       <Card>
         <CardHeader>
@@ -51,6 +53,8 @@ export default function NotificationsPage() {
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Chargement des notifications...
             </div>
+          ) : isError ? (
+            <div className="rounded-lg border border-dashed border-red-300 py-12 text-center text-red-700">Les données sont indisponibles. Réessayez après le rétablissement du service.</div>
           ) : notifications.length === 0 ? (
             <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
               Aucune notification disponible.
@@ -80,8 +84,7 @@ export default function NotificationsPage() {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          await markAsRead(notification.id)
-                          refetch()
+                          try { await markAsRead(notification.id); await refetch() } catch { await refetch() }
                         }}
                       >
                         <Check className="mr-2 h-4 w-4" />

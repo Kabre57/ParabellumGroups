@@ -88,12 +88,17 @@ const sendEmailNotification = async (email: string, title: string, message: stri
 
 export const sendNotification = async (req: Request, res: Response) => {
   try {
+    const actor = (req as any).user || {};
+    const role = String(actor.role || '').toLowerCase();
+    if (!['admin', 'administrator', 'superadmin'].includes(role)) return res.status(403).json({ error: 'Action réservée à un service autorisé' });
     const { userId, type, title, message, email } = req.body;
+    if (!userId || !title || !message) return res.status(400).json({ error: 'Destinataire, titre et message sont requis' });
+    const normalizedType = ['INFO', 'WARNING', 'ERROR', 'SUCCESS'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'INFO';
 
     const notification = await prisma.notification.create({
       data: {
         userId,
-        type,
+        type: normalizedType,
         title,
         message,
       },
@@ -162,13 +167,7 @@ export const getUserNotifications = async (req: Request, res: Response) => {
     res.json(payload);
   } catch (error) {
     console.error('Get notifications error:', error);
-    if (isNotificationStorageUnavailable(error)) {
-      return res.json({
-        success: true,
-        data: [],
-        unreadCount: 0,
-      });
-    }
+    if (isNotificationStorageUnavailable(error)) return res.status(503).json({ error: 'Service de stockage des notifications indisponible' });
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -177,18 +176,18 @@ export const markAsRead = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const notification = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true },
-    });
+    const userId = String((req as any).user?.userId || (req as any).user?.id || '');
+    const notification = await prisma.notification.findFirst({ where: { id, userId } });
+    if (!notification) return res.status(404).json({ error: 'Notification introuvable' });
+    const updated = await prisma.notification.update({ where: { id }, data: { isRead: true } });
 
-    notificationEmitter.emit('notification', { userId: notification.userId, notification });
+    notificationEmitter.emit('notification', { userId: updated.userId, notification: updated });
 
-    res.json(notification);
+    res.json(updated);
   } catch (error) {
     console.error('Mark as read error:', error);
     if (isNotificationStorageUnavailable(error)) {
-      return res.json({ message: 'Notification storage unavailable, operation skipped' });
+      return res.status(503).json({ error: 'Service de stockage des notifications indisponible' });
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -196,7 +195,8 @@ export const markAsRead = async (req: Request, res: Response) => {
 
 export const markAllAsRead = async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const userId = String((req as any).user?.userId || (req as any).user?.id || '');
+    if (!userId) return res.status(401).json({ error: 'Utilisateur non identifié' });
 
     await prisma.notification.updateMany({
       where: { userId, isRead: false },
@@ -212,7 +212,7 @@ export const markAllAsRead = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Mark all as read error:', error);
     if (isNotificationStorageUnavailable(error)) {
-      return res.json({ message: 'Notification storage unavailable, operation skipped' });
+      return res.status(503).json({ error: 'Service de stockage des notifications indisponible' });
     }
     res.status(500).json({ error: 'Internal server error' });
   }

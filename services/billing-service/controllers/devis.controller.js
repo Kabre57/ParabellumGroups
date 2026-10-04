@@ -286,7 +286,7 @@ const sendCommercialNotification = async (req, devis, clientLabel) => {
     title: `Devis ${devis.numeroDevis} signe`,
     message: `Le devis ${devis.numeroDevis} (${clientLabel || 'client'}) est valide. Montant TTC: ${montant} F CFA.`,
     email: devis.commercialEmail || undefined,
-  });
+  }, { headers: { Authorization: buildServiceAuthHeader(req) } });
 };
 
 const addDays = (date, days) => {

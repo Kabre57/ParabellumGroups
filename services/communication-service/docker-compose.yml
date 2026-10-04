@@ -3,10 +3,11 @@ services:
     build: .
     container_name: communication-service
     ports:
-      - "4002:4002"
+      - "127.0.0.1:4002:4002"
     environment:
       - PORT=4002
       - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-replace-with-a-strong-database-password}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-replace-with-a-strong-database-password}@db:5432/parabellum_communication?schema=public

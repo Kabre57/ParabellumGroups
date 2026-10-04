@@ -32,6 +32,27 @@ module.exports = {
 
   routes: [
     {
+      path: '/communication/messages/stream',
+      method: 'get',
+      auth: true,
+      pathRewrite: rewriteMessagePath,
+      permission: { GET: 'messages.read' },
+    },
+    {
+      path: '/communication/messages/:id/read',
+      method: 'put',
+      auth: true,
+      pathRewrite: rewriteMessagePath,
+      permission: { PUT: 'messages.read' },
+    },
+    {
+      path: '/communication/messages/:id/archive',
+      method: 'put',
+      auth: true,
+      pathRewrite: rewriteMessagePath,
+      permission: { PUT: 'messages.read' },
+    },
+    {
       path: '/communication/messages',
       auth: true,
       pathRewrite: rewriteMessagePath,

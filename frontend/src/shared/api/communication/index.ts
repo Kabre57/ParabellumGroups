@@ -96,6 +96,25 @@ export const communicationService = {
     return response.data;
   },
 
+  async uploadMessageAttachments(id: string, files: File[]): Promise<string[]> {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file));
+    const response = await apiClient.post(`/communication/messages/${id}/attachments`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data?.attachments || [];
+  },
+
+  async downloadMessageAttachment(id: string, key: string): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get(`/communication/messages/${id}/attachments/download`, {
+      params: { key },
+      responseType: 'blob',
+    });
+    const disposition = String(response.headers?.['content-disposition'] || '');
+    const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    return { blob: response.data, filename: encodedName ? decodeURIComponent(encodedName) : 'piece-jointe' };
+  },
+
   async markMessageAsRead(id: string): Promise<CommunicationMessage> {
     const response = await apiClient.put(`/communication/messages/${id}/read`);
     return response.data;

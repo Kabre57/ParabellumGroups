@@ -10,7 +10,7 @@ import { fr } from 'date-fns/locale';
 
 export const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { data, isLoading, refetch } = useNotifications();
+  const { data, isLoading, isError, refetch } = useNotifications();
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead();
 
@@ -18,13 +18,11 @@ export const NotificationDropdown: React.FC = () => {
   const unreadCount = data?.unreadCount || 0;
 
   const handleMarkAsRead = async (notificationId: string) => {
-    await markAsRead(notificationId);
-    refetch();
+    try { await markAsRead(notificationId); await refetch(); } catch { await refetch(); }
   };
 
   const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
-    refetch();
+    try { await markAllAsRead(); await refetch(); } catch { await refetch(); }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -85,11 +83,14 @@ export const NotificationDropdown: React.FC = () => {
 
             {/* Notifications List */}
             <div className="flex-1 overflow-y-auto">
+              {!isLoading && data?.errors?.map((message) => <p key={message} role="status" className="bg-amber-50 p-3 text-xs text-amber-900">{message}</p>)}
               {isLoading ? (
                 <div className="p-8 text-center text-gray-500">
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
                   <p>Chargement...</p>
                 </div>
+              ) : isError ? (
+                <div role="alert" className="p-8 text-center text-red-700">Impossible de charger les notifications.</div>
               ) : notifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <Bell className="w-12 h-12 mx-auto mb-2 text-gray-400" />

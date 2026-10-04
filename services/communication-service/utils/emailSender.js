@@ -29,10 +29,9 @@ const emailSender = {
         subject,
         text,
         html,
-        attachments: attachments.map(file => ({
-          filename: file.split('/').pop(),
-          path: file
-        }))
+        attachments: attachments.map(file => typeof file === 'string'
+          ? { filename: file.split('/').pop(), path: file }
+          : { filename: file.filename, content: file.content })
       };
 
       const info = await transporter.sendMail(mailOptions);

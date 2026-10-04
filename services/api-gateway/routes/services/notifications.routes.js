@@ -28,11 +28,19 @@ module.exports = {
   routes: [
     {
       path: '/notifications/stream',
+      method: 'get',
       auth: true,
       permission: { GET: ['notifications.read', 'notifications.read_own'] },
     },
     {
       path: '/notifications/mark-all-read',
+      method: 'patch',
+      auth: true,
+      permission: { PATCH: ['notifications.read', 'notifications.read_own'] },
+    },
+    {
+      path: '/notifications/:id/read',
+      method: 'patch',
       auth: true,
       permission: { PATCH: ['notifications.read', 'notifications.read_own'] },
     },

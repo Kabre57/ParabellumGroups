@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { useCommunicationMessageStream } from '@/hooks/useCommunicationMessageStream'
 import { adminUsersService, type AdminUser } from '@/shared/api/admin/admin.service'
 import { communicationService, type CommunicationMessage, type MessageStatus } from '@/shared/api/communication'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -77,6 +78,10 @@ export default function MessagesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | MessageStatus>('all')
   const [showComposer, setShowComposer] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [draftMessageId, setDraftMessageId] = useState<string | null>(null)
+  const [draftFiles, setDraftFiles] = useState<File[]>([])
+  const [draftFilesUploaded, setDraftFilesUploaded] = useState(false)
   const [selectedConversationId, setSelectedConversationId] = useState<string>('')
   const [composeForm, setComposeForm] = useState({
     destinataireId: '',
@@ -89,6 +94,7 @@ export default function MessagesPage() {
   const currentUserLabel = user?.email || currentUserId || 'Vous'
   const canSendMessages = hasPermission(user, 'messages.send')
   const canLoadRecipients = isAdminRole(user) || hasPermission(user, 'users.read')
+  useCommunicationMessageStream(isAdminRole(user) || hasPermission(user, 'messages.read'))
 
   const isCurrentUserIdentifier = (value?: string | null) => {
     const normalized = normalizeIdentifier(value)
@@ -98,6 +104,8 @@ export default function MessagesPage() {
   const {
     data: messages = [],
     isLoading,
+    isError,
+    error: messagesError,
     refetch,
   } = useQuery<CommunicationMessage[]>({
     queryKey: ['communication-messages', currentUserId, currentUserEmail],
@@ -266,17 +274,30 @@ export default function MessagesPage() {
   const sendMutation = useMutation({
     mutationFn: async () => {
       setComposeError(null)
-      const message = await communicationService.createMessage({
-        expediteurId: currentUserId,
-        destinataireId: composeForm.destinataireId.trim(),
-        sujet: composeForm.sujet.trim(),
-        contenu: composeForm.contenu.trim(),
-        type: 'NOTIFICATION',
-      })
-      return communicationService.sendMessage(message.id)
+      let messageId = draftMessageId
+      if (!messageId) {
+        const message = await communicationService.createMessage({
+          expediteurId: currentUserId,
+          destinataireId: composeForm.destinataireId.trim(),
+          sujet: composeForm.sujet.trim(),
+          contenu: composeForm.contenu.trim(),
+          type: 'NOTIFICATION',
+        })
+        messageId = message.id
+        setDraftMessageId(messageId)
+      }
+      if (draftFiles.length && !draftFilesUploaded) {
+        await communicationService.uploadMessageAttachments(messageId, draftFiles)
+        setDraftFilesUploaded(true)
+      }
+      return communicationService.sendMessage(messageId)
     },
     onSuccess: () => {
       const nextConversationId = normalizeIdentifier(composeForm.destinataireId)
+      setDraftMessageId(null)
+      setDraftFiles([])
+      setDraftFilesUploaded(false)
+      setAttachmentError(null)
       setComposeForm({
         destinataireId: '',
         sujet: '',
@@ -287,7 +308,7 @@ export default function MessagesPage() {
       refetch()
     },
     onError: (error: any) => {
-      setComposeError(error?.response?.data?.error || error?.message || 'Envoi impossible')
+      setComposeError(`${error?.response?.data?.error || error?.message || 'Envoi impossible'} Le brouillon est conservé : vous pouvez réessayer.`)
     },
   })
 
@@ -297,6 +318,9 @@ export default function MessagesPage() {
     const quotedBody = seedMessage ? `\n\n--- Message original ---\n${buildQuotedBody(seedMessage)}` : ''
 
     setComposeError(null)
+    setDraftMessageId(null)
+    setDraftFiles([])
+    setDraftFilesUploaded(false)
     setComposeForm({
       destinataireId: conversation?.participantId || '',
       sujet: subject,
@@ -310,6 +334,21 @@ export default function MessagesPage() {
     composeForm.destinataireId.trim() &&
     composeForm.sujet.trim() &&
     composeForm.contenu.trim()
+
+  const downloadAttachment = async (messageId: string, key: string) => {
+    setAttachmentError(null)
+    try {
+      const { blob, filename } = await communicationService.downloadMessageAttachment(messageId, key)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setAttachmentError('Impossible de télécharger cette pièce jointe.')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -327,7 +366,11 @@ export default function MessagesPage() {
             <Button
               onClick={() => {
                 setComposeError(null)
-                setComposeForm({ destinataireId: '', sujet: '', contenu: '' })
+                if (!draftMessageId) {
+                  setComposeForm({ destinataireId: '', sujet: '', contenu: '' })
+                  setDraftFiles([])
+                  setDraftFilesUploaded(false)
+                }
                 setShowComposer((value) => !value)
               }}
             >
@@ -337,6 +380,8 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {isError && <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">Impossible de charger les messages : {messagesError instanceof Error ? messagesError.message : 'service indisponible.'} <Button variant="outline" size="sm" className="ml-2" onClick={() => refetch()}>Réessayer</Button></div>}
 
       {showComposer && canSendMessages && (
         <Card>
@@ -350,6 +395,7 @@ export default function MessagesPage() {
                 <label className="text-sm font-medium">Destinataire</label>
                 {recipients.length > 0 ? (
                   <select
+                    disabled={Boolean(draftMessageId)}
                     value={composeForm.destinataireId}
                     onChange={(event) =>
                       setComposeForm((state) => ({ ...state, destinataireId: event.target.value }))
@@ -367,6 +413,7 @@ export default function MessagesPage() {
                   </select>
                 ) : (
                   <Input
+                    disabled={Boolean(draftMessageId)}
                     value={composeForm.destinataireId}
                     onChange={(event) =>
                       setComposeForm((state) => ({ ...state, destinataireId: event.target.value }))
@@ -378,6 +425,7 @@ export default function MessagesPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sujet</label>
                 <Input
+                  disabled={Boolean(draftMessageId)}
                   value={composeForm.sujet}
                   onChange={(event) => setComposeForm((state) => ({ ...state, sujet: event.target.value }))}
                   placeholder="Objet du message"
@@ -388,11 +436,30 @@ export default function MessagesPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Message</label>
               <Textarea
+                disabled={Boolean(draftMessageId)}
                 rows={6}
                 value={composeForm.contenu}
                 onChange={(event) => setComposeForm((state) => ({ ...state, contenu: event.target.value }))}
                 placeholder="Votre message..."
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="message-attachments">Pièces jointes (5 fichiers maximum, 10 Mo chacun)</label>
+              <Input
+                id="message-attachments"
+                type="file"
+                multiple
+                disabled={Boolean(draftMessageId) || sendMutation.isPending}
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.docx,.xlsx"
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || [])
+                  setDraftFiles(files.slice(0, 5))
+                  setAttachmentError(files.length > 5 ? 'Cinq fichiers maximum sont acceptés.' : null)
+                }}
+              />
+              {draftFiles.length > 0 && <p className="text-xs text-muted-foreground">{draftFiles.map((file) => file.name).join(', ')}</p>}
+              {attachmentError && <p role="alert" className="text-sm text-red-600">{attachmentError}</p>}
             </div>
 
             {composeError && <p className="text-sm text-red-600">{composeError}</p>}
@@ -401,7 +468,7 @@ export default function MessagesPage() {
               <Button type="button" variant="outline" onClick={() => setShowComposer(false)}>
                 Annuler
               </Button>
-              <Button type="button" onClick={() => sendMutation.mutate()} disabled={!canSend || sendMutation.isPending}>
+              <Button type="button" onClick={() => sendMutation.mutate()} disabled={!canSend || Boolean(attachmentError) || sendMutation.isPending}>
                 {sendMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Envoyer
               </Button>
@@ -503,7 +570,7 @@ export default function MessagesPage() {
                 </button>
               ))}
 
-              {!isLoading && filteredConversations.length === 0 && (
+              {!isLoading && !isError && filteredConversations.length === 0 && (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                   Aucune conversation pour les filtres actuels.
                 </div>
@@ -565,10 +632,10 @@ export default function MessagesPage() {
                         {message.pieceJointe?.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {message.pieceJointe.map((piece) => (
-                              <Badge key={piece} variant="outline" className="bg-background/80">
+                              <button key={piece} type="button" onClick={() => downloadAttachment(message.id, piece)} className="rounded-full border px-2 py-1 text-xs hover:bg-muted">
                                 <Paperclip className="mr-1 h-3 w-3" />
-                                {piece}
-                              </Badge>
+                                Pièce jointe
+                              </button>
                             ))}
                           </div>
                         )}
