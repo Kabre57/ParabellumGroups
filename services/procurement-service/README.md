@@ -104,13 +104,13 @@ Le service écoute sur le port **4009**.
 
 ```bash
 # Installer les dépendances
-npm install
+pnpm install
 
 # Générer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Exécuter les migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 ## Configuration
@@ -127,10 +127,10 @@ NODE_ENV=development
 
 ```bash
 # Mode développement
-npm run dev
+pnpm run dev
 
 # Mode production
-npm start
+pnpm start
 ```
 
 ## Authentification

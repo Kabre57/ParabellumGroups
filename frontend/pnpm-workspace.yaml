@@ -1,0 +1,14 @@
+packages: []
+
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  sharp: true
+
+networkConcurrency: 8
+fetchRetries: 5
+fetchRetryFactor: 2
+fetchRetryMintimeout: 20000
+fetchRetryMaxtimeout: 120000
+fetchTimeout: 300000

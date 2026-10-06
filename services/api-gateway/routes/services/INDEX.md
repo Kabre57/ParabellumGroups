@@ -1,6 +1,6 @@
 # Index des Services - API Gateway
 
-## Services configurés (12 microservices)
+## Services configurés
 
 | Service | Fichier | Base Path | Port | Endpoints principaux |
 |---------|---------|-----------|------|---------------------|
@@ -11,7 +11,7 @@
 | **Projects** | `projects.routes.js` | `http://project-service:4006` | 4006 | `/projects` → `/api/projets`, `/api/taches`, `/api/jalons` |
 | **Procurement** | `procurement.routes.js` | `http://procurement-service:4007` | 4007 | `/procurement/orders` → `/api/bons-commande`, `/procurement/requests` → `/api/demandes-achat` |
 | **Communication** | `communication.routes.js` | `http://communication-service:4002` | 4002 | `/communication` → `/api/messages`, `/api/campagnes` |
-| **HR** | `hr.routes.js` | `http://hr-service:4009` | 4009 | `/hr/employees` → `/api/employes`, `/hr/leave-requests` → `/api/conges` |
+| **RH (API externe)** | `hr.routes.js` | `HR_SERVICE_URL` | configurable | `/hr/employees` → `/api/employes`, `/hr/leave-requests` → `/api/conges` |
 | **Billing** | `billing.routes.js` | `http://billing-service:4010` | 4010 | `/billing/invoices` → `/api/factures`, `/billing/payments` → `/api/paiements` |
 | **Commercial** | `commercial.routes.js` | `http://commercial-service:4004` | 4004 | `/commercial` → `/api/prospects` |
 | **Inventory** | `inventory.routes.js` | `http://inventory-service:4005` | 4005 | `/inventory` → `/api/articles`, `/api/mouvements` |
@@ -72,7 +72,7 @@
 /billing/payments → /api/paiements
 ```
 
-### HR Service
+### API RH externe
 ```
 /hr/employees → /api/employes
 /hr/leave-requests → /api/conges
@@ -103,3 +103,5 @@ Pour tester un endpoint :
 ```bash
 curl -H "Authorization: Bearer TOKEN" http://localhost:3001/api/analytics/overview
 ```
+
+L’ancien microservice RH n’est plus inclus dans Compose. La passerelle utilise `HR_SERVICE_URL`.

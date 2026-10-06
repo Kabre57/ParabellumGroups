@@ -9,6 +9,11 @@ const proxyRoutes = require('./routes/proxy');
 const { logInfo, logError } = require('./utils/logger');
 const { distributedTracing, errorTracking } = require('./middleware/tracing');
 const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
+const {
+  connectRateLimitRedis,
+  isRateLimitRedisReady,
+  closeRateLimitRedis,
+} = require('./utils/rateLimitStore');
 
 const app = express();
 
@@ -39,13 +44,16 @@ app.use(metricsMiddleware);
 app.use(globalRateLimiter);
 
 app.get('/health', express.json(), (req, res) => {
+  if (!isRateLimitRedisReady()) {
+    return res.status(503).json({ success: false, message: 'Rate-limit Redis is unavailable' });
+  }
   res.status(200).json({
     success: true,
     message: 'API Gateway is running',
     timestamp: new Date().toISOString(),
     environment: config.NODE_ENV
   });
-});
+  });
 
 app.get('/api-docs', express.json(), (req, res) => {
   res.status(200).json({
@@ -89,20 +97,35 @@ app.use((err, req, res, next) => {
 
 const PORT = config.PORT;
 
-const server = app.listen(PORT, () => {
-  logInfo(`API Gateway started on port ${PORT}`);
-  logInfo(`Environment: ${config.NODE_ENV}`);
-  logInfo('Services configured:');
-  Object.entries(config.SERVICES).forEach(([name, url]) => {
-    logInfo(`  - ${name}: ${url}`);
-  });
-});
+let server;
 
-process.on('SIGTERM', () => {
-  logInfo('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    logInfo('HTTP server closed');
+const start = async () => {
+  await connectRateLimitRedis();
+  server = app.listen(PORT, () => {
+    logInfo(`API Gateway started on port ${PORT}`);
+    logInfo(`Environment: ${config.NODE_ENV}`);
+    logInfo('Services configured:');
+    Object.entries(config.SERVICES).forEach(([name, url]) => {
+      logInfo(`  - ${name}: ${url}`);
+    });
   });
-});
+};
+
+if (require.main === module) {
+  start().catch((error) => {
+    logError('API Gateway startup failed', error);
+    process.exit(1);
+  });
+}
+
+const stop = async () => {
+  logInfo('SIGTERM signal received: closing HTTP server');
+  if (server) await new Promise((resolve) => server.close(resolve));
+  await closeRateLimitRedis();
+  logInfo('API Gateway shutdown complete');
+};
+
+process.on('SIGTERM', () => { stop().catch((error) => logError('Shutdown failed', error)); });
+process.on('SIGINT', () => { stop().catch((error) => logError('Shutdown failed', error)); });
 
 module.exports = app;

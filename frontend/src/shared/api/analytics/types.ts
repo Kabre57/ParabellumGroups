@@ -95,28 +95,6 @@ export interface TechnicalDashboard {
   _realData: boolean;
 }
 
-export interface HRDashboard {
-  periode: {
-    dateDebut: string;
-    dateFin: string;
-  };
-  effectifs: {
-    total: number;
-    cdi: number;
-    cdd: number;
-    stagiaires: number;
-  };
-  turnover: {
-    taux: number;
-    entrees: number;
-    sorties: number;
-    variation: number;
-  };
-  _source: string;
-  _timestamp: string;
-  _realData: boolean;
-}
-
 export interface KPI {
   id: string;
   nom: string;

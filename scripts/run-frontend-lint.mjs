@@ -6,9 +6,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const frontendDir = resolve(repoRoot, 'frontend');
 const isWindows = process.platform === 'win32';
-const npmRunner = isWindows ? 'cmd' : 'npm';
-const wrapNpmArgs = (args) =>
-  isWindows ? ['/c', 'npm', ...args] : args;
+const packageManager = isWindows ? 'pnpm.cmd' : 'pnpm';
 
 const run = (label, command, args, cwd) => {
   console.log(`\n> ${label}`);
@@ -26,5 +24,5 @@ const run = (label, command, args, cwd) => {
 console.log('Frontend validation: type-check + JavaScript syntax checks.');
 console.log('Note: the historical `next lint` command is not compatible with the current Next.js toolchain in this repository.');
 
-run('TypeScript type-check', npmRunner, wrapNpmArgs(['run', 'type-check']), frontendDir);
+run('TypeScript type-check', packageManager, ['run', 'type-check'], frontendDir);
 run('JavaScript syntax checks', process.execPath, [resolve(scriptDir, 'check-js-syntax.mjs'), frontendDir], repoRoot);

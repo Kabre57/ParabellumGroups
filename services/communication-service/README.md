@@ -85,10 +85,10 @@ SMTP_FROM=noreply@example.com
 ## Installation
 
 ```bash
-npm install
-npx prisma generate
-npx prisma db push
-npm start
+pnpm install
+pnpm exec prisma generate
+pnpm exec prisma db push
+pnpm start
 ```
 
 ## Dépendances

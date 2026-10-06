@@ -1,6 +1,7 @@
 {
   "name": "billing-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "description": "Service de gestion de facturation et devis",
   "main": "server.js",
   "scripts": {

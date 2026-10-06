@@ -37,7 +37,7 @@ Le service s'exécute sur le port **4012**.
 
 ```bash
 cd services/billing-service
-npm install
+pnpm install
 ```
 
 ## Configuration
@@ -54,29 +54,29 @@ PORT=4012
 
 ### Générer le client Prisma
 ```bash
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
 ### Créer et appliquer les migrations
 ```bash
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 ### Ouvrir Prisma Studio
 ```bash
-npm run prisma:studio
+pnpm run prisma:studio
 ```
 
 ## Démarrage
 
 ### Mode production
 ```bash
-npm start
+pnpm start
 ```
 
 ### Mode développement
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ## API Endpoints

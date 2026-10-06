@@ -16,7 +16,7 @@ Service de microservice d'authentification complet avec:
 
 ### 1. Installation des dépendances
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Configuration de l'environnement
@@ -41,10 +41,10 @@ REFRESH_TOKEN_EXPIRES_IN=30d
 ### 3. Configuration de la base de données
 ```bash
 # Générer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Appliquer les migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 ### 4. Vérification de la configuration
@@ -55,10 +55,10 @@ node check-setup.js
 ### 5. Démarrage du service
 ```bash
 # Mode développement (avec auto-reload)
-npm run dev
+pnpm run dev
 
 # Mode production
-npm start
+pnpm start
 ```
 
 Le service sera accessible sur: **http://localhost:4001**
@@ -200,15 +200,15 @@ Invoke-WebRequest -Uri http://localhost:4001/api/auth/register `
 
 ```bash
 # Développement
-npm run dev              # Démarrer avec nodemon
+pnpm run dev              # Démarrer avec nodemon
 
 # Production
-npm start                # Démarrer en mode production
+pnpm start                # Démarrer en mode production
 
 # Base de données
-npm run prisma:studio    # Interface graphique DB
-npm run prisma:generate  # Générer le client Prisma
-npm run prisma:migrate   # Appliquer les migrations
+pnpm run prisma:studio    # Interface graphique DB
+pnpm run prisma:generate  # Générer le client Prisma
+pnpm run prisma:migrate   # Appliquer les migrations
 
 # Vérification
 node check-setup.js      # Vérifier la configuration
@@ -274,7 +274,7 @@ node check-setup.js      # Vérifier la configuration
 node check-setup.js
 
 # Vérifier les dépendances
-npm install
+pnpm install
 
 # Vérifier le port
 Get-NetTCPConnection -LocalPort 4001
@@ -283,10 +283,10 @@ Get-NetTCPConnection -LocalPort 4001
 ### Erreurs de base de données
 ```bash
 # Régénérer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Vérifier la connexion
-npx prisma db pull
+pnpm exec prisma db pull
 ```
 
 ### Problèmes de tokens
@@ -315,10 +315,10 @@ docker run -p 4001:4001 --env-file .env parabellum-auth-service
 
 ### Production
 1. Configurer les variables d'environnement
-2. Installer les dépendances: `npm ci --production`
-3. Générer Prisma: `npm run prisma:generate`
-4. Appliquer les migrations: `npm run prisma:migrate`
-5. Démarrer: `npm start`
+2. Installer les dépendances: `pnpm install --prod --frozen-lockfile`
+3. Générer Prisma: `pnpm run prisma:generate`
+4. Appliquer les migrations: `pnpm run prisma:migrate`
+5. Démarrer: `pnpm start`
 
 ## 📈 Performances
 

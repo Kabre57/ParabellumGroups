@@ -7,7 +7,7 @@ Ce service gère toutes les opérations liées à la prospection commerciale.
 1. Installer les dépendances :
 ```bash
 cd services/commercial-service
-npm install
+pnpm install
 ```
 
 2. Créer le fichier .env :
@@ -32,17 +32,17 @@ CREATE DATABASE parabellum_commercial;
 
 4. Générer le client Prisma :
 ```bash
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
 5. Appliquer les migrations :
 ```bash
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 6. Démarrer le service :
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Le service sera disponible sur http://localhost:4004

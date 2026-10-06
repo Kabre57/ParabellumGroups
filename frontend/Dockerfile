@@ -5,16 +5,12 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copie des fichiers de dépendances
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Installation des dépendances
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm,sharing=locked \
-    for attempt in 1 2 3; do \
-      npm ci --legacy-peer-deps --prefer-offline --no-audit --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=300000 && break; \
-      if [ "$attempt" = "3" ]; then exit 1; fi; \
-      echo "npm ci failed, retrying in 10s..."; \
-      sleep 10; \
-    done
+RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile --prefer-offline
 
 # Copie du reste du code source
 COPY . .
@@ -24,7 +20,7 @@ ARG API_GATEWAY_URL=http://api-gateway:3001
 ENV API_GATEWAY_URL=${API_GATEWAY_URL}
 
 # Construction de l'application Next.js
-RUN npm run build
+RUN pnpm run build
 
 # Étape 2 : Exécution
 FROM node:22-alpine AS runner
@@ -54,5 +50,5 @@ USER nextjs
 
 EXPOSE 3000
 
-# Utilise next start au lieu de npm start pour de meilleures performances
-CMD ["npx", "next", "start"]
+# Lance directement le binaire Next.js dans l’image d’exécution.
+CMD ["node", "node_modules/next/dist/bin/next", "start"]

@@ -92,56 +92,6 @@ exports.getProjectStats = async (req, res) => {
   }
 };
 
-exports.getHRStats = async (req, res) => {
-  try {
-    const { dateDebut, dateFin } = req.query;
-
-    const stats = {
-      periode: { dateDebut, dateFin },
-      effectifs: {
-        total: 145,
-        cdi: 120,
-        cdd: 15,
-        stagiaires: 10
-      },
-      turnover: {
-        taux: 8.5,
-        entrees: 12,
-        sorties: 8,
-        variation: -1.2
-      },
-      absences: {
-        tauxAbsenteisme: 3.2,
-        conges: 450,
-        maladies: 120,
-        autres: 30
-      },
-      formations: {
-        nombre: 45,
-        heures: 1200,
-        budget: 85000,
-        tauxParticipation: 78.5
-      },
-      satisfaction: {
-        score: 7.8,
-        variation: 0.3,
-        tauxReponse: 82.0
-      },
-      recrutement: {
-        postesOuverts: 8,
-        candidatures: 156,
-        entretiens: 24,
-        embauches: 5
-      }
-    };
-
-    res.json(stats);
-  } catch (error) {
-    console.error('Erreur récupération stats RH:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des statistiques RH' });
-  }
-};
-
 exports.getFinanceStats = async (req, res) => {
   try {
     const { dateDebut, dateFin, type } = req.query;

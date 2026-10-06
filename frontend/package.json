@@ -1,6 +1,7 @@
 {
   "name": "parabellum-erp-frontend",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -58,10 +59,5 @@
   },
   "engines": {
     "node": ">=18.20.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "@next/swc-win32-x64-msvc": "15.5.11"
-    }
   }
 }

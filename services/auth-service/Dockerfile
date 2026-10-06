@@ -11,23 +11,14 @@ ARG PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 ENV PRISMA_ENGINES_MIRROR=${PRISMA_ENGINES_MIRROR} \
     PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 
-# Configure npm for better network reliability
-RUN npm config set fetch-timeout 60000 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set fetch-retries 5
+RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm,sharing=locked \
-    for attempt in 1 2 3; do \
-      npm ci --prefer-offline --no-audit --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=300000 && break; \
-      if [ "$attempt" = "3" ]; then exit 1; fi; \
-      echo "npm ci failed, retrying in 10s..."; \
-      sleep 10; \
-    done
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile --prefer-offline
 
 # Copy source code
 COPY . .
@@ -35,7 +26,7 @@ COPY . .
 # Try to generate Prisma client during build. In restricted networks the Prisma
 # binary CDN can be unavailable; the runtime entrypoint has a SQL fallback for
 # local auth bootstrap in that case.
-RUN npx prisma generate --schema=prisma/schema.prisma || (echo "Prisma generate failed; auth-service will use SQL fallback if needed" && touch /app/.prisma-generate-failed)
+RUN pnpm exec prisma generate --schema=prisma/schema.prisma || (echo "Prisma generate failed; auth-service will use SQL fallback if needed" && touch /app/.prisma-generate-failed)
 
 # Copy and make entrypoint executable
 COPY docker-entrypoint.sh /usr/local/bin/

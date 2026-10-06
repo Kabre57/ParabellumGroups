@@ -1,13 +1,14 @@
 {
   "name": "inventory-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "description": "Service de gestion des stocks et inventaires",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "npx prisma migrate dev",
-    "studio": "npx prisma studio"
+    "migrate": "prisma migrate dev",
+    "studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "5.14.0",

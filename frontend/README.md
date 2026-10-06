@@ -14,13 +14,13 @@
 
 ```bash
 # 1. Installer les dépendances
-npm install
+pnpm install
 
 # 2. Créer le fichier de configuration
 cp env.template .env
 
 # 3. Démarrer le serveur de développement
-npm run dev
+pnpm run dev
 ```
 
 **✅ Ouvrir** : http://localhost:3000
@@ -32,7 +32,7 @@ npm run dev
 | Logiciel | Version | Vérification |
 |----------|---------|--------------|
 | Node.js | >= 18.20.0 | `node --version` |
-| npm | >= 9.0.0 | `npm --version` |
+| pnpm | >= 11.22.0 | `pnpm --version` |
 | Backend | En ligne | http://localhost:3001/api/health |
 
 ⚠️ **Le backend doit être démarré** avant le frontend !
@@ -123,7 +123,7 @@ frontend/
 │   └── icons/
 │
 ├── Configuration
-├── package.json                  ← Dépendances npm
+├── package.json                  ← DéD?pendances pnpm
 ├── tsconfig.json                 ← Configuration TypeScript
 ├── tailwind.config.js            ← Configuration Tailwind
 ├── next.config.js                ← Configuration Next.js
@@ -195,15 +195,15 @@ frontend/
 
 ```bash
 # Développement
-npm run dev          # Démarrer serveur développement (port 3000)
+pnpm run dev          # Démarrer serveur développement (port 3000)
 
 # Production
-npm run build        # Build optimisé pour production
-npm start            # Démarrer serveur production
+pnpm run build        # Build optimisé pour production
+pnpm start            # Démarrer serveur production
 
 # Qualité du code
-npm run lint         # Linter ESLint
-npm run type-check   # Vérification TypeScript (sans compilation)
+pnpm run lint         # Linter ESLint
+pnpm run type-check   # Vérification TypeScript (sans compilation)
 ```
 
 ---
@@ -531,7 +531,7 @@ const { register, handleSubmit } = useForm({
 ### Tests Unitaires (Jest + React Testing Library)
 
 ```bash
-npm install --save-dev jest @testing-library/react @testing-library/jest-dom
+pnpm add --save-dev jest @testing-library/react @testing-library/jest-dom
 ```
 
 **Exemple** :
@@ -550,7 +550,7 @@ describe('Button', () => {
 ### Tests E2E (Playwright)
 
 ```bash
-npm install --save-dev @playwright/test
+pnpm add --save-dev @playwright/test
 ```
 
 ---
@@ -560,8 +560,8 @@ npm install --save-dev @playwright/test
 ### Build Production
 
 ```bash
-npm run build
-npm start
+pnpm run build
+pnpm start
 ```
 
 ### Variables d'Environnement
@@ -577,7 +577,7 @@ NODE_ENV=production
 
 ```bash
 # Installer Vercel CLI
-npm install -g vercel
+pnpm add -g vercel
 
 # Déployer
 vercel
@@ -593,9 +593,9 @@ vercel --prod
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN pnpm install
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM node:18-alpine
 WORKDIR /app
@@ -603,7 +603,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
 ```
 
 **Build & Run** :
@@ -623,7 +623,7 @@ docker run -p 3000:3000 parabellum-frontend
 **Solution** :
 ```bash
 rm -rf node_modules
-npm install
+pnpm install
 ```
 
 ---
@@ -758,10 +758,10 @@ if (!mounted) return null;
 
 ## ✅ CHECKLIST POST-INSTALLATION
 
-- [ ] `npm install` terminé sans erreur
+- [ ] `pnpm install` terminé sans erreur
 - [ ] Fichier `.env` créé depuis `env.template`
 - [ ] Backend démarré et accessible (http://localhost:3001/api/health)
-- [ ] `npm run dev` démarre sans erreur
+- [ ] `pnpm run dev` démarre sans erreur
 - [ ] Page login accessible (http://localhost:3000)
 - [ ] Connexion réussie
 - [ ] Dashboard accessible
@@ -775,7 +775,7 @@ if (!mounted) return null;
 
 1. **Vérifier les logs** :
    - Console navigateur (F12 → Console)
-   - Terminal où tourne `npm run dev`
+   - Terminal où tourne `pnpm run dev`
 
 2. **Vérifier le backend** :
    ```bash

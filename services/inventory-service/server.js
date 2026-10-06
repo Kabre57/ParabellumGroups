@@ -20,6 +20,16 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// La sonde Docker vérifie la disponibilité sans authentification.
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'inventory-service',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(authenticateUser);
 
 // Rate limiting
@@ -44,15 +54,6 @@ app.use('/api/inventory/inventaires', inventaireRoutes);
 app.use('/api/inventory/equipements', equipementRoutes);
 app.use('/api/inventory/maintenances', maintenanceRoutes);
 app.use('/api/inventory/receptions', receptionRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'inventory-service',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Gestion des erreurs 404
 app.use((req, res) => {

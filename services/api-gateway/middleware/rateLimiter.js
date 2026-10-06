@@ -1,5 +1,6 @@
 const rateLimit = require('express-rate-limit');
 const config = require('../utils/config');
+const { createRateLimitStore } = require('../utils/rateLimitStore');
 
 const globalRateLimiter = rateLimit({
   windowMs: config.RATE_LIMIT.windowMs,
@@ -10,6 +11,7 @@ const globalRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: createRateLimitStore('global'),
 });
 
 const authRateLimiter = rateLimit({
@@ -19,7 +21,8 @@ const authRateLimiter = rateLimit({
     success: false,
     message: 'Trop de tentatives de connexion, veuillez réessayer dans 15 minutes'
   },
-  skipSuccessfulRequests: true
+  skipSuccessfulRequests: true,
+  store: createRateLimitStore('auth')
 });
 
 module.exports = {

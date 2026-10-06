@@ -37,6 +37,16 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// La sonde Docker vérifie la disponibilité sans authentification.
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'procurement-service',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(authenticateUser);
 app.use((req, res, next) => {
   req.userId = req.user?.id;
@@ -47,15 +57,6 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`);
   next();
-});
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'procurement-service',
-    timestamp: new Date().toISOString()
-  });
 });
 
 // Routes

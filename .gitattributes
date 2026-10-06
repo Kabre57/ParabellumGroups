@@ -2,4 +2,3 @@
 /scripts/postgres-bootstrap.sh text eol=lf
 /scripts/service-entrypoint.sh text eol=lf
 /services/auth-service/docker-entrypoint.sh text eol=lf
-/services/hr-service/docker-entrypoint.sh text eol=lf

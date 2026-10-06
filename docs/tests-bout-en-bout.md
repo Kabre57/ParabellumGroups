@@ -17,13 +17,13 @@ Les tests de fumée vérifient que l’interface Web et la passerelle répondent
    ```powershell
    $env:E2E_EMAIL = "compte-test@example.com"
    $env:E2E_PASSWORD = "mot-de-passe-du-compte-test"
-   npm run test:e2e
+   pnpm run test:e2e
    ```
 
    Bash :
 
    ```sh
-   E2E_EMAIL="compte-test@example.com" E2E_PASSWORD="mot-de-passe-du-compte-test" npm run test:e2e
+   E2E_EMAIL="compte-test@example.com" E2E_PASSWORD="mot-de-passe-du-compte-test" pnpm run test:e2e
    ```
 
 Les URL par défaut sont `http://localhost:3000` pour le frontend et `http://localhost:3001` pour la passerelle. Elles peuvent être remplacées avec `E2E_FRONTEND_URL` et `E2E_GATEWAY_URL`. `E2E_TIMEOUT_MS` règle le délai maximal d’une requête.

@@ -1,6 +1,7 @@
 {
   "name": "parabellum-auth-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "description": "Service d'authentification et gestion des utilisateurs pour Parabellum Groups",
   "main": "index.js",
   "scripts": {

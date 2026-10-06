@@ -16,6 +16,12 @@ const PORT = process.env.PORT || 4002;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// La sonde Docker doit pouvoir vérifier le service sans jeton utilisateur.
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', service: 'communication-service' });
+});
+
 app.use(authenticateUser);
 
 // Routes
@@ -23,11 +29,6 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/campagnes', campagneRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'communication-service' });
-});
 
 // Démarrage du serveur
 const startServer = async () => {

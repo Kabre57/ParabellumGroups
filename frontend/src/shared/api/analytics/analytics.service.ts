@@ -1,5 +1,5 @@
 import { apiClient } from '../shared/client';
-import { OverviewDashboard, FinancialDashboardResponse, TechnicalDashboard, HRDashboard } from './types';
+import { OverviewDashboard, FinancialDashboardResponse, TechnicalDashboard } from './types';
 
 export interface SalesStats {
   chiffreAffaires: {
@@ -55,42 +55,10 @@ export interface ProjectsStats {
 }
 
 export interface HRStats {
-  periode: { dateDebut: string; dateFin: string };
-  effectifs: {
-    total: number;
-    cdi: number;
-    cdd: number;
-    stagiaires: number;
-  };
-  turnover: {
-    taux: number;
-    entrees: number;
-    sorties: number;
-    variation: number;
-  };
-  absences: {
-    tauxAbsenteisme: number;
-    conges: number;
-    maladies: number;
-    autres: number;
-  };
-  formations: {
-    nombre: number;
-    heures: number;
-    budget: number;
-    tauxParticipation: number;
-  };
-  satisfaction: {
-    score: number;
-    variation: number;
-    tauxReponse: number;
-  };
-  recrutement: {
-    postesOuverts: number;
-    candidatures: number;
-    entretiens: number;
-    embauches: number;
-  };
+  totalEmployes: number;
+  lastPeriode: string;
+  totalPayroll: number;
+  enConge: number;
 }
 
 export interface FinanceStats {
@@ -207,8 +175,8 @@ export const analyticsService = {
   },
 
   async getHRStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<HRStats> {
-    const response = await apiClient.get('/analytics/hr', { params });
-    return response.data;
+    const response = await apiClient.get('/hr/analytics/global-stats', { params });
+    return response.data?.data ?? response.data;
   },
 
   async getFinanceStats(params?: { period?: string; startDate?: string; endDate?: string }): Promise<FinanceStats> {

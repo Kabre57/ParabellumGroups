@@ -1,6 +1,7 @@
 {
   "name": "commercial-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "description": "Microservice de gestion commerciale et prospection",
   "main": "server.js",
   "scripts": {

@@ -2,10 +2,13 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Users, CalendarDays, Wallet, CalendarClock } from 'lucide-react';
 import { analyticsService } from '@/shared/api/analytics';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { Users, TrendingUp, DollarSign, Calendar, Briefcase } from 'lucide-react';
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(Number(amount) || 0);
 
 export function HRDashboard() {
   const { data, isLoading, error } = useQuery({
@@ -14,121 +17,37 @@ export function HRDashboard() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div>;
   }
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-red-600 dark:text-red-400">
-            Erreur lors du chargement des données
-          </p>
-        </div>
+      <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        Impossible de charger les indicateurs RH depuis l’API RH dédiée. Vérifiez `HR_SERVICE_URL` et l’accès à cette API.
       </div>
     );
   }
 
-  const headcount = data.effectifs;
-  const turnover = data.turnover;
-  const absences = data.absences;
-  const recrutement = data.recrutement;
-  const formations = data.formations;
-
-  const statsCards = [
-    {
-      title: 'Effectif total',
-      value: headcount?.total ?? 0,
-      icon: Users,
-      color: 'bg-blue-100 dark:bg-blue-900/20',
-      iconColor: 'text-blue-600 dark:text-blue-400',
-    },
-    {
-      title: 'Turnover',
-      value: `${(turnover?.taux ?? 0).toFixed(1)}%`,
-      icon: TrendingUp,
-      color: 'bg-green-100 dark:bg-green-900/20',
-      iconColor: 'text-green-600 dark:text-green-400',
-    },
-    {
-      title: 'Absenteisme',
-      value: `${(absences?.tauxAbsenteisme ?? 0).toFixed(1)}%`,
-      icon: Calendar,
-      color: 'bg-orange-100 dark:bg-orange-900/20',
-      iconColor: 'text-orange-600 dark:text-orange-400',
-    },
-    {
-      title: 'Postes ouverts',
-      value: recrutement?.postesOuverts ?? 0,
-      icon: Briefcase,
-      color: 'bg-purple-100 dark:bg-purple-900/20',
-      iconColor: 'text-purple-600 dark:text-purple-400',
-    },
+  const cards = [
+    { title: 'Effectif actif', value: String(data.totalEmployes ?? 0), icon: Users },
+    { title: 'Dernière période de paie', value: data.lastPeriode || 'Aucune', icon: CalendarDays },
+    { title: 'Masse salariale', value: formatCurrency(data.totalPayroll), icon: Wallet },
+    { title: 'Employés en congé', value: String(data.enConge ?? 0), icon: CalendarClock },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${stat.iconColor}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Formation & Budget
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Nombre</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formations?.nombre ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Heures</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formations?.heures ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Budget</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formations?.budget ?? 0}
-                </span>
-              </div>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {cards.map(({ title, value, icon: Icon }) => (
+        <Card key={title}>
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-sm text-muted-foreground">{title}</p>
+              <p className="mt-2 text-2xl font-bold">{value}</p>
             </div>
+            <Icon className="h-6 w-6 text-blue-600" aria-hidden="true" />
           </CardContent>
         </Card>
-      </div>
+      ))}
     </div>
   );
 }

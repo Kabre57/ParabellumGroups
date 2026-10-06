@@ -22,7 +22,7 @@ const config = {
     PROJECTS: process.env.PROJECTS_SERVICE_URL || 'http://localhost:4006',
     PROCUREMENT: process.env.PROCUREMENT_SERVICE_URL || 'http://localhost:4007',
     CUSTOMERS: process.env.CUSTOMERS_SERVICE_URL || 'http://localhost:4008',
-    HR: process.env.HR_SERVICE_URL || 'http://localhost:4009',
+    HR: process.env.HR_SERVICE_URL || 'http://host.docker.internal:8001',
     BILLING: process.env.BILLING_SERVICE_URL || 'http://localhost:4010',
     ANALYTICS: process.env.ANALYTICS_SERVICE_URL || 'http://localhost:4011',
     NOTIFICATIONS: process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:4012'

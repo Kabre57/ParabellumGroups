@@ -16,7 +16,6 @@ node_modules/
 dist/
 build/
 *.log
-npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
@@ -36,7 +35,6 @@ Thumbs.db
 
 # Prisma
 prisma/dev.db
-prisma/migrations/**/*.sql
 
 # Next.js
 .next/
@@ -46,6 +44,11 @@ out/
 coverage/
 .nyc_output/
 *.tsbuildinfo
+backups/
+.pnpm-store/
+
+# Local database snapshot; do not commit or deploy it
+/billing-before-prisma-resolve.sql
 
 .env
 **/.env

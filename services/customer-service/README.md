@@ -55,23 +55,23 @@ git clone https://github.com/votre-entreprise/crm-service.git
 cd crm-service
 
 # 2. Installer les dépendances
-npm install
+pnpm install
 
 # 3. Configurer l'environnement
 cp .env.example .env
 # Éditer .env avec vos paramètres
 
 # 4. Générer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # 5. Exécuter les migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 
 # 6. (Optionnel) Charger les données initiales
-npm run prisma:seed
+pnpm run prisma:seed
 
 # 7. Démarrer le service
-npm run dev
+pnpm run dev
 ```
 
 ## Endpoints API

@@ -5,13 +5,13 @@
 ### Initial Setup
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Generate Prisma Client
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Run database migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 
 # Verify setup
 node check-setup.js
@@ -20,40 +20,40 @@ node check-setup.js
 ### Running the Service
 ```bash
 # Production mode
-npm start
+pnpm start
 
 # Development mode (with auto-reload)
-npm run dev
+pnpm run dev
 
 # Check Prisma Studio (Database GUI)
-npm run prisma:studio
+pnpm run prisma:studio
 ```
 
 ### Database Commands
 ```bash
 # Generate Prisma Client
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Create and apply migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 
 # Reset database (WARNING: Deletes all data)
-npx prisma migrate reset
+pnpm exec prisma migrate reset
 
 # View database in browser
-npm run prisma:studio
+pnpm run prisma:studio
 
 # Format Prisma schema
-npx prisma format
+pnpm exec prisma format
 
 # Validate Prisma schema
-npx prisma validate
+pnpm exec prisma validate
 ```
 
 ### Testing
 ```bash
 # Run tests (when implemented)
-npm test
+pnpm test
 
 # Manual testing guide
 node tests/manual-tests.js
@@ -198,17 +198,17 @@ SELECT * FROM audit_logs ORDER BY "createdAt" DESC LIMIT 10;
 
 ### Create new migration
 ```bash
-npx prisma migrate dev --name migration_name
+pnpm exec prisma migrate dev --name migration_name
 ```
 
 ### Apply pending migrations
 ```bash
-npx prisma migrate deploy
+pnpm exec prisma migrate deploy
 ```
 
 ### View migration status
 ```bash
-npx prisma migrate status
+pnpm exec prisma migrate status
 ```
 
 ### Rollback last migration (manual)
@@ -224,14 +224,14 @@ npx prisma migrate status
 ### Clear node_modules and reinstall
 ```bash
 Remove-Item -Recurse -Force node_modules
-Remove-Item package-lock.json
-npm install
+Remove-Item pnpm-lock.yaml
+pnpm install
 ```
 
 ### Reset Prisma Client
 ```bash
 Remove-Item -Recurse -Force node_modules/.prisma
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
 ### Check environment variables
@@ -242,7 +242,7 @@ Get-Content .env
 
 ### Verify Prisma connection
 ```bash
-npx prisma db pull
+pnpm exec prisma db pull
 ```
 
 ## 📊 Performance Monitoring
@@ -282,12 +282,12 @@ node -c src/routes/index.js
 
 ### Format code (if using Prettier)
 ```bash
-npx prettier --write "src/**/*.js"
+pnpm exec prettier --write "src/**/*.js"
 ```
 
 ### Lint code (if using ESLint)
 ```bash
-npx eslint src/
+pnpm exec eslint src/
 ```
 
 ## 🎯 Production Deployment
@@ -303,8 +303,8 @@ NODE_ENV=production
 
 ### Build for production
 ```bash
-npm ci --production
-npm run prisma:generate
+pnpm install --prod --frozen-lockfile
+pnpm run prisma:generate
 ```
 
 ### Start with PM2

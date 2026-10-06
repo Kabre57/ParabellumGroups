@@ -1,5 +1,6 @@
 const rateLimit = require('express-rate-limit');
 const { recordRateLimitHit } = require('./metrics');
+const { createRateLimitStore } = require('../utils/rateLimitStore');
 
 /**
  * Configuration de base pour les rate limiters
@@ -21,7 +22,11 @@ const createServiceLimiter = (serviceName, options = {}) => {
     }
   };
 
-  return rateLimit({ ...defaultOptions, ...options });
+  return rateLimit({
+    ...defaultOptions,
+    ...options,
+    store: createRateLimitStore(serviceName),
+  });
 };
 
 /**

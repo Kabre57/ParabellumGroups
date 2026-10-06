@@ -23,7 +23,7 @@ if [ -f "/app/.prisma-generate-failed" ]; then
   echo "⚠️ Prisma generate indisponible au build; passage direct au fallback si necessaire"
 else
   echo "🔄 Régénérant le client Prisma..."
-  if npx prisma generate --schema=prisma/schema.prisma; then
+  if pnpm exec prisma generate --schema=prisma/schema.prisma; then
     echo "✅ Prisma client régénéré avec succès"
   else
     echo "⚠️ Prisma generate échoué, continuant..."
@@ -43,7 +43,7 @@ fi
 # an empty database, leaving upgrades unapplied on existing installations.
 if [ "$DB_FALLBACK_MODE" = "false" ]; then
   echo "🔄 Application des migrations Prisma..."
-  if ! npx prisma migrate deploy; then
+  if ! pnpm exec prisma migrate deploy; then
     echo "❌ Impossible d'appliquer les migrations Prisma"
     exit 1
   fi
@@ -65,11 +65,11 @@ if [ "$DB_FALLBACK_MODE" = "false" ]; then
   fi
   
   echo "🔐 Synchronisation des rôles et permissions système..."
-  npm run sync:roles || echo "⚠️ Role synchronization failed, continuing startup..."
+  pnpm run sync:roles || echo "⚠️ Role synchronization failed, continuing startup..."
 else
   echo "⏭️  Initialisation SQL de secours pour auth-service"
   node scripts/bootstrap-auth-fallback.js
 fi
 
 echo "🚀 Démarrage de l'application..."
-exec npm start
+exec pnpm start

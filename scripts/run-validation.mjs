@@ -5,17 +5,37 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const isWindows = process.platform === 'win32';
-const npmRunner = isWindows ? 'cmd' : 'npm';
-const wrapNpmArgs = (args) => (isWindows ? ['/c', 'npm', ...args] : args);
+const packageManager = isWindows ? 'pnpm.cmd' : 'pnpm';
 
 const steps = [
-  { label: 'Frontend lint', cwd: 'frontend', command: npmRunner, args: wrapNpmArgs(['run', 'lint']) },
-  { label: 'Notification service build', cwd: 'services/notification-service', command: npmRunner, args: wrapNpmArgs(['run', 'build']) },
-  { label: 'Auth service tests', cwd: 'services/auth-service', command: npmRunner, args: wrapNpmArgs(['test']) },
-  { label: 'API Gateway tests', cwd: 'services/api-gateway', command: npmRunner, args: wrapNpmArgs(['test']) },
-  { label: 'Billing service tests', cwd: 'services/billing-service', command: npmRunner, args: wrapNpmArgs(['test']) },
-  { label: 'Customer service lint', cwd: 'services/customer-service', command: npmRunner, args: wrapNpmArgs(['run', 'lint']) },
-  { label: 'Customer service tests', cwd: 'services/customer-service', command: npmRunner, args: wrapNpmArgs(['test']) },
+  { label: 'Frontend lint', cwd: 'frontend', command: packageManager, args: ['run', 'lint'] },
+  {
+    label: 'Backend JavaScript syntax (services without unit-test jobs)',
+    cwd: '.',
+    command: process.execPath,
+    args: [
+      'scripts/check-js-syntax.mjs',
+      'services/communication-service',
+      'services/technical-service',
+      'services/commercial-service',
+      'services/inventory-service',
+      'services/project-service',
+      'services/procurement-service',
+      'services/analytics-service',
+      'services/notification-service',
+    ],
+  },
+  { label: 'Notification service build', cwd: 'services/notification-service', command: packageManager, args: ['run', 'build'] },
+  { label: 'Auth service tests', cwd: 'services/auth-service', command: packageManager, args: ['test'] },
+  {
+    label: 'API Gateway tests (pnpm)',
+    cwd: 'services/api-gateway',
+    command: packageManager,
+    args: ['test'],
+  },
+  { label: 'Billing service tests', cwd: 'services/billing-service', command: packageManager, args: ['test'] },
+  { label: 'Customer service lint', cwd: 'services/customer-service', command: packageManager, args: ['run', 'lint'] },
+  { label: 'Customer service tests', cwd: 'services/customer-service', command: packageManager, args: ['test'] },
 ];
 
 for (const step of steps) {

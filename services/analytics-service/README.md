@@ -84,17 +84,16 @@ Service de gestion des analytics, rapports, dashboards et KPIs.
 ### Analytics
 - GET /api/analytics/sales - Statistiques de ventes
 - GET /api/analytics/projects - Statistiques de projets
-- GET /api/analytics/hr - Statistiques RH
 - GET /api/analytics/finance - Statistiques financières
 
 ## Installation
 
 ```bash
-npm install
-npx prisma generate
-npm start
-npx prisma migrate dev
-npm start
+pnpm install
+pnpm exec prisma generate
+pnpm start
+pnpm exec prisma migrate dev
+pnpm start
 ```
 
 ## Variables d'environnement

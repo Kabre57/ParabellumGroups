@@ -3,6 +3,10 @@ const { hrServiceLimiter } = require('../../middleware/serviceLimiters');
 
 const hrPermissionRules = [
   {
+    pattern: /^\/hr\/analytics/,
+    permissions: { GET: 'reports.read_hr' }
+  },
+  {
     pattern: /^\/employees/,
     permissions: {
       GET: 'employees.read',
@@ -54,7 +58,7 @@ const hrPermissionRules = [
   }
 ];
 /**
- * Path rewrite pour hr-service
+ * Path rewrite de compatibilité entre l'interface Parabellum et l'API RH dédiée.
  */
 const rewriteHrPath = (path) => {
   console.log('[HR Path Rewrite] Original path:', path);
@@ -177,7 +181,7 @@ const rewriteHrPath = (path) => {
 };
 
 /**
- * Configuration des routes hr-service
+ * Configuration du proxy vers l'API RH dédiée définie par HR_SERVICE_URL.
  */
 module.exports = {
   serviceName: 'HR',

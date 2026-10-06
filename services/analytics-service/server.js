@@ -14,6 +14,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'Analytics Service',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(authenticate);
 
 app.use('/api/dashboards', dashboardRoutes);
@@ -21,14 +30,6 @@ app.use('/api/widgets', widgetRoutes);
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/kpis', kpiRoutes);
 app.use('/api/analytics', analyticsRoutes);
-
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'Analytics Service',
-    timestamp: new Date().toISOString()
-  });
-});
 
 app.use((err, req, res, next) => {
   console.error('Erreur:', err);

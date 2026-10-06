@@ -14,7 +14,6 @@ ParabellumGroups/
 │   ├── customer-service/     # CRM (clients, contacts, opportunites)
 │   ├── billing-service/      # Devis & facturation
 │   ├── project-service/      # Projets, taches, jalons
-│   ├── hr-service/           # RH & paie (bulletins, exports, paie CI)
 │   ├── technical-service/    # Missions & interventions
 │   ├── procurement-service/  # Achats & logistique
 │   ├── communication-service/# Emails & campagnes multicanal
@@ -32,10 +31,12 @@ ParabellumGroups/
 docker compose up -d --build
 ```
 
+Le guide des migrations, de la mise à jour VPS et des sauvegardes/restaurations est dans [`docs/deploiement-et-exploitation.md`](docs/deploiement-et-exploitation.md).
+
 ## 🔧 Tests & validation
 
 ```
-npm run validate
+pnpm run validate
 ```
 
 ## 📁 Services principaux
@@ -43,7 +44,7 @@ npm run validate
 - **Commercial** : prospection, prospection terrain, pipeline, devis, campagnes/relances.
 - **CRM** : clients, contacts, documents, interactions.
 - **Projets** : portefeuille projets, taches, jalons, planning.
-- **RH / Paie** : employes, paie, exports, bulletins, conformité CNPS/DGI/CMU/ITS.
+- **RH / Paie** : les écrans utilisent l’application dédiée configurée par `HR_SERVICE_URL`.
 - **Technique** : missions, interventions, rapports.
 - **Achats** : demandes, proformas, commandes, receptions.
 
@@ -62,7 +63,7 @@ RH / PAIE
 Employés + Contrats
    │
    ▼
-Calcul paie (brut, primes, retenues, IGR)
+Calcul paie via l’application RH dédiée
    │
    ▼
 Bulletin généré → Validation → Paiement
@@ -120,9 +121,8 @@ docker compose ps
 ### `project-service`
 - `DATABASE_URL`
 
-### `hr-service`
-- `DATABASE_URL`
-- `PAYROLL_CURRENCY` (ex: `XOF`)
+### API RH externe
+- `HR_SERVICE_URL` : URL de base de l’application RH/paie dédiée. Les écrans RH de ce dépôt passent par cette API via la passerelle.
 
 ### `communication-service`
 - `DATABASE_URL`

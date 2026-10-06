@@ -1,6 +1,7 @@
 {
   "name": "customer-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "description": "Service de gestion des clients, contacts et contrats",
   "main": "server.js",
   "scripts": {

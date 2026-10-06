@@ -6,7 +6,7 @@
 
 - Node.js 22.x
 - PostgreSQL 15
-- npm
+- pnpm 11.22.0
 
 ### 2. Configuration
 
@@ -24,7 +24,7 @@ PORT=4003
 ### 3. Installation des dépendances
 
 ```powershell
-npm install
+pnpm install
 ```
 
 ### 4. Initialisation de la base de données
@@ -38,22 +38,22 @@ cd ..\..
 **Option B - Manuelle** :
 ```powershell
 # Générer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Créer la base de données et exécuter les migrations
-npx prisma migrate dev --name init
+pnpm exec prisma migrate dev --name init
 ```
 
 ### 5. Démarrer le service
 
 **Mode développement** (avec hot reload) :
 ```powershell
-npm run dev
+pnpm run dev
 ```
 
 **Mode production** :
 ```powershell
-npm start
+pnpm start
 ```
 
 Le service sera accessible sur `http://localhost:4003`
@@ -92,7 +92,7 @@ CREATE DATABASE parabellum_technical;
 
 **Interface graphique Prisma Studio** :
 ```powershell
-npm run prisma:studio
+pnpm run prisma:studio
 ```
 
 Ouvre l'interface sur `http://localhost:5555`
@@ -163,14 +163,14 @@ Stop-Process -Name node -Force
 
 ### Client Prisma non généré
 ```powershell
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
 ## Développement
 
 ### Scripts disponibles
-- `npm start` : Démarrage production
-- `npm run dev` : Démarrage développement avec hot reload
-- `npm run prisma:generate` : Générer le client Prisma
-- `npm run prisma:migrate` : Créer une migration
-- `npm run prisma:studio` : Ouvrir Prisma Studio
+- `pnpm start` : Démarrage production
+- `pnpm run dev` : Démarrage développement avec hot reload
+- `pnpm run prisma:generate` : Générer le client Prisma
+- `pnpm run prisma:migrate` : Créer une migration
+- `pnpm run prisma:studio` : Ouvrir Prisma Studio

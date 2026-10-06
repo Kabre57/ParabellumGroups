@@ -28,20 +28,20 @@ Service de gestion de projets, tâches et jalons pour l'ERP Parabellum.
 
 ```bash
 # Installer les dépendances
-npm install
+pnpm install
 
 # Configurer la base de données
 cp .env.example .env
 # Éditer .env avec vos paramètres
 
 # Générer le client Prisma
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Exécuter les migrations
-npm run prisma:migrate
+pnpm run prisma:migrate
 
 # Démarrer le service
-npm start
+pnpm start
 ```
 
 ## Configuration
@@ -220,13 +220,13 @@ project-service/
 
 ```bash
 # Mode développement avec rechargement automatique
-npm run dev
+pnpm run dev
 
 # Interface Prisma Studio
-npm run prisma:studio
+pnpm run prisma:studio
 
 # Générer le client Prisma après modification du schéma
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
 ## Port

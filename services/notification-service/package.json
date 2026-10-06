@@ -1,6 +1,7 @@
 {
   "name": "notification-service",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.22.0",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

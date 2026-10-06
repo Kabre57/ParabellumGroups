@@ -45,16 +45,16 @@ Service de gestion des stocks, inventaires et équipements pour l'ERP Parabellum
 
 ```bash
 # Installer les dépendances
-npm install
+pnpm install
 
 # Configurer les variables d'environnement
 cp .env.example .env
 
 # Initialiser la base de données
-npx prisma migrate dev
+pnpm exec prisma migrate dev
 
 # Démarrer le service
-npm start
+pnpm start
 ```
 
 ## API Endpoints

@@ -50,6 +50,18 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// La sonde Docker vérifie la disponibilité sans authentification.
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'crm-service',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 app.use(authMiddleware);
 
 // Request logging middleware
@@ -62,17 +74,6 @@ app.use((req, res, next) => {
     userId: req.headers['x-user-id']
   });
   next();
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'crm-service',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
 });
 
 // API Documentation endpoint
