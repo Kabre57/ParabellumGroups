@@ -8,6 +8,7 @@ import Cookies from 'js-cookie';
 class ApiClient {
   private instance: AxiosInstance;
   private accessToken: string | null = null;
+  private enterpriseId: string | null = null;
 
   private isPublicAuthEndpoint(url?: string): boolean {
     if (!url) return false;
@@ -60,6 +61,16 @@ class ApiClient {
             config.headers.Authorization = `Bearer ${token}`;
           }
         }
+        // Injecter X-Enterprise-Id si une entreprise est sélectionnée
+        const enterpriseId = this.enterpriseId ||
+          (typeof window !== 'undefined' ? localStorage.getItem('selectedEnterpriseId') : null);
+        if (enterpriseId && config.headers) {
+          if (typeof config.headers.set === 'function') {
+            config.headers.set('X-Enterprise-Id', enterpriseId);
+          } else {
+            (config.headers as any)['X-Enterprise-Id'] = enterpriseId;
+          }
+        }
         return config;
       },
       (error: AxiosError) => {
@@ -107,6 +118,13 @@ class ApiClient {
         localStorage.removeItem('accessToken');
       }
     }
+  }
+
+  /**
+   * Définit l'entreprise active pour les requêtes suivantes
+   */
+  public setEnterpriseId(enterpriseId: string | null): void {
+    this.enterpriseId = enterpriseId;
   }
 
   /**

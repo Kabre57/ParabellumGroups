@@ -150,6 +150,7 @@ export const paymentsService = {
     startDate?: string;
     endDate?: string;
     enterpriseId?: string | number;
+    enterpriseScope?: 'consolidated';
   }): Promise<{ success: boolean; data: SpendingOverview }> {
     const response = await apiClient.get('/billing/cash-vouchers/spending-overview', { params });
     return normalizeStatsResponse<SpendingOverview>(response.data);

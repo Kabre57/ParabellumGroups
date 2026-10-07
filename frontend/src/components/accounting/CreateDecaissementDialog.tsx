@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,7 @@ import {
 } from '@/components/ui/select';
 import { AccountingAccountPickerDialog } from '@/components/accounting/AccountingAccountPickerDialog';
 import billingService, { type Decaissement, type PurchaseCommitment } from '@/shared/api/billing';
-import { enterpriseApi } from '@/lib/api';
-import { useAuth } from '@/shared/hooks/useAuth';
-import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
-import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 interface CreateDecaissementDialogProps {
   open: boolean;
@@ -54,7 +51,7 @@ const buildInitialState = (commitment?: PurchaseCommitment | null, enterpriseId 
   amountTTC: String(commitment?.amountTTC ?? 0),
   paymentMethod: 'CHEQUE',
   treasuryAccountId: '',
-  enterpriseId: commitment?.enterpriseId ? String(commitment.enterpriseId) : enterpriseId,
+  enterpriseId,
   dateDecaissement: new Date().toISOString().slice(0, 10),
   reference: '',
   notes: '',
@@ -68,19 +65,9 @@ export function CreateDecaissementDialog({
   onSubmit,
   isSubmitting = false,
 }: CreateDecaissementDialogProps) {
-  const { user } = useAuth();
-  const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
-  const canChooseEnterprise =
-    isAdminRole(user) ||
-    hasAnyPermission(user, [
-      'enterprises.read',
-      'enterprises.read_all',
-      'enterprises.manage_logo',
-      'expenses.read_all',
-      'payments.read_all',
-      'accounting.treasury.manage',
-    ]);
-  const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment, userEnterpriseId));
+  const { selectedEnterprise } = useEnterprise();
+  const activeEnterpriseId = String(selectedEnterprise?.id ?? '');
+  const [form, setForm] = useState<FormState>(buildInitialState(defaultCommitment, activeEnterpriseId));
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
   const [vatAccountingAccountId, setVatAccountingAccountId] = useState<string>('');
 
@@ -94,34 +81,21 @@ export function CreateDecaissementDialog({
     queryFn: () => billingService.getAccountingAccounts(),
   });
 
-  const { data: enterprisesResponse } = useQuery({
-    queryKey: ['accounting-enterprises'],
-    queryFn: () => enterpriseApi.getAll({ limit: 100, isActive: true }),
-    enabled: open && (canChooseEnterprise || !userEnterpriseId),
-  });
-
-  const enterprises = useMemo(() => {
-    const allEnterprises = enterprisesResponse?.data ?? [];
-    if (canChooseEnterprise) {
-      return [...allEnterprises].sort((left: any, right: any) => left.name.localeCompare(right.name, 'fr'));
-    }
-    return getAccessibleEnterprises(allEnterprises, user?.enterpriseId);
-  }, [canChooseEnterprise, enterprisesResponse?.data, user?.enterpriseId]);
-
-  const selectedEnterprise = useMemo(
-    () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
-    [enterprises, form.enterpriseId]
-  );
   const hasVat = Number(form.amountTVA || 0) > 0;
   const requiresManualVatAccount = hasVat && !form.commitmentId;
+  const commitmentEnterpriseMismatch = Boolean(
+    defaultCommitment?.enterpriseId &&
+    activeEnterpriseId &&
+    String(defaultCommitment.enterpriseId) !== activeEnterpriseId
+  );
 
   useEffect(() => {
     if (open) {
-      setForm(buildInitialState(defaultCommitment, userEnterpriseId));
+      setForm(buildInitialState(defaultCommitment, activeEnterpriseId));
       setAccountingAccountId('');
       setVatAccountingAccountId('');
     }
-  }, [open, defaultCommitment, userEnterpriseId]);
+  }, [open, defaultCommitment, activeEnterpriseId]);
 
   useEffect(() => {
     if (!hasVat) {
@@ -148,8 +122,8 @@ export function CreateDecaissementDialog({
       amountTTC: Number(form.amountTTC),
       paymentMethod: form.paymentMethod,
       treasuryAccountId: form.treasuryAccountId || undefined,
-      enterpriseId: form.enterpriseId ? Number(form.enterpriseId) : undefined,
-      enterpriseName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
+      enterpriseId: activeEnterpriseId ? Number(activeEnterpriseId) : undefined,
+      enterpriseName: selectedEnterprise?.name || undefined,
       dateDecaissement: new Date(form.dateDecaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
@@ -181,14 +155,14 @@ export function CreateDecaissementDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {(selectedEnterprise?.name || user?.enterprise?.name) && (
+        {selectedEnterprise?.name && (
           <div className="rounded-md border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise?.name || user?.enterprise?.name}</strong>.
+            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise.name}</strong>.
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Beneficiaire</Label>
               <Input
@@ -196,25 +170,6 @@ export function CreateDecaissementDialog({
                 onChange={(e) => updateField('beneficiaryName', e.target.value)}
                 placeholder="Fournisseur ou personne"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Entreprise / Entite</Label>
-              {canChooseEnterprise || !userEnterpriseId ? (
-                <Select value={form.enterpriseId} onValueChange={(v) => updateField('enterpriseId', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selectionner l'entreprise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {enterprises.map((enterprise: any) => (
-                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>
-                        {enterprise.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={user?.enterprise?.name || ''} readOnly />
-              )}
             </div>
           </div>
 
@@ -347,6 +302,12 @@ export function CreateDecaissementDialog({
           </div>
         </div>
 
+        {commitmentEnterpriseMismatch && (
+          <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Cet engagement appartient à une autre entreprise. Sélectionnez cette entreprise dans l&apos;en-tête avant de saisir son règlement.
+          </div>
+        )}
+
         <DialogFooter className="-mx-6 -mb-6 rounded-b-lg border-t bg-slate-50 p-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Annuler
@@ -360,6 +321,8 @@ export function CreateDecaissementDialog({
               Number(form.amountTTC) <= 0 ||
               !form.treasuryAccountId ||
               !form.enterpriseId ||
+              !activeEnterpriseId ||
+              commitmentEnterpriseMismatch ||
               (requiresManualVatAccount && !vatAccountingAccountId) ||
               (!form.commitmentId && !accountingAccountId)
             }

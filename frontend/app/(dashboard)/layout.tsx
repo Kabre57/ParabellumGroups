@@ -9,6 +9,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
 import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
 import { hasAnyPermission, hasPermission, isAdminRole } from '@/shared/permissions';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 import {
   getFallbackDashboardRoute,
   getPreferredAnalyticsRoute,
@@ -21,6 +22,11 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const {
+    selectedEnterprise,
+    enterprises,
+    isLoadingEnterprises,
+  } = useEnterprise();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +50,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const preferredServiceRoute = useMemo(() => getPreferredServiceRoute(user), [user]);
   const preferredAnalyticsRoute = useMemo(() => getPreferredAnalyticsRoute(user), [user]);
   const fallbackRoute = useMemo(() => getFallbackDashboardRoute(user), [user]);
+  const mustSelectEnterprise =
+    isAuthenticated &&
+    !isLoading &&
+    !isLoadingEnterprises &&
+    enterprises.length > 0 &&
+    !selectedEnterprise;
 
   // Vérification d'authentification
   useEffect(() => {
@@ -52,6 +64,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       router.push(`/login?returnUrl=${returnUrl}`);
     }
   }, [isAuthenticated, isLoading, router, pathname]);
+
+  useEffect(() => {
+    if (mustSelectEnterprise) {
+      router.replace('/select-enterprise');
+    }
+  }, [mustSelectEnterprise, router]);
 
   // Fermer la sidebar au changement de route
   useEffect(() => {
@@ -90,6 +108,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   if (!isAuthenticated) return null;
+  if (isLoadingEnterprises || mustSelectEnterprise) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">Chargement de l&apos;entreprise...</p>
+        </div>
+      </div>
+    );
+  }
   if (!isAuthorized && requiredPermission) return null;
 
   return (

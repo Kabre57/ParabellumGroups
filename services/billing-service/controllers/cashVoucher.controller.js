@@ -1,7 +1,7 @@
 const { PrismaClient, CashVoucherStatus, MethodePaiement, CashVoucherFlowType } = require('@prisma/client');
 const XLSX = require('xlsx');
 const { resolveTreasuryAccountId, getTreasuryAccountingAccountId } = require('../utils/treasury');
-const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, assertEnterpriseInScope, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
 const AccountingPostingService = require('../core/services/AccountingPostingService');
 const MappingService = require('../core/services/AccountingMappingService');
@@ -233,8 +233,10 @@ const createImportedVoucherData = async ({ row, req, defaultEnterpriseId, defaul
   const amountTVA = parseAmount(getRowValue(row, ['montanttva', 'amounttva', 'tva']), Math.max(0, amountTTC - amountHT));
   const enterpriseIdValue = getRowValue(row, ['enterpriseId', 'entrepriseId', 'societeId']);
   const enterpriseNameValue = getRowValue(row, ['enterpriseName', 'entrepriseName', 'societeName', 'entreprise']);
-  const resolvedEnterpriseId = enterpriseIdValue ? Number(enterpriseIdValue) : defaultEnterpriseId;
-  const resolvedEnterpriseName = enterpriseNameValue || defaultEnterpriseName || req.user?.enterpriseName || null;
+  const resolvedEnterpriseId = defaultEnterpriseId || (enterpriseIdValue ? Number(enterpriseIdValue) : null);
+  const resolvedEnterpriseName = defaultEnterpriseId
+    ? defaultEnterpriseName || enterpriseNameValue || req.user?.enterpriseName || null
+    : enterpriseNameValue || req.user?.enterpriseName || null;
 
   if (resolvedEnterpriseId) {
     await assertEnterpriseInScope(req, resolvedEnterpriseId, "Vous n'avez pas acces a l'entreprise selectionnee pour cet import.");
@@ -428,11 +430,25 @@ exports.createCashVoucher = async (req, res) => {
       });
     }
 
+    const { enterpriseId: resolvedEnterpriseId, enterpriseName: contextEnterpriseName } =
+      await resolveEnterpriseContext(req, req.body.enterpriseId);
+    if (!resolvedEnterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de créer un bon de caisse.' });
+    }
+    const resolvedEnterpriseName = contextEnterpriseName || req.body.enterpriseName || req.user?.enterpriseName || null;
+
+    await assertEnterpriseInScope(
+      req,
+      resolvedEnterpriseId,
+      "Vous n'avez pas acces a l'entreprise selectionnee pour ce bon de caisse."
+    );
+
     if (sourceType && sourceId) {
       const existingVoucher = await prisma.cashVoucher.findFirst({
         where: {
           sourceType: String(sourceType),
           sourceId: String(sourceId),
+          enterpriseId: resolvedEnterpriseId,
           status: {
             not: 'ANNULE',
           },
@@ -452,15 +468,8 @@ exports.createCashVoucher = async (req, res) => {
       treasuryAccountId,
       paymentMethod,
       user: req.user,
+      enterpriseId: resolvedEnterpriseId,
     });
-    const resolvedEnterpriseId = req.body.enterpriseId ? Number(req.body.enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
-    const resolvedEnterpriseName = req.body.enterpriseName || req.user?.enterpriseName || null;
-
-    await assertEnterpriseInScope(
-      req,
-      resolvedEnterpriseId,
-      "Vous n'avez pas acces a l'entreprise selectionnee pour ce bon de caisse."
-    );
 
     await AccountingPostingService.assertTreasuryAccountPeriodOpen(
       resolvedTreasuryAccountId,
@@ -546,8 +555,9 @@ exports.importCashVouchers = async (req, res) => {
       });
     }
 
-    const defaultEnterpriseId = req.body.enterpriseId ? Number(req.body.enterpriseId) : null;
-    const defaultEnterpriseName = req.body.defaultEnterpriseName || req.user?.enterpriseName || null;
+    const contextEnterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
+    const defaultEnterpriseId = contextEnterprise.enterpriseId;
+    const defaultEnterpriseName = contextEnterprise.enterpriseName || req.body.defaultEnterpriseName || req.user?.enterpriseName || null;
     const defaultFlowType = normalizeFlowType(req.body.defaultFlowType, 'DECAISSEMENT');
     const defaultStatus = normalizeVoucherStatus(req.body.defaultStatus, 'VALIDE');
 
@@ -653,6 +663,7 @@ exports.updateCashVoucherStatus = async (req, res) => {
           treasuryAccountId: updatedVoucher.treasuryAccountId,
           paymentMethod: updatedVoucher.paymentMethod,
           user: req.user,
+          enterpriseId: updatedVoucher.enterpriseId,
         });
 
         const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(tx, resolvedTreasuryAccountId);

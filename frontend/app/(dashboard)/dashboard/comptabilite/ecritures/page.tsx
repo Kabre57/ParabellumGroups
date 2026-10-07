@@ -14,13 +14,14 @@ import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { CreateJournalEntryDialog } from '@/components/accounting/CreateJournalEntryDialog';
 import { exportEntriesCsv } from '@/components/accounting/accountingExport';
 import billingService, { type AccountingEntry } from '@/shared/api/billing';
-import { enterpriseApi } from '@/lib/api';
-import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export default function EcrituresPage() {
   const { user } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
+  const accountingScope = useAccountingEnterpriseScope();
   const [searchQuery, setSearchQuery] = useState('');
-  const [enterpriseFilter, setEnterpriseFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
@@ -28,28 +29,19 @@ export default function EcrituresPage() {
     ['accounting.read', 'accounting.entries.create', 'accounting.journals.manage', 'accounting.diagnostics.read'].some((p) =>
       permissionSet.has(p)
     );
-  const { canCreate } = getCrudVisibility(user, {
+  const crud = getCrudVisibility(user, {
     read: ['accounting.read', 'accounting.diagnostics.read'],
     create: ['accounting.entries.create'],
   });
+  const canCreate = crud.canCreate && !accountingScope.isConsolidated;
 
-  const { data: enterprisesResponse } = useQuery({
-    queryKey: ['enterprise-filter-options', 'ecritures'],
-    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
-    enabled: canRead,
-  });
-
-  const accessibleEnterprises = useMemo(
-    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
-    [enterprisesResponse?.data, user?.enterpriseId]
-  );
-
-  const { data, isLoading } = useEcritures(canRead, enterpriseFilter !== 'all' ? enterpriseFilter : undefined);
-  const { data: accountsData } = useAccountsForEntry(canCreate);
+  const { data, isLoading } = useEcritures(canRead && accountingScope.isReady, accountingScope);
+  const writeScope = { enterpriseId: selectedEnterprise?.id };
+  const { data: accountsData } = useAccountsForEntry(writeScope, canCreate && Boolean(selectedEnterprise));
   const { data: familyRulesResponse } = useQuery({
-    queryKey: ['billing-accounting-family-rules', 'entry-dialog'],
-    queryFn: () => billingService.getAccountingFamilyRules(),
-    enabled: canCreate,
+    queryKey: ['billing-accounting-family-rules', 'entry-dialog', selectedEnterprise?.id],
+    queryFn: () => billingService.getAccountingFamilyRules(writeScope),
+    enabled: canCreate && Boolean(selectedEnterprise),
   });
   const createEntryMutation = useCreateEntry(() => setCreateDialogOpen(false));
 
@@ -90,7 +82,7 @@ export default function EcrituresPage() {
           <p className="mt-2 text-muted-foreground">Journal general et ecritures comptables</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => exportEntriesCsv(filtered)}>
+          <Button variant="outline" onClick={() => exportEntriesCsv(filtered, undefined, accountingScope.isConsolidated)}>
             <Download className="mr-2 h-4 w-4" />
             Exporter Excel
           </Button>
@@ -106,7 +98,7 @@ export default function EcrituresPage() {
       <EcrituresStats total={entries.length} totalDebit={totalDebit} totalCredit={totalCredit} />
 
       <Card className="p-4">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -116,18 +108,6 @@ export default function EcrituresPage() {
               className="pl-10"
             />
           </div>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3"
-            value={enterpriseFilter}
-            onChange={(event) => setEnterpriseFilter(event.target.value)}
-          >
-            <option value="all">Toutes les entreprises</option>
-            {accessibleEnterprises.map((enterprise) => (
-              <option key={String(enterprise.id)} value={String(enterprise.id)}>
-                {enterprise.name}
-              </option>
-            ))}
-          </select>
         </div>
       </Card>
 
@@ -136,10 +116,11 @@ export default function EcrituresPage() {
         totalDebit={totalDebit}
         totalCredit={totalCredit}
         isLoading={isLoading}
+        showEnterpriseColumn={accountingScope.isConsolidated}
       />
 
       <CreateJournalEntryDialog
-        open={createDialogOpen}
+        open={createDialogOpen && canCreate}
         onOpenChange={setCreateDialogOpen}
         accounts={accounts}
         familyRules={familyRules}

@@ -2,6 +2,7 @@ const { PrismaClient, AccountingAccountType, AccountingEntrySide } = require('@p
 const AccountingPostingService = require('../core/services/AccountingPostingService');
 const { ensureAccountingReadAccess, ensureAccountingTreasuryWriteAccess } = require('../utils/accounting');
 const { normalizeTreasuryCurrency } = require('../utils/treasury');
+const { applyEnterpriseScope, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -10,6 +11,10 @@ exports.list = async (req, res) => {
   if (accessError) return res.status(accessError.status).json(accessError.body);
 
   try {
+    const enterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter ses transferts.' });
+    }
     const where = {};
     if (req.query.startDate || req.query.endDate) {
       where.date = {};
@@ -23,7 +28,7 @@ exports.list = async (req, res) => {
       ];
     }
     const transfers = await prisma.treasuryTransfer.findMany({
-      where,
+      where: await applyEnterpriseScope({ req, where }),
       include: { sourceAccount: true, destinationAccount: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     });
@@ -54,6 +59,10 @@ exports.create = async (req, res) => {
   }
 
   try {
+    const enterprise = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de transfÃ©rer des fonds.' });
+    }
     const created = await prisma.$transaction(async (tx) => {
       const ids = [String(sourceTreasuryAccountId), String(destinationTreasuryAccountId)];
       const accounts = await tx.treasuryAccount.findMany({
@@ -64,6 +73,9 @@ exports.create = async (req, res) => {
       const destination = accounts.find((account) => account.id === ids[1]);
       if (!source || !destination) {
         const error = new Error('Une des caisses est introuvable ou inactive.'); error.statusCode = 404; throw error;
+      }
+      if ([source.accountingAccount?.enterpriseId, destination.accountingAccount?.enterpriseId].some((id) => id !== enterprise.enterpriseId)) {
+        const error = new Error('Les deux caisses doivent appartenir à l’entreprise active.'); error.statusCode = 403; throw error;
       }
       if (normalizeTreasuryCurrency(source.currency) !== normalizeTreasuryCurrency(destination.currency)) {
         const error = new Error('Les deux caisses doivent utiliser la même devise.'); error.statusCode = 400; throw error;
@@ -93,9 +105,7 @@ exports.create = async (req, res) => {
         const error = new Error('La caisse destinataire a été désactivée avant le transfert.'); error.statusCode = 409; throw error;
       }
 
-      const enterpriseId = req.user?.enterpriseId !== undefined && req.user?.enterpriseId !== null
-        ? Number(req.user.enterpriseId)
-        : null;
+      const enterpriseId = enterprise.enterpriseId;
       const transfer = await tx.treasuryTransfer.create({
         data: {
           sourceTreasuryAccountId: source.id,
@@ -105,7 +115,7 @@ exports.create = async (req, res) => {
           reference: normalizedReference,
           notes: notes ? String(notes).trim() : null,
           enterpriseId: Number.isInteger(enterpriseId) ? enterpriseId : null,
-          enterpriseName: req.user?.enterpriseName || null,
+          enterpriseName: enterprise.enterpriseName || null,
           createdByUserId: req.user?.userId ? String(req.user.userId) : null,
           createdByEmail: req.user?.email || null,
         },
@@ -120,7 +130,7 @@ exports.create = async (req, res) => {
         sourceType: 'TREASURY_TRANSFER',
         sourceId: transfer.id,
         enterpriseId: Number.isInteger(enterpriseId) ? enterpriseId : null,
-        enterpriseName: req.user?.enterpriseName || null,
+        enterpriseName: enterprise.enterpriseName || null,
         createdByUserId: req.user?.userId ? String(req.user.userId) : null,
         createdByEmail: req.user?.email || null,
         manual: false,

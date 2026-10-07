@@ -12,6 +12,7 @@ interface EcrituresTableProps {
   totalDebit: number;
   totalCredit: number;
   isLoading: boolean;
+  showEnterpriseColumn: boolean;
 }
 
 const formatEntryAccounts = (entry: AccountingEntry, side: 'DEBIT' | 'CREDIT') => {
@@ -33,7 +34,7 @@ const formatEntryAccounts = (entry: AccountingEntry, side: 'DEBIT' | 'CREDIT') =
   };
 };
 
-export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: EcrituresTableProps) {
+export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading, showEnterpriseColumn }: EcrituresTableProps) {
   return (
     <Card className="p-6">
       {isLoading ? (
@@ -46,7 +47,7 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
                 {[
                   'Date',
                   'Journal',
-                  'Entreprise',
+                  ...(showEnterpriseColumn ? ['Entreprise / Entité'] : []),
                   'Compte Debit',
                   'Compte Credit',
                   'Libelle',
@@ -77,7 +78,7 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
                         <div className="mt-1 text-xs text-blue-700">{entry.lineCount} lignes</div>
                       ) : null}
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{entry.enterpriseName || '-'}</td>
+                    {showEnterpriseColumn && <td className="py-3 px-4 text-sm text-gray-600">{entry.enterpriseName || '-'}</td>}
                     <td className="py-3 px-4">
                       <code className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">{debitAccounts.codes}</code>
                       <div className="mt-1 max-w-52 truncate text-xs text-gray-500">{debitAccounts.labels}</div>
@@ -104,7 +105,7 @@ export function EcrituresTable({ entries, totalDebit, totalCredit, isLoading }: 
               })}
               {!entries.length && (
                 <tr>
-                  <td colSpan={10} className="py-8 px-4 text-center text-sm text-gray-500">
+                  <td colSpan={showEnterpriseColumn ? 10 : 9} className="py-8 px-4 text-center text-sm text-gray-500">
                     Aucune ecriture comptable disponible.
                   </td>
                 </tr>

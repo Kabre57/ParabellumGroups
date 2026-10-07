@@ -84,6 +84,7 @@ exports.createPaiement = async (req, res) => {
       treasuryAccountId,
       paymentMethod: normalizedMethod,
       user: req.user,
+      enterpriseId,
     });
     const paymentDate = datePaiement ? new Date(datePaiement) : new Date();
 

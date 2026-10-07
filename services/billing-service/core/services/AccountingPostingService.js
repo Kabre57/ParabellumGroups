@@ -171,6 +171,11 @@ class AccountingPostingService {
           error.statusCode = 400;
           throw error;
         }
+        if (account.enterpriseId !== null && Number(account.enterpriseId) !== resolvedEnterpriseId) {
+          const error = new Error(`Le compte ${account.code} n'appartient pas à l'entreprise active.`);
+          error.statusCode = 403;
+          throw error;
+        }
         if (!account.allowManualPosting && payload.manual !== false) {
           const error = new Error(`Le compte ${account.code} n'autorise pas de saisie directe.`);
           error.statusCode = 400;

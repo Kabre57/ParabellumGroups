@@ -1,5 +1,6 @@
 const InvestmentPortfolioService = require('../core/services/InvestmentPortfolioService');
 const { hasPermission, isAdminUser } = require('../utils/accounting');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 /**
  * Contrôleur pour la gestion des Portefeuilles de Placements.
@@ -17,10 +18,14 @@ exports.listPortfolios = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.read')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
-    const enterpriseId = req.user?.enterpriseId || req.query.enterpriseId;
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter les placements.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     const { status } = req.query;
     const data = await InvestmentPortfolioService.listPortfolios({ 
-      enterpriseId: enterpriseId ? Number(enterpriseId) : null, 
+      enterpriseIds,
       status 
     });
     return res.json({ success: true, data });
@@ -36,9 +41,13 @@ exports.createPortfolio = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.manage')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
+    const enterprise = await resolveEnterpriseContext(req, null);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de créer un portefeuille.' });
+    }
     const data = await InvestmentPortfolioService.createPortfolio({
       ...req.body,
-      enterpriseId: req.user?.enterpriseId || req.body.enterpriseId
+      enterpriseId: enterprise.enterpriseId
     });
     return res.status(201).json({ success: true, data });
   } catch (error) {
@@ -53,8 +62,12 @@ exports.getPortfolioById = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.read')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
-    const enterpriseId = req.user?.enterpriseId;
-    const data = await InvestmentPortfolioService.getPortfolioById(req.params.id, enterpriseId);
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter le portefeuille.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
+    const data = await InvestmentPortfolioService.getPortfolioById(req.params.id, enterpriseIds);
     return res.json({ success: true, data });
   } catch (error) {
     console.error('[Portfolio] getPortfolioById:', error.message);
@@ -68,8 +81,12 @@ exports.getPortfolioSummary = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.read')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
-    const enterpriseId = req.user?.enterpriseId;
-    const data = await InvestmentPortfolioService.getPortfolioSummary(req.params.id, enterpriseId);
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter le portefeuille.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
+    const data = await InvestmentPortfolioService.getPortfolioSummary(req.params.id, enterpriseIds);
     return res.json({ success: true, data });
   } catch (error) {
     console.error('[Portfolio] getPortfolioSummary:', error.message);
@@ -83,10 +100,14 @@ exports.updatePortfolio = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.manage')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
-    const enterpriseId = req.user?.enterpriseId;
+    const enterprise = await resolveEnterpriseContext(req, null);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de modifier le portefeuille.' });
+    }
     // We check existence and ownership before update
-    await InvestmentPortfolioService.getPortfolioById(req.params.id, enterpriseId);
-    const data = await InvestmentPortfolioService.updatePortfolio(req.params.id, req.body);
+    await InvestmentPortfolioService.getPortfolioById(req.params.id, enterprise.enterpriseId);
+    const { enterpriseId: _ignoredEnterpriseId, ...updateData } = req.body;
+    const data = await InvestmentPortfolioService.updatePortfolio(req.params.id, updateData);
     return res.json({ success: true, data });
   } catch (error) {
     console.error('[Portfolio] updatePortfolio:', error.message);

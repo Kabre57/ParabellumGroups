@@ -1,9 +1,9 @@
 const { PrismaClient, AccountingAccountType } = require('@prisma/client');
 const { ensureAccountingReadAccess, ensureAccountingTreasuryWriteAccess } = require('../utils/accounting');
 const {
-  ensureDefaultTreasuryAccounts,
   serializeTreasuryAccount,
 } = require('../utils/treasury');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -39,10 +39,19 @@ exports.getTreasuryAccounts = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    await ensureDefaultTreasuryAccounts(prisma, req.user);
+    const enterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour afficher ses comptes de trésorerie.' });
+    }
 
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     const accounts = await prisma.treasuryAccount.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(Array.isArray(enterpriseIds)
+          ? { accountingAccount: { enterpriseId: { in: enterpriseIds.length ? enterpriseIds : [-1] } } }
+          : {}),
+      },
       include: { accountingAccount: true },
       orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
     });
@@ -85,17 +94,29 @@ exports.createTreasuryAccount = async (req, res) => {
       });
     }
 
-    if (isDefault) {
-      await prisma.treasuryAccount.updateMany({
-        where: { type, isDefault: true },
-        data: { isDefault: false },
-      });
+    const enterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de créer un compte de trésorerie.' });
+    }
+    const resolvedAccountingAccountId = await resolveAccountingAccountId(accountingAccountId);
+    if (!resolvedAccountingAccountId) {
+      return res.status(400).json({ success: false, message: 'Associez un compte comptable de l’entreprise active à ce compte de trésorerie.' });
+    }
+    const linkedAccount = await prisma.accountingAccount.findUnique({ where: { id: resolvedAccountingAccountId }, select: { enterpriseId: true } });
+    if (!linkedAccount || linkedAccount.enterpriseId !== enterprise.enterpriseId) {
+      return res.status(403).json({ success: false, message: 'Le compte comptable doit appartenir à l’entreprise active.' });
     }
 
-    const resolvedAccountingAccountId = await resolveAccountingAccountId(accountingAccountId);
+    const created = await prisma.$transaction(async (tx) => {
+      if (isDefault) {
+        await tx.treasuryAccount.updateMany({
+          where: { type, isDefault: true, accountingAccount: { enterpriseId: linkedAccount.enterpriseId } },
+          data: { isDefault: false },
+        });
+      }
 
-    const created = await prisma.treasuryAccount.create({
-      data: {
+      return tx.treasuryAccount.create({
+        data: {
         name: String(name).trim(),
         type,
         bankName: bankName ? String(bankName).trim() : null,
@@ -107,8 +128,9 @@ exports.createTreasuryAccount = async (req, res) => {
         isDefault: Boolean(isDefault),
         createdByUserId: req.user?.userId ? String(req.user.userId) : null,
         createdByEmail: req.user?.email || null,
-      },
-      include: { accountingAccount: true },
+        },
+        include: { accountingAccount: true },
+      });
     });
 
     return res.status(201).json({
@@ -144,12 +166,20 @@ exports.updateTreasuryAccount = async (req, res) => {
       isActive,
     } = req.body;
 
-    const existing = await prisma.treasuryAccount.findUnique({ where: { id } });
+    const existing = await prisma.treasuryAccount.findUnique({ where: { id }, include: { accountingAccount: true } });
     if (!existing) {
       return res.status(404).json({
         success: false,
         message: 'Compte de trésorerie introuvable',
       });
+    }
+
+    const enterprise = await resolveEnterpriseContext(req, req.body.enterpriseId);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de modifier un compte de trésorerie.' });
+    }
+    if (!existing.accountingAccount || (enterprise.enterpriseId && existing.accountingAccount.enterpriseId !== enterprise.enterpriseId)) {
+      return res.status(403).json({ success: false, message: 'Ce compte de trésorerie ne correspond pas à l’entreprise active.' });
     }
 
     if (existing.type === 'CASH' && (openingBalance !== undefined || accountingAccountId !== undefined || isActive === false)) {
@@ -165,17 +195,21 @@ exports.updateTreasuryAccount = async (req, res) => {
       }
     }
 
-    if (isDefault) {
-      await prisma.treasuryAccount.updateMany({
-        where: { type: existing.type, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
     const resolvedAccountingAccountId =
       accountingAccountId !== undefined
         ? await resolveAccountingAccountId(accountingAccountId)
         : existing.accountingAccountId;
+    const linkedAccount = await prisma.accountingAccount.findUnique({ where: { id: resolvedAccountingAccountId }, select: { enterpriseId: true } });
+    if (!linkedAccount || (enterprise.enterpriseId && linkedAccount.enterpriseId !== enterprise.enterpriseId)) {
+      return res.status(403).json({ success: false, message: 'Le compte comptable doit appartenir à l’entreprise active.' });
+    }
+
+    if (isDefault) {
+      await prisma.treasuryAccount.updateMany({
+        where: { type: existing.type, isDefault: true, accountingAccount: { enterpriseId: linkedAccount.enterpriseId } },
+        data: { isDefault: false },
+      });
+    }
 
     const updated = await prisma.treasuryAccount.update({
       where: { id },

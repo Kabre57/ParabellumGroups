@@ -7,11 +7,12 @@ type Period = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 export function useTresorerieFlows(
   period: Period,
   customRange: { startDate?: string; endDate?: string } | null,
+  scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' },
   enabled = true
 ) {
   return useQuery({
-    queryKey: ['cash-flows', period, customRange?.startDate ?? null, customRange?.endDate ?? null],
-    queryFn: () => billingService.getAccountingOverview(period as any, customRange || undefined),
+    queryKey: ['cash-flows', period, customRange?.startDate ?? null, customRange?.endDate ?? null, scope?.enterpriseId ?? scope?.enterpriseScope ?? 'active'],
+    queryFn: () => billingService.getAccountingOverview(period as any, { ...customRange, ...scope }),
     enabled,
   });
 }
@@ -20,15 +21,17 @@ export function useTreasuryClosures(
   periodRange: { startDate?: string; endDate?: string } | null,
   period: Period,
   customRange: any,
+  scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' },
   enabled = true
 ) {
   return useQuery({
-    queryKey: ['treasury-closures', periodRange?.startDate ?? null, periodRange?.endDate ?? null],
+    queryKey: ['treasury-closures', periodRange?.startDate ?? null, periodRange?.endDate ?? null, scope?.enterpriseId ?? scope?.enterpriseScope ?? 'active'],
     queryFn: () =>
       billingService.getTreasuryClosures({
         startDate: periodRange?.startDate,
         endDate: periodRange?.endDate,
         period: customRange ? undefined : (period as any),
+        ...scope,
       }),
     enabled,
   });

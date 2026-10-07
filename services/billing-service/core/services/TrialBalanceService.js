@@ -18,7 +18,7 @@ class TrialBalanceService {
    * @returns {Promise<Array>} Liste des comptes avec soldes d'ouverture, mouvements (débit/crédit) et soldes finaux.
    */
   async generateTrialBalance(options, client = prisma) {
-    const { periodId, fiscalYearId, enterpriseId, startDate, endDate } = options;
+    const { periodId, fiscalYearId, enterpriseId, enterpriseIds, startDate, endDate } = options;
 
     let resolvedPeriodId = periodId;
     let resolvedFiscalYearId = fiscalYearId;
@@ -45,7 +45,11 @@ class TrialBalanceService {
       if (endDate) entryFilters.entryDate.lte = new Date(endDate);
     }
 
-    if (enterpriseId) entryFilters.enterpriseId = Number(enterpriseId);
+    if (Array.isArray(enterpriseIds)) {
+      entryFilters.enterpriseId = { in: enterpriseIds.length ? enterpriseIds.map(Number) : [-1] };
+    } else if (enterpriseId) {
+      entryFilters.enterpriseId = Number(enterpriseId);
+    }
 
     // Le solde d'ouverture cumule le solde initial et les écritures antérieures au périmètre.
     let openingDate = startDate ? new Date(startDate) : null;
@@ -60,7 +64,15 @@ class TrialBalanceService {
     const openingByAccount = new Map();
     if (openingDate) {
       const priorLines = await client.accountingJournalLine.findMany({
-        where: { entry: { status: 'POSTED', entryDate: { lt: openingDate }, ...(enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}) } },
+        where: {
+          entry: {
+            status: 'POSTED',
+            entryDate: { lt: openingDate },
+            ...(Array.isArray(enterpriseIds)
+              ? { enterpriseId: { in: enterpriseIds.length ? enterpriseIds.map(Number) : [-1] } }
+              : enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}),
+          },
+        },
         select: { accountId: true, side: true, amount: true }
       });
       for (const line of priorLines) {

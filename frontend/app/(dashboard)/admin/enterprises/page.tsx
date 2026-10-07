@@ -1,7 +1,5 @@
-'use client';
-
-import EnterprisesManagementPage from '@/components/admin/EnterprisesManagementPage';
+import { redirect } from 'next/navigation';
 
 export default function AdminEnterprisesPage() {
-  return <EnterprisesManagementPage />;
+  redirect('/dashboard/admin/enterprises');
 }

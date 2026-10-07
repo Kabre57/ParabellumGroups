@@ -18,7 +18,7 @@ import type {
  */
 export const investmentsService = {
   // --- Portefeuilles ---
-  async listPortfolios(params?: { enterpriseId?: number; status?: string }): Promise<ListResponse<InvestmentPortfolio>> {
+  async listPortfolios(params?: { enterpriseId?: number | string; enterpriseScope?: 'consolidated'; status?: string }): Promise<ListResponse<InvestmentPortfolio>> {
     const response = await apiClient.get('/billing/investments/portfolios', { params });
     return normalizeListResponse<InvestmentPortfolio>(response.data);
   },
@@ -33,8 +33,8 @@ export const investmentsService = {
     return normalizeDetailResponse<InvestmentPortfolio>(response.data);
   },
 
-  async getPortfolioSummary(id: string): Promise<{ success: boolean; data: InvestmentPortfolioSummary }> {
-    const response = await apiClient.get(`/billing/investments/portfolios/${id}/summary`);
+  async getPortfolioSummary(id: string, params?: { enterpriseId?: number | string; enterpriseScope?: 'consolidated' }): Promise<{ success: boolean; data: InvestmentPortfolioSummary }> {
+    const response = await apiClient.get(`/billing/investments/portfolios/${id}/summary`, { params });
     return response.data;
   },
 
@@ -60,7 +60,7 @@ export const investmentsService = {
   },
 
   // --- Transactions ---
-  async listTransactions(params?: { portfolioId?: string; assetId?: string; transactionType?: string; status?: string; from?: string; to?: string }): Promise<ListResponse<InvestmentTransaction>> {
+  async listTransactions(params?: { portfolioId?: string; assetId?: string; transactionType?: string; status?: string; from?: string; to?: string; enterpriseId?: number | string; enterpriseScope?: 'consolidated' }): Promise<ListResponse<InvestmentTransaction>> {
     const response = await apiClient.get('/billing/investments/transactions', { params });
     return normalizeListResponse<InvestmentTransaction>(response.data);
   },

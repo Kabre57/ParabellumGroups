@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 /**
  * Analyse de performance budgétaire (Prévisions vs Réel)
@@ -8,10 +9,18 @@ const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 exports.getBudgetPerformance = async (req, res) => {
   try {
     const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter le budget.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     
     // On récupère les budgets de l'année
     const budgets = await prisma.budget.findMany({
-      where: { fiscalYear: currentYear },
+      where: {
+        fiscalYear: currentYear,
+        ...(Array.isArray(enterpriseIds) ? { serviceId: { in: enterpriseIds.length ? enterpriseIds : [-1] } } : {}),
+      },
       include: {
         allocations: {
           include: {
@@ -85,7 +94,13 @@ exports.getBudgetPerformance = async (req, res) => {
  */
 exports.getBudgets = async (req, res) => {
   try {
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter les budgets.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     const budgets = await prisma.budget.findMany({
+      where: Array.isArray(enterpriseIds) ? { serviceId: { in: enterpriseIds.length ? enterpriseIds : [-1] } } : {},
       orderBy: { fiscalYear: 'desc' }
     });
     return res.json({ success: true, data: budgets });

@@ -1,6 +1,8 @@
 const InvestmentTransactionService = require('../core/services/InvestmentTransactionService');
 const InvestmentAccountingService = require('../core/services/InvestmentAccountingService');
+const InvestmentPortfolioService = require('../core/services/InvestmentPortfolioService');
 const { hasPermission, isAdminUser } = require('../utils/accounting');
+const { resolveEnterpriseContext, resolveEnterpriseIdsForRequest } = require('../utils/enterpriseScope');
 
 /**
  * Contrôleur pour les Transactions de Placements.
@@ -17,10 +19,14 @@ exports.listTransactions = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.read')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
-    const enterpriseId = req.user?.enterpriseId || req.query.enterpriseId;
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter les transactions.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     const data = await InvestmentTransactionService.listTransactions({
       ...req.query,
-      enterpriseId: enterpriseId ? Number(enterpriseId) : null
+      enterpriseIds,
     });
     return res.json({ success: true, data });
   } catch (error) {
@@ -35,8 +41,14 @@ exports.recordTransaction = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.manage')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
+    const enterprise = await resolveEnterpriseContext(req, null);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant d’enregistrer une transaction.' });
+    }
+    await InvestmentPortfolioService.getPortfolioById(req.body.portfolioId, enterprise.enterpriseId);
     const data = await InvestmentTransactionService.recordTransaction({
       ...req.body,
+      enterpriseId: enterprise.enterpriseId,
       createdByUserId: req.user?.userId || req.user?.id
     });
     return res.status(201).json({ success: true, data });
@@ -52,6 +64,12 @@ exports.validateTransaction = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.manage')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante.' });
     }
+    const enterprise = await resolveEnterpriseContext(req, null);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de valider une transaction.' });
+    }
+    const transaction = await InvestmentTransactionService.getTransactionById(req.params.id);
+    await InvestmentPortfolioService.getPortfolioById(transaction.portfolioId, enterprise.enterpriseId);
     const userId = req.user?.userId || req.user?.id;
     const data = await InvestmentTransactionService.validateTransaction(req.params.id, userId);
     return res.json({ success: true, data });
@@ -70,10 +88,16 @@ exports.postAccountingEntry = async (req, res) => {
     if (!isAdminUser(req.user) && !hasPermission(req.user, 'investments.accounting.post')) {
       return res.status(403).json({ success: false, message: 'Permission insuffisante pour comptabiliser.' });
     }
+    const enterprise = await resolveEnterpriseContext(req, null);
+    if (!enterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de comptabiliser une transaction.' });
+    }
+    const transaction = await InvestmentTransactionService.getTransactionById(req.params.id);
+    await InvestmentPortfolioService.getPortfolioById(transaction.portfolioId, enterprise.enterpriseId);
     const meta = {
       userId: req.user?.userId || req.user?.id,
-      enterpriseId: req.user?.enterpriseId || req.body?.enterpriseId || null,
-      enterpriseName: req.user?.enterpriseName || req.body?.enterpriseName || null
+      enterpriseId: enterprise.enterpriseId,
+      enterpriseName: enterprise.enterpriseName,
     };
     const data = await InvestmentAccountingService.postTransactionAccounting(req.params.id, meta);
     return res.status(201).json({ success: true, data });

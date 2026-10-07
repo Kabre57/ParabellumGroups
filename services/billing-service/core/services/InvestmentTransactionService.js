@@ -258,7 +258,11 @@ class InvestmentTransactionService {
   async listTransactions(filters = {}, client = prisma) {
     const where = {};
     if (filters.portfolioId) where.portfolioId = filters.portfolioId;
-    if (filters.enterpriseId) where.enterpriseId = Number(filters.enterpriseId);
+    if (Array.isArray(filters.enterpriseIds)) {
+      where.portfolio = { enterpriseId: { in: filters.enterpriseIds.length ? filters.enterpriseIds.map(Number) : [-1] } };
+    } else if (filters.enterpriseId) {
+      where.enterpriseId = Number(filters.enterpriseId);
+    }
     if (filters.assetId) where.assetId = filters.assetId;
     if (filters.transactionType) where.transactionType = filters.transactionType;
     if (filters.status) where.status = filters.status;
@@ -270,6 +274,16 @@ class InvestmentTransactionService {
       include: { asset: true },
       orderBy: { tradeDate: 'desc' }
     });
+  }
+
+  async getTransactionById(transactionId, client = prisma) {
+    const transaction = await client.investmentTransaction.findUnique({ where: { id: transactionId } });
+    if (!transaction) {
+      const err = new Error('Transaction introuvable.');
+      err.statusCode = 404;
+      throw err;
+    }
+    return transaction;
   }
 }
 

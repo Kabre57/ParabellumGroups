@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import billingService from '@/shared/api/billing';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
 
 const PAYMENT_METHOD_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#dc2626', '#0891b2'];
 
@@ -67,10 +68,12 @@ const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
 
 export default function AccountingDashboardPage() {
   const [period, setPeriod] = useState<Period>('month');
+  const accountingScope = useAccountingEnterpriseScope();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['accounting-dashboard', period],
-    queryFn: () => billingService.getAccountingOverview(period),
+    queryKey: ['accounting-dashboard', period, accountingScope.scopeKey],
+    queryFn: () => billingService.getAccountingOverview(period, accountingScope),
+    enabled: accountingScope.isReady,
   });
 
   const overview = data?.data;
@@ -382,6 +385,9 @@ export default function AccountingDashboardPage() {
                       <p className="text-sm text-muted-foreground">
                         {movement.category} · {formatDate(movement.date)}
                       </p>
+                      {accountingScope.isConsolidated && movement.enterpriseName && (
+                        <p className="mt-1 text-xs text-muted-foreground">{movement.enterpriseName}</p>
+                      )}
                     </div>
                     <div className={`text-right text-sm font-semibold ${movement.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
                       {movement.type === 'income' ? '+' : '-'}{formatCompactCurrency(movement.amount)}
@@ -420,6 +426,9 @@ export default function AccountingDashboardPage() {
                       <p className="text-sm text-muted-foreground">
                         {entry.journalLabel} · {formatDate(entry.date)} · {entry.reference || 'Sans référence'}
                       </p>
+                      {accountingScope.isConsolidated && entry.enterpriseName && (
+                        <p className="mt-1 text-xs text-muted-foreground">{entry.enterpriseName}</p>
+                      )}
                     </div>
                     <div className="text-right text-sm font-semibold">
                       {formatCompactCurrency(Math.max(entry.debit || 0, entry.credit || 0))}

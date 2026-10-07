@@ -1,5 +1,5 @@
 const { PrismaClient, PurchaseCommitmentStatus } = require('@prisma/client');
-const { applyEnterpriseScope, getEnterpriseList } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, assertEnterpriseInScope, getEnterpriseList } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -327,6 +327,12 @@ exports.validatePurchaseCommitment = async (req, res) => {
       });
     }
 
+    await assertEnterpriseInScope(
+      req,
+      commitment.enterpriseId,
+      "Vous n'avez pas acces a cet engagement pour l'entreprise active."
+    );
+
     const normalizedSourceStatus = String(commitment.sourceStatus || '').toUpperCase();
     if (!['APPROUVEE', 'CONFIRME', 'PROFORMA_APPROUVEE'].includes(normalizedSourceStatus)) {
       return res.status(400).json({
@@ -367,9 +373,9 @@ exports.validatePurchaseCommitment = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur validation engagement achat:', error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: "Erreur lors de la validation de l'engagement achat",
+      message: error.statusCode ? error.message : "Erreur lors de la validation de l'engagement achat",
     });
   }
 };

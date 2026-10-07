@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { amount, resolveDateRange, serializeAccountingAccount } = require('../utils/accounting');
 const {
   getAccessibleEnterpriseIds,
+  resolveEnterpriseIdsForRequest,
   getEnterpriseList,
   parseEnterpriseId,
 } = require('../utils/enterpriseScope');
@@ -63,8 +64,9 @@ const collectDescendants = (parentById, rootEnterpriseId) => {
 
 const computeScopeContext = async (req, { scope, requestedEnterpriseId }) => {
   const normalizedScope = normalizeScope(scope);
-  const currentEnterpriseId = parseEnterpriseId(req.user?.enterpriseId);
+  const currentEnterpriseId = parseEnterpriseId(req.headers?.['x-enterprise-id']) || parseEnterpriseId(req.user?.enterpriseId);
   const accessibleEnterpriseIds = await getAccessibleEnterpriseIds(req);
+  const requestEnterpriseIds = await resolveEnterpriseIdsForRequest(req, requestedEnterpriseId);
   const accessibleSet = Array.isArray(accessibleEnterpriseIds) ? new Set(accessibleEnterpriseIds) : null;
 
   const ensureAllowed = (enterpriseId) => {
@@ -76,10 +78,9 @@ const computeScopeContext = async (req, { scope, requestedEnterpriseId }) => {
   };
 
   if (normalizedScope === 'single') {
-    const singleEnterpriseId = ensureAllowed(parseEnterpriseId(requestedEnterpriseId));
     return {
       scope: normalizedScope,
-      enterpriseIds: singleEnterpriseId ? [singleEnterpriseId] : [],
+      enterpriseIds: Array.isArray(requestEnterpriseIds) ? requestEnterpriseIds : [],
     };
   }
 
@@ -109,7 +110,7 @@ const computeScopeContext = async (req, { scope, requestedEnterpriseId }) => {
 
   return {
     scope: normalizedScope,
-    enterpriseIds: accessibleEnterpriseIds,
+    enterpriseIds: requestEnterpriseIds,
   };
 };
 

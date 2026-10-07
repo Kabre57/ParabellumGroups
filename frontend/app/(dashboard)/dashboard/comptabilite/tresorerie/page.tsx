@@ -21,9 +21,11 @@ import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import { formatFCFA } from '@/components/printComponents/printUtils';
 import { exportTreasuryCsv } from '@/components/accounting/accountingExport';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
 
 export default function TresoreriePage() {
   const { user } = useAuth();
+  const accountingScope = useAccountingEnterpriseScope();
   const [period, setPeriod] = useState<'day'|'week'|'month'|'quarter'|'year'|'all'>('month');
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
   const [customRange, setCustomRange] = useState<{startDate?:string;endDate?:string}|null>(null);
@@ -43,7 +45,7 @@ export default function TresoreriePage() {
       permissionSet.has(p)
     );
   // La passerelle réserve création et validation des clôtures à cette permission.
-  const canValidateClosure = isAdminRole(user) || permissionSet.has('accounting.treasury.manage');
+  const canValidateClosure = !accountingScope.isConsolidated && (isAdminRole(user) || permissionSet.has('accounting.treasury.manage'));
 
   const periodRange = useMemo(() => {
     if (customRange) return customRange;
@@ -63,8 +65,8 @@ export default function TresoreriePage() {
     return { startDate: new Date(now.getFullYear(),0,1).toISOString(), endDate: new Date(now.getFullYear(),11,31,23,59,59).toISOString() };
   }, [customRange, period, selectedDay]);
 
-  const { data, isLoading } = useTresorerieFlows(period, periodRange, canRead);
-  const { data: closuresResponse } = useTreasuryClosures(periodRange, period, customRange, canRead);
+  const { data, isLoading } = useTresorerieFlows(period, periodRange, accountingScope, canRead && accountingScope.isReady);
+  const { data: closuresResponse } = useTreasuryClosures(periodRange, period, customRange, accountingScope, canRead && accountingScope.isReady);
 
   const closeAccountDialog = () => {
     setAccountDialogOpen(false);
@@ -110,7 +112,7 @@ export default function TresoreriePage() {
       <div className="space-y-4">
         <div><h1 className="text-3xl font-bold">Trésorerie</h1><p className="text-muted-foreground mt-2">Suivi des flux de trésorerie, soldes multi-banques et sous-caisses.</p></div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>
+          {canValidateClosure && <Button variant="outline" onClick={() => { setEditingTreasuryAccount(null); setAccountDialogOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Nouveau compte</Button>}
           {canValidateClosure && <Button variant="outline" onClick={() => setTransferDialogOpen(true)}>Transfert interne</Button>}
           {canValidateClosure && <Button variant="outline" onClick={() => setClosureDialogOpen(true)}>Clôturer la caisse</Button>}
           <select value={period} onChange={e => { setPeriod(e.target.value as any); setCustomRange(null); }} className="px-4 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700">
@@ -134,7 +136,7 @@ export default function TresoreriePage() {
             <option value="all">Toutes clôtures</option>
             {(closuresResponse?.data ?? []).map(c => <option key={c.id} value={c.id}>{new Date(c.periodStart).toLocaleDateString('fr-FR')} - {new Date(c.periodEnd).toLocaleDateString('fr-FR')}</option>)}
           </select>
-          <Button variant="outline" onClick={() => exportTreasuryCsv(filteredFlows)}>Exporter Excel</Button>
+          <Button variant="outline" onClick={() => exportTreasuryCsv(filteredFlows, undefined, accountingScope.isConsolidated)}>Exporter Excel</Button>
           <Button onClick={() => setDialogOpen(true)}><Calendar className="h-4 w-4 mr-2" />{customRange?.startDate ? 'Plage active' : 'Personnalisé'}</Button>
         </div>
       </div>
@@ -148,12 +150,12 @@ export default function TresoreriePage() {
         }}
       />
       <TresorerieStats currentBalance={currentBalance} totalIncome={totalIncome} totalExpense={totalExpense} />
-      <TresorerieFlowsTable flows={filteredFlows} isLoading={isLoading} />
+      <TresorerieFlowsTable flows={filteredFlows} isLoading={isLoading} showEnterpriseColumn={accountingScope.isConsolidated} />
       <TresorerieClosuresTable closures={closuresResponse?.data ?? []} canValidate={canValidateClosure} onValidate={requestClosureValidation} />
 
       <AccountingDateRangeDialog open={dialogOpen} onOpenChange={setDialogOpen} defaultRange={customRange} onApply={r => setCustomRange(r.startDate||r.endDate ? r : null)} />
       <CreateTreasuryAccountDialog
-        open={accountDialogOpen}
+        open={accountDialogOpen && canValidateClosure}
         onOpenChange={(open) => {
           setAccountDialogOpen(open);
           if (!open) setEditingTreasuryAccount(null);
@@ -178,10 +180,10 @@ export default function TresoreriePage() {
           createAccountMutation.mutate(payload);
         }}
       />
-      <TreasuryClosureDialog open={closureDialogOpen} onOpenChange={setClosureDialogOpen} accounts={treasuryAccounts} isSubmitting={createClosureMutation.isPending}
+      <TreasuryClosureDialog open={closureDialogOpen && canValidateClosure} onOpenChange={setClosureDialogOpen} accounts={treasuryAccounts} isSubmitting={createClosureMutation.isPending}
         onSubmit={p => { const { status, ...rest } = p; createClosureMutation.mutate(rest as any); }} />
       <TreasuryTransferDialog
-        open={transferDialogOpen}
+        open={transferDialogOpen && canValidateClosure}
         onOpenChange={setTransferDialogOpen}
         accounts={treasuryAccounts}
         isSubmitting={createTransferMutation.isPending}

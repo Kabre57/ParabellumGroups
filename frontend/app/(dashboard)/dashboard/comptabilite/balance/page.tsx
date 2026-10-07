@@ -10,9 +10,11 @@ import { Card } from '@/components/ui/card';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import type { FiscalYear } from '@/shared/api/billing/types';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
 
 export default function TrialBalancePage() {
   const { user } = useAuth();
+  const accountingScope = useAccountingEnterpriseScope();
   const permissionSet = buildPermissionSet(user);
   const canRead = isAdminRole(user) || permissionSet.has('accounting.reports.read');
   
@@ -23,13 +25,13 @@ export default function TrialBalancePage() {
   const [filters, setFilters] = useState({
     periodId: '',
     fiscalYearId: '',
-    enterpriseId: user?.enterpriseId || '',
   });
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await accountingService.getTrialBalance(filters);
+      if (!accountingScope.isReady) return;
+      const response = await accountingService.getTrialBalance({ ...filters, ...accountingScope });
       if (response.success) {
         setData(response.data);
       }
@@ -43,7 +45,7 @@ export default function TrialBalancePage() {
   useEffect(() => {
     accountingService.getFiscalYears().then((response) => setFiscalYears(response.data || [])).catch((error) => console.error('Erreur chargement exercices:', error));
     loadData();
-  }, [filters.enterpriseId, filters.fiscalYearId]);
+  }, [accountingScope.scopeKey, filters.fiscalYearId]);
 
   const filteredData = data.filter((row) => `${row.accountCode} ${row.accountLabel}`.toLocaleLowerCase('fr').includes(search.toLocaleLowerCase('fr')));
 

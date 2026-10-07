@@ -63,6 +63,9 @@ exports.createAccount = async (req, res) => {
     }
 
     const { enterpriseId } = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+    if (!enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de crÃ©er un compte comptable.' });
+    }
 
     const existing = await prisma.accountingAccount.findFirst({
       where: {

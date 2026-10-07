@@ -1,5 +1,6 @@
 const GeneralLedgerService = require('../core/services/GeneralLedgerService');
 const { hasPermission, isAdminUser } = require('../utils/accounting');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 /**
  * Contrôleur pour le Grand Livre (General Ledger) — version noyau persistant.
@@ -16,9 +17,13 @@ exports.getLedger = async (req, res) => {
     }
 
     const { periodId, fiscalYearId, enterpriseId, accountIds, startDate, endDate } = req.query;
-    const resolvedEnterpriseId = isAdminUser(req.user) ? (enterpriseId || req.user.enterpriseId) : req.user.enterpriseId;
+    const activeEnterprise = await resolveEnterpriseContext(req, enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter le grand livre.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, enterpriseId);
 
-    console.log('[GeneralLedger] Request:', { periodId, fiscalYearId, resolvedEnterpriseId, startDate, endDate });
+    console.log('[GeneralLedger] Request:', { periodId, fiscalYearId, enterpriseIds, startDate, endDate });
 
     // accountIds peut être passé comme chaîne séparée par des virgules
     const accountIdsArray = accountIds ? accountIds.split(',').map(id => id.trim()) : undefined;
@@ -29,7 +34,7 @@ exports.getLedger = async (req, res) => {
     const data = await GeneralLedgerService.generateLedger({ 
       periodId, 
       fiscalYearId, 
-      enterpriseId: resolvedEnterpriseId, 
+      enterpriseIds,
       accountIds: accountIdsArray,
       startDate,
       endDate: inclusiveEndDate

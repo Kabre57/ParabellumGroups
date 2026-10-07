@@ -113,28 +113,39 @@ const ensureDefaultTreasuryAccounts = async (client, user) => {
   }
 };
 
-const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMethod, user }) => {
+const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMethod, user, enterpriseId }) => {
   const expectedType = treasuryTypeFromPaymentMethod(paymentMethod);
+  const normalizedEnterpriseId = Number(enterpriseId);
+  if (!Number.isInteger(normalizedEnterpriseId) || normalizedEnterpriseId <= 0) {
+    throw validationError('Choisissez une entreprise active avant de sélectionner une caisse ou une banque.');
+  }
 
   if (treasuryAccountId) {
-    const found = await client.treasuryAccount.findUnique({ where: { id: treasuryAccountId } });
+    const found = await client.treasuryAccount.findUnique({
+      where: { id: treasuryAccountId },
+      include: { accountingAccount: true },
+    });
     if (found && found.isActive !== false) {
       if (found.type !== expectedType) {
         throw validationError(
           "Le compte de tresorerie selectionne n'est pas compatible avec le mode de paiement."
         );
       }
+      if (found.accountingAccount?.enterpriseId !== normalizedEnterpriseId) {
+        const error = validationError('Le compte de trÃ©sorerie doit appartenir Ã  l’entreprise active.');
+        error.statusCode = 403;
+        throw error;
+      }
       return found.id;
     }
   }
-
-  await ensureDefaultTreasuryAccounts(client, user);
 
   const fallback = await client.treasuryAccount.findFirst({
     where: {
       isActive: true,
       type: expectedType,
       isDefault: true,
+      accountingAccount: { enterpriseId: normalizedEnterpriseId },
     },
     orderBy: [{ createdAt: 'asc' }],
   });
@@ -144,11 +155,12 @@ const resolveTreasuryAccountId = async (client, { treasuryAccountId, paymentMeth
   }
 
   const anyAccount = await client.treasuryAccount.findFirst({
-    where: { isActive: true },
+    where: { isActive: true, accountingAccount: { enterpriseId: normalizedEnterpriseId } },
     orderBy: [{ createdAt: 'asc' }],
   });
 
-  return anyAccount ? anyAccount.id : null;
+  if (anyAccount) return anyAccount.id;
+  throw validationError('Aucun compte de trÃ©sorerie actif n’est configurÃ© pour l’entreprise active.');
 };
 
 const getTreasuryAccountingAccountId = async (client, treasuryAccountId) => {

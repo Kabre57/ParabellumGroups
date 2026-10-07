@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
 const { authenticateToken } = require('../middleware/auth');
 const { requireAdmin, requirePermission, requirePermissionByPath } = require('../middleware/permissions');
@@ -71,6 +71,12 @@ const createProxy = (target, pathRewriteConfig = {}) => {
       // Allow token via query for SSE/EventSource (Authorization header not set by browser)
       if (!req.headers['authorization'] && req.query && req.query.token) {
         proxyReq.setHeader('Authorization', `Bearer ${req.query.token}`);
+      }
+
+      // Propagate X-Enterprise-Id from incoming request
+      const enterpriseIdHeader = req.headers['x-enterprise-id'];
+      if (enterpriseIdHeader) {
+        proxyReq.setHeader('X-Enterprise-Id', enterpriseIdHeader.toString());
       }
 
       fixRequestBody(proxyReq, req, res);

@@ -8,7 +8,6 @@ const {
   serializeJournalEntry,
 } = require('../utils/accounting');
 const {
-  ensureDefaultTreasuryAccounts,
   treasuryTypeFromPaymentMethod,
   serializeTreasuryAccount,
 } = require('../utils/treasury');
@@ -19,7 +18,7 @@ const {
 } = require('../utils/accountingAccountResolver');
 const { safeAmount, safeDate, safeAccess } = require('../utils/safe-access');
 const MappingService = require('../core/services/AccountingMappingService');
-const { applyEnterpriseScope } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -130,7 +129,10 @@ exports.getAccountingOverview = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    await ensureDefaultTreasuryAccounts(prisma, req.user);
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter la comptabilitÃ©.' });
+    }
 
     const { startDate, endDate, periodLabel } = resolveDateRange({
       period: req.query.period,
@@ -187,6 +189,7 @@ exports.getAccountingOverview = async (req, res) => {
       where: buildDateWhere('date', startDate, endDate),
       requestedEnterpriseId,
     });
+    const treasuryEnterpriseIds = await resolveEnterpriseIdsForRequest(req, requestedEnterpriseId);
 
     console.log('[DEBUG] Step 1: Fetching core accounting data', { startDate, endDate });
     await MappingService.refreshCache(requestedEnterpriseId);
@@ -241,7 +244,12 @@ exports.getAccountingOverview = async (req, res) => {
         orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }],
       }), 'manualJournalEntries'),
       safeQuery(prisma.treasuryAccount.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          ...(Array.isArray(treasuryEnterpriseIds)
+            ? { accountingAccount: { enterpriseId: { in: treasuryEnterpriseIds.length ? treasuryEnterpriseIds : [-1] } } }
+            : {}),
+        },
         include: { accountingAccount: true },
         orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       }), 'treasuryAccounts'),

@@ -23,9 +23,10 @@ import { CreatePlacementDialog } from '../placements/CreatePlacementDialog';
 
 interface InvestmentDashboardProps {
   portfolioId?: string;
+  scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated'; scopeKey?: string; isReady?: boolean; isConsolidated?: boolean };
 }
 
-export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfolioId }) => {
+export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfolioId, scope }) => {
   const [loading, setLoading] = useState(true);
   const [portfolios, setPortfolios] = useState<InvestmentPortfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(portfolioId || null);
@@ -36,20 +37,36 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
   const [errorMessage, setErrorMessage] = useState('');
 
   const loadData = async () => {
+    if (!scope?.isReady) {
+      setPortfolios([]);
+      setSelectedPortfolioId(null);
+      setSummary(null);
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setSummary(null);
+    setTransactions([]);
     try {
       // 1. Charger les portefeuilles si non fourni
-      const pList = await investmentsService.listPortfolios();
+      const pList = await investmentsService.listPortfolios({
+        enterpriseId: scope?.enterpriseId,
+        enterpriseScope: scope?.enterpriseScope,
+      });
       setPortfolios(pList.data);
 
-      const targetId = selectedPortfolioId || pList.data[0]?.id;
+      const targetId = pList.data.some((portfolio) => portfolio.id === selectedPortfolioId)
+        ? selectedPortfolioId
+        : pList.data[0]?.id;
       if (targetId) {
         setSelectedPortfolioId(targetId);
-        const data = await investmentsService.getPortfolioSummary(targetId);
+        const readScope = { enterpriseId: scope?.enterpriseId, enterpriseScope: scope?.enterpriseScope };
+        const data = await investmentsService.getPortfolioSummary(targetId, readScope);
         if (data.success) {
           setSummary(data.data);
         }
-        const history = await investmentsService.listTransactions({ portfolioId: targetId });
+        const history = await investmentsService.listTransactions({ portfolioId: targetId, ...readScope });
         setTransactions(history.data || []);
       } else {
         setSummary(null);
@@ -64,6 +81,7 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
   };
 
   const handleCreatePlacement = async (data: any) => {
+    if (scope?.isConsolidated) return;
     setIsPending(true);
     try {
       // On utilise le premier portefeuille par défaut si aucun n'est sélectionné
@@ -95,7 +113,7 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
 
   useEffect(() => {
     loadData();
-  }, [selectedPortfolioId]);
+  }, [selectedPortfolioId, scope?.enterpriseId, scope?.enterpriseScope, scope?.scopeKey]);
 
   if (loading && !summary) {
     return <div className="flex items-center justify-center h-64">Chargement du dashboard...</div>;
@@ -115,16 +133,18 @@ export const InvestmentDashboard: React.FC<InvestmentDashboardProps> = ({ portfo
           <Button variant="outline" size="sm" onClick={loadData}>
             <RefreshCcw className="h-4 w-4 mr-2" /> Actualiser
           </Button>
-          <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Nouveau Placement
-          </Button>
+          {!scope?.isConsolidated && (
+            <Button size="sm" disabled={!scope?.isReady || loading} onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Nouveau Placement
+            </Button>
+          )}
         </div>
       </div>
 
       {errorMessage && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div>}
 
       <CreatePlacementDialog 
-        open={isCreateDialogOpen} 
+        open={isCreateDialogOpen && !scope?.isConsolidated}
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreatePlacement}
         isPending={isPending}

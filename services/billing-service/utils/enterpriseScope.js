@@ -22,6 +22,16 @@ const parseEnterpriseId = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const ADMIN_ROLE_CODES = new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']);
+
+const isAdminUser = (user) => {
+  const role = typeof user?.role === 'string' ? user.role : user?.role?.code || user?.role?.name;
+  return ADMIN_ROLE_CODES.has(String(role || '').trim().toUpperCase());
+};
+
+const getHeaderEnterpriseId = (req) =>
+  parseEnterpriseId(req.headers?.['x-enterprise-id'] || req.headers?.['X-Enterprise-Id']);
+
 const getEnterpriseList = async (req) => {
   if (enterpriseCache.data && enterpriseCache.expiresAt > Date.now()) {
     return enterpriseCache.data;
@@ -79,10 +89,45 @@ const getAccessibleEnterpriseIds = async (req) => {
   return computeScopedEnterpriseIds(enterprises, rootEnterpriseId) || [rootEnterpriseId];
 };
 
+const getConsolidatedEnterpriseIds = async (req) => {
+  if (!isAdminUser(req.user)) {
+    const error = new Error("La vue consolidée est réservée aux administrateurs.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const accessibleIds = await getAccessibleEnterpriseIds(req);
+  const activeEnterpriseId = getHeaderEnterpriseId(req);
+  if (!activeEnterpriseId) {
+    const error = new Error('Choisissez une entreprise active avant de consulter la vue consolidée.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const enterprises = await getEnterpriseList(req);
+  if (!enterprises.some((enterprise) => parseEnterpriseId(enterprise.id) === activeEnterpriseId)) {
+    const error = new Error("L'entreprise active est introuvable ou inaccessible.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (Array.isArray(accessibleIds) && !accessibleIds.includes(activeEnterpriseId)) {
+    const error = new Error("Vous n'avez pas acces a cette entreprise.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const branchIds = computeScopedEnterpriseIds(enterprises, activeEnterpriseId) || [activeEnterpriseId];
+  return Array.isArray(accessibleIds)
+    ? branchIds.filter((enterpriseId) => accessibleIds.includes(enterpriseId))
+    : branchIds;
+};
+
 const resolveEnterpriseContext = async (req, requestedEnterpriseId = req.body?.enterpriseId) => {
   const enterprises = await getEnterpriseList(req);
-  const scopedIds = await resolveEnterpriseIdsForRequest(req, requestedEnterpriseId);
-  const normalizedRequestedEnterpriseId = parseEnterpriseId(requestedEnterpriseId);
+  const activeEnterpriseId = getHeaderEnterpriseId(req);
+  const normalizedRequestedEnterpriseId = activeEnterpriseId || parseEnterpriseId(requestedEnterpriseId);
+  const scopedIds = await resolveEnterpriseIdsForRequest(req, normalizedRequestedEnterpriseId);
   const userEnterpriseId = parseEnterpriseId(req.user?.enterpriseId);
   const targetEnterpriseId =
     normalizedRequestedEnterpriseId ||
@@ -115,15 +160,30 @@ const resolveEnterpriseContext = async (req, requestedEnterpriseId = req.body?.e
 };
 
 const resolveEnterpriseIdsForRequest = async (req, requestedEnterpriseId = req.query?.enterpriseId) => {
+  if (String(req.query?.enterpriseScope || '').toLowerCase() === 'consolidated') {
+    return getConsolidatedEnterpriseIds(req);
+  }
+
   const scopedIds = await getAccessibleEnterpriseIds(req);
-  const normalizedRequestedEnterpriseId = parseEnterpriseId(requestedEnterpriseId);
+  // The globally selected company is the effective scope for ordinary views and writes.
+  // A query/body company value cannot silently switch an operation to another entity.
+  const userEnterpriseId = parseEnterpriseId(req.user?.enterpriseId ?? req.user?.enterprise?.id);
+  const normalizedRequestedEnterpriseId =
+    getHeaderEnterpriseId(req) || parseEnterpriseId(requestedEnterpriseId) || userEnterpriseId;
 
   if (!scopedIds) {
-    return normalizedRequestedEnterpriseId ? [normalizedRequestedEnterpriseId] : null;
+    if (!normalizedRequestedEnterpriseId) return [];
+    const enterprises = await getEnterpriseList(req);
+    if (!enterprises.some((enterprise) => parseEnterpriseId(enterprise.id) === normalizedRequestedEnterpriseId)) {
+      const error = new Error("Vous n'avez pas acces a cette entreprise.");
+      error.statusCode = 403;
+      throw error;
+    }
+    return [normalizedRequestedEnterpriseId];
   }
 
   if (!normalizedRequestedEnterpriseId) {
-    return scopedIds;
+    return [];
   }
 
   if (!scopedIds.includes(normalizedRequestedEnterpriseId)) {
@@ -168,6 +228,7 @@ module.exports = {
   parseEnterpriseId,
   getEnterpriseList,
   getAccessibleEnterpriseIds,
+  getConsolidatedEnterpriseIds,
   resolveEnterpriseIdsForRequest,
   resolveEnterpriseContext,
   applyEnterpriseScope,

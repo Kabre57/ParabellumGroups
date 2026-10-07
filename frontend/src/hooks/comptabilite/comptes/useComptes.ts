@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import billingService from '@/shared/api/billing';
 
-export function useComptes(enabled = true) {
+export function useComptes(scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }, enabled = true) {
   return useQuery({
-    queryKey: ['billing-accounting-overview', 'all'],
-    queryFn: () => billingService.getAccountingOverview('all'),
+    queryKey: ['billing-accounting-overview', 'all', scope?.enterpriseId ?? scope?.enterpriseScope ?? 'active'],
+    queryFn: () => billingService.getAccountingOverview('all', scope),
     enabled,
   });
 }

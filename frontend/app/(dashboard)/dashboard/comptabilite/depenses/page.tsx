@@ -15,13 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import billingService, {
   type PurchaseCommitment,
 } from '@/shared/api/billing';
-import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 import { CreateEncaissementDialog } from '@/components/accounting/CreateEncaissementDialog';
 import { CreateDecaissementDialog } from '@/components/accounting/CreateDecaissementDialog';
 import { CreateFactureFournisseurDialog } from '@/components/accounting/CreateFactureFournisseurDialog';
@@ -61,6 +61,8 @@ const sourceLabels: Record<string, string> = {
 
 export default function DepensesPage() {
   const { user } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
+  const accountingScope = useAccountingEnterpriseScope();
   const queryClient = useQueryClient();
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
   const canRead =
@@ -68,24 +70,24 @@ export default function DepensesPage() {
     ['expenses.read', 'expenses.read_all', 'expenses.read_own', 'payments.read'].some((permission) =>
       permissionSet.has(permission)
     );
-  const canCreateVoucher = isAdminRole(user) || permissionSet.has('expenses.create');
-  const canImportVoucher = canCreateVoucher || isAdminRole(user) || permissionSet.has('expenses.import');
-  const canApproveVoucher =
-    isAdminRole(user) || permissionSet.has('expenses.approve') || permissionSet.has('payments.validate');
+  const canMutate = !accountingScope.isConsolidated;
+  const canCreateVoucher = canMutate && (isAdminRole(user) || permissionSet.has('expenses.create'));
+  const canImportVoucher = canMutate && (canCreateVoucher || isAdminRole(user) || permissionSet.has('expenses.import'));
+  const canApproveVoucher = canMutate && (
+    isAdminRole(user) || permissionSet.has('expenses.approve') || permissionSet.has('payments.validate')
+  );
 
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
   const [customRange, setCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
   const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
-  const [enterpriseFilter, setEnterpriseFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
   const [encaissementOpen, setEncaissementOpen] = useState(false);
   const [decaissementOpen, setDecaissementOpen] = useState(false);
   const [liquidationOpen, setLiquidationOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importEnterpriseId, setImportEnterpriseId] = useState('all');
   const [importDefaultFlowType, setImportDefaultFlowType] = useState<'ENCAISSEMENT' | 'DECAISSEMENT'>('DECAISSEMENT');
   const [importDefaultStatus, setImportDefaultStatus] = useState<'BROUILLON' | 'EN_ATTENTE' | 'VALIDE' | 'DECAISSE' | 'ANNULE'>('VALIDE');
   const [selectedCommitment, setSelectedCommitment] = useState<PurchaseCommitment | null>(null);
@@ -129,31 +131,10 @@ export default function DepensesPage() {
     return { startDate: start.toISOString(), endDate: end.toISOString() };
   }, [customRange, period, selectedDay]);
 
-  const { data: enterprisesResponse } = useQuery({
-    queryKey: ['enterprise-filter-options', 'depenses'],
-    queryFn: () => enterpriseApi.getAll({ limit: 200, isActive: true }),
-    enabled: canRead,
-  });
-
-  const accessibleEnterprises = useMemo(
-    () => getAccessibleEnterprises(enterprisesResponse?.data ?? [], user?.enterpriseId),
-    [enterprisesResponse?.data, user?.enterpriseId]
-  );
-
-  const selectedEnterpriseLabel =
-    enterpriseFilter === 'all'
-      ? null
-      : accessibleEnterprises.find((enterprise) => String(enterprise.id) === enterpriseFilter)?.name || null;
-
   const { data, isLoading } = useQuery({
-    queryKey: ['billing-spending-overview', period, selectedDay, customRange?.startDate ?? null, customRange?.endDate ?? null, enterpriseFilter],
-    queryFn: () =>
-      billingService.getSpendingOverview(
-        enterpriseFilter !== 'all'
-          ? { ...range, enterpriseId: enterpriseFilter }
-          : range
-      ),
-    enabled: canRead,
+    queryKey: ['billing-spending-overview', period, selectedDay, customRange?.startDate ?? null, customRange?.endDate ?? null, accountingScope.scopeKey],
+    queryFn: () => billingService.getSpendingOverview({ ...range, enterpriseId: accountingScope.enterpriseId, enterpriseScope: accountingScope.enterpriseScope }),
+    enabled: canRead && accountingScope.isReady,
   });
 
   const createEncaissementMutation = useMutation({
@@ -267,11 +248,8 @@ export default function DepensesPage() {
         throw new Error('Veuillez selectionner un fichier Excel.');
       }
       return billingService.importCashVouchers(importFile, {
-        enterpriseId: importEnterpriseId !== 'all' ? importEnterpriseId : undefined,
-        defaultEnterpriseName:
-          importEnterpriseId !== 'all'
-            ? accessibleEnterprises.find((enterprise) => String(enterprise.id) === importEnterpriseId)?.name
-            : undefined,
+        enterpriseId: selectedEnterprise?.id,
+        defaultEnterpriseName: selectedEnterprise?.name,
         defaultFlowType: importDefaultFlowType,
         defaultStatus: importDefaultStatus,
       });
@@ -284,7 +262,6 @@ export default function DepensesPage() {
       }
       setImportOpen(false);
       setImportFile(null);
-      setImportEnterpriseId('all');
       setImportDefaultFlowType('DECAISSEMENT');
       setImportDefaultStatus('VALIDE');
       queryClient.invalidateQueries({ queryKey: ['billing-spending-overview'] });
@@ -451,7 +428,7 @@ export default function DepensesPage() {
       />
 
       <Card className="p-4 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -461,28 +438,8 @@ export default function DepensesPage() {
               className="pl-9"
             />
           </div>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3"
-            value={enterpriseFilter}
-            onChange={(event) => setEnterpriseFilter(event.target.value)}
-          >
-            <option value="all">Toutes les entreprises</option>
-            {accessibleEnterprises.map((enterprise) => (
-              <option key={String(enterprise.id)} value={String(enterprise.id)}>
-                {enterprise.name}
-              </option>
-            ))}
-          </select>
         </div>
       </Card>
-
-      {accessibleEnterprises.length > 1 && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          {enterpriseFilter === 'all'
-            ? `Vue consolidee groupe : ${accessibleEnterprises.length} entreprises visibles pour cette entreprise mere.`
-            : `Filtre actif : ${selectedEnterpriseLabel || 'Entreprise selectionnee'}.`}
-        </div>
-      )}
 
       <DepensesTable
         isLoading={isLoading}
@@ -493,6 +450,8 @@ export default function DepensesPage() {
         filteredEncaissements={filteredEncaissements}
         filteredDecaissements={filteredDecaissements}
         consolidatedRows={consolidatedRows}
+        showEnterpriseColumn={accountingScope.isConsolidated}
+        canMutate={canMutate}
         formatCurrency={formatCurrency}
         formatDate={formatDate}
         sourceLabels={sourceLabels}
@@ -513,7 +472,7 @@ export default function DepensesPage() {
       />
 
       <CreateEncaissementDialog
-        open={encaissementOpen}
+        open={encaissementOpen && canMutate}
         onOpenChange={setEncaissementOpen}
         isSubmitting={createEncaissementMutation.isPending}
         onSubmit={async (payload) => {
@@ -522,7 +481,7 @@ export default function DepensesPage() {
       />
 
       <CreateDecaissementDialog
-        open={decaissementOpen}
+        open={decaissementOpen && canMutate}
         onOpenChange={setDecaissementOpen}
         defaultCommitment={selectedCommitment}
         isSubmitting={createDecaissementMutation.isPending}
@@ -533,7 +492,7 @@ export default function DepensesPage() {
 
       {selectedCommitment && (
         <CreateFactureFournisseurDialog
-          open={liquidationOpen}
+          open={liquidationOpen && canMutate}
           onOpenChange={setLiquidationOpen}
           commitment={selectedCommitment}
           isSubmitting={createLiquidationMutation.isPending}
@@ -544,18 +503,21 @@ export default function DepensesPage() {
       )}
 
       {canImportVoucher && (
-        <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <Dialog open={importOpen && canMutate} onOpenChange={setImportOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Importer des bons de caisse historiques</DialogTitle>
               <DialogDescription>
                 Importez un fichier Excel `.xlsx` contenant vos bons de caisse saisis manuellement en 2024 ou sur une autre période.
                 Colonnes reconnues: `numeroPiece`, `beneficiaire`, `description`, `montantTTC`, `modePaiement`, `date`,
-                `reference`, `notes`, `entrepriseId`, `entrepriseName`, `typeFlux`, `statut`.
+                `reference`, `notes`, `typeFlux`, `statut`.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                Les operations importees seront affectees a l&apos;entreprise active : <strong>{selectedEnterprise?.name || 'aucune entreprise selectionnee'}</strong>.
+              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fichier Excel</label>
                 <Input
@@ -565,22 +527,7 @@ export default function DepensesPage() {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Entreprise par défaut</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    value={importEnterpriseId}
-                    onChange={(event) => setImportEnterpriseId(event.target.value)}
-                  >
-                    <option value="all">Depuis le fichier / sinon entreprise connectee</option>
-                    {accessibleEnterprises.map((enterprise) => (
-                      <option key={String(enterprise.id)} value={String(enterprise.id)}>
-                        {enterprise.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="grid gap-4 md:grid-cols-2">
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Flux par défaut</label>
@@ -631,14 +578,15 @@ export default function DepensesPage() {
         <TabularListPrint
           title="Flux de caisse et depenses"
           subtitle={
-            enterpriseFilter === 'all'
+            accountingScope.isConsolidated
               ? 'Liste consolidee des engagements, encaissements, decaissements et pieces de caisse'
-              : `Liste des flux comptables - ${selectedEnterpriseLabel || 'Entreprise'}`
+              : `Liste des flux comptables - ${selectedEnterprise?.name || 'Entreprise active'}`
           }
           columns={[
             { key: 'number', label: 'N° Piece' },
             { key: 'date', label: 'Date' },
             { key: 'label', label: 'Type' },
+            ...(accountingScope.isConsolidated ? [{ key: 'enterpriseName', label: 'Entreprise / Entité' }] : []),
             { key: 'thirdParty', label: 'Tiers' },
             { key: 'amount', label: 'Montant TTC', align: 'right' },
             { key: 'status', label: 'Statut' },
@@ -647,6 +595,7 @@ export default function DepensesPage() {
             number: row.number,
             date: formatDate(row.date),
             label: row.label,
+            ...(accountingScope.isConsolidated ? { enterpriseName: row.enterpriseName || '-' } : {}),
             thirdParty: row.thirdParty,
             amount: formatFCFA(row.amount),
             status: row.status,

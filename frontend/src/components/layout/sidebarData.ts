@@ -158,11 +158,11 @@ export const quickAccessItems: SidebarItem[] = [
 ];
 
 export const adminNavigation: SidebarItem[] = [
-  { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2, permission: 'enterprises.read' },
-  { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: 'admin' },
-  { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: 'admin' },
-  { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: 'admin' },
-  { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck, permission: 'admin' },
-  { name: 'Journal audit', href: '/dashboard/admin/audit-logs', icon: BookOpen, permission: 'admin' },
-  { name: 'Paramètres', href: '/dashboard/settings', icon: Settings, permission: 'admin' },
+  { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2, permission: ['enterprises.read', 'enterprises.read_all'] },
+  { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: ['users.read', 'users.read_all', 'users.read_own', 'permissions.manage'] },
+  { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: ['roles.read', 'roles.manage_permissions'] },
+  { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: ['services.read', 'services.read_all'] },
+  { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck, permission: ['permissions.create', 'permissions.update', 'permissions.delete', 'roles.manage_permissions', 'roles.read'] },
+  { name: 'Journal audit', href: '/dashboard/admin/audit-logs', icon: BookOpen, permission: ['canViewAuditLogInfo', 'canViewAuditLogWarning', 'canViewAuditLogCritical', 'canViewAuditLogSecurity', 'audit_logs.read', 'audit_logs.view'] },
+  { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
 ];

@@ -1,5 +1,6 @@
 const { PrismaClient, AccountingAccountType, TreasuryAccountType, TreasuryClosureStatus } = require('@prisma/client');
 const { hasPermission } = require('../utils/accounting');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 const POSTED_STATUSES = ['POSTED', 'VALIDATED'];
@@ -68,12 +69,15 @@ const closureError = (message, statusCode = 400) => {
  * encaissements, décaissements et transferts validés y sont déjà comptabilisés.
  * Cela exclut les brouillons/annulations et évite de recompter une pièce source.
  */
-const getExpectedTotals = async ({ client = prisma, end, treasuryAccountId }) => {
+const getExpectedTotals = async ({ client = prisma, end, treasuryAccountId, enterpriseIds }) => {
   const accounts = await client.treasuryAccount.findMany({
     where: {
       type: TreasuryAccountType.CASH,
       isActive: true,
       ...(treasuryAccountId ? { id: String(treasuryAccountId) } : {}),
+      ...(Array.isArray(enterpriseIds)
+        ? { accountingAccount: { enterpriseId: { in: enterpriseIds.length ? enterpriseIds : [-1] } } }
+        : {}),
     },
     include: { accountingAccount: true },
     orderBy: [{ name: 'asc' }],
@@ -100,6 +104,9 @@ const getExpectedTotals = async ({ client = prisma, end, treasuryAccountId }) =>
     where: {
       isActive: true,
       accountingAccountId: { in: accountIds },
+      ...(Array.isArray(enterpriseIds)
+        ? { accountingAccount: { enterpriseId: { in: enterpriseIds.length ? enterpriseIds : [-1] } } }
+        : {}),
     },
     select: { id: true, name: true, accountingAccountId: true },
   });
@@ -178,6 +185,11 @@ const serializeClosure = (closure) => ({
 
 exports.getTreasuryClosures = async (req, res) => {
   try {
+    const activeEnterprise = await resolveEnterpriseContext(req, req.query.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter les clÃ´tures de caisse.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, req.query.enterpriseId);
     const start = parseDate(req.query.startDate);
     const end = parseDate(req.query.endDate, true);
     const period = req.query.period ? resolvePeriodRange(String(req.query.period)) : null;
@@ -187,10 +199,15 @@ exports.getTreasuryClosures = async (req, res) => {
     if (effectiveStart) where.periodStart = { gte: effectiveStart };
     if (effectiveEnd) where.periodEnd = { lte: effectiveEnd };
     if (req.query.treasuryAccountId) where.treasuryAccountId = String(req.query.treasuryAccountId);
+    if (Array.isArray(enterpriseIds)) {
+      where.treasuryAccount = {
+        accountingAccount: { enterpriseId: { in: enterpriseIds.length ? enterpriseIds : [-1] } },
+      };
+    }
 
     const closures = await prisma.treasuryClosure.findMany({
       where,
-      include: { treasuryAccount: true },
+      include: { treasuryAccount: { include: { accountingAccount: true } } },
       orderBy: { periodStart: 'desc' },
     });
     return res.json({ success: true, data: closures.map(serializeClosure) });
@@ -202,6 +219,11 @@ exports.getTreasuryClosures = async (req, res) => {
 
 exports.createTreasuryClosure = async (req, res) => {
   try {
+    const activeEnterprise = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de clÃ´turer une caisse.' });
+    }
+    const enterpriseIds = [activeEnterprise.enterpriseId];
     const { treasuryAccountId, periodType, periodLabel, periodStart, periodEnd,
       countedCash, countedCheque, countedCard, countedOther, ticketZ, notes } = req.body || {};
     if (!treasuryAccountId) {
@@ -236,7 +258,7 @@ exports.createTreasuryClosure = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Une clôture existe déjà pour cette caisse et cette période.' });
     }
 
-    const [expected] = await getExpectedTotals({ end, treasuryAccountId });
+    const [expected] = await getExpectedTotals({ end, treasuryAccountId, enterpriseIds });
     const countedTotal = Object.values(counted).reduce((sum, value) => sum + value, 0);
     const variance = countedTotal - expected.expectedTotal;
     const userId = String(req.user?.userId || req.user?.id || '');
@@ -263,7 +285,7 @@ exports.createTreasuryClosure = async (req, res) => {
         createdByEmail: req.user?.email || null,
         closedAt: new Date(),
       },
-      include: { treasuryAccount: true },
+      include: { treasuryAccount: { include: { accountingAccount: true } } },
     });
 
     return res.status(201).json({ success: true, data: serializeClosure(closure), message: 'Clôture enregistrée, en attente de validation.' });
@@ -275,8 +297,13 @@ exports.createTreasuryClosure = async (req, res) => {
 
 exports.updateTreasuryClosure = async (req, res) => {
   try {
+    const activeEnterprise = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de modifier une clÃ´ture.' });
+    }
+    const enterpriseIds = [activeEnterprise.enterpriseId];
     const { id } = req.params;
-    const existing = await prisma.treasuryClosure.findUnique({ where: { id }, include: { treasuryAccount: true } });
+    const existing = await prisma.treasuryClosure.findUnique({ where: { id }, include: { treasuryAccount: { include: { accountingAccount: true } } } });
     if (!existing) return res.status(404).json({ success: false, message: 'Clôture introuvable.' });
     if (existing.status === TreasuryClosureStatus.VALIDATED) {
       return res.status(409).json({ success: false, message: 'Une clôture validée est verrouillée et ne peut plus être modifiée.' });
@@ -295,6 +322,7 @@ exports.updateTreasuryClosure = async (req, res) => {
     const [expected] = await getExpectedTotals({
       end: existing.periodEnd,
       treasuryAccountId: existing.treasuryAccountId,
+      enterpriseIds,
     });
     const countedTotal = Object.values(counted).reduce((sum, value) => sum + value, 0);
     const updated = await prisma.treasuryClosure.update({
@@ -311,7 +339,7 @@ exports.updateTreasuryClosure = async (req, res) => {
         ticketZ: req.body.ticketZ !== undefined ? toNumber(req.body.ticketZ) : undefined,
         notes: req.body.notes !== undefined ? String(req.body.notes) : undefined,
       },
-      include: { treasuryAccount: true },
+      include: { treasuryAccount: { include: { accountingAccount: true } } },
     });
     return res.json({ success: true, data: serializeClosure(updated), message: 'Clôture mise à jour.' });
   } catch (error) {
@@ -322,12 +350,17 @@ exports.updateTreasuryClosure = async (req, res) => {
 
 exports.validateTreasuryClosure = async (req, res) => {
   try {
+    const activeEnterprise = await resolveEnterpriseContext(req, req.body?.enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de valider une clÃ´ture.' });
+    }
+    const enterpriseIds = [activeEnterprise.enterpriseId];
     if (!canValidateClosure(req.user)) {
       return res.status(403).json({ success: false, message: 'Vous n’avez pas la permission de valider une clôture.' });
     }
     const { id } = req.params;
     const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.treasuryClosure.findUnique({ where: { id }, include: { treasuryAccount: true } });
+      const existing = await tx.treasuryClosure.findUnique({ where: { id }, include: { treasuryAccount: { include: { accountingAccount: true } } } });
       if (!existing) throw closureError('Clôture introuvable.', 404);
       if (existing.status === TreasuryClosureStatus.VALIDATED) throw closureError('Cette clôture est déjà validée.', 409);
       if (existing.status !== TreasuryClosureStatus.CLOSED) throw closureError('Seule une clôture enregistrée peut être validée.', 409);
@@ -336,6 +369,7 @@ exports.validateTreasuryClosure = async (req, res) => {
         client: tx,
         end: existing.periodEnd,
         treasuryAccountId: existing.treasuryAccountId,
+        enterpriseIds,
       });
       const countedTotal = toNumber(existing.countedCash) + toNumber(existing.countedCheque) +
         toNumber(existing.countedCard) + toNumber(existing.countedOther);
@@ -361,7 +395,7 @@ exports.validateTreasuryClosure = async (req, res) => {
           validatedByEmail: req.user?.email || null,
           validatedAt: new Date(),
         },
-        include: { treasuryAccount: true },
+        include: { treasuryAccount: { include: { accountingAccount: true } } },
       });
     }, { isolationLevel: 'Serializable' });
 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
@@ -141,6 +141,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     }
     return quickAccessItems.filter(hasAccess);
   }, [isEmployee, hasAccess, professionalCategories]);
+
+  const visibleAdminItems = useMemo(() => {
+    return adminNavigation.filter(item => {
+      if (isAdmin) return true;
+      return hasAccess(item);
+    });
+  }, [isAdmin, hasAccess]);
 
   const visibleCategories = useMemo(() => {
     return professionalCategories.filter(category => {
@@ -367,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
               );
             })}
 
-            {isAdmin && !isCollapsed && (
+            {visibleAdminItems.length > 0 && !isCollapsed && (
               <div className="pt-4">
                 <div className="px-3 mb-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -375,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                   </h3>
                 </div>
                 <div className="space-y-1">
-                  {adminNavigation.map((item) => {
+                  {visibleAdminItems.map((item) => {
                     const isActive = pathname === item.href;
 
                     return (

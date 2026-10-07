@@ -18,7 +18,7 @@ class GeneralLedgerService {
    * @returns {Promise<Array>} Grand livre formaté par compte
    */
   async generateLedger(options, client = prisma) {
-    const { periodId, fiscalYearId, enterpriseId, accountIds, startDate, endDate } = options;
+    const { periodId, fiscalYearId, enterpriseId, enterpriseIds, accountIds, startDate, endDate } = options;
     let resolvedPeriodId = periodId;
     let resolvedFiscalYearId = fiscalYearId;
 
@@ -45,7 +45,11 @@ class GeneralLedgerService {
       if (endDate) entryFilters.entryDate.lte = new Date(endDate);
     }
 
-    if (enterpriseId) entryFilters.enterpriseId = Number(enterpriseId);
+    if (Array.isArray(enterpriseIds)) {
+      entryFilters.enterpriseId = { in: enterpriseIds.length ? enterpriseIds.map(Number) : [-1] };
+    } else if (enterpriseId) {
+      entryFilters.enterpriseId = Number(enterpriseId);
+    }
 
     let openingDate = startDate ? new Date(startDate) : null;
     if (!openingDate && resolvedPeriodId) {
@@ -59,7 +63,15 @@ class GeneralLedgerService {
     const openingByAccount = new Map();
     if (openingDate) {
       const priorLines = await client.accountingJournalLine.findMany({
-        where: { entry: { status: 'POSTED', entryDate: { lt: openingDate }, ...(enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}) } },
+        where: {
+          entry: {
+            status: 'POSTED',
+            entryDate: { lt: openingDate },
+            ...(Array.isArray(enterpriseIds)
+              ? { enterpriseId: { in: enterpriseIds.length ? enterpriseIds.map(Number) : [-1] } }
+              : enterpriseId ? { enterpriseId: Number(enterpriseId) } : {}),
+          },
+        },
         select: { accountId: true, side: true, amount: true }
       });
       for (const line of priorLines) {

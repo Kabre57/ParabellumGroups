@@ -5,7 +5,7 @@ const {
   resolveDateRange,
   serializeJournalEntry,
 } = require('../utils/accounting');
-const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, assertEnterpriseInScope, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 const AccountingPostingService = require('../core/services/AccountingPostingService');
 
 const prisma = new PrismaClient();
@@ -173,8 +173,12 @@ exports.createJournalEntry = async (req, res) => {
       status,
     } = req.body;
 
-    const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
-    const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+    const { enterpriseId: resolvedEnterpriseId, enterpriseName: contextEnterpriseName } =
+      await resolveEnterpriseContext(req, enterpriseId);
+    if (!resolvedEnterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active avant de crÃ©er une Ã©criture.' });
+    }
+    const resolvedEnterpriseName = contextEnterpriseName || enterpriseName || req.user?.enterpriseName || null;
     const lines = normalizeEntryLinesPayload(req.body);
 
     await assertEnterpriseInScope(

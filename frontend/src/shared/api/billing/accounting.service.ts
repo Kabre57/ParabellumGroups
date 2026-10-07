@@ -24,7 +24,7 @@ import { normalizeDetailResponse, normalizeListResponse, normalizeStatsResponse 
 export const accountingService = {
   async getAccountingOverview(
     period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all',
-    params?: { startDate?: string; endDate?: string; enterpriseId?: string | number }
+    params?: { startDate?: string; endDate?: string; enterpriseId?: string | number; enterpriseScope?: 'consolidated' }
   ): Promise<{ success: boolean; data: AccountingOverview }> {
     const response = await apiClient.get('/billing/accounting/overview', {
       params: { period, ...params },
@@ -109,8 +109,8 @@ export const accountingService = {
     return normalizeDetailResponse<AccountingReportSnapshot>(response.data);
   },
 
-  async getAccountingAccounts(): Promise<ListResponse<AccountingAccount>> {
-    const response = await apiClient.get('/billing/accounting/accounts');
+  async getAccountingAccounts(params?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }): Promise<ListResponse<AccountingAccount>> {
+    const response = await apiClient.get('/billing/accounting/accounts', { params });
     return normalizeListResponse<AccountingAccount>(response.data);
   },
 
@@ -131,8 +131,8 @@ export const accountingService = {
     return normalizeListResponse<FiscalYear>(response.data);
   },
 
-  async getAccountingFamilyRules(): Promise<ListResponse<AccountingFamilyRule>> {
-    const response = await apiClient.get('/billing/accounting/family-rules');
+  async getAccountingFamilyRules(params?: { enterpriseId?: string | number }): Promise<ListResponse<AccountingFamilyRule>> {
+    const response = await apiClient.get('/billing/accounting/family-rules', { params });
     return normalizeListResponse<AccountingFamilyRule>(response.data);
   },
 
@@ -238,6 +238,7 @@ export const accountingService = {
     endDate?: string;
     search?: string;
     enterpriseId?: string | number;
+    enterpriseScope?: 'consolidated';
     journalId?: string;
     periodId?: string;
     status?: string;
@@ -272,6 +273,7 @@ export const accountingService = {
     periodId?: string;
     fiscalYearId?: string;
     enterpriseId?: string | number;
+    enterpriseScope?: 'consolidated';
   }): Promise<{ success: boolean; data: any[] }> {
     const response = await apiClient.get('/billing/accounting/trial-balance', { params });
     return response.data;
@@ -281,6 +283,7 @@ export const accountingService = {
     periodId?: string;
     fiscalYearId?: string;
     enterpriseId?: string | number;
+    enterpriseScope?: 'consolidated';
     accountIds?: string;
     startDate?: string;
     endDate?: string;

@@ -166,12 +166,10 @@ module.exports = {
     {
       path: '/auth/enterprises',
       auth: true,
-      admin: true,
     },
     {
       path: '/enterprises',
       auth: true,
-      admin: true,
       pathRewrite: { '^/enterprises': '/api/enterprises' },
     },
   ],

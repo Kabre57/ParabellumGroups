@@ -50,12 +50,13 @@ const date = (value?: string | null) => {
   return parsed.toLocaleDateString('fr-FR');
 };
 
-export const exportTreasuryCsv = (movements: AccountingMovement[], fileName = 'tresorerie.csv') => {
+export const exportTreasuryCsv = (movements: AccountingMovement[], fileName = 'tresorerie.csv', includeEnterprise = false) => {
   const rows = [
-    ['Date', 'Type', 'Categorie', 'Description', 'Montant', 'Solde', 'Reference'],
+    ['Date', 'Type', ...(includeEnterprise ? ['Entreprise'] : []), 'Categorie', 'Description', 'Montant', 'Solde', 'Reference'],
     ...movements.map((movement) => [
       date(movement.date),
       movement.type === 'income' ? 'Encaissement' : 'Decaissement',
+      ...(includeEnterprise ? [movement.enterpriseName || ''] : []),
       movement.category,
       movement.description,
       currency(movement.amount),
@@ -68,13 +69,14 @@ export const exportTreasuryCsv = (movements: AccountingMovement[], fileName = 't
   downloadBlob(csv, fileName, 'text/csv;charset=utf-8');
 };
 
-export const exportEntriesCsv = (entries: AccountingEntry[], fileName = 'ecritures-comptables.csv') => {
+export const exportEntriesCsv = (entries: AccountingEntry[], fileName = 'ecritures-comptables.csv', includeEnterprise = false) => {
   const rows = [
-    ['Date', 'Numero', 'Journal', 'Compte Debit', 'Compte Credit', 'Libelle', 'Debit', 'Credit', 'Reference'],
+    ['Date', 'Numero', 'Journal', ...(includeEnterprise ? ['Entreprise'] : []), 'Compte Debit', 'Compte Credit', 'Libelle', 'Debit', 'Credit', 'Reference'],
     ...entries.map((entry) => [
       date(entry.date),
       entry.entryNumber || entry.id,
       `${entry.journalCode} - ${entry.journalLabel}`,
+      ...(includeEnterprise ? [entry.enterpriseName || ''] : []),
       (entry.lines ?? [])
         .filter((line) => line.side === 'DEBIT')
         .map((line) => `${line.accountCode} - ${line.accountLabel}`)

@@ -21,6 +21,9 @@ import {
   UserCheck,
   BarChart,
   Tag,
+  Shield,
+  ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 
@@ -44,6 +47,10 @@ const navigation = [
 const adminNavigation = [
   { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2 },
   { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users },
+  { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield },
+  { name: 'Services', href: '/dashboard/admin/services', icon: Building2 },
+  { name: 'Permissions', href: '/dashboard/admin/permissions', icon: ShieldCheck },
+  { name: 'Journal audit', href: '/dashboard/admin/audit-logs', icon: BookOpen },
   { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
 ];
 

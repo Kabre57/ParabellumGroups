@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,7 @@ import {
 } from '@/components/ui/select';
 import { AccountingAccountPickerDialog } from '@/components/accounting/AccountingAccountPickerDialog';
 import billingService, { type Encaissement } from '@/shared/api/billing';
-import { enterpriseApi } from '@/lib/api';
-import { useAuth } from '@/shared/hooks/useAuth';
-import { hasAnyPermission, isAdminRole } from '@/shared/permissions';
-import { getAccessibleEnterprises } from '@/shared/enterpriseScope';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 interface CreateEncaissementDialogProps {
   open: boolean;
@@ -62,21 +59,11 @@ export function CreateEncaissementDialog({
   onSubmit,
   isSubmitting = false,
 }: CreateEncaissementDialogProps) {
-  const { user } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
   const [form, setForm] = useState<FormState>(initialState);
   const [accountingAccountId, setAccountingAccountId] = useState<string>('');
   const [vatAccountingAccountId, setVatAccountingAccountId] = useState<string>('');
-  const userEnterpriseId = String(user?.enterpriseId ?? user?.enterprise?.id ?? '');
-  const canChooseEnterprise =
-    isAdminRole(user) ||
-    hasAnyPermission(user, [
-      'enterprises.read',
-      'enterprises.read_all',
-      'enterprises.manage_logo',
-      'expenses.read_all',
-      'payments.read_all',
-      'accounting.treasury.manage',
-    ]);
+  const activeEnterpriseId = String(selectedEnterprise?.id ?? '');
 
   const { data: treasuryAccountsResponse } = useQuery({
     queryKey: ['treasury-accounts'],
@@ -88,36 +75,18 @@ export function CreateEncaissementDialog({
     queryFn: () => billingService.getAccountingAccounts(),
   });
 
-  const { data: enterprisesResponse } = useQuery({
-    queryKey: ['accounting-enterprises'],
-    queryFn: () => enterpriseApi.getAll({ limit: 100, isActive: true }),
-    enabled: open && (canChooseEnterprise || !userEnterpriseId),
-  });
-
-  const enterprises = useMemo(() => {
-    const allEnterprises = enterprisesResponse?.data ?? [];
-    if (canChooseEnterprise) {
-      return [...allEnterprises].sort((left: any, right: any) => left.name.localeCompare(right.name, 'fr'));
-    }
-    return getAccessibleEnterprises(allEnterprises, user?.enterpriseId);
-  }, [canChooseEnterprise, enterprisesResponse?.data, user?.enterpriseId]);
-
-  const selectedEnterprise = useMemo(
-    () => enterprises.find((enterprise: any) => String(enterprise.id) === form.enterpriseId),
-    [enterprises, form.enterpriseId]
-  );
   const hasVat = Number(form.amountTVA || 0) > 0;
 
   useEffect(() => {
     if (open) {
       setForm({
         ...initialState,
-        enterpriseId: userEnterpriseId,
+        enterpriseId: activeEnterpriseId,
       });
       setAccountingAccountId('');
       setVatAccountingAccountId('');
     }
-  }, [open, userEnterpriseId]);
+  }, [open, activeEnterpriseId]);
 
   useEffect(() => {
     if (!hasVat) {
@@ -146,8 +115,8 @@ export function CreateEncaissementDialog({
       amountTTC: Number(form.amountTTC),
       paymentMethod: form.paymentMethod,
       treasuryAccountId: form.treasuryAccountId || undefined,
-      enterpriseId: form.enterpriseId ? Number(form.enterpriseId) : undefined,
-      enterpriseName: selectedEnterprise?.name || user?.enterprise?.name || undefined,
+      enterpriseId: activeEnterpriseId ? Number(activeEnterpriseId) : undefined,
+      enterpriseName: selectedEnterprise?.name || undefined,
       dateEncaissement: new Date(form.dateEncaissement).toISOString(),
       reference: form.reference || undefined,
       notes: form.notes || undefined,
@@ -178,14 +147,14 @@ export function CreateEncaissementDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {(selectedEnterprise?.name || user?.enterprise?.name) && (
+        {selectedEnterprise?.name && (
           <div className="rounded-md border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise?.name || user?.enterprise?.name}</strong>.
+            Ce bon sera emis au nom de l&apos;entreprise <strong>{selectedEnterprise.name}</strong>.
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto px-1 py-4 space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Source / Client</Label>
               <Input
@@ -193,25 +162,6 @@ export function CreateEncaissementDialog({
                 onChange={(e) => updateField('clientName', e.target.value)}
                 placeholder="Nom du client ou source"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Entreprise / Entite</Label>
-              {canChooseEnterprise || !userEnterpriseId ? (
-                <Select value={form.enterpriseId} onValueChange={(v) => updateField('enterpriseId', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selectionner l'entreprise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {enterprises.map((enterprise: any) => (
-                      <SelectItem key={enterprise.id} value={String(enterprise.id)}>
-                        {enterprise.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={user?.enterprise?.name || ''} readOnly />
-              )}
             </div>
           </div>
 
@@ -349,7 +299,7 @@ export function CreateEncaissementDialog({
               !form.treasuryAccountId ||
               !accountingAccountId ||
               (hasVat && !vatAccountingAccountId) ||
-              !form.enterpriseId
+              !activeEnterpriseId
             }
           >
             {isSubmitting ? 'Enregistrement...' : "Valider l'encaissement"}

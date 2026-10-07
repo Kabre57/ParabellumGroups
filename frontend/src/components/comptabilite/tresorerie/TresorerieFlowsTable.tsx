@@ -8,9 +8,10 @@ import type { AccountingMovement } from '@/shared/api/billing';
 interface TresorerieFlowsTableProps {
   flows: AccountingMovement[];
   isLoading: boolean;
+  showEnterpriseColumn: boolean;
 }
 
-export function TresorerieFlowsTable({ flows, isLoading }: TresorerieFlowsTableProps) {
+export function TresorerieFlowsTable({ flows, isLoading, showEnterpriseColumn }: TresorerieFlowsTableProps) {
   return (
     <Card className="p-6">
       <h2 className="text-xl font-semibold mb-4">Mouvements de Trésorerie</h2>
@@ -21,8 +22,8 @@ export function TresorerieFlowsTable({ flows, isLoading }: TresorerieFlowsTableP
           <table className="w-full">
             <thead>
               <tr className="border-b dark:border-gray-700">
-                {['Date','Type','Catégorie','Compte','Description','Montant','Solde'].map((h, i) => (
-                  <th key={h} className={`py-3 px-4 font-semibold text-sm ${i >= 5 ? 'text-right' : 'text-left'}`}>{h}</th>
+                {['Date','Type', ...(showEnterpriseColumn ? ['Entreprise'] : []),'Catégorie','Compte','Description','Montant','Solde'].map((h, i) => (
+                  <th key={h} className={`py-3 px-4 font-semibold text-sm ${i >= (showEnterpriseColumn ? 6 : 5) ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -35,6 +36,7 @@ export function TresorerieFlowsTable({ flows, isLoading }: TresorerieFlowsTableP
                       ? <span className="flex items-center gap-1 text-green-600"><TrendingUp className="h-4 w-4" />Encaissement</span>
                       : <span className="flex items-center gap-1 text-red-600"><TrendingDown className="h-4 w-4" />Décaissement</span>}
                   </td>
+                  {showEnterpriseColumn && <td className="py-3 px-4 text-sm">{flow.enterpriseName || '-'}</td>}
                   <td className="py-3 px-4 text-sm">{flow.category}</td>
                   <td className="py-3 px-4 text-sm">{flow.treasuryAccountName || '-'}</td>
                   <td className="py-3 px-4 text-sm">{flow.description}</td>
@@ -45,7 +47,7 @@ export function TresorerieFlowsTable({ flows, isLoading }: TresorerieFlowsTableP
                 </tr>
               ))}
               {!flows.length && (
-                <tr><td colSpan={7} className="py-8 px-4 text-center text-sm text-gray-500">Aucun mouvement de trésorerie sur cette période.</td></tr>
+                <tr><td colSpan={showEnterpriseColumn ? 8 : 7} className="py-8 px-4 text-center text-sm text-gray-500">Aucun mouvement de trésorerie sur cette période.</td></tr>
               )}
             </tbody>
           </table>

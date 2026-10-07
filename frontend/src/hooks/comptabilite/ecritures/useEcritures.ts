@@ -2,19 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import billingService from '@/shared/api/billing';
 
-export function useEcritures(enabled = true, enterpriseId?: string) {
+export function useEcritures(enabled = true, scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }) {
   return useQuery({
-    queryKey: ['accounting-entries', enterpriseId || 'all'],
-    queryFn: () =>
-      billingService.getAccountingEntries(enterpriseId ? { enterpriseId } : undefined),
+    queryKey: ['accounting-entries', scope?.enterpriseId ?? scope?.enterpriseScope ?? 'active'],
+    queryFn: () => billingService.getAccountingEntries(scope),
     enabled,
   });
 }
 
-export function useAccountsForEntry(enabled = true) {
+export function useAccountsForEntry(scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }, enabled = true) {
   return useQuery({
-    queryKey: ['billing-accounting-accounts'],
-    queryFn: () => billingService.getAccountingAccounts(),
+    queryKey: ['billing-accounting-accounts', scope?.enterpriseId ?? scope?.enterpriseScope ?? 'active'],
+    queryFn: () => billingService.getAccountingAccounts(scope),
     enabled,
   });
 }

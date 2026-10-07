@@ -45,8 +45,8 @@ export const placementsService = {
     return response.data;
   },
 
-  async getBudgetPerformance(year?: number): Promise<BudgetPerformanceResponse> {
-    const response = await apiClient.get('/billing/budgets/performance', { params: { year } });
+  async getBudgetPerformance(year?: number, scope?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }): Promise<BudgetPerformanceResponse> {
+    const response = await apiClient.get('/billing/budgets/performance', { params: { year, ...scope } });
     return response.data;
   },
 };

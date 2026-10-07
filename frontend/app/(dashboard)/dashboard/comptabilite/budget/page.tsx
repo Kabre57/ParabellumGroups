@@ -2,10 +2,12 @@
 import { useState } from 'react';
 import { useBudget } from '@/hooks/comptabilite/budget/useBudget';
 import { BudgetHeader, BudgetStats, BudgetChart, BudgetTable } from '@/components/comptabilite/budget';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
 
 export default function BudgetPerformancePage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const { data: budgetData, isLoading } = useBudget(selectedYear);
+  const accountingScope = useAccountingEnterpriseScope();
+  const { data: budgetData, isLoading } = useBudget(selectedYear, accountingScope);
 
   const performance = budgetData?.data || [];
   const summary = budgetData?.summary || { totalAllocated: 0, totalSpent: 0, globalPerformance: 0 };

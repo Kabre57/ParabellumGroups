@@ -9,6 +9,7 @@ import { technicalService } from '@/shared/api/technical';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { UserMenu } from './UserMenu';
 import { NotificationDropdown } from './NotificationDropdown';
+import { EnterpriseSwitcher } from './EnterpriseSwitcher';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -194,6 +195,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           {/* Notifications */}
           <NotificationDropdown />
+
+          {/* Enterprise Switcher */}
+          <EnterpriseSwitcher />
 
           {/* User menu */}
           <UserMenu />

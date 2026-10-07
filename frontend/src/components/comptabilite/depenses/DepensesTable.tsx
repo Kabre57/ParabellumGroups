@@ -17,6 +17,8 @@ interface DepensesTableProps {
   filteredEncaissements: Encaissement[];
   filteredDecaissements: Decaissement[];
   consolidatedRows: any[];
+  showEnterpriseColumn: boolean;
+  canMutate: boolean;
   formatCurrency: (v: number) => string;
   formatDate: (v?: string | null) => string;
   sourceLabels: Record<string, string>;
@@ -69,6 +71,8 @@ export function DepensesTable({
   filteredEncaissements,
   filteredDecaissements,
   consolidatedRows,
+  showEnterpriseColumn,
+  canMutate,
   formatCurrency,
   formatDate,
   sourceLabels,
@@ -117,7 +121,7 @@ export function DepensesTable({
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Piece / dossier</th>
                   <th className="px-4 py-3">Objet metier</th>
-                  <th className="px-4 py-3">Entreprise / Entite</th>
+                  {showEnterpriseColumn && <th className="px-4 py-3">Entreprise / Entite</th>}
                   <th className="px-4 py-3">Client / fournisseur</th>
                   <th className="px-4 py-3">Reference</th>
                   <th className="px-4 py-3 text-right">Montant TTC</th>
@@ -128,13 +132,13 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={9}>
+                    <td className="px-4 py-8 text-center" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Chargement...
                     </td>
                   </tr>
                 ) : consolidatedRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={9}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Aucun mouvement a afficher.
                     </td>
                   </tr>
@@ -147,7 +151,7 @@ export function DepensesTable({
                         <td className="whitespace-nowrap px-4 py-3">{formatDate(row.date)}</td>
                         <td className="whitespace-nowrap px-4 py-3 font-medium">{row.number || '-'}</td>
                         <td className="px-4 py-3">{row.label}</td>
-                        <td className="px-4 py-3">{row.enterpriseName || '-'}</td>
+                        {showEnterpriseColumn && <td className="px-4 py-3">{row.enterpriseName || '-'}</td>}
                         <td className="px-4 py-3">{row.thirdParty}</td>
                         <td className="px-4 py-3">{textOrDash(row.reference)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">
@@ -183,12 +187,12 @@ export function DepensesTable({
                                   Valider compta
                                 </Button>
                               )}
-                            {row.kind === 'commitment' && row.status === 'ENGAGE' && (
+                            {canMutate && row.kind === 'commitment' && row.status === 'ENGAGE' && (
                               <Button size="sm" variant="outline" onClick={() => onLiquider(entity)}>
                                 Saisir facture
                               </Button>
                             )}
-                            {row.kind === 'commitment' && (row.status === 'LIQUIDE' || row.status === 'ORDONNANCE') && (
+                            {canMutate && row.kind === 'commitment' && (row.status === 'LIQUIDE' || row.status === 'ORDONNANCE') && (
                               <Button size="sm" onClick={() => onPayer(entity)}>
                                 Creer le paiement
                               </Button>
@@ -263,7 +267,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Source achat</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Entreprise / Entite</th>
+                  {showEnterpriseColumn && <th className="px-4 py-3">Entreprise / Entite</th>}
                   <th className="px-4 py-3">Fournisseur</th>
                   <th className="px-4 py-3 text-right">Montant TTC</th>
                   <th className="px-4 py-3">Suivi achat / compta</th>
@@ -273,13 +277,13 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={7}>
+                    <td className="px-4 py-8 text-center" colSpan={showEnterpriseColumn ? 7 : 6}>
                       Chargement...
                     </td>
                   </tr>
                 ) : filteredCommitments.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={7}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={showEnterpriseColumn ? 7 : 6}>
                       Aucun engagement achat.
                     </td>
                   </tr>
@@ -291,7 +295,7 @@ export function DepensesTable({
                         <div className="text-xs text-muted-foreground">{formatDate(commitment.createdAt)}</div>
                       </td>
                       <td className="px-4 py-3">{sourceLabels[commitment.sourceType] || commitment.sourceType}</td>
-                      <td className="px-4 py-3">{commitment.enterpriseName || commitment.serviceName || '-'}</td>
+                      {showEnterpriseColumn && <td className="px-4 py-3">{commitment.enterpriseName || commitment.serviceName || '-'}</td>}
                       <td className="px-4 py-3">{commitment.supplierName || '-'}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatCurrency(commitment.amountTTC)}</td>
                       <td className="px-4 py-3">
@@ -329,12 +333,12 @@ export function DepensesTable({
                               Valider compta
                             </Button>
                           )}
-                          {commitment.status === 'ENGAGE' && (
+                          {canMutate && commitment.status === 'ENGAGE' && (
                             <Button size="sm" variant="outline" onClick={() => onLiquider(commitment)}>
                               Saisir facture
                             </Button>
                           )}
-                          {(commitment.status === 'LIQUIDE' || commitment.status === 'ORDONNANCE') && (
+                          {canMutate && (commitment.status === 'LIQUIDE' || commitment.status === 'ORDONNANCE') && (
                             <Button size="sm" onClick={() => onPayer(commitment)}>
                               Creer le paiement
                             </Button>
@@ -363,7 +367,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Piece de paiement</th>
-                  <th className="px-4 py-3">Entreprise / Entite</th>
+                  {showEnterpriseColumn && <th className="px-4 py-3">Entreprise / Entite</th>}
                   <th className="px-4 py-3">Beneficiaire</th>
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Reference</th>
@@ -375,13 +379,13 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={9}>
+                    <td className="px-4 py-8 text-center" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Chargement...
                     </td>
                   </tr>
                 ) : filteredDecaissements.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={9}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Aucun decaissement enregistre.
                     </td>
                   </tr>
@@ -390,7 +394,7 @@ export function DepensesTable({
                     <tr key={decaissement.id} className="border-b hover:bg-muted/50">
                       <td className="px-4 py-3">{formatDate(decaissement.dateDecaissement)}</td>
                       <td className="px-4 py-3 font-medium">{decaissement.numeroPiece}</td>
-                      <td className="px-4 py-3">{decaissement.enterpriseName || decaissement.serviceName || '-'}</td>
+                      {showEnterpriseColumn && <td className="px-4 py-3">{decaissement.enterpriseName || decaissement.serviceName || '-'}</td>}
                       <td className="px-4 py-3">{decaissement.beneficiaryName}</td>
                       <td className="px-4 py-3">{decaissement.paymentMethod}</td>
                       <td className="px-4 py-3">{decaissement.reference || '-'}</td>
@@ -444,7 +448,7 @@ export function DepensesTable({
                 <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Piece d'encaissement</th>
-                  <th className="px-4 py-3">Entreprise / Entite</th>
+                  {showEnterpriseColumn && <th className="px-4 py-3">Entreprise / Entite</th>}
                   <th className="px-4 py-3">Client / tiers</th>
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Reference bancaire</th>
@@ -456,13 +460,13 @@ export function DepensesTable({
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={9}>
+                    <td className="px-4 py-8 text-center" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Chargement...
                     </td>
                   </tr>
                 ) : filteredEncaissements.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={9}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={showEnterpriseColumn ? 9 : 8}>
                       Aucun encaissement a valider.
                     </td>
                   </tr>
@@ -471,7 +475,7 @@ export function DepensesTable({
                     <tr key={encaissement.id} className="border-b hover:bg-muted/50">
                       <td className="px-4 py-3">{formatDate(encaissement.dateEncaissement)}</td>
                       <td className="px-4 py-3 font-medium">{encaissement.numeroPiece}</td>
-                      <td className="px-4 py-3">{encaissement.enterpriseName || encaissement.serviceName || '-'}</td>
+                      {showEnterpriseColumn && <td className="px-4 py-3">{encaissement.enterpriseName || encaissement.serviceName || '-'}</td>}
                       <td className="px-4 py-3">{encaissement.clientName}</td>
                       <td className="px-4 py-3">{encaissement.paymentMethod}</td>
                       <td className="px-4 py-3">{encaissement.reference || '-'}</td>
@@ -560,9 +564,11 @@ export function DepensesTable({
                       </td>
                       <td className="px-4 py-3">
                         <div>{voucher.beneficiaryName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {voucher.enterpriseName || voucher.serviceName || voucher.supplierName || '-'}
-                        </div>
+                        {showEnterpriseColumn && (
+                          <div className="text-xs text-muted-foreground">
+                            {voucher.enterpriseName || voucher.serviceName || voucher.supplierName || '-'}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">{voucher.paymentMethod}</td>
                       <td className="px-4 py-3">{voucher.treasuryAccountName || '-'}</td>

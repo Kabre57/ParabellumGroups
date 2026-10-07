@@ -25,6 +25,8 @@ export const treasuryService = {
     endDate?: string;
     treasuryAccountId?: string;
     period?: 'week' | 'month' | 'quarter' | 'year' | 'all';
+    enterpriseId?: string | number;
+    enterpriseScope?: 'consolidated';
   }): Promise<ListResponse<TreasuryClosure>> {
     const response = await apiClient.get('/billing/treasury-closures', { params });
     return normalizeListResponse<TreasuryClosure>(response.data);

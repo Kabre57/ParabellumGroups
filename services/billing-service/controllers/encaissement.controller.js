@@ -2,7 +2,7 @@ const { PrismaClient, AccountingAccountType } = require('@prisma/client');
 const { amount } = require('../utils/accounting');
 const MappingService = require('../core/services/AccountingMappingService');
 const AccountingPostingService = require('../core/services/AccountingPostingService');
-const { applyEnterpriseScope, assertEnterpriseInScope } = require('../utils/enterpriseScope');
+const { applyEnterpriseScope, assertEnterpriseInScope, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 const { enrichEncaissementsWithInvoiceContext } = require('../utils/encaissementEnrichment');
 const { getTreasuryAccountingAccountId, resolveTreasuryAccountId } = require('../utils/treasury');
 const {
@@ -19,7 +19,7 @@ const validationError = (message) => {
   return error;
 };
 
-const ensureManualAccountingAccount = (account) => {
+const ensureManualAccountingAccount = (account, enterpriseId) => {
   if (!account || account.isActive === false) {
     throw validationError('Le compte comptable sélectionné est introuvable ou inactif.');
   }
@@ -28,10 +28,16 @@ const ensureManualAccountingAccount = (account) => {
     throw validationError("Le compte comptable sélectionné n'autorise pas la saisie manuelle.");
   }
 
+  if (account.enterpriseId !== null && Number(account.enterpriseId) !== Number(enterpriseId)) {
+    const error = validationError("Le compte comptable n'appartient pas à l'entreprise active.");
+    error.statusCode = 403;
+    throw error;
+  }
+
   return account;
 };
 
-const ensureVatAccountingAccount = (account) => {
+const ensureVatAccountingAccount = (account, enterpriseId) => {
   if (!account || account.isActive === false) {
     throw validationError('Le compte TVA selectionne est introuvable ou inactif.');
   }
@@ -42,6 +48,12 @@ const ensureVatAccountingAccount = (account) => {
 
   if (account.allowManualPosting === false) {
     throw validationError("Le compte TVA selectionne n'autorise pas la saisie manuelle.");
+  }
+
+  if (account.enterpriseId !== null && Number(account.enterpriseId) !== Number(enterpriseId)) {
+    const error = validationError("Le compte TVA n'appartient pas à l'entreprise active.");
+    error.statusCode = 403;
+    throw error;
   }
 
   return account;
@@ -76,8 +88,9 @@ exports.create = async (req, res) => {
       });
     }
 
-    const resolvedEnterpriseId = enterpriseId ? Number(enterpriseId) : req.user?.enterpriseId ? Number(req.user.enterpriseId) : null;
-    const resolvedEnterpriseName = enterpriseName || req.user?.enterpriseName || null;
+    const { enterpriseId: resolvedEnterpriseId, enterpriseName: contextEnterpriseName } =
+      await resolveEnterpriseContext(req, enterpriseId);
+    const resolvedEnterpriseName = contextEnterpriseName || enterpriseName || req.user?.enterpriseName || null;
 
     await assertEnterpriseInScope(
       req,
@@ -85,11 +98,26 @@ exports.create = async (req, res) => {
       "Vous n'avez pas acces a l'entreprise selectionnee pour cet encaissement."
     );
 
+    if (factureClientId) {
+      const invoice = await prisma.facture.findUnique({
+        where: { id: String(factureClientId) },
+        select: { enterpriseId: true },
+      });
+      if (!invoice) {
+        return res.status(404).json({ success: false, message: 'Facture client introuvable.' });
+      }
+      await assertEnterpriseInScope(req, invoice.enterpriseId, 'Cette facture ne correspond pas à l’entreprise active.');
+      if (Number(invoice.enterpriseId) !== Number(resolvedEnterpriseId)) {
+        return res.status(403).json({ success: false, message: 'Cette facture ne correspond pas à l’entreprise active.' });
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const resolvedTreasuryAccountId = await resolveTreasuryAccountId(tx, {
         treasuryAccountId,
         paymentMethod,
         user: req.user,
+        enterpriseId: resolvedEnterpriseId,
       });
       const operationDate = dateEncaissement ? new Date(dateEncaissement) : new Date();
       await AccountingPostingService.assertTreasuryAccountPeriodOpen(resolvedTreasuryAccountId, operationDate, tx);
@@ -99,7 +127,7 @@ exports.create = async (req, res) => {
           where: { id: String(accountingAccountId) },
         });
 
-        ensureManualAccountingAccount(revenueAccount);
+        ensureManualAccountingAccount(revenueAccount, resolvedEnterpriseId);
       }
 
       let resolvedVatAccountingAccountId = null;
@@ -108,7 +136,7 @@ exports.create = async (req, res) => {
           where: { id: String(vatAccountingAccountId) },
         });
 
-        resolvedVatAccountingAccountId = ensureVatAccountingAccount(vatAccount).id;
+        resolvedVatAccountingAccountId = ensureVatAccountingAccount(vatAccount, resolvedEnterpriseId).id;
       }
 
       if (!factureClientId && amount(amountTVA) > 0 && !resolvedVatAccountingAccountId) {
@@ -205,6 +233,7 @@ exports.updateStatus = async (req, res) => {
         treasuryAccountId: encaissement.treasuryAccountId,
         paymentMethod: encaissement.paymentMethod,
         user: req.user,
+        enterpriseId: encaissement.enterpriseId,
       });
       const preferredTreasuryAccountingAccountId = await getTreasuryAccountingAccountId(
         tx,
@@ -234,7 +263,7 @@ exports.updateStatus = async (req, res) => {
         creditAccount = await tx.accountingAccount.findUnique({
           where: { id: String(encaissement.accountingAccountId) },
         });
-        ensureManualAccountingAccount(creditAccount);
+        ensureManualAccountingAccount(creditAccount, encaissement.enterpriseId);
       }
 
       if (!creditAccount) {
@@ -258,7 +287,7 @@ exports.updateStatus = async (req, res) => {
         const vatAccount = await tx.accountingAccount.findUnique({
           where: { id: String(encaissement.vatAccountingAccountId) },
         });
-        ensureVatAccountingAccount(vatAccount);
+        ensureVatAccountingAccount(vatAccount, encaissement.enterpriseId);
 
         postingLines.push(
           {

@@ -1,5 +1,6 @@
 const TrialBalanceService = require('../core/services/TrialBalanceService');
 const { hasPermission, isAdminUser } = require('../utils/accounting');
+const { resolveEnterpriseIdsForRequest, resolveEnterpriseContext } = require('../utils/enterpriseScope');
 
 /**
  * Contrôleur pour la Balance Générale (Trial Balance).
@@ -14,12 +15,16 @@ exports.getTrialBalance = async (req, res) => {
     }
 
     const { periodId, fiscalYearId, enterpriseId, startDate, endDate } = req.query;
-    const resolvedEnterpriseId = isAdminUser(req.user) ? (enterpriseId || req.user.enterpriseId) : req.user.enterpriseId;
+    const activeEnterprise = await resolveEnterpriseContext(req, enterpriseId);
+    if (!activeEnterprise.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Choisissez une entreprise active pour consulter la balance.' });
+    }
+    const enterpriseIds = await resolveEnterpriseIdsForRequest(req, enterpriseId);
 
     const data = await TrialBalanceService.generateTrialBalance({ 
       periodId, 
       fiscalYearId, 
-      enterpriseId: resolvedEnterpriseId,
+      enterpriseIds,
       startDate,
       endDate
     });

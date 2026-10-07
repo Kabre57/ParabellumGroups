@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { QueryProvider } from '@/shared/providers/QueryProvider';
 import { AuthProvider } from '@/shared/providers/AuthProvider';
+import { EnterpriseProvider } from '@/shared/providers/EnterpriseProvider';
 import { ThemeProvider } from '@/shared/providers/ThemeProvider';
 import { Toaster } from 'sonner';
 
@@ -28,8 +29,10 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>
-              {children}
-              <Toaster position="top-right" richColors />
+              <EnterpriseProvider>
+                {children}
+                <Toaster position="top-right" richColors />
+              </EnterpriseProvider>
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>

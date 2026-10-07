@@ -79,7 +79,12 @@ class InvestmentPortfolioService {
       err.statusCode = 404;
       throw err;
     }
-    if (enterpriseId !== null && portfolio.enterpriseId !== Number(enterpriseId)) {
+    const allowedEnterpriseIds = Array.isArray(enterpriseId)
+      ? enterpriseId.map(Number)
+      : enterpriseId !== null && enterpriseId !== undefined
+        ? [Number(enterpriseId)]
+        : null;
+    if (allowedEnterpriseIds && !allowedEnterpriseIds.includes(Number(portfolio.enterpriseId))) {
       const err = new Error('Accès au portefeuille non autorisé.');
       err.statusCode = 403;
       throw err;
@@ -94,7 +99,11 @@ class InvestmentPortfolioService {
    */
   async listPortfolios(filters = {}, client = prisma) {
     const where = {};
-    if (filters.enterpriseId) where.enterpriseId = Number(filters.enterpriseId);
+    if (Array.isArray(filters.enterpriseIds)) {
+      where.enterpriseId = { in: filters.enterpriseIds.length ? filters.enterpriseIds.map(Number) : [-1] };
+    } else if (filters.enterpriseId) {
+      where.enterpriseId = Number(filters.enterpriseId);
+    }
     if (filters.status) where.status = filters.status;
 
     return client.investmentPortfolio.findMany({
@@ -171,7 +180,7 @@ class InvestmentPortfolioService {
    * @param {Object} [client=prisma]
    */
   async updatePortfolio(portfolioId, updateData, client = prisma) {
-    await this.getPortfolioById(portfolioId, client); // Vérification d'existence
+    await this.getPortfolioById(portfolioId, null, client); // Vérification d'existence
     return client.investmentPortfolio.update({
       where: { id: portfolioId },
       data: updateData

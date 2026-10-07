@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide'),
@@ -21,6 +22,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { prepareForEnterpriseSelection } = useEnterprise();
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +55,8 @@ export default function LoginPage() {
       const sanitizedEmail = data.email.trim().toLowerCase();
       const sanitizedPassword = data.password.normalize('NFC').trim();
       await login(sanitizedEmail, sanitizedPassword);
-      router.push('/dashboard');
+      prepareForEnterpriseSelection();
+      router.replace('/select-enterprise');
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);
       setError(message);

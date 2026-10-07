@@ -16,9 +16,13 @@ import { CreateAccountingAccountDialog } from '@/components/accounting/CreateAcc
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { accountingAccountTypeLabel, formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import billingService, { type AccountingAccount, type AccountingFamilyRule } from '@/shared/api/billing';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export default function ComptesPage() {
   const { user } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
+  const accountingScope = useAccountingEnterpriseScope();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -32,18 +36,21 @@ export default function ComptesPage() {
     ['accounting.read', 'accounting.accounts.manage', 'accounting.rules.read', 'accounting.diagnostics.read'].some((p) =>
       permissionSet.has(p)
     );
-  const { canCreate, canUpdate, canDelete } = getCrudVisibility(user, {
+  const crud = getCrudVisibility(user, {
     read: ['accounting.read', 'accounting.rules.read'],
     create: ['accounting.accounts.manage', 'accounting.rules.update'],
     update: ['accounting.accounts.manage', 'accounting.rules.update'],
     remove: ['accounting.accounts.manage', 'accounting.rules.update'],
   });
+  const canCreate = crud.canCreate && !accountingScope.isConsolidated;
+  const canUpdate = crud.canUpdate && !accountingScope.isConsolidated;
+  const canDelete = crud.canDelete && !accountingScope.isConsolidated;
 
-  const { data, isLoading } = useComptes(canRead);
+  const { data, isLoading } = useComptes(accountingScope, canRead && accountingScope.isReady);
   const familyRulesQuery = useQuery({
-    queryKey: ['billing-accounting-family-rules'],
-    queryFn: () => billingService.getAccountingFamilyRules(),
-    enabled: canRead,
+    queryKey: ['billing-accounting-family-rules', selectedEnterprise?.id],
+    queryFn: () => billingService.getAccountingFamilyRules({ enterpriseId: selectedEnterprise?.id }),
+    enabled: canRead && Boolean(selectedEnterprise) && !accountingScope.isConsolidated,
   });
 
   const createMutation = useCreateCompte(() => setCreateDialogOpen(false));
@@ -102,11 +109,11 @@ export default function ComptesPage() {
 
       <ComptesStats count={accounts.length} totals={totals} />
 
-      <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'families' | 'accounts')} className="space-y-4">
+      <Tabs value={accountingScope.isConsolidated ? 'accounts' : activeView} onValueChange={(value) => setActiveView(value as 'families' | 'accounts')} className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="accounts">Plan comptable</TabsTrigger>
-            <TabsTrigger value="families">Familles des comptes </TabsTrigger>
+            {!accountingScope.isConsolidated && <TabsTrigger value="families">Familles des comptes </TabsTrigger>}
           </TabsList>
           <div className="text-sm text-muted-foreground">
             {activeView === 'accounts'
@@ -163,20 +170,22 @@ export default function ComptesPage() {
           />
         </TabsContent>
 
-        <TabsContent value="families" className="space-y-4">
-          <AccountingFamiliesManager
-            accounts={accounts}
-            families={familyRules}
-            isLoading={familyRulesQuery.isLoading}
-            canCreate={canCreate}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
-          />
-        </TabsContent>
+        {!accountingScope.isConsolidated && (
+          <TabsContent value="families" className="space-y-4">
+            <AccountingFamiliesManager
+              accounts={accounts}
+              families={familyRules}
+              isLoading={familyRulesQuery.isLoading}
+              canCreate={canCreate}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       <CreateAccountingAccountDialog
-        open={createDialogOpen}
+        open={createDialogOpen && canCreate}
         onOpenChange={setCreateDialogOpen}
         onSubmit={async (p) => {
           await createMutation.mutateAsync(p);
@@ -185,7 +194,7 @@ export default function ComptesPage() {
       />
 
       <CreateAccountingAccountDialog
-        open={editDialogOpen}
+        open={editDialogOpen && canUpdate}
         onOpenChange={setEditDialogOpen}
         title="Modifier le compte comptable"
         submitLabel="Mettre à jour"

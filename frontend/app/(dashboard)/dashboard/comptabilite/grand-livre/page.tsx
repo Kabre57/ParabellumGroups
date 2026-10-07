@@ -9,9 +9,11 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
+import { useAccountingEnterpriseScope } from '@/hooks/comptabilite/useAccountingEnterpriseScope';
 
 export default function GrandLivrePage() {
   const { user } = useAuth();
+  const accountingScope = useAccountingEnterpriseScope();
   const permissionSet = buildPermissionSet(user);
   const canRead = isAdminRole(user) || permissionSet.has('accounting.reports.read');
   
@@ -20,17 +22,16 @@ export default function GrandLivrePage() {
   const [filters, setFilters] = useState({
     periodId: '',
     fiscalYearId: '',
-    enterpriseId: user?.enterpriseId || '',
     accountIds: '',
     startDate: '',
     endDate: '',
   });
 
   const loadData = async () => {
-    if (!canRead) return;
+    if (!canRead || !accountingScope.isReady) return;
     setLoading(true);
     try {
-      const response = await accountingService.getLedger(filters);
+      const response = await accountingService.getLedger({ ...filters, ...accountingScope });
       if (response.success) {
         setAccounts(response.data);
       }
@@ -43,7 +44,7 @@ export default function GrandLivrePage() {
 
   useEffect(() => {
     loadData();
-  }, [filters.enterpriseId]);
+  }, [accountingScope.scopeKey]);
 
   if (!canRead) {
     return (
