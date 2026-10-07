@@ -31,6 +31,13 @@ ParabellumGroups/
 docker compose up -d --build
 ```
 
+For production updates, use the zero-downtime deployment script instead of
+`docker compose up -d --build`:
+
+```
+./scripts/deploy-blue-green.sh
+```
+
 Le guide des migrations, de la mise à jour VPS et des sauvegardes/restaurations est dans [`docs/deploiement-et-exploitation.md`](docs/deploiement-et-exploitation.md).
 
 ## 🔧 Tests & validation
@@ -90,6 +97,10 @@ docker compose ps
 ```
 
 5) Accéder à l’ERP via Nginx / reverse-proxy.
+
+For each later update, run `./scripts/deploy-blue-green.sh`. It rebuilds the
+inactive frontend/API pair, waits for its health checks, then reloads Nginx to
+it. The live pair remains available until the switch.
 
 ## 🔐 Variables d’environnement (par service)
 
