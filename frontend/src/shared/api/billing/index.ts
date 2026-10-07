@@ -6,6 +6,12 @@ import { quotesService } from './quotes.service';
 import { treasuryService } from './treasury.service';
 import { investmentsService } from './investments.service';
 
+export type {
+  AccountingAccountImportPreview,
+  AccountingAccountImportPreviewRow,
+  AccountingAccountImportResult,
+} from './accounting.service';
+
 export * from './types';
 
 export const billingService = {

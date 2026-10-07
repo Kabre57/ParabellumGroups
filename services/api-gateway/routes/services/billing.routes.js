@@ -167,10 +167,12 @@ const billingPermissionRules = [
     }
   },
   {
-    pattern: /^\/accounting\/accounts$/,
+    pattern: /^\/accounting\/accounts(?:\/(?:template|import(?:\/preview)?|[^/]+))?$/,
     permissions: {
       GET: ['accounting.read', 'accounting.accounts.manage'],
-      POST: 'accounting.accounts.manage'
+      POST: 'accounting.accounts.manage',
+      PATCH: 'accounting.accounts.manage',
+      DELETE: 'accounting.accounts.manage'
     }
   },
   {

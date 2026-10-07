@@ -21,6 +21,39 @@ import type {
 } from './types';
 import { normalizeDetailResponse, normalizeListResponse, normalizeStatsResponse } from './utils';
 
+export interface AccountingAccountImportPreviewRow {
+  line: number;
+  code: string;
+  label: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | null;
+  description: string | null;
+  openingBalance: number;
+  status: 'IMPORTABLE' | 'EXISTING' | 'INVALID';
+  errors: string[];
+}
+
+export interface AccountingAccountImportPreview {
+  enterpriseId: number;
+  enterpriseName: string | null;
+  rows: AccountingAccountImportPreviewRow[];
+  summary: { total: number; importable: number; existing: number; invalid: number };
+}
+
+export interface AccountingAccountImportResult {
+  enterpriseName: string | null;
+  imported: number;
+  skippedExisting: number;
+  skippedInvalid: number;
+  existingCodes: string[];
+  errors: Array<{ line: number; code: string; errors: string[] }>;
+}
+
+const accountWorkbookFormData = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return formData;
+};
+
 export const accountingService = {
   async getAccountingOverview(
     period: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'all',
@@ -112,6 +145,31 @@ export const accountingService = {
   async getAccountingAccounts(params?: { enterpriseId?: string | number; enterpriseScope?: 'consolidated' }): Promise<ListResponse<AccountingAccount>> {
     const response = await apiClient.get('/billing/accounting/accounts', { params });
     return normalizeListResponse<AccountingAccount>(response.data);
+  },
+
+  async getAccountingAccountImportTemplate(): Promise<Blob> {
+    const response = await apiClient.get('/billing/accounting/accounts/template', { responseType: 'blob' });
+    return response.data;
+  },
+
+  async previewAccountingAccountImport(file: File): Promise<DetailResponse<AccountingAccountImportPreview>> {
+    const response = await apiClient.post(
+      '/billing/accounting/accounts/import/preview',
+      accountWorkbookFormData(file),
+      { params: { enterpriseScope: 'active' } }
+    );
+    return normalizeDetailResponse<AccountingAccountImportPreview>(response.data);
+  },
+
+  async importAccountingAccounts(file: File, expectedEnterpriseId: number): Promise<DetailResponse<AccountingAccountImportResult>> {
+    const response = await apiClient.post(
+      '/billing/accounting/accounts/import',
+      accountWorkbookFormData(file),
+      {
+        params: { enterpriseScope: 'active', expectedEnterpriseId },
+      }
+    );
+    return normalizeDetailResponse<AccountingAccountImportResult>(response.data);
   },
 
   async getAccountingJournals(): Promise<ListResponse<AccountingJournal>> {

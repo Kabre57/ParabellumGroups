@@ -79,7 +79,12 @@ const createProxy = (target, pathRewriteConfig = {}) => {
         proxyReq.setHeader('X-Enterprise-Id', enterpriseIdHeader.toString());
       }
 
-      fixRequestBody(proxyReq, req, res);
+      // Multipart bodies must remain streamed with their original boundary so
+      // Multer in the target service can read uploaded files.
+      const contentType = String(req.headers['content-type'] || '').toLowerCase();
+      if (!contentType.includes('multipart/form-data')) {
+        fixRequestBody(proxyReq, req, res);
+      }
     },
     onError: (err, req, res) => {
       logError(`Proxy error for ${req.path}`, err);

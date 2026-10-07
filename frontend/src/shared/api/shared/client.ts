@@ -51,6 +51,16 @@ class ApiClient {
     // Intercepteur de requête - ajoute le token JWT
     this.instance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
+        // For FormData, let the browser set multipart/form-data with its boundary.
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+          if (typeof config.headers.delete === 'function') {
+            config.headers.delete('Content-Type');
+          } else {
+            delete (config.headers as any)['Content-Type'];
+            delete (config.headers as any)['content-type'];
+          }
+        }
+
         const isPublicEndpoint = this.isPublicAuthEndpoint(config.url);
         const token = this.getToken();
         if (!isPublicEndpoint && token && config.headers) {

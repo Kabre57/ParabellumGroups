@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FileUp, Plus, Search } from 'lucide-react';
 import { useComptes, useCreateCompte, useDeleteCompte, useUpdateCompte } from '@/hooks/comptabilite/comptes/useComptes';
 import { AccountingFamiliesManager, ComptesStats, ComptesTable } from '@/components/comptabilite/comptes';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { getCrudVisibility } from '@/shared/action-visibility';
 import { buildPermissionSet, isAdminRole } from '@/shared/permissions';
 import { CreateAccountingAccountDialog } from '@/components/accounting/CreateAccountingAccountDialog';
+import { ImportAccountingAccountsDialog } from '@/components/accounting/ImportAccountingAccountsDialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { accountingAccountTypeLabel, formatAccountingCurrency, formatAccountingDate } from '@/components/accounting/accountingFormat';
 import billingService, { type AccountingAccount, type AccountingFamilyRule } from '@/shared/api/billing';
@@ -23,11 +24,14 @@ export default function ComptesPage() {
   const { user } = useAuth();
   const { selectedEnterprise } = useEnterprise();
   const accountingScope = useAccountingEnterpriseScope();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selected, setSelected] = useState<AccountingAccount | null>(null);
   const [activeView, setActiveView] = useState<'families' | 'accounts'>('accounts');
   const permissionSet = useMemo(() => buildPermissionSet(user), [user]);
@@ -42,9 +46,15 @@ export default function ComptesPage() {
     update: ['accounting.accounts.manage', 'accounting.rules.update'],
     remove: ['accounting.accounts.manage', 'accounting.rules.update'],
   });
-  const canCreate = crud.canCreate && !accountingScope.isConsolidated;
-  const canUpdate = crud.canUpdate && !accountingScope.isConsolidated;
-  const canDelete = crud.canDelete && !accountingScope.isConsolidated;
+  const canCreate = crud.canCreate && accountingScope.isReady && !accountingScope.isConsolidated;
+  const canImport = (isAdminRole(user) || permissionSet.has('accounting.accounts.manage')) &&
+    accountingScope.isReady && !accountingScope.isConsolidated;
+  const canUpdate = crud.canUpdate && accountingScope.isReady && !accountingScope.isConsolidated;
+  const canDelete = crud.canDelete && accountingScope.isReady && !accountingScope.isConsolidated;
+
+  useEffect(() => {
+    if (accountingScope.isConsolidated) setImportDialogOpen(false);
+  }, [accountingScope.isConsolidated]);
 
   const { data, isLoading } = useComptes(accountingScope, canRead && accountingScope.isReady);
   const familyRulesQuery = useQuery({
@@ -62,6 +72,7 @@ export default function ComptesPage() {
     if (selected?.id) {
       setSelected(null);
     }
+    setDeleteDialogOpen(false);
   });
 
   const accounts: AccountingAccount[] = data?.data?.accounts ?? [];
@@ -99,11 +110,21 @@ export default function ComptesPage() {
             Gestion du plan comptable, des comptes généraux et des familles utilisées par le moteur comptable.
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau Compte
-          </Button>
+        {(canCreate || canImport) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {canImport && (
+              <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Importer Excel
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau Compte
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -163,9 +184,8 @@ export default function ComptesPage() {
               setEditDialogOpen(true);
             }}
             onDelete={(a) => {
-              const confirmed = window.confirm(`Supprimer le compte ${a.code} - ${a.label} ?`);
-              if (!confirmed) return;
-              deleteMutation.mutate(a.id);
+              setSelected(a);
+              setDeleteDialogOpen(true);
             }}
           />
         </TabsContent>
@@ -191,6 +211,17 @@ export default function ComptesPage() {
           await createMutation.mutateAsync(p);
         }}
         isSubmitting={createMutation.isPending}
+      />
+
+      <ImportAccountingAccountsDialog
+        open={importDialogOpen && canImport}
+        onOpenChange={setImportDialogOpen}
+        enterpriseId={selectedEnterprise?.id}
+        enterpriseName={selectedEnterprise?.name}
+        onImported={() => {
+          queryClient.invalidateQueries({ queryKey: ['billing-accounting-overview'] });
+          queryClient.invalidateQueries({ queryKey: ['billing-accounting-accounts'] });
+        }}
       />
 
       <CreateAccountingAccountDialog
@@ -252,6 +283,47 @@ export default function ComptesPage() {
           ) : (
             <div className="text-sm text-muted-foreground">Aucun compte sélectionné.</div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (deleteMutation.isPending) return;
+          setDeleteDialogOpen(open);
+          if (!open) setSelected(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer ce compte comptable ?</DialogTitle>
+            <DialogDescription>
+              {selected
+                ? `Confirmez la suppression du compte ${selected.code} - ${selected.label}.`
+                : 'Confirmez la suppression de ce compte.'}{' '}
+              Cette action ne peut pas être annulée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!selected || deleteMutation.isPending}
+              onClick={() => {
+                if (selected) deleteMutation.mutate(selected.id);
+              }}
+            >
+              {deleteMutation.isPending ? 'Suppression…' : 'Supprimer'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
