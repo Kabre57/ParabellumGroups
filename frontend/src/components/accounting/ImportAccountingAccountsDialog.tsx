@@ -197,15 +197,15 @@ export function ImportAccountingAccountsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Importer un plan comptable Excel</DialogTitle>
           <DialogDescription>
             Téléchargez le modèle, complétez-le, puis vérifiez l’aperçu avant d’ajouter les comptes.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1 pr-1">
           <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             Les comptes seront importés dans l’entreprise active : <strong>{enterpriseName || 'aucune entreprise sélectionnée'}</strong>.
             Les codes déjà présents seront ignorés. Aucun compte existant ne sera remplacé ou supprimé.
@@ -255,8 +255,17 @@ export function ImportAccountingAccountsDialog({
                 </div>
               )}
 
-              <div className="max-h-72 overflow-auto rounded-md border">
-                <table className="w-full min-w-[900px] text-left text-sm">
+              <div className="max-h-[42vh] min-w-0 overflow-auto rounded-md border">
+                <table className="w-full min-w-[760px] table-fixed text-left text-sm xl:min-w-0">
+                  <colgroup>
+                    <col className="w-[7%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[26%]" />
+                    <col className="w-[12%]" />
+                  </colgroup>
                   <thead className="sticky top-0 bg-slate-50 text-slate-700">
                     <tr>
                       <th className="px-3 py-2">Ligne</th>
@@ -265,7 +274,7 @@ export function ImportAccountingAccountsDialog({
                       <th className="px-3 py-2">Type</th>
                       <th className="px-3 py-2">Résultat</th>
                       <th className="px-3 py-2">Détail</th>
-                      <th className="px-3 py-2">Action</th>
+                      <th className="sticky right-0 z-10 bg-slate-50 px-2 py-2">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -282,28 +291,32 @@ export function ImportAccountingAccountsDialog({
                               {statusLabel(row.status)}
                             </span>
                           </td>
-                          <td className="max-w-xs px-3 py-2 text-muted-foreground">{row.errors.join(' ') || (row.status === 'EXISTING' ? 'Ce code existe déjà dans cette entreprise.' : '—')}</td>
-                          <td className="whitespace-nowrap px-3 py-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={isPreviewing || isImporting}
-                              onClick={() => editingLine === row.line ? (setEditingLine(null), setDraft(null)) : startEditing(row)}
-                            >
-                              {editingLine === row.line ? 'Fermer' : 'Corriger'}
-                            </Button>
-                            {corrections[row.line] && (
+                          <td className="break-words px-2 py-2 text-muted-foreground">{row.errors.join(' ') || (row.status === 'EXISTING' ? 'Ce code existe déjà dans cette entreprise.' : '—')}</td>
+                          <td className="sticky right-0 whitespace-nowrap bg-white px-2 py-2 shadow-[-6px_0_8px_-8px_rgba(15,23,42,0.5)]">
+                            <div className="flex flex-col items-start gap-1">
                               <Button
                                 type="button"
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
+                                className="px-2"
                                 disabled={isPreviewing || isImporting}
-                                onClick={() => clearCorrection(row.line)}
+                                onClick={() => editingLine === row.line ? (setEditingLine(null), setDraft(null)) : startEditing(row)}
                               >
-                                Rétablir
+                                {editingLine === row.line ? 'Fermer' : 'Corriger'}
                               </Button>
-                            )}
+                              {corrections[row.line] && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="px-2"
+                                  disabled={isPreviewing || isImporting}
+                                  onClick={() => clearCorrection(row.line)}
+                                >
+                                  Rétablir
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                         {editingLine === row.line && draft && (
@@ -356,7 +369,7 @@ export function ImportAccountingAccountsDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t pt-3">
           <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isImporting}>
             Annuler
           </Button>
