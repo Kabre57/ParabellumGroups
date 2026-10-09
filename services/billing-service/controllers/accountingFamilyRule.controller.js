@@ -16,7 +16,6 @@ const { isAccountAllowedForFamilyScope } = require('../utils/accountingScope');
 const prisma = new PrismaClient();
 
 const ACCOUNT_TYPES = Object.values(AccountingAccountType);
-const SYSTEM_FAMILY_CODES = Object.keys(FAMILY_DEFINITIONS);
 
 const removeAccents = (value) =>
   String(value || '')
@@ -70,9 +69,17 @@ const ensureDefaultFamilyDefinitions = async (client = prisma) => {
   });
 };
 
-const getFamilyDefinitions = async (client = prisma) => {
+const getFamilyDefinitions = async (client = prisma, enterpriseId = null) => {
   await ensureDefaultFamilyDefinitions(client);
   return client.accountingFamilyDefinition.findMany({
+    where: enterpriseId === null
+      ? { enterpriseId: null }
+      : {
+          OR: [
+            { enterpriseId },
+            { enterpriseId: null, isSystem: true },
+          ],
+        },
     orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
   });
 };
@@ -104,6 +111,7 @@ const serializeFamilyGroup = (definition, rules = []) => {
     expectedType: definition.accountType,
     accountType: definition.accountType,
     isSystem: Boolean(definition.isSystem),
+    enterpriseId: definition.enterpriseId ?? null,
     sortOrder: definition.sortOrder,
     primaryAccountId: primaryRule?.accountId || null,
     primaryAccount: primaryRule?.account || null,
@@ -149,14 +157,23 @@ const resolveRuleEnterpriseId = async (req, requestedEnterpriseId = req.body?.en
 
 const refreshCache = async (enterpriseId = null) => {
   await invalidateAccountingFamilyRulesCache(prisma, enterpriseId);
-  await loadAccountingFamilyDefinitions(prisma, { force: true });
+  await loadAccountingFamilyDefinitions(prisma, { enterpriseId, force: true });
   await loadAccountingFamilyRules(prisma, { enterpriseId, force: true });
 };
 
 const validateFamilyAndAccount = async (family, accountId, enterpriseId = null) => {
   const normalizedFamily = normalizeFamilyCode(family);
-  const definition = await prisma.accountingFamilyDefinition.findUnique({
-    where: { code: normalizedFamily },
+  const definition = await prisma.accountingFamilyDefinition.findFirst({
+    where: enterpriseId === null
+      ? { code: normalizedFamily, enterpriseId: null }
+      : {
+          code: normalizedFamily,
+          OR: [
+            { enterpriseId },
+            { enterpriseId: null, isSystem: true },
+          ],
+        },
+    orderBy: { enterpriseId: 'desc' },
   });
 
   if (!definition) {
@@ -210,7 +227,7 @@ exports.getFamilyRules = async (req, res) => {
 
     const enterpriseId = await resolveRuleEnterpriseId(req, req.query?.enterpriseId);
     const [definitions, configuredRules] = await Promise.all([
-      getFamilyDefinitions(prisma),
+      getFamilyDefinitions(prisma, enterpriseId),
       loadAccountingFamilyRules(prisma, { enterpriseId, force: true }),
     ]);
 
@@ -236,7 +253,7 @@ exports.getFamilyRulesDiagnostic = async (req, res) => {
 
     const enterpriseId = await resolveRuleEnterpriseId(req, req.query?.enterpriseId);
     const [definitions, configuredRules] = await Promise.all([
-      getFamilyDefinitions(prisma),
+      getFamilyDefinitions(prisma, enterpriseId),
       loadAccountingFamilyRules(prisma, { enterpriseId, force: true }),
     ]);
     const diagnostics = definitions.map((definition) =>
@@ -276,7 +293,8 @@ exports.createFamily = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
-    const code = normalizeFamilyCode(req.body?.code);
+    const requestedCode = normalizeFamilyCode(req.body?.code);
+    let code = requestedCode;
     const label = String(req.body?.label || '').trim();
     const displayType = normalizeDisplayType(req.body?.displayType || req.body?.type);
     const accountType = accountTypeFromPayload({ ...req.body, displayType });
@@ -288,25 +306,60 @@ exports.createFamily = async (req, res) => {
       });
     }
 
+    const enterpriseId = await resolveRuleEnterpriseId(req, req.body?.enterpriseId);
+    if (!enterpriseId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sélectionnez une entreprise active avant de créer une famille comptable.',
+      });
+    }
+
+    // Les codes sont encore uniques en base pour la clé étrangère des règles.
+    // Si une autre entreprise utilise déjà ce code, on crée un code interne propre à celle-ci.
+    const existingCode = await prisma.accountingFamilyDefinition.findUnique({ where: { code } });
+    if (existingCode) {
+      if (existingCode.enterpriseId === enterpriseId) {
+        return res.status(409).json({
+          success: false,
+          message: 'Ce code famille existe déjà dans cette entreprise.',
+        });
+      }
+      if (existingCode.isSystem) {
+        return res.status(409).json({
+          success: false,
+          message: 'Ce code est réservé à une famille système.',
+        });
+      }
+
+      const tenantCodeBase = `${requestedCode}_E${enterpriseId}`;
+      code = tenantCodeBase;
+      let suffix = 1;
+      while (await prisma.accountingFamilyDefinition.findUnique({ where: { code } })) {
+        code = `${tenantCodeBase}_${suffix++}`;
+      }
+    }
+
     const maxSort = await prisma.accountingFamilyDefinition.aggregate({
+      where: { enterpriseId },
       _max: { sortOrder: true },
     });
 
     const created = await prisma.accountingFamilyDefinition.create({
       data: {
         code,
+        enterpriseId,
         label,
         description: String(req.body?.description || '').trim() || null,
         displayType,
         accountType,
-        isSystem: SYSTEM_FAMILY_CODES.includes(code),
+        isSystem: false,
         sortOrder: Number(maxSort._max.sortOrder || 100) + 10,
         createdByUserId: req.user?.userId ? String(req.user.userId) : null,
         createdByEmail: req.user?.email || null,
       },
     });
 
-    await refreshCache();
+    await refreshCache(enterpriseId);
 
     return res.status(201).json({
       success: true,
@@ -332,15 +385,32 @@ exports.updateFamily = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    const enterpriseId = await resolveRuleEnterpriseId(req, req.body?.enterpriseId);
+    if (!enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise active.' });
+    }
     const code = normalizeFamilyCode(req.params.family);
-    const existing = await prisma.accountingFamilyDefinition.findUnique({
-      where: { code },
+    const existing = await prisma.accountingFamilyDefinition.findFirst({
+      where: {
+        code,
+        OR: [
+          { enterpriseId },
+          { enterpriseId: null, isSystem: true },
+        ],
+      },
     });
 
     if (!existing) {
       return res.status(404).json({
         success: false,
         message: 'Famille comptable introuvable',
+      });
+    }
+
+    if (existing.isSystem && existing.enterpriseId === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Une famille système est partagée. Ses comptes associés se configurent séparément pour chaque entreprise.',
       });
     }
 
@@ -360,6 +430,7 @@ exports.updateFamily = async (req, res) => {
       const incompatibleRule = await prisma.accountingFamilyRule.findFirst({
         where: {
           family: code,
+          enterpriseId,
           account: {
             type: { not: nextAccountType },
           },
@@ -397,8 +468,8 @@ exports.updateFamily = async (req, res) => {
       },
     });
 
-    const configuredRules = await loadAccountingFamilyRules(prisma, { force: true });
-    await refreshCache();
+    const configuredRules = await loadAccountingFamilyRules(prisma, { enterpriseId, force: true });
+    await refreshCache(enterpriseId);
 
     return res.json({
       success: true,
@@ -424,9 +495,13 @@ exports.deleteFamily = async (req, res) => {
       return res.status(accessError.status).json(accessError.body);
     }
 
+    const enterpriseId = await resolveRuleEnterpriseId(req);
+    if (!enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise active.' });
+    }
     const code = normalizeFamilyCode(req.params.family);
-    const existing = await prisma.accountingFamilyDefinition.findUnique({
-      where: { code },
+    const existing = await prisma.accountingFamilyDefinition.findFirst({
+      where: { code, enterpriseId },
     });
 
     if (!existing) {
@@ -444,10 +519,10 @@ exports.deleteFamily = async (req, res) => {
     }
 
     await prisma.accountingFamilyDefinition.delete({
-      where: { code },
+      where: { id: existing.id },
     });
 
-    await refreshCache();
+    await refreshCache(enterpriseId);
 
     return res.json({
       success: true,

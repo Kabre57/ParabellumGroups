@@ -590,6 +590,7 @@ model AccountingAccount {
 model AccountingFamilyDefinition {
   id              String                @id @default(uuid())
   code            String                @unique
+  enterpriseId    Int?
   label           String
   description     String?
   displayType     String
@@ -606,6 +607,7 @@ model AccountingFamilyDefinition {
   @@index([displayType])
   @@index([accountType])
   @@index([isSystem])
+  @@index([enterpriseId])
   @@map("accounting_family_definitions")
 }
 

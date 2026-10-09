@@ -7,6 +7,7 @@ import { treasuryService } from './treasury.service';
 import { investmentsService } from './investments.service';
 
 export type {
+  AccountingAccountImportCorrection,
   AccountingAccountImportPreview,
   AccountingAccountImportPreviewRow,
   AccountingAccountImportResult,

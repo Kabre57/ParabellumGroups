@@ -224,7 +224,7 @@ const getTreasuryJournalMeta = async (client, accountOrCode, { fallbackFamily = 
 };
 
 let familyRulesCache = new Map(); // Map<enterpriseId, Map<family, rules[]>>
-let familyDefinitionsCache = null;
+let familyDefinitionsCache = new Map(); // Map<enterpriseId | 'global', Map<family, definition>>
 let familyRulesLoadedAt = new Map(); // Map<enterpriseId, timestamp>
 let familyCacheVersions = new Map(); // Map<enterpriseId, version>
 const CACHE_TTL_MS = 60 * 1000;
@@ -263,19 +263,22 @@ const invalidateAccountingFamilyRulesCache = async (client, enterpriseId = null)
     familyRulesCache.delete(eid);
     familyRulesLoadedAt.delete(eid);
     familyCacheVersions.delete(eid);
+    familyDefinitionsCache.delete(eid);
     if (client) await bumpDbCacheVersion(client, eid);
   } else {
     familyRulesCache.clear();
     familyRulesLoadedAt.clear();
     familyCacheVersions.clear();
+    familyDefinitionsCache.clear();
     // On ne bump pas tout d'un coup sauf si nécessaire
   }
-  familyDefinitionsCache = null;
 };
 
-const loadAccountingFamilyDefinitions = async (client, { force = false } = {}) => {
-  if (!force && familyDefinitionsCache) {
-    return familyDefinitionsCache;
+const loadAccountingFamilyDefinitions = async (client, { enterpriseId = null, force = false } = {}) => {
+  const eid = enterpriseId ? Number(enterpriseId) : null;
+  const cacheKey = eid ?? 'global';
+  if (!force && familyDefinitionsCache.has(cacheKey)) {
+    return familyDefinitionsCache.get(cacheKey);
   }
 
   const definitions = new Map(
@@ -287,6 +290,14 @@ const loadAccountingFamilyDefinitions = async (client, { force = false } = {}) =
 
   if (client.accountingFamilyDefinition) {
     const storedDefinitions = await client.accountingFamilyDefinition.findMany({
+      where: eid === null
+        ? { enterpriseId: null }
+        : {
+            OR: [
+              { enterpriseId: eid },
+              { enterpriseId: null, isSystem: true },
+            ],
+          },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
     });
 
@@ -305,8 +316,8 @@ const loadAccountingFamilyDefinitions = async (client, { force = false } = {}) =
     });
   }
 
-  familyDefinitionsCache = definitions;
-  return familyDefinitionsCache;
+  familyDefinitionsCache.set(cacheKey, definitions);
+  return definitions;
 };
 
 const loadAccountingFamilyRules = async (client, { enterpriseId = null, force = false } = {}) => {
@@ -325,16 +336,9 @@ const loadAccountingFamilyRules = async (client, { enterpriseId = null, force = 
     return familyRulesCache.get(eid);
   }
 
-  const definitions = await loadAccountingFamilyDefinitions(client, { force });
+  const definitions = await loadAccountingFamilyDefinitions(client, { enterpriseId: eid, force });
   const rules = await client.accountingFamilyRule.findMany({
-    where: eid === null
-      ? { enterpriseId: null }
-      : {
-          OR: [
-            { enterpriseId: eid },
-            { enterpriseId: null },
-          ],
-        },
+    where: { enterpriseId: eid },
     include: {
       account: true,
       familyDefinition: true,
@@ -440,7 +444,7 @@ const resolveAccountingAccount = async (
   } = {}
 ) => {
   const normalizedFamily = normalizeFamilyCode(family);
-  const definitions = await loadAccountingFamilyDefinitions(client);
+  const definitions = await loadAccountingFamilyDefinitions(client, { enterpriseId });
   const definition = definitions.get(normalizedFamily);
   let audit = { family: normalizedFamily, strategy: null, ruleId: null };
 
@@ -502,7 +506,7 @@ const resolveAccountingReference = async (client, family, options = {}) => {
     };
   }
 
-  const definitions = await loadAccountingFamilyDefinitions(client);
+  const definitions = await loadAccountingFamilyDefinitions(client, { enterpriseId: options.enterpriseId });
   const definition = definitions.get(normalizeFamilyCode(family));
   if (!definition) return null;
   return {

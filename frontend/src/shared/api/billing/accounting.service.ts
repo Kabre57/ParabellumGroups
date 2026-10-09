@@ -32,6 +32,17 @@ export interface AccountingAccountImportPreviewRow {
   errors: string[];
 }
 
+export interface AccountingAccountImportCorrection {
+  line: number;
+  values: {
+    code: string;
+    label: string;
+    type: string;
+    description: string;
+    openingBalance: string | number;
+  };
+}
+
 export interface AccountingAccountImportPreview {
   enterpriseId: number;
   enterpriseName: string | null;
@@ -48,9 +59,10 @@ export interface AccountingAccountImportResult {
   errors: Array<{ line: number; code: string; errors: string[] }>;
 }
 
-const accountWorkbookFormData = (file: File) => {
+const accountWorkbookFormData = (file: File, corrections: AccountingAccountImportCorrection[] = []) => {
   const formData = new FormData();
   formData.append('file', file);
+  if (corrections.length) formData.append('corrections', JSON.stringify(corrections));
   return formData;
 };
 
@@ -152,19 +164,26 @@ export const accountingService = {
     return response.data;
   },
 
-  async previewAccountingAccountImport(file: File): Promise<DetailResponse<AccountingAccountImportPreview>> {
+  async previewAccountingAccountImport(
+    file: File,
+    corrections: AccountingAccountImportCorrection[] = []
+  ): Promise<DetailResponse<AccountingAccountImportPreview>> {
     const response = await apiClient.post(
       '/billing/accounting/accounts/import/preview',
-      accountWorkbookFormData(file),
+      accountWorkbookFormData(file, corrections),
       { params: { enterpriseScope: 'active' } }
     );
     return normalizeDetailResponse<AccountingAccountImportPreview>(response.data);
   },
 
-  async importAccountingAccounts(file: File, expectedEnterpriseId: number): Promise<DetailResponse<AccountingAccountImportResult>> {
+  async importAccountingAccounts(
+    file: File,
+    expectedEnterpriseId: number,
+    corrections: AccountingAccountImportCorrection[] = []
+  ): Promise<DetailResponse<AccountingAccountImportResult>> {
     const response = await apiClient.post(
       '/billing/accounting/accounts/import',
-      accountWorkbookFormData(file),
+      accountWorkbookFormData(file, corrections),
       {
         params: { enterpriseScope: 'active', expectedEnterpriseId },
       }

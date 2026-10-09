@@ -177,7 +177,7 @@ export function AccountingFamiliesManager({
       });
 
       for (const pending of pendingRules) {
-        await billingService.addAccountingFamilyRule(form.code, {
+        await billingService.addAccountingFamilyRule(created.data.family, {
           accountId: pending.accountId,
           isPrimary: pending.isPrimary,
         });
@@ -341,6 +341,10 @@ export function AccountingFamiliesManager({
     }
 
     if (activeFamily) {
+      if (activeFamily.isSystem) {
+        closeDialog();
+        return;
+      }
       updateFamilyMutation.mutate();
       return;
     }
@@ -362,7 +366,7 @@ export function AccountingFamiliesManager({
         <div>
           <h2 className="text-xl font-semibold text-slate-950">Familles comptables</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Gérez les familles et leur correspondance avec les comptes réels du plan comptable.
+            Les familles personnalisées et leurs comptes liés sont propres à l’entreprise active. Les catégories système sont communes, avec un rattachement de comptes séparé par entreprise.
           </p>
         </div>
         {canCreate && (
@@ -489,9 +493,9 @@ export function AccountingFamiliesManager({
                   Configurez les comptes personnalisés utilisés automatiquement par les validations comptables.
                 </DialogDescription>
               </div>
-              <Button type="button" onClick={saveFamily} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                Enregistrer
+              <Button type="button" onClick={activeFamily?.isSystem ? closeDialog : saveFamily} disabled={isSaving}>
+                {!activeFamily?.isSystem && <Save className="mr-2 h-4 w-4" />}
+                {activeFamily?.isSystem ? 'Terminé' : 'Enregistrer'}
               </Button>
             </div>
           </DialogHeader>
@@ -524,6 +528,7 @@ export function AccountingFamiliesManager({
                 <Input
                   id="family-label"
                   value={form.label}
+                  disabled={Boolean(activeFamily?.isSystem)}
                   onChange={(event) => updateForm('label', event.target.value)}
                   placeholder="Achats de marchandises"
                 />
@@ -531,7 +536,7 @@ export function AccountingFamiliesManager({
               <div className="space-y-2">
                 <Label>Type *</Label>
                 <Select value={selectedOption.label} onValueChange={updateType}>
-                  <SelectTrigger>
+                  <SelectTrigger disabled={Boolean(activeFamily?.isSystem)}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -555,6 +560,7 @@ export function AccountingFamiliesManager({
                 <Textarea
                   id="family-description"
                   value={form.description}
+                  disabled={Boolean(activeFamily?.isSystem)}
                   onChange={(event) => updateForm('description', event.target.value)}
                   placeholder="Utilisation de cette famille dans les écritures et workflows comptables."
                 />

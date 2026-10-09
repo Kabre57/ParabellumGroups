@@ -457,6 +457,7 @@ export interface AccountingFamilyRule {
   expectedType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | string;
   accountType?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE' | string;
   isSystem?: boolean;
+  enterpriseId?: number | null;
   sortOrder?: number;
   primaryAccountId?: string | null;
   primaryAccount?: AccountingAccount | null;

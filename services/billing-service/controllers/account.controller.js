@@ -100,7 +100,37 @@ const requireActiveEnterpriseForImport = async (req) => {
   return context;
 };
 
-const parseAccountingAccountWorkbook = (file) => {
+const parseImportCorrections = (rawCorrections) => {
+  if (!rawCorrections) return new Map();
+
+  let corrections;
+  try {
+    corrections = typeof rawCorrections === 'string' ? JSON.parse(rawCorrections) : rawCorrections;
+  } catch (_error) {
+    throw accountImportError('Les corrections de l’aperçu sont invalides. Vérifiez à nouveau le fichier.');
+  }
+  if (!Array.isArray(corrections)) {
+    throw accountImportError('Les corrections de l’aperçu sont invalides. Vérifiez à nouveau le fichier.');
+  }
+
+  const allowedFields = new Set(['code', 'label', 'type', 'description', 'openingBalance']);
+  const correctionsByLine = new Map();
+  corrections.forEach((correction) => {
+    const line = Number(correction?.line);
+    if (!Number.isInteger(line) || line < 2 || !correction?.values || typeof correction.values !== 'object') {
+      throw accountImportError('Une correction de ligne est invalide. Vérifiez à nouveau le fichier.');
+    }
+    const values = {};
+    Object.entries(correction.values).forEach(([field, value]) => {
+      if (!allowedFields.has(field)) return;
+      values[field] = value;
+    });
+    correctionsByLine.set(line, values);
+  });
+  return correctionsByLine;
+};
+
+const parseAccountingAccountWorkbook = (file, rawCorrections) => {
   if (!file?.buffer) throw accountImportError('Veuillez sélectionner un fichier Excel.');
 
   let workbook;
@@ -117,7 +147,7 @@ const parseAccountingAccountWorkbook = (file) => {
     header: 1,
     defval: '',
     raw: true,
-    blankrows: false,
+    blankrows: true,
   });
   if (grid.length < 2 || !Array.isArray(grid[0])) {
     throw accountImportError('Le fichier Excel ne contient aucun compte à importer.');
@@ -139,19 +169,24 @@ const parseAccountingAccountWorkbook = (file) => {
     throw accountImportError(`Colonnes obligatoires manquantes : ${missingHeaders.join(', ')}. Téléchargez le modèle fourni.`);
   }
 
-  const dataRows = grid.slice(1).filter((row) => row.some((cell) => String(cell ?? '').trim() !== ''));
+  const dataRows = grid.slice(1)
+    .map((row, index) => ({ row, line: index + 2 }))
+    .filter(({ row }) => row.some((cell) => String(cell ?? '').trim() !== ''));
   if (!dataRows.length) throw accountImportError('Le fichier Excel ne contient aucun compte à importer.');
   if (dataRows.length > ACCOUNT_IMPORT_MAX_ROWS) {
     throw accountImportError(`Le fichier dépasse la limite de ${ACCOUNT_IMPORT_MAX_ROWS} comptes par import.`);
   }
+  const correctionsByLine = parseImportCorrections(rawCorrections);
 
-  return dataRows.map((row, index) => {
+  return dataRows.map(({ row, line }) => {
     const readCell = (key) => indexes[key] === -1 ? '' : row[indexes[key]];
-    const code = String(readCell('code') ?? '').trim();
-    const label = String(readCell('label') ?? '').trim();
-    const type = normalizeImportType(readCell('type'));
-    const rawDescription = String(readCell('description') ?? '').trim();
-    const openingBalance = parseImportBalance(readCell('openingBalance'));
+    const correction = correctionsByLine.get(line) || {};
+    const readValue = (key) => Object.prototype.hasOwnProperty.call(correction, key) ? correction[key] : readCell(key);
+    const code = String(readValue('code') ?? '').trim();
+    const label = String(readValue('label') ?? '').trim();
+    const type = normalizeImportType(readValue('type'));
+    const rawDescription = String(readValue('description') ?? '').trim();
+    const openingBalance = parseImportBalance(readValue('openingBalance'));
     const errors = [];
 
     if (!code) errors.push('Le code est obligatoire.');
@@ -160,7 +195,7 @@ const parseAccountingAccountWorkbook = (file) => {
     if (openingBalance === null) errors.push('Le solde initial doit être un nombre valide.');
 
     return {
-      line: index + 2,
+      line,
       code,
       label,
       type,
@@ -264,7 +299,7 @@ exports.previewAccountingAccountImport = async (req, res) => {
     if (accessError) return res.status(accessError.status).json(accessError.body);
 
     const enterprise = await requireActiveEnterpriseForImport(req);
-    const parsedRows = parseAccountingAccountWorkbook(req.file);
+    const parsedRows = parseAccountingAccountWorkbook(req.file, req.body?.corrections);
     const preview = await validateAccountingAccountImport(parsedRows, enterprise.enterpriseId);
     return res.json({
       success: true,
@@ -285,7 +320,7 @@ exports.importAccountingAccounts = async (req, res) => {
     if (accessError) return res.status(accessError.status).json(accessError.body);
 
     const enterprise = await requireActiveEnterpriseForImport(req);
-    const parsedRows = parseAccountingAccountWorkbook(req.file);
+    const parsedRows = parseAccountingAccountWorkbook(req.file, req.body?.corrections);
     const preview = await validateAccountingAccountImport(parsedRows, enterprise.enterpriseId);
     const rowsToImport = preview.rows.filter((row) => row.status === 'IMPORTABLE');
     if (!rowsToImport.length) {

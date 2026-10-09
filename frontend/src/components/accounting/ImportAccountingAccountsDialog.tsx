@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Upload, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import billingService, { type AccountingAccountImportPreview } from '@/shared/api/billing';
+import billingService, { type AccountingAccountImportCorrection, type AccountingAccountImportPreview } from '@/shared/api/billing';
 import { accountingAccountTypeLabel } from './accountingFormat';
 
 interface ImportAccountingAccountsDialogProps {
@@ -25,6 +25,16 @@ const statusLabel = (status: AccountingAccountImportPreview['rows'][number]['sta
   return 'À corriger';
 };
 
+type CorrectionValues = AccountingAccountImportCorrection['values'];
+type CorrectionMap = Record<number, CorrectionValues>;
+
+const toCorrectionList = (corrections: CorrectionMap): AccountingAccountImportCorrection[] =>
+  Object.entries(corrections)
+    .map(([line, values]) => ({ line: Number(line), values }))
+    .sort((left, right) => left.line - right.line);
+
+const accountTypes = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'] as const;
+
 export function ImportAccountingAccountsDialog({
   open,
   onOpenChange,
@@ -36,15 +46,25 @@ export function ImportAccountingAccountsDialog({
   const currentEnterpriseId = useRef(enterpriseId);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<AccountingAccountImportPreview | null>(null);
+  const [corrections, setCorrections] = useState<CorrectionMap>({});
+  const [validatedCorrectionsKey, setValidatedCorrectionsKey] = useState<string | null>(null);
+  const [editingLine, setEditingLine] = useState<number | null>(null);
+  const [draft, setDraft] = useState<CorrectionValues | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   currentEnterpriseId.current = enterpriseId;
+  const correctionsKey = JSON.stringify(toCorrectionList(corrections));
+  const previewIsCurrent = validatedCorrectionsKey === correctionsKey;
 
   useEffect(() => {
     currentEnterpriseId.current = enterpriseId;
     setFile(null);
     setPreview(null);
+    setCorrections({});
+    setValidatedCorrectionsKey(null);
+    setEditingLine(null);
+    setDraft(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [enterpriseId]);
 
@@ -52,6 +72,10 @@ export function ImportAccountingAccountsDialog({
     if (!nextOpen) {
       setFile(null);
       setPreview(null);
+      setCorrections({});
+      setValidatedCorrectionsKey(null);
+      setEditingLine(null);
+      setDraft(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
     onOpenChange(nextOpen);
@@ -78,6 +102,10 @@ export function ImportAccountingAccountsDialog({
 
   const handleFileChange = (selectedFile?: File) => {
     setPreview(null);
+    setCorrections({});
+    setValidatedCorrectionsKey(null);
+    setEditingLine(null);
+    setDraft(null);
     if (!selectedFile) {
       setFile(null);
       return;
@@ -95,14 +123,15 @@ export function ImportAccountingAccountsDialog({
     setFile(selectedFile);
   };
 
-  const handlePreview = async () => {
-    if (!file || !enterpriseId) return;
+  const runPreview = async (selectedFile: File, nextCorrections: AccountingAccountImportCorrection[]) => {
+    if (!enterpriseId) return;
     const previewEnterpriseId = enterpriseId;
     setIsPreviewing(true);
     try {
-      const response = await billingService.previewAccountingAccountImport(file);
+      const response = await billingService.previewAccountingAccountImport(selectedFile, nextCorrections);
       if (String(currentEnterpriseId.current) === String(previewEnterpriseId)) {
         setPreview(response.data);
+        setValidatedCorrectionsKey(JSON.stringify(nextCorrections));
       }
     } catch (error) {
       toast.error(getRequestErrorMessage(error, 'Impossible de lire ce fichier Excel.'));
@@ -111,11 +140,48 @@ export function ImportAccountingAccountsDialog({
     }
   };
 
+  const handlePreview = async () => {
+    if (!file || !enterpriseId) return;
+    await runPreview(file, toCorrectionList(corrections));
+  };
+
+  const startEditing = (row: AccountingAccountImportPreview['rows'][number]) => {
+    setEditingLine(row.line);
+    setDraft({
+      code: row.code,
+      label: row.label,
+      type: row.type || '',
+      description: row.description || '',
+      openingBalance: String(row.openingBalance ?? 0),
+    });
+  };
+
+  const saveCorrection = async () => {
+    if (!file || !draft || editingLine === null) return;
+    const nextCorrections = { ...corrections, [editingLine]: draft };
+    const correctionList = toCorrectionList(nextCorrections);
+    setCorrections(nextCorrections);
+    setEditingLine(null);
+    setDraft(null);
+    await runPreview(file, correctionList);
+  };
+
+  const clearCorrection = async (line: number) => {
+    if (!file) return;
+    const nextCorrections = { ...corrections };
+    delete nextCorrections[line];
+    const correctionList = toCorrectionList(nextCorrections);
+    setCorrections(nextCorrections);
+    setEditingLine(null);
+    setDraft(null);
+    await runPreview(file, correctionList);
+  };
+
   const handleImport = async () => {
-    if (!file || !enterpriseId || !preview?.summary.importable) return;
+    if (!file || !enterpriseId || !preview?.summary.importable || validatedCorrectionsKey !== JSON.stringify(toCorrectionList(corrections))) return;
     setIsImporting(true);
     try {
-      const response = await billingService.importAccountingAccounts(file, preview.enterpriseId);
+      const response = await billingService.importAccountingAccounts(file, preview.enterpriseId, toCorrectionList(corrections));
       const result = response.data;
       toast.success(
         `${result.imported} compte(s) ajouté(s), ${result.skippedExisting} déjà présent(s), ${result.skippedInvalid} ligne(s) à corriger.`
@@ -166,7 +232,7 @@ export function ImportAccountingAccountsDialog({
               />
               <Button type="button" variant="outline" onClick={handlePreview} disabled={!file || !enterpriseId || isPreviewing || isImporting}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                {isPreviewing ? 'Vérification…' : 'Vérifier le fichier'}
+                {isPreviewing ? 'Vérification…' : Object.keys(corrections).length ? 'Re-vérifier les corrections' : 'Vérifier le fichier'}
               </Button>
             </div>
           </div>
@@ -185,12 +251,12 @@ export function ImportAccountingAccountsDialog({
               {preview.summary.invalid > 0 && (
                 <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  Les lignes invalides seront laissées de côté. Corrigez-les dans Excel puis sélectionnez à nouveau le fichier si vous souhaitez les importer.
+                  Corrigez les lignes ici avec le bouton « Corriger », puis vérifiez-les à nouveau avant l’import.
                 </div>
               )}
 
               <div className="max-h-72 overflow-auto rounded-md border">
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <table className="w-full min-w-[900px] text-left text-sm">
                   <thead className="sticky top-0 bg-slate-50 text-slate-700">
                     <tr>
                       <th className="px-3 py-2">Ligne</th>
@@ -199,23 +265,89 @@ export function ImportAccountingAccountsDialog({
                       <th className="px-3 py-2">Type</th>
                       <th className="px-3 py-2">Résultat</th>
                       <th className="px-3 py-2">Détail</th>
+                      <th className="px-3 py-2">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.rows.map((row, index) => (
-                      <tr key={`${row.line}-${row.code}-${index}`} className="border-t align-top">
-                        <td className="px-3 py-2">{row.line}</td>
-                        <td className="px-3 py-2 font-medium">{row.code || '—'}</td>
-                        <td className="px-3 py-2">{row.label || '—'}</td>
-                        <td className="px-3 py-2">{row.type ? accountingAccountTypeLabel(row.type.toLowerCase()) : '—'}</td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 ${row.status === 'IMPORTABLE' ? 'text-emerald-700' : row.status === 'EXISTING' ? 'text-blue-700' : 'text-amber-800'}`}>
-                            {row.status === 'IMPORTABLE' ? <CheckCircle2 className="h-4 w-4" /> : row.status === 'EXISTING' ? <AlertCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                            {statusLabel(row.status)}
-                          </span>
-                        </td>
-                        <td className="max-w-xs px-3 py-2 text-muted-foreground">{row.errors.join(' ') || (row.status === 'EXISTING' ? 'Ce code existe déjà dans cette entreprise.' : '—')}</td>
-                      </tr>
+                      <Fragment key={`${row.line}-${row.code}-${index}`}>
+                        <tr className="border-t align-top">
+                          <td className="px-3 py-2">{row.line}</td>
+                          <td className="px-3 py-2 font-medium">{row.code || '—'}</td>
+                          <td className="px-3 py-2">{row.label || '—'}</td>
+                          <td className="px-3 py-2">{row.type ? accountingAccountTypeLabel(row.type.toLowerCase()) : '—'}</td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center gap-1 ${row.status === 'IMPORTABLE' ? 'text-emerald-700' : row.status === 'EXISTING' ? 'text-blue-700' : 'text-amber-800'}`}>
+                              {row.status === 'IMPORTABLE' ? <CheckCircle2 className="h-4 w-4" /> : row.status === 'EXISTING' ? <AlertCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                              {statusLabel(row.status)}
+                            </span>
+                          </td>
+                          <td className="max-w-xs px-3 py-2 text-muted-foreground">{row.errors.join(' ') || (row.status === 'EXISTING' ? 'Ce code existe déjà dans cette entreprise.' : '—')}</td>
+                          <td className="whitespace-nowrap px-3 py-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isPreviewing || isImporting}
+                              onClick={() => editingLine === row.line ? (setEditingLine(null), setDraft(null)) : startEditing(row)}
+                            >
+                              {editingLine === row.line ? 'Fermer' : 'Corriger'}
+                            </Button>
+                            {corrections[row.line] && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={isPreviewing || isImporting}
+                                onClick={() => clearCorrection(row.line)}
+                              >
+                                Rétablir
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                        {editingLine === row.line && draft && (
+                          <tr key={`edit-${row.line}`} className="border-t bg-slate-50">
+                            <td colSpan={7} className="p-3">
+                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                <label className="space-y-1 text-xs font-medium text-slate-600">
+                                  Code
+                                  <input className="h-9 w-full rounded-md border bg-white px-2 text-sm" value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value })} />
+                                </label>
+                                <label className="space-y-1 text-xs font-medium text-slate-600">
+                                  Libellé
+                                  <input className="h-9 w-full rounded-md border bg-white px-2 text-sm" value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} />
+                                </label>
+                                <label className="space-y-1 text-xs font-medium text-slate-600">
+                                  Type
+                                  <select className="h-9 w-full rounded-md border bg-white px-2 text-sm" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}>
+                                    <option value="">Choisir un type</option>
+                                    {accountTypes.map((type) => (
+                                      <option key={type} value={type}>{accountingAccountTypeLabel(type.toLowerCase())}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="space-y-1 text-xs font-medium text-slate-600">
+                                  Description
+                                  <input className="h-9 w-full rounded-md border bg-white px-2 text-sm" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+                                </label>
+                                <label className="space-y-1 text-xs font-medium text-slate-600">
+                                  Solde initial
+                                  <input className="h-9 w-full rounded-md border bg-white px-2 text-sm" inputMode="decimal" value={draft.openingBalance} onChange={(event) => setDraft({ ...draft, openingBalance: event.target.value })} />
+                                </label>
+                                <div className="flex items-end justify-end gap-2">
+                                  <Button type="button" variant="outline" size="sm" onClick={() => { setEditingLine(null); setDraft(null); }}>
+                                    Annuler
+                                  </Button>
+                                  <Button type="button" size="sm" onClick={saveCorrection} disabled={isPreviewing || isImporting}>
+                                    {isPreviewing ? 'Vérification…' : 'Enregistrer et vérifier'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -228,7 +360,7 @@ export function ImportAccountingAccountsDialog({
           <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isImporting}>
             Annuler
           </Button>
-          <Button type="button" onClick={handleImport} disabled={!preview?.summary.importable || isImporting || isPreviewing}>
+          <Button type="button" onClick={handleImport} disabled={!preview?.summary.importable || isImporting || isPreviewing || editingLine !== null || !previewIsCurrent}>
             <Upload className="mr-2 h-4 w-4" />
             {isImporting ? 'Import en cours…' : `Importer ${preview?.summary.importable ?? 0} compte(s)`}
           </Button>
