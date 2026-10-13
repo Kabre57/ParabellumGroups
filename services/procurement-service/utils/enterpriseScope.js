@@ -2,6 +2,7 @@ const axios = require('axios');
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:4001';
 const ENTERPRISE_CACHE_TTL_MS = 60 * 1000;
+const ADMIN_ROLE_CODES = new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']);
 
 let enterpriseCache = {
   expiresAt: 0,
@@ -21,6 +22,14 @@ const parseEnterpriseId = (value) => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
+
+const isAdminUser = (user) => {
+  const role = typeof user?.role === 'string' ? user.role : user?.role?.code || user?.role?.name;
+  return ADMIN_ROLE_CODES.has(String(role || '').trim().toUpperCase());
+};
+
+const getHeaderEnterpriseId = (req) =>
+  parseEnterpriseId(req.headers?.['x-enterprise-id'] || req.headers?.['X-Enterprise-Id']);
 
 const getEnterpriseList = async (req) => {
   if (enterpriseCache.data && enterpriseCache.expiresAt > Date.now()) {
@@ -72,7 +81,7 @@ const computeScopedEnterpriseIds = (enterprises, rootEnterpriseId) => {
 };
 
 const getAccessibleEnterpriseIds = async (req) => {
-  const rootEnterpriseId = parseEnterpriseId(req.user?.enterpriseId);
+  const rootEnterpriseId = parseEnterpriseId(req.user?.enterpriseId ?? req.user?.enterprise?.id);
   if (!rootEnterpriseId) return null;
 
   const enterprises = await getEnterpriseList(req);
@@ -81,10 +90,24 @@ const getAccessibleEnterpriseIds = async (req) => {
 
 const resolveEnterpriseIdsForRequest = async (req, requestedEnterpriseId = req.query?.enterpriseId) => {
   const scopedIds = await getAccessibleEnterpriseIds(req);
-  const normalizedRequestedEnterpriseId = parseEnterpriseId(requestedEnterpriseId);
+  const normalizedRequestedEnterpriseId = getHeaderEnterpriseId(req) || parseEnterpriseId(requestedEnterpriseId);
 
   if (!scopedIds) {
-    return normalizedRequestedEnterpriseId ? [normalizedRequestedEnterpriseId] : null;
+    if (!normalizedRequestedEnterpriseId) return [];
+    if (!isAdminUser(req.user)) {
+      const error = new Error("Vous n'avez pas acces a cette entreprise.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const enterprises = await getEnterpriseList(req);
+    if (!enterprises.some((enterprise) => parseEnterpriseId(enterprise.id) === normalizedRequestedEnterpriseId)) {
+      const error = new Error("Vous n'avez pas acces a cette entreprise.");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return [normalizedRequestedEnterpriseId];
   }
 
   if (!normalizedRequestedEnterpriseId) {
@@ -119,9 +142,9 @@ const applyEnterpriseScope = async ({
 
 const resolveEnterpriseContext = async (req, requestedEnterpriseId = req.body?.enterpriseId) => {
   const enterprises = await getEnterpriseList(req);
-  const scopedIds = await resolveEnterpriseIdsForRequest(req, requestedEnterpriseId);
-  const normalizedRequestedEnterpriseId = parseEnterpriseId(requestedEnterpriseId);
-  const userEnterpriseId = parseEnterpriseId(req.user?.enterpriseId);
+  const userEnterpriseId = parseEnterpriseId(req.user?.enterpriseId ?? req.user?.enterprise?.id);
+  const normalizedRequestedEnterpriseId = getHeaderEnterpriseId(req) || parseEnterpriseId(requestedEnterpriseId);
+  const scopedIds = await resolveEnterpriseIdsForRequest(req, normalizedRequestedEnterpriseId);
   const targetEnterpriseId =
     normalizedRequestedEnterpriseId ||
     userEnterpriseId ||
@@ -166,6 +189,7 @@ const assertEnterpriseInScope = async (req, enterpriseId, message = "Vous n'avez
 
 module.exports = {
   parseEnterpriseId,
+  isAdminUser,
   getEnterpriseList,
   getAccessibleEnterpriseIds,
   resolveEnterpriseIdsForRequest,

@@ -314,8 +314,9 @@ exports.createFamily = async (req, res) => {
       });
     }
 
-    // Les codes sont encore uniques en base pour la clé étrangère des règles.
-    // Si une autre entreprise utilise déjà ce code, on crée un code interne propre à celle-ci.
+    // Family definition codes are still globally unique for the existing
+    // family-rule foreign key. Give a custom family a tenant-specific internal
+    // code if another enterprise already owns the requested code.
     const existingCode = await prisma.accountingFamilyDefinition.findUnique({ where: { code } });
     if (existingCode) {
       if (existingCode.enterpriseId === enterpriseId) {

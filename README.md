@@ -1,6 +1,6 @@
 # ParabellumGroups ERP
 
-Plateforme ERP modulaire pour la gestion commerciale (prospection, pipeline, relances), CRM, projets, RH, comptabilite, achats, services techniques et communication.
+Plateforme ERP modulaire pour la gestion commerciale (prospection, pipeline, relances), le CRM, les projets, les RH, la comptabilité, les achats, les services techniques et la communication.
 
 ## 🏗️ STRUCTURE DU PROJET
 
@@ -10,19 +10,19 @@ ParabellumGroups/
 ├── services/                 # Micro-services Node.js
 │   ├── api-gateway/          # Gateway / proxy
 │   ├── auth-service/         # Authentification & permissions
-│   ├── commercial-service/   # Prospects, pipeline, relances, campagnes
-│   ├── customer-service/     # CRM (clients, contacts, opportunites)
-│   ├── billing-service/      # Devis & facturation
-│   ├── project-service/      # Projets, taches, jalons
-│   ├── technical-service/    # Missions & interventions
-│   ├── procurement-service/  # Achats & logistique
-│   ├── communication-service/# Emails & campagnes multicanal
-│   ├── analytics-service/    # KPI & rapports
-│   └── notification-service/ # Notifications
-├── docs/                     # Documentation metier & technique
-├── scripts/                  # Scripts utilitaires
-├── docker-compose.yml        # Stack locale
-└── nginx/                    # Config reverse-proxy
+│   ├── commercial-service/    # Prospects, pipeline, relances, campagnes
+│   ├── customer-service/      # CRM : clients, contacts, opportunités
+│   ├── billing-service/       # Devis, facturation et comptabilité
+│   ├── project-service/       # Projets, tâches et jalons
+│   ├── technical-service/     # Missions et interventions
+│   ├── procurement-service/   # Achats et logistique
+│   ├── communication-service/ # E-mails et campagnes multicanales
+│   ├── analytics-service/     # Indicateurs et rapports
+│   └── notification-service/  # Notifications
+├── docker/nginx/              # Configuration du reverse proxy
+├── docs/                      # Documentation métier et technique
+├── scripts/                   # Scripts utilitaires
+└── docker-compose.yml         # Stack locale et production
 ```
 
 ## 🚀 Lancer le projet
@@ -31,8 +31,8 @@ ParabellumGroups/
 docker compose up -d --build
 ```
 
-For production updates, use the zero-downtime deployment script instead of
-`docker compose up -d --build`:
+Pour les mises à jour en production, utilisez le script de déploiement sans
+interruption :
 
 ```
 ./scripts/deploy-blue-green.sh
@@ -40,26 +40,32 @@ For production updates, use the zero-downtime deployment script instead of
 
 Le guide des migrations, de la mise à jour VPS et des sauvegardes/restaurations est dans [`docs/deploiement-et-exploitation.md`](docs/deploiement-et-exploitation.md).
 
-## 🔧 Tests & validation
+## 🔧 Validation
 
 ```
 pnpm run validate
 ```
 
+Cette commande vérifie les types et la syntaxe du frontend, la syntaxe
+JavaScript de tous les services, construit le service de notifications et
+exécute les suites de tests déjà configurées pour l’authentification, la
+passerelle, la facturation et le CRM. Elle ne remplace pas des tests métier
+bout en bout pour chaque domaine.
+
 ## 📁 Services principaux
 
-- **Commercial** : prospection, prospection terrain, pipeline, devis, campagnes/relances.
-- **CRM** : clients, contacts, documents, interactions.
-- **Projets** : portefeuille projets, taches, jalons, planning.
+- **Commercial** : prospection, prospection terrain, pipeline, devis, campagnes et relances.
+- **CRM** : clients, contacts, documents et interactions.
+- **Projets** : portefeuille projets, tâches, jalons et planning.
 - **RH / Paie** : les écrans utilisent l’application dédiée configurée par `HR_SERVICE_URL`.
 - **Technique** : missions, interventions, rapports.
-- **Achats** : demandes, proformas, commandes, receptions.
+- **Achats** : demandes, proformas, commandes et réceptions.
 
 ## ✅ Bonnes pratiques
 
-- Suivre la structure modulaire dans `frontend/src/components`.
-- Preferer les services `services/*` pour toute logique metier serveur.
-- Documenter les workflows metiers dans `docs/`.
+- Suivre la structure modulaire de `frontend/src/components`.
+- Préférer les services de `services/` pour la logique métier côté serveur.
+- Documenter les workflows métier dans `docs/`.
 
 ---
 

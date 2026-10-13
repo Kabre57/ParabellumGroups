@@ -173,6 +173,12 @@ const resolveEnterpriseIdsForRequest = async (req, requestedEnterpriseId = req.q
 
   if (!scopedIds) {
     if (!normalizedRequestedEnterpriseId) return [];
+    if (!isAdminUser(req.user)) {
+      const error = new Error("Vous n'avez pas acces a cette entreprise.");
+      error.statusCode = 403;
+      throw error;
+    }
+
     const enterprises = await getEnterpriseList(req);
     if (!enterprises.some((enterprise) => parseEnterpriseId(enterprise.id) === normalizedRequestedEnterpriseId)) {
       const error = new Error("Vous n'avez pas acces a cette entreprise.");

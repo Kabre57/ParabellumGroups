@@ -8,22 +8,12 @@ const isWindows = process.platform === 'win32';
 const packageManager = isWindows ? 'pnpm.cmd' : 'pnpm';
 
 const steps = [
-  { label: 'Frontend lint', cwd: 'frontend', command: packageManager, args: ['run', 'lint'] },
+  { label: 'Frontend type-check and JavaScript syntax', cwd: 'frontend', command: packageManager, args: ['run', 'lint'] },
   {
-    label: 'Backend JavaScript syntax (services without unit-test jobs)',
+    label: 'Backend JavaScript syntax (all services)',
     cwd: '.',
     command: process.execPath,
-    args: [
-      'scripts/check-js-syntax.mjs',
-      'services/communication-service',
-      'services/technical-service',
-      'services/commercial-service',
-      'services/inventory-service',
-      'services/project-service',
-      'services/procurement-service',
-      'services/analytics-service',
-      'services/notification-service',
-    ],
+    args: ['scripts/check-js-syntax.mjs', 'services'],
   },
   { label: 'Notification service build', cwd: 'services/notification-service', command: packageManager, args: ['run', 'build'] },
   { label: 'Auth service tests', cwd: 'services/auth-service', command: packageManager, args: ['test'] },
@@ -40,7 +30,12 @@ const steps = [
 
 for (const step of steps) {
   console.log(`\n=== ${step.label} ===`);
-  const result = spawnSync(step.command, step.args, {
+  const usesWindowsCommandScript = isWindows && step.command === packageManager;
+  const command = usesWindowsCommandScript ? process.env.ComSpec || 'cmd.exe' : step.command;
+  const args = usesWindowsCommandScript
+    ? ['/d', '/s', '/c', `call ${[step.command, ...step.args].join(' ')}`]
+    : step.args;
+  const result = spawnSync(command, args, {
     cwd: resolve(repoRoot, step.cwd),
     stdio: 'inherit',
     env: process.env,

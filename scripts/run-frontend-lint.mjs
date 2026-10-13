@@ -10,7 +10,12 @@ const packageManager = isWindows ? 'pnpm.cmd' : 'pnpm';
 
 const run = (label, command, args, cwd) => {
   console.log(`\n> ${label}`);
-  const result = spawnSync(command, args, {
+  const usesWindowsCommandScript = isWindows && command === packageManager;
+  const spawnCommand = usesWindowsCommandScript ? process.env.ComSpec || 'cmd.exe' : command;
+  const spawnArgs = usesWindowsCommandScript
+    ? ['/d', '/s', '/c', `call ${[command, ...args].join(' ')}`]
+    : args;
+  const result = spawnSync(spawnCommand, spawnArgs, {
     cwd,
     stdio: 'inherit',
     env: process.env,
