@@ -1,4 +1,6 @@
 'use client';
+import { useStockPageModel } from './StockPage.model';
+import { StockDialogs } from './StockDialogs';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -30,160 +32,11 @@ import TabularListPrint from '@/components/printComponents/TabularListPrint';
 import { formatFCFA, formatPrintDate, textOrDash } from '@/components/printComponents/printUtils';
 
 export default function StockPage() {
-  const { user } = useAuth();
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [showLowStock, setShowLowStock] = useState(false);
-  const [activeTab, setActiveTab] = useState<'items' | 'movements'>('items');
 
-  const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedArticle, setSelectedArticle] = useState<InventoryArticle | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const pageModel = useStockPageModel();
+  const { user, categoryFilter, setCategoryFilter, showLowStock, setShowLowStock, activeTab, setActiveTab, queryClient, dialogOpen, setDialogOpen, selectedArticle, setSelectedArticle, createDialogOpen, setCreateDialogOpen, isPrintOpen, setIsPrintOpen, stockItemsResponse, itemsLoading, movementsResponse, movementsLoading, stockItems, movements, filteredItems, lowStockCount, totalStockValue, canCreate, canUpdate, createMovementMutation, form, openAdjust, createArticleForm, createArticleMutation, onSubmit, onCreateArticle } = pageModel;
 
-  const { data: stockItemsResponse, isLoading: itemsLoading } = useQuery<
-    Awaited<ReturnType<typeof inventoryService.getArticles>>
-  >({
-    queryKey: ['inventory-articles', categoryFilter, showLowStock],
-    queryFn: () =>
-      inventoryService.getArticles({
-        categorie: categoryFilter || undefined,
-      }),
-  });
-
-  const { data: movementsResponse, isLoading: movementsLoading } = useQuery<
-    Awaited<ReturnType<typeof inventoryService.getMovements>>
-  >({
-    queryKey: ['inventory-movements'],
-    queryFn: () => inventoryService.getMovements(),
-    enabled: activeTab === 'movements',
-  });
-
-  const stockItems = Array.isArray(stockItemsResponse?.data) ? stockItemsResponse?.data : [];
-  const movements = Array.isArray(movementsResponse?.data) ? movementsResponse?.data : [];
-
-  const filteredItems = useMemo(() => {
-    const normalizedCategory = categoryFilter.trim().toLowerCase();
-    return stockItems.filter((item) => {
-      const itemCategory = (item.categorie || '').toLowerCase();
-      if (normalizedCategory && !itemCategory.includes(normalizedCategory)) {
-        return false;
-      }
-      if (showLowStock) {
-        return (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0);
-      }
-      return true;
-    });
-  }, [stockItems, categoryFilter, showLowStock]);
-
-  const lowStockCount = stockItems.filter(
-    (item: InventoryArticle) =>
-      (item.quantiteStock ?? 0) <= (item.seuilAlerte ?? 0)
-  ).length;
-  const totalStockValue = stockItems.reduce(
-    (sum, item) => sum + (item.quantiteStock ?? 0) * (item.prixAchat ?? 0),
-    0
-  );
-  const { canCreate, canUpdate } = getCrudVisibility(user, {
-    read: ['inventory.read', 'inventory.read_all', 'inventory.read_warehouse'],
-    create: ['inventory.create'],
-    update: ['inventory.update', 'inventory.adjust', 'inventory.transfer', 'inventory.count'],
-  });
-
-  const createMovementMutation = useMutation({
-    mutationFn: (values: MovementFormValues) =>
-      inventoryService.createMovement({
-        articleId: values.articleId,
-        type: values.type,
-        quantite: Number(values.quantite) || 0,
-        dateOperation: values.dateOperation || undefined,
-        numeroDocument: values.numeroDocument || undefined,
-        emplacement: values.emplacement || undefined,
-        notes: values.notes || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
-    },
-  });
-
-  const form = useForm<MovementFormValues>({
-    defaultValues: {
-      articleId: '',
-      type: 'AJUSTEMENT',
-      quantite: '',
-      dateOperation: '',
-      numeroDocument: '',
-      emplacement: '',
-      notes: '',
-    },
-  });
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    form.reset({
-      articleId: selectedArticle?.id || stockItems[0]?.id || '',
-      type: 'AJUSTEMENT',
-      quantite: '',
-      dateOperation: '',
-      numeroDocument: '',
-      emplacement: selectedArticle?.emplacement || '',
-      notes: '',
-    });
-  }, [dialogOpen, selectedArticle, stockItems, form]);
-
-  const openAdjust = (article?: InventoryArticle) => {
-    setSelectedArticle(article || null);
-    setDialogOpen(true);
-  };
-
-  const createArticleForm = useForm<CreateArticleFormValues>({
-    defaultValues: {
-      reference: '',
-      nom: '',
-      categorie: '',
-      unite: 'PIECE',
-      prixAchat: '',
-      prixVente: '',
-      quantiteStock: '',
-      seuilAlerte: '',
-      seuilRupture: '',
-      emplacement: '',
-    },
-  });
-
-  const createArticleMutation = useMutation({
-    mutationFn: (values: CreateArticleFormValues) =>
-      inventoryService.createArticle({
-        reference: values.reference || undefined,
-        nom: values.nom,
-        description: values.description || undefined,
-        categorie: values.categorie || undefined,
-        unite: values.unite,
-        prixAchat: values.prixAchat ? Number(values.prixAchat) : undefined,
-        prixVente: values.prixVente ? Number(values.prixVente) : undefined,
-        quantiteStock: values.quantiteStock ? Number(values.quantiteStock) : undefined,
-        seuilAlerte: values.seuilAlerte ? Number(values.seuilAlerte) : undefined,
-        seuilRupture: values.seuilRupture ? Number(values.seuilRupture) : undefined,
-        emplacement: values.emplacement || undefined,
-        status: 'ACTIF',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-articles'] });
-    },
-  });
-
-  const onSubmit = form.handleSubmit((values) => {
-    createMovementMutation.mutate(values);
-    setDialogOpen(false);
-  });
-
-  const onCreateArticle = createArticleForm.handleSubmit((values) => {
-    createArticleMutation.mutate(values);
-    setCreateDialogOpen(false);
-  });
-
-  return (
+return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -447,149 +300,11 @@ export default function StockPage() {
       </Card>
 
       {canUpdate && (
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Ajuster le stock</DialogTitle>
-            <DialogDescription>
-              Creer un mouvement de stock pour l'article selectionne.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Article</label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                {...form.register('articleId', { required: true })}
-              >
-                {stockItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Type</label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                {...form.register('type')}
-              >
-                <option value="ENTREE">Entree</option>
-                <option value="SORTIE">Sortie</option>
-                <option value="AJUSTEMENT">Ajustement</option>
-                <option value="TRANSFERT">Transfert</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Quantite</label>
-              <Input type="number" step="0.01" {...form.register('quantite', { required: true })} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date operation</label>
-              <Input type="datetime-local" {...form.register('dateOperation')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Numero document</label>
-              <Input {...form.register('numeroDocument')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Emplacement</label>
-              <Input {...form.register('emplacement')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
-              <Input {...form.register('notes')} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={createMovementMutation.isPending}>
-                Enregistrer
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <StockDialogs {...pageModel} />
       )}
 
       {canCreate && (
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nouvel article</DialogTitle>
-            <DialogDescription>Creer un article de stock.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={onCreateArticle} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reference</label>
-              <Input {...createArticleForm.register('reference')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nom</label>
-              <Input {...createArticleForm.register('nom', { required: true })} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Description</label>
-              <Input {...createArticleForm.register('description')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categorie</label>
-              <Input {...createArticleForm.register('categorie')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Unite</label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                {...createArticleForm.register('unite')}
-              >
-                <option value="PIECE">Piece</option>
-                <option value="KG">Kg</option>
-                <option value="M">Metre</option>
-                <option value="L">Litre</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Prix achat</label>
-              <Input type="number" step="0.01" {...createArticleForm.register('prixAchat')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Prix vente</label>
-              <Input type="number" step="0.01" {...createArticleForm.register('prixVente')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Quantite stock</label>
-              <Input type="number" step="0.01" {...createArticleForm.register('quantiteStock')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Seuil alerte</label>
-              <Input type="number" step="0.01" {...createArticleForm.register('seuilAlerte')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Seuil rupture</label>
-              <Input type="number" step="0.01" {...createArticleForm.register('seuilRupture')} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Emplacement</label>
-              <Input {...createArticleForm.register('emplacement')} />
-            </div>
-            <div className="md:col-span-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={createArticleMutation.isPending}
-              >
-                Enregistrer
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <StockDialogs {...pageModel} />
       )}
 
       {isPrintOpen && (
@@ -656,28 +371,4 @@ export default function StockPage() {
       )}
     </div>
   );
-}
-
-interface MovementFormValues {
-  articleId: string;
-  type: StockMovementType;
-  quantite: string;
-  dateOperation?: string;
-  numeroDocument?: string;
-  emplacement?: string;
-  notes?: string;
-}
-
-interface CreateArticleFormValues {
-  reference?: string;
-  nom: string;
-  description?: string;
-  categorie?: string;
-  unite?: ArticleUnit;
-  prixAchat?: string;
-  prixVente?: string;
-  quantiteStock?: string;
-  seuilAlerte?: string;
-  seuilRupture?: string;
-  emplacement?: string;
 }

@@ -1,0 +1,408 @@
+// Normalisation commune des données reçues du service achats.
+import { apiClient } from '../shared/client';
+import {
+  Supplier,
+  PurchaseRequest,
+  PurchaseOrder,
+  PurchaseProforma,
+  PurchaseProformaApprovalLog,
+  PurchaseProformaStatus,
+  ProcurementStats,
+  StockItem,
+  StockMovement,
+  PurchaseOrderStatus,
+  PurchaseRequestStatus,
+  SupplierStatus,
+  PurchaseOrderValidationLog,
+  PurchaseRequestApprovalLog,
+} from './types';
+
+export interface ListResponse<T> {
+  success: boolean;
+  data: T[];
+  meta?: {
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
+export interface DetailResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+export const normalizeNumber = (value: unknown, fallback = 0): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+export const normalizeSupplier = (supplier: any): Supplier => {
+  const bonsCommande = Array.isArray(supplier?.bonsCommande) ? supplier.bonsCommande : [];
+
+  return {
+    ...supplier,
+    id: String(supplier?.id ?? ''),
+    name: supplier?.name || supplier?.nom || supplier?.email || 'Sans nom',
+    nom: supplier?.nom || supplier?.name || '',
+    email: supplier?.email || '',
+    phone: supplier?.phone || supplier?.telephone || '',
+    telephone: supplier?.telephone || supplier?.phone || '',
+    address: supplier?.address || supplier?.adresse || '',
+    adresse: supplier?.adresse || supplier?.address || '',
+    category: supplier?.category || supplier?.categorie || supplier?.categorieActivite || '',
+    categorie: supplier?.categorie || supplier?.category || supplier?.categorieActivite || '',
+    categorieActivite: supplier?.categorieActivite || supplier?.categorie || supplier?.category || '',
+    rating: normalizeNumber(supplier?.rating, 0),
+    status: supplier?.status || 'ACTIF',
+    ordersCount: supplier?.ordersCount ?? bonsCommande.length,
+    totalAmount:
+      supplier?.totalAmount ??
+      bonsCommande.reduce((sum: number, bon: any) => sum + normalizeNumber(bon?.montantTotal, 0), 0),
+    bonsCommande,
+  };
+};
+
+export const normalizePurchaseProforma = (proforma: any): PurchaseProforma => {
+  const lignes = Array.isArray(proforma?.lines)
+    ? proforma.lines
+    : Array.isArray(proforma?.lignes)
+    ? proforma.lignes
+    : [];
+
+  return {
+    id: String(proforma?.id ?? ''),
+    numeroProforma: proforma?.numeroProforma || '',
+    title: proforma?.title || proforma?.titre || proforma?.numeroProforma || '',
+    titre: proforma?.titre || proforma?.title || null,
+    demandeAchatId: String(proforma?.demandeAchatId ?? ''),
+    fournisseurId: String(proforma?.fournisseurId ?? ''),
+    fournisseurNom: proforma?.fournisseurNom || proforma?.fournisseur?.nom || null,
+    devise: proforma?.devise || 'XOF',
+    montantHT: normalizeNumber(proforma?.montantHT, 0),
+    montantTVA: normalizeNumber(proforma?.montantTVA, 0),
+    montantTTC: normalizeNumber(proforma?.montantTTC, 0),
+    delaiLivraisonJours:
+      proforma?.delaiLivraisonJours != null
+        ? normalizeNumber(proforma.delaiLivraisonJours, 0)
+        : null,
+    disponibilite: proforma?.disponibilite || null,
+    observationsAchat: proforma?.observationsAchat || null,
+    committeeProfileCode: proforma?.committeeProfileCode || null,
+    committeeEvaluation: proforma?.committeeEvaluation
+      ? {
+          profileCode: proforma.committeeEvaluation?.profileCode || proforma?.committeeProfileCode || null,
+          eliminatoryChecks: Array.isArray(proforma.committeeEvaluation?.eliminatoryChecks)
+            ? proforma.committeeEvaluation.eliminatoryChecks.map((item: any) => ({
+                criterionIndex: normalizeNumber(item?.criterionIndex, 0),
+                label: String(item?.label || ''),
+                requiredDocument: item?.requiredDocument || null,
+                passed:
+                  item?.passed === true || item?.passed === false ? Boolean(item.passed) : null,
+                notes: item?.notes || null,
+              }))
+            : [],
+          eliminatoryPassed: Boolean(proforma.committeeEvaluation?.eliminatoryPassed),
+          technicalScores: Array.isArray(proforma.committeeEvaluation?.technicalScores)
+            ? proforma.committeeEvaluation.technicalScores.map((item: any) => ({
+                criterionIndex: normalizeNumber(item?.criterionIndex, 0),
+                label: String(item?.label || ''),
+                maxPoints: normalizeNumber(item?.maxPoints, 0),
+                points: normalizeNumber(item?.points, 0),
+                notes: item?.notes || null,
+              }))
+            : [],
+          technicalTotal: normalizeNumber(proforma.committeeEvaluation?.technicalTotal, 0),
+          financialCriterion: proforma.committeeEvaluation?.financialCriterion
+            ? {
+                criterionIndex: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.criterionIndex, 15),
+                label: String(proforma.committeeEvaluation.financialCriterion?.label || ''),
+                maxPoints: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.maxPoints, 40),
+                points: normalizeNumber(proforma.committeeEvaluation.financialCriterion?.points, 0),
+                notes: proforma.committeeEvaluation.financialCriterion?.notes || null,
+              }
+            : null,
+          financialScore: normalizeNumber(proforma.committeeEvaluation?.financialScore, 0),
+          totalScore: normalizeNumber(proforma.committeeEvaluation?.totalScore, 0),
+          decision: proforma.committeeEvaluation?.decision || null,
+          decisionNote: proforma.committeeEvaluation?.decisionNote || null,
+          lastUpdatedAt: proforma.committeeEvaluation?.lastUpdatedAt || null,
+          lastUpdatedByUserId: proforma.committeeEvaluation?.lastUpdatedByUserId || null,
+          lastUpdatedByEmail: proforma.committeeEvaluation?.lastUpdatedByEmail || null,
+          lastUpdatedByServiceId:
+            proforma.committeeEvaluation?.lastUpdatedByServiceId != null
+              ? Number(proforma.committeeEvaluation.lastUpdatedByServiceId)
+              : null,
+          lastUpdatedByServiceName: proforma.committeeEvaluation?.lastUpdatedByServiceName || null,
+          signedAt: proforma.committeeEvaluation?.signedAt || null,
+          signedByUserId: proforma.committeeEvaluation?.signedByUserId || null,
+          signedByEmail: proforma.committeeEvaluation?.signedByEmail || null,
+          signedByServiceId:
+            proforma.committeeEvaluation?.signedByServiceId != null
+              ? Number(proforma.committeeEvaluation.signedByServiceId)
+              : null,
+          signedByServiceName: proforma.committeeEvaluation?.signedByServiceName || null,
+        }
+      : null,
+    committeeDecision: proforma?.committeeDecision || null,
+    committeeDecisionNote: proforma?.committeeDecisionNote || null,
+    committeeEvaluatedAt: proforma?.committeeEvaluatedAt || null,
+    committeeEvaluatedByUserId: proforma?.committeeEvaluatedByUserId || null,
+    committeeEvaluatedByEmail: proforma?.committeeEvaluatedByEmail || null,
+    committeeEvaluatedByServiceId:
+      proforma?.committeeEvaluatedByServiceId != null
+        ? normalizeNumber(proforma.committeeEvaluatedByServiceId, 0)
+        : null,
+    committeeEvaluatedByServiceName: proforma?.committeeEvaluatedByServiceName || null,
+    committeeSignedAt: proforma?.committeeSignedAt || null,
+    committeeSignedByUserId: proforma?.committeeSignedByUserId || null,
+    committeeSignedByEmail: proforma?.committeeSignedByEmail || null,
+    committeeSignedByServiceId:
+      proforma?.committeeSignedByServiceId != null
+        ? normalizeNumber(proforma.committeeSignedByServiceId, 0)
+        : null,
+    committeeSignedByServiceName: proforma?.committeeSignedByServiceName || null,
+    status: (proforma?.status || 'BROUILLON') as PurchaseProformaStatus,
+    notes: proforma?.notes || null,
+    submittedAt: proforma?.submittedAt || null,
+    approvedAt: proforma?.approvedAt || null,
+    approvedByUserId: proforma?.approvedByUserId || null,
+    approvedByServiceId: proforma?.approvedByServiceId != null ? Number(proforma.approvedByServiceId) : null,
+    approvedByServiceName: proforma?.approvedByServiceName || null,
+    rejectionReason: proforma?.rejectionReason || null,
+    selectedForOrder: Boolean(proforma?.selectedForOrder),
+    recommendedForApproval: Boolean(proforma?.recommendedForApproval),
+    bonCommandeId: proforma?.bonCommandeId || proforma?.bonCommande?.id || null,
+    numeroBon: proforma?.numeroBon || proforma?.bonCommande?.numeroBon || null,
+    createdAt: proforma?.createdAt || undefined,
+    updatedAt: proforma?.updatedAt || undefined,
+    lignes: lignes.map((ligne: any) => ({
+      id: String(ligne?.id ?? ''),
+      articleId: ligne?.articleId || null,
+      referenceArticle: ligne?.referenceArticle || null,
+      imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
+      designation: ligne?.designation || '',
+      categorie: ligne?.categorie || null,
+      quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
+      prixUnitaire: normalizeNumber(ligne?.prixUnitaire ?? ligne?.unitPrice, 0),
+      tva: normalizeNumber(ligne?.tva, 0),
+      montantHT: normalizeNumber(ligne?.montantHT ?? ligne?.amountHT, 0),
+      montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.amount, 0),
+    })),
+    approvalHistory: Array.isArray(proforma?.approvalHistory)
+      ? proforma.approvalHistory.map((log: any) => ({
+          id: String(log?.id ?? ''),
+          action: String(log?.action ?? ''),
+          fromStatus: String(log?.fromStatus ?? 'BROUILLON') as PurchaseProformaApprovalLog['fromStatus'],
+          toStatus: String(log?.toStatus ?? 'BROUILLON') as PurchaseProformaApprovalLog['toStatus'],
+          actorUserId: log?.actorUserId || null,
+          actorEmail: log?.actorEmail || null,
+          actorServiceId: log?.actorServiceId != null ? Number(log.actorServiceId) : null,
+          actorServiceName: log?.actorServiceName || null,
+          commentaire: log?.commentaire || null,
+          createdAt: log?.createdAt || new Date().toISOString(),
+        }))
+      : [],
+  };
+};
+
+export const normalizePurchaseRequest = (request: any): PurchaseRequest => {
+  const lignes = Array.isArray(request?.lines)
+    ? request.lines
+    : Array.isArray(request?.lignes)
+    ? request.lignes
+    : [];
+
+  return {
+    id: String(request?.id ?? ''),
+    number: request?.number || request?.numeroDemande || request?.numeroDevisAchat || '',
+    numeroDemande: request?.numeroDemande || request?.number || '',
+    numeroDevisAchat: request?.numeroDevisAchat || request?.numeroDemande || request?.number || '',
+    title: request?.title || request?.titre || request?.objet || 'Devis achat',
+    objet: request?.objet || request?.title || request?.titre || '',
+    description: request?.description || '',
+    requesterId: String(request?.requesterId ?? request?.demandeurId ?? request?.demandeurUserId ?? ''),
+    requesterEmail: request?.requesterEmail || request?.demandeurEmail || null,
+    enterpriseId: request?.enterpriseId != null ? Number(request.enterpriseId) : null,
+    enterpriseName: request?.enterpriseName || null,
+    serviceId: request?.serviceId != null ? Number(request.serviceId) : null,
+    serviceName: request?.serviceName || null,
+    supplierId: request?.supplierId || request?.fournisseurId || null,
+    supplierName:
+      request?.supplierName ||
+      request?.fournisseurNom ||
+      request?.fournisseurNomLibre ||
+      request?.fournisseur?.nom ||
+      null,
+    manualSupplierName: request?.manualSupplierName || request?.fournisseurNomLibre || null,
+    devise: request?.devise || 'XOF',
+    status: request?.status || 'BROUILLON',
+    estimatedAmount: normalizeNumber(request?.estimatedAmount ?? request?.montantEstime ?? request?.montantTTC, 0),
+    montantHT: normalizeNumber(request?.montantHT, 0),
+    montantTVA: normalizeNumber(request?.montantTVA, 0),
+    montantTTC: normalizeNumber(request?.montantTTC ?? request?.estimatedAmount ?? request?.montantEstime, 0),
+    approvalStatus: request?.approvalStatus || request?.status || 'BROUILLON',
+    submittedAt: request?.submittedAt || null,
+    approvedAt: request?.approvedAt || null,
+    approvedByUserId: request?.approvedByUserId || null,
+    approvedByServiceId:
+      request?.approvedByServiceId != null ? Number(request.approvedByServiceId) : null,
+    approvedByServiceName: request?.approvedByServiceName || null,
+    rejectionReason: request?.rejectionReason || null,
+    notes: request?.notes || null,
+    date: request?.date || request?.dateDemande || request?.createdAt || '',
+    dateBesoin: request?.dateBesoin || null,
+    bonCommandeId: request?.bonCommandeId || null,
+    numeroBon: request?.numeroBon || request?.bonCommande?.numeroBon || null,
+    selectedProformaId: request?.selectedProformaId || null,
+    selectedProformaNumber: request?.selectedProformaNumber || null,
+    lines: lignes.map((ligne: any) => ({
+      id: String(ligne?.id ?? ''),
+      articleId: ligne?.articleId || null,
+      referenceArticle: ligne?.referenceArticle || null,
+      imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
+      designation: ligne?.designation || ligne?.description || '',
+      categorie: ligne?.categorie || null,
+      unite: ligne?.unite || ligne?.article?.unite || null,
+      quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
+      prixUnitaire: normalizeNumber(ligne?.prixUnitaire ?? ligne?.unitPrice, 0),
+      tva: normalizeNumber(ligne?.tva, 0),
+      montantHT: normalizeNumber(ligne?.montantHT ?? ligne?.amountHT, 0),
+      montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.amount, 0),
+    })),
+    approvalHistory: Array.isArray(request?.approvalHistory)
+      ? request.approvalHistory.map((log: any) => ({
+          id: String(log?.id ?? ''),
+          action: String(log?.action ?? ''),
+          fromStatus: String(log?.fromStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['fromStatus'],
+          toStatus: String(log?.toStatus ?? 'BROUILLON') as PurchaseRequestApprovalLog['toStatus'],
+          actorUserId: log?.actorUserId || null,
+          actorEmail: log?.actorEmail || null,
+          actorServiceId: log?.actorServiceId != null ? Number(log.actorServiceId) : null,
+          actorServiceName: log?.actorServiceName || null,
+          commentaire: log?.commentaire || null,
+          createdAt: log?.createdAt || new Date().toISOString(),
+        }))
+      : [],
+    proformas: Array.isArray(request?.proformas)
+      ? request.proformas.map((proforma: any) => normalizePurchaseProforma(proforma))
+      : [],
+  };
+};
+
+export const normalizePurchaseOrder = (order: any): PurchaseOrder => ({
+  id: String(order?.id ?? ''),
+  number: order?.number || order?.numeroBon || '',
+  numeroBon: order?.numeroBon || order?.number || '',
+  enterpriseId: order?.enterpriseId != null ? Number(order.enterpriseId) : null,
+  enterpriseName: order?.enterpriseName || null,
+  supplierId: order?.supplierId || order?.fournisseurId || undefined,
+  supplier: order?.supplier || order?.fournisseurNom || order?.fournisseur?.nom || undefined,
+  fournisseurNom: order?.fournisseurNom || order?.supplier || order?.fournisseur?.nom || undefined,
+  supplierEmail: order?.supplierEmail || order?.fournisseur?.email || undefined,
+  status: order?.status || 'BROUILLON',
+  amount: normalizeNumber(order?.amount ?? order?.montantTotal, 0),
+  montantHT: normalizeNumber(order?.montantHT, 0),
+  montantTVA: normalizeNumber(order?.montantTVA, 0),
+  montantTotal: normalizeNumber(order?.montantTotal ?? order?.amount, 0),
+  items: normalizeNumber(order?.items ?? order?.lignes?.length ?? order?.itemsDetail?.length, 0),
+  date: order?.date || order?.dateCommande || order?.createdAt || '',
+  deliveryDate: order?.deliveryDate || order?.dateLivraison || undefined,
+  serviceId: order?.serviceId != null ? Number(order.serviceId) : null,
+  serviceName: order?.serviceName || null,
+  sourceDevisAchatId: order?.sourceDevisAchatId || order?.demandeAchatId || null,
+  requestId: order?.requestId || order?.demandeAchatId || undefined,
+  requestNumber: order?.requestNumber || order?.demandeAchat?.numeroDemande || undefined,
+  proformaId: order?.proformaId || null,
+  proformaNumber: order?.proformaNumber || order?.proforma?.numeroProforma || null,
+  itemsDetail: Array.isArray(order?.itemsDetail)
+    ? order.itemsDetail.map((ligne: any) => ({
+        id: String(ligne?.id ?? ''),
+        articleId: ligne?.articleId || null,
+        referenceArticle: ligne?.referenceArticle || null,
+        imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
+        designation: ligne?.designation || '',
+        categorie: ligne?.categorie || null,
+        unite: ligne?.unite || ligne?.article?.unite || null,
+        quantity: normalizeNumber(ligne?.quantity ?? ligne?.quantite, 0),
+        quantite: normalizeNumber(ligne?.quantite ?? ligne?.quantity, 0),
+        unitPrice: normalizeNumber(ligne?.unitPrice ?? ligne?.prixUnitaire, 0),
+        prixUnitaire: normalizeNumber(ligne?.prixUnitaire ?? ligne?.unitPrice, 0),
+        amount: normalizeNumber(ligne?.amount ?? ligne?.montantTTC, 0),
+        amountHT: normalizeNumber(ligne?.amountHT ?? ligne?.montantHT, 0),
+        montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.amount, 0),
+        tva: normalizeNumber(ligne?.tva, 0),
+      }))
+    : Array.isArray(order?.lignes)
+    ? order.lignes.map((ligne: any) => ({
+        id: String(ligne?.id ?? ''),
+        articleId: ligne?.articleId || null,
+        referenceArticle: ligne?.referenceArticle || null,
+        imageUrl: ligne?.imageUrl || ligne?.article?.imageUrl || null,
+        designation: ligne?.designation || '',
+        categorie: ligne?.categorie || null,
+        unite: ligne?.unite || ligne?.article?.unite || null,
+        quantity: normalizeNumber(ligne?.quantite, 0),
+        quantite: normalizeNumber(ligne?.quantite, 0),
+        unitPrice: normalizeNumber(ligne?.prixUnitaire, 0),
+        prixUnitaire: normalizeNumber(ligne?.prixUnitaire, 0),
+        amount: normalizeNumber(ligne?.montantTTC ?? ligne?.montant, 0),
+        amountHT: normalizeNumber(ligne?.montantHT, 0),
+        montantTTC: normalizeNumber(ligne?.montantTTC ?? ligne?.montant, 0),
+        tva: normalizeNumber(ligne?.tva, 0),
+      }))
+    : [],
+});
+
+export const normalizeListResponse = <T>(payload: any): ListResponse<T> => {
+  if (Array.isArray(payload)) {
+    return { success: true, data: payload };
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data,
+      meta: payload.meta ?? (payload.pagination ? { pagination: payload.pagination } : undefined),
+    };
+  }
+
+  return {
+    success: payload?.success ?? true,
+    data: [],
+    meta: payload?.meta ?? (payload?.pagination ? { pagination: payload.pagination } : undefined),
+  };
+};
+
+export const normalizeDetailResponse = <T>(payload: any): DetailResponse<T> => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data as T,
+      message: payload.message,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as T,
+  };
+};
+
+export const normalizeStatsResponse = <T>(payload: any): { success: boolean; data: T } => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return {
+      success: payload.success ?? true,
+      data: payload.data as T,
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as T,
+  };
+};
