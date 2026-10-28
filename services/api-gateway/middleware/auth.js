@@ -2,15 +2,29 @@ const jwt = require('jsonwebtoken');
 const config = require('../utils/config');
 const { logWarn, logInfo } = require('../utils/logger');
 
-const extractToken = (req) => {
+const getCookieToken = (req, name) => {
+  const cookieHeader = req.headers.cookie || '';
+  const entry = cookieHeader.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  if (!entry) return null;
+  try {
+    return decodeURIComponent(entry.slice(name.length + 1));
+  } catch {
+    return null;
+  }
+};
+
+const extractToken = (req, { storageCookie = false } = {}) => {
   const authHeader = req.headers['authorization'];
   const bearerToken = authHeader && authHeader.split(' ')[1];
+  if (storageCookie) {
+    return bearerToken || getCookieToken(req, 'pbl_storage_token');
+  }
   const queryToken = typeof req.query?.token === 'string' ? req.query.token : null;
   return bearerToken || queryToken || null;
 };
 
-const authenticateToken = (req, res, next) => {
-  const token = extractToken(req);
+const createAuthMiddleware = (options = {}) => (req, res, next) => {
+  const token = extractToken(req, options);
 
   if (!token) {
     logWarn('Authentication attempt without token', {
@@ -57,6 +71,11 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+const authenticateToken = (req, res, next) => createAuthMiddleware()(req, res, next);
+
+const authenticateStorageToken = (req, res, next) =>
+  createAuthMiddleware({ storageCookie: true })(req, res, next);
+
 const optionalAuth = (req, res, next) => {
   const token = extractToken(req);
 
@@ -84,5 +103,6 @@ const optionalAuth = (req, res, next) => {
 
 module.exports = {
   authenticateToken,
+  authenticateStorageToken,
   optionalAuth
 };

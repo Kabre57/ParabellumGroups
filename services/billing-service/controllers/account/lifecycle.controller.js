@@ -98,6 +98,26 @@ exports.updateAccount = async (req, res) => {
 
     await assertEnterpriseInScope(req, account.enterpriseId, "Vous n'avez pas acces a ce compte comptable.");
 
+    const normalizedType = accountTypeFromInput(type);
+    if (typeof type !== 'undefined' && !normalizedType) {
+      return res.status(400).json({ success: false, message: 'Type de compte comptable invalide.' });
+    }
+
+    const nextCode = code ? String(code).trim() : account.code;
+    const changesHistoricalAccounting =
+      nextCode !== account.code ||
+      (normalizedType && normalizedType !== account.type) ||
+      (typeof openingBalance !== 'undefined' && amount(openingBalance) !== amount(account.openingBalance));
+    if (changesHistoricalAccounting) {
+      const journalLineCount = await prisma.accountingJournalLine.count({ where: { accountId: id } });
+      if (journalLineCount > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'Ce compte est déjà utilisé dans des écritures. Son code, son type et son solde initial ne peuvent plus être modifiés ; passez une écriture de régularisation.',
+        });
+      }
+    }
+
     const data = {};
     if (code) {
       const normalizedCode = String(code).trim();
@@ -128,7 +148,6 @@ exports.updateAccount = async (req, res) => {
       data.description = description ? String(description).trim() : null;
     }
 
-    const normalizedType = accountTypeFromInput(type);
     if (normalizedType) {
       data.type = normalizedType;
     }
@@ -143,8 +162,8 @@ exports.updateAccount = async (req, res) => {
       data.isActive = Boolean(isActive);
     }
 
-    const nextCode = data.code || account.code;
-    const dynamicTemplate = getDynamicAccountTemplate(nextCode);
+    const resolvedCode = data.code || account.code;
+    const dynamicTemplate = getDynamicAccountTemplate(resolvedCode);
 
     if (dynamicTemplate) {
       data.isDynamic = true;

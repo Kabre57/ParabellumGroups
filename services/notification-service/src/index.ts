@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import notificationRoutes from './routes/notification.routes'
+import internalNotificationRoutes from './routes/internalNotification.routes'
 
 dotenv.config()
 
@@ -38,6 +39,7 @@ const PORT = process.env.PORT || 4012
 app.use(cors())
 app.use(express.json())
 
+app.use('/internal', internalNotificationRoutes)
 app.use('/api/notifications', notificationRoutes)
 
 app.get('/health', (req, res) => {

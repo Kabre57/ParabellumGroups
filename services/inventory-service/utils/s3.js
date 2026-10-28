@@ -37,8 +37,12 @@ function isS3Configured() {
   return !!(BUCKET && process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY);
 }
 
-async function uploadToS3(buffer, mimetype, prefix = 'receptions') {
+async function uploadToS3(buffer, mimetype, prefix = 'receptions', enterpriseId) {
   if (!isS3Configured()) return null;
+  const scopedEnterpriseId = Number(enterpriseId);
+  if (!Number.isInteger(scopedEnterpriseId) || scopedEnterpriseId <= 0) {
+    throw new Error('An enterprise is required to store a private file');
+  }
 
   const ext = mimetype.split('/')[1] || 'pdf';
   const key = `${prefix}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
@@ -50,16 +54,12 @@ async function uploadToS3(buffer, mimetype, prefix = 'receptions') {
       Key: key,
       Body: buffer,
       ContentType: mimetype,
+      Metadata: { enterpriseid: String(scopedEnterpriseId) },
     })
   );
 
-  const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
-
-  if (PUBLIC_ENDPOINT && !PUBLIC_ENDPOINT.includes('.amazonaws.com')) {
-    const base = PUBLIC_ENDPOINT.endsWith('/') ? PUBLIC_ENDPOINT.slice(0, -1) : PUBLIC_ENDPOINT;
-    return `${base}/${BUCKET}/${key}`;
-  }
-  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  return `/api/storage/${encodeURIComponent(BUCKET)}/${encodedKey}?enterpriseId=${scopedEnterpriseId}`;
 }
 
 async function deleteFromS3(url) {
@@ -68,9 +68,9 @@ async function deleteFromS3(url) {
   try {
     let key;
     if (url.includes(`/${BUCKET}/`)) {
-      key = url.split(`/${BUCKET}/`)[1];
+      key = url.split(`/${BUCKET}/`)[1].split(/[?#]/)[0];
     } else if (url.includes('.amazonaws.com/')) {
-      key = url.split('.amazonaws.com/')[1];
+      key = url.split('.amazonaws.com/')[1].split(/[?#]/)[0];
     } else {
       return false;
     }

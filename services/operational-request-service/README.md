@@ -15,6 +15,7 @@ test/
   helpers/
     testPrisma.ts   Client Prisma SQLite en mémoire, migrations et contraintes
     billingStub.ts  Serveur Express Billing sur port aléatoire
+    webCashVoucherFlow.ts  Chargement de la mutation et des services web réels
   integration/
     linkCashVoucher.test.ts  Parcours HTTP de liaison avec écritures réelles
 ```
@@ -25,6 +26,7 @@ Node.js 24 et pnpm sont nécessaires. Depuis ce dossier :
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm --dir ../../frontend install --frozen-lockfile
 pnpm test
 pnpm run test:integration
 pnpm run typecheck:test
@@ -35,6 +37,8 @@ pnpm run typecheck:test
 Les URL Billing et Auth et le secret JWT sont remplacés temporairement puis
 restaurés. Les jetons passent par les vrais middlewares JWT et permissions.
 Aucun contrôleur, helper Billing ou modèle Prisma n'est simulé.
+Les dépendances du frontend sont nécessaires pour exécuter son véritable client
+Axios et ses intercepteurs dans les tests du parcours web.
 
 Chaque scénario ouvre une nouvelle base SQLite `:memory:` via Prisma et
 `better-sqlite3`, crée sa demande avec `prisma.operationalRequest.create()`, puis
@@ -59,7 +63,39 @@ ni la précision fixe des décimaux de PostgreSQL.
 
 ## Couverture du contrat Billing
 
-Les scénarios actuellement exécutables contre le contrat backend existant sont :
+### Lot 1.5 : parcours web existant, création puis liaison
+
+`linkCashVoucher.test.ts` exécute la fonction `mutationFn` de `cashVoucherMutation`
+extraite par l'AST TypeScript de la page web actuelle. Le client API et
+`operationalRequestsService` sont compilés depuis leurs vrais fichiers et
+utilisent Axios avec leurs intercepteurs réels. La logique de reprise n'est ni
+recopiée ni remplacée. Les modules compilés sont isolés dans un cache temporaire
+du frontend, supprimé à la fin de chaque test. Le rendu React n'est pas testé.
+
+Le POST Billing traverse un proxy HTTP de test vers le stub Express ; les routes
+de prise en charge et de liaison passent par le vrai routeur backend et Prisma.
+Les quatre scénarios sont couverts :
+
+| Réponse du POST Billing | Résultat du GET Billing | Résultat attendu |
+| --- | --- | --- |
+| `200` | Un bon | Bon lié, log `CASH_VOUCHER_LINKED` et notification persistés |
+| `409` | Un bon | Bon existant réutilisé et lié |
+| `409` | Liste vide | Erreur `409` avec le message Billing original, sans liaison |
+| `500` | Aucun GET effectué | Erreur propagée, sans liaison |
+
+Les assertions vérifient aussi l'ordre des appels HTTP, les identifiants source
+et entreprise, le JWT transmis, les montants et les comptes envoyés à Billing.
+Le parcours testé utilise `financial-processing` puis `cash-voucher` ; il ne
+passe pas par la route de création orchestrée décrite plus bas.
+
+Dans ce parcours web, la prise en charge financière précède le POST Billing.
+Un échec Billing laisse donc la demande en `IN_FINANCIAL_PROCESS`, avec son log
+`FINANCIAL_PROCESSING_STARTED`, sans log de liaison ni notification. Le test
+`409` sans bon vérifie que l'erreur de liaison `404` ne remplace pas le message
+original. L'écran reconnaît les erreurs normalisées par le client API (`status`)
+ainsi que les erreurs Axios (`response.status`).
+
+Deux tests directs du contrôleur complètent ces scénarios :
 
 - GET Billing `200` avec un bon : liaison persistée, logs
   `FINANCIAL_PROCESSING_STARTED` et `CASH_VOUCHER_LINKED`, notification en outbox.

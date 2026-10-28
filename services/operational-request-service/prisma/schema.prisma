@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OperationalRequestType {
+  FUEL
+  TRANSPORT
+  MISSION
+  OTHER
+}
+
+enum OperationalRequestStatus {
+  DRAFT
+  SUBMITTED
+  NEEDS_INFO
+  APPROVED
+  REJECTED
+  IN_FINANCIAL_PROCESS
+  CASH_VOUCHER_CREATED
+  DISBURSED
+  CLOSED
+}
+
+model OperationalRequest {
+  id                    String                    @id @default(uuid())
+  requestNumber         String                    @unique
+  type                  OperationalRequestType
+  status                OperationalRequestStatus  @default(DRAFT)
+  enterpriseId          Int
+  enterpriseName        String
+  serviceId             Int?
+  serviceName           String?
+  requesterId           String
+  requesterName         String
+  requesterEmail        String?
+  beneficiaryName       String
+  reason                String
+  amountRequested       Decimal                   @db.Decimal(14, 2)
+  amountApproved        Decimal?                  @db.Decimal(14, 2)
+  currency              String                    @default("XOF")
+  desiredDate           DateTime?
+  details               Json                      @default("{}")
+  decisionComment       String?
+  cashVoucherId         String?                   @unique
+  cashVoucherNumber     String?
+  submittedAt           DateTime?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  disbursedAt           DateTime?
+  closedAt              DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  approvalLogs          OperationalRequestLog[]
+  attachments           OperationalRequestAttachment[]
+
+  @@index([enterpriseId, status, createdAt])
+  @@index([enterpriseId, requesterId, createdAt])
+  @@index([requesterId, createdAt])
+  @@map("operational_requests")
+}
+
+model OperationalRequestLog {
+  id          String             @id @default(uuid())
+  requestId   String
+  action      String
+  fromStatus  OperationalRequestStatus?
+  toStatus    OperationalRequestStatus
+  actorId     String
+  actorName   String
+  comment     String?
+  createdAt   DateTime           @default(now())
+  request     OperationalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("operational_request_logs")
+}
+
+model OperationalRequestAttachment {
+  id          String             @id @default(uuid())
+  requestId   String
+  fileName    String
+  contentType String
+  size        Int
+  storageKey  String             @unique
+  createdById String
+  createdAt   DateTime           @default(now())
+  request     OperationalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("operational_request_attachments")
+}
+
+model OperationalRequestOutboxEvent {
+  id            String    @id @default(uuid())
+  userId        String
+  idempotencyKey String   @unique
+  payload       Json
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  deliveredAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([deliveredAt, nextAttemptAt])
+  @@map("operational_request_outbox_events")
+}

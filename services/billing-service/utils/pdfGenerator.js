@@ -3,8 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const moment = require('moment');
 const axios = require('axios');
+const { getPrivateObjectBuffer } = require('./s3');
 
-async function fetchBuffer(url) {
+async function fetchBuffer(url, enterpriseId) {
+  if (typeof url === 'string' && url.startsWith('/api/storage/')) {
+    return getPrivateObjectBuffer(url, enterpriseId);
+  }
   const resp = await axios.get(url, { responseType: 'arraybuffer' });
   return Buffer.from(resp.data);
 }
@@ -53,7 +57,7 @@ function generateFacturePDF(facture, outputPath) {
       (async () => {
         if (facture.serviceLogoUrl) {
           try {
-            const logoBuffer = await fetchBuffer(facture.serviceLogoUrl);
+            const logoBuffer = await fetchBuffer(facture.serviceLogoUrl, facture.enterpriseId);
             const tempPath = path.join(__dirname, '..', 'temp', `logo-${facture.id}.png`);
             fs.writeFileSync(tempPath, logoBuffer);
             doc.image(tempPath, 50, 40, { fit: [120, 60] });
@@ -118,7 +122,7 @@ function generateFacturePDF(facture, outputPath) {
         for (const ligne of lignes) {
           if (ligne.imageUrl) {
             try {
-              const buffer = await fetchBuffer(ligne.imageUrl);
+              const buffer = await fetchBuffer(ligne.imageUrl, facture.enterpriseId);
               doc.image(buffer, imageX, y - 2, { fit: [36, 36] });
             } catch (e) {
               console.warn('Image ligne facture non chargée', e.message);
@@ -181,7 +185,7 @@ function generateDevisPDF(devis, outputPath) {
       (async () => {
         if (devis.serviceLogoUrl) {
           try {
-            const logoBuffer = await fetchBuffer(devis.serviceLogoUrl);
+            const logoBuffer = await fetchBuffer(devis.serviceLogoUrl, devis.enterpriseId);
             const tempPath = path.join(__dirname, '..', 'temp', `logo-${devis.id}.png`);
             fs.writeFileSync(tempPath, logoBuffer);
             doc.image(tempPath, 50, 40, { fit: [120, 60] });
@@ -246,7 +250,7 @@ function generateDevisPDF(devis, outputPath) {
         for (const ligne of lignes) {
           if (ligne.imageUrl) {
             try {
-              const buffer = await fetchBuffer(ligne.imageUrl);
+              const buffer = await fetchBuffer(ligne.imageUrl, devis.enterpriseId);
               doc.image(buffer, imageX, y - 2, { fit: [36, 36] });
             } catch (e) {
               console.warn('Image ligne devis non chargée', e.message);
@@ -291,7 +295,7 @@ function generateAvoirPDF(avoir, outputPath) {
       (async () => {
         if (avoir.serviceLogoUrl) {
           try {
-            const logoBuffer = await fetchBuffer(avoir.serviceLogoUrl);
+            const logoBuffer = await fetchBuffer(avoir.serviceLogoUrl, avoir.enterpriseId);
             const tempPath = path.join(__dirname, '..', 'temp', `logo-avoir-${avoir.id}.png`);
             fs.writeFileSync(tempPath, logoBuffer);
             doc.image(tempPath, 50, 40, { fit: [120, 60] });

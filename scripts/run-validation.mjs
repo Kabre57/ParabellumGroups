@@ -16,6 +16,24 @@ const steps = [
     args: ['scripts/check-js-syntax.mjs', 'services'],
   },
   { label: 'Notification service build', cwd: 'services/notification-service', command: packageManager, args: ['run', 'build'] },
+  {
+    label: 'Technical service tests',
+    cwd: 'services/technical-service',
+    command: process.execPath,
+    args: ['../../scripts/run-node-tests.mjs', 'tests'],
+  },
+  {
+    label: 'Commercial service tests',
+    cwd: 'services/commercial-service',
+    command: process.execPath,
+    args: ['../../scripts/run-node-tests.mjs', 'tests'],
+  },
+  {
+    label: 'Procurement service tests',
+    cwd: 'services/procurement-service',
+    command: process.execPath,
+    args: ['../../scripts/run-node-tests.mjs', 'tests'],
+  },
   { label: 'Auth service tests', cwd: 'services/auth-service', command: packageManager, args: ['test'] },
   {
     label: 'API Gateway tests (pnpm)',
@@ -26,6 +44,12 @@ const steps = [
   { label: 'Billing service tests', cwd: 'services/billing-service', command: packageManager, args: ['test'] },
   { label: 'Customer service lint', cwd: 'services/customer-service', command: packageManager, args: ['run', 'lint'] },
   { label: 'Customer service tests', cwd: 'services/customer-service', command: packageManager, args: ['test'] },
+  {
+    label: 'Operational request service tests',
+    cwd: 'services/operational-request-service',
+    command: process.execPath,
+    args: ['../../scripts/run-node-tests.mjs', 'tests'],
+  },
 ];
 
 for (const step of steps) {

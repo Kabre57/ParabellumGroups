@@ -60,23 +60,31 @@ export function EncaissementsTab(props: DepensesTableProps) {
                           <td className="px-4 py-3 text-right font-bold">{formatCurrency(encaissement.amountTTC)}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <Badge className="border-none bg-emerald-100 text-emerald-800">Paiement client</Badge>
+                              <Badge className={encaissement.isVoucher ? "border-none bg-teal-100 text-teal-800" : "border-none bg-emerald-100 text-emerald-800"}>
+                                {encaissement.isVoucher ? "Pièce de caisse" : "Paiement client"}
+                              </Badge>
                               <CashVoucherStatusBadge status={encaissement.status || 'EN_ATTENTE'} />
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
                               {canApprove && encaissement.status !== 'VALIDE' && encaissement.status !== 'ANNULE' ? (
-                                <Button size="sm" onClick={() => onValidateEncaissement(encaissement)}>
-                                  Valider en compta
-                                </Button>
+                                encaissement.isVoucher ? (
+                                  <Button size="sm" onClick={() => onUpdateVoucher(encaissement.id, 'VALIDE')}>
+                                    Valider la pièce
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" onClick={() => onValidateEncaissement(encaissement)}>
+                                    Valider en compta
+                                  </Button>
+                                )
                               ) : null}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
                                   onPrintVoucher({
-                                    ...encaissement,
+                                    ...(encaissement.rawVoucher || encaissement),
                                     flowType: 'ENCAISSEMENT',
                                   })
                                 }

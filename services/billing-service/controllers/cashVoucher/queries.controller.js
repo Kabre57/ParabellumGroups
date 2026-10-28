@@ -15,6 +15,9 @@ exports.getAllCashVouchers = async (req, res) => {
     if (req.query.sourceType) {
       where.sourceType = String(req.query.sourceType);
     }
+    if (req.query.sourceId) {
+      where.sourceId = String(req.query.sourceId);
+    }
     if (req.query.paymentMethod && Object.values(MethodePaiement).includes(String(req.query.paymentMethod))) {
       where.paymentMethod = String(req.query.paymentMethod);
     }

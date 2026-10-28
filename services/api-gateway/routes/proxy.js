@@ -1,6 +1,6 @@
 const express = require('express');
 const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authenticateStorageToken } = require('../middleware/auth');
 const { requireAdmin, requirePermission, requirePermissionByPath } = require('../middleware/permissions');
 const { validateSchema } = require('../middleware/validation');
 const { logError, logInfo } = require('../utils/logger');
@@ -153,7 +153,7 @@ const registerServiceRoutes = (serviceConfig) => {
     }
 
     if (route.auth) {
-      middlewares.push(authenticateToken);
+      middlewares.push(route.authCookie === 'storage' ? authenticateStorageToken : authenticateToken);
     }
 
     if (route.admin) {

@@ -81,6 +81,19 @@ class TrialBalanceService {
       }
     }
 
+    const accountScopeWhere = Array.isArray(enterpriseIds)
+      ? enterpriseIds.length
+        ? { OR: [{ enterpriseId: { in: enterpriseIds.map(Number) } }, { enterpriseId: null }] }
+        : { enterpriseId: { in: [-1] } }
+      : enterpriseId
+        ? { OR: [{ enterpriseId: Number(enterpriseId) }, { enterpriseId: null }] }
+        : {};
+    const scopedAccounts = await client.accountingAccount.findMany({
+      where: accountScopeWhere,
+      orderBy: [{ code: 'asc' }],
+    });
+    const accountById = new Map(scopedAccounts.map((account) => [account.id, account]));
+
     // 2. Récupérer toutes les lignes d'écritures correspondantes
     // Note: Dans un environnement avec d'énormes volumes, on privilégierait une requête SQL native avec SUM() et GROUP BY.
     const journalLines = await client.accountingJournalLine.findMany({
@@ -94,6 +107,20 @@ class TrialBalanceService {
 
     // 3. Agréger les données par compte comptable
     const balanceMap = new Map();
+
+    for (const account of scopedAccounts) {
+      const openingBalance = Number(account.openingBalance || 0) + (openingByAccount.get(account.id) || 0);
+      if (openingBalance === 0) continue;
+      balanceMap.set(account.id, {
+        accountId: account.id,
+        accountCode: account.code,
+        accountLabel: account.label,
+        openingBalance,
+        debit: 0,
+        credit: 0,
+        closingBalance: 0,
+      });
+    }
 
     for (const line of journalLines) {
       const accountId = line.accountId;

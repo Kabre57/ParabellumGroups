@@ -2,6 +2,7 @@ const {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 
@@ -37,8 +38,12 @@ function isS3Configured() {
   return !!(BUCKET && process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY);
 }
 
-async function uploadToS3(buffer, mimetype, prefix = 'quotes') {
+async function uploadToS3(buffer, mimetype, prefix = 'quotes', enterpriseId) {
   if (!isS3Configured()) return null;
+  const scopedEnterpriseId = Number(enterpriseId);
+  if (!Number.isInteger(scopedEnterpriseId) || scopedEnterpriseId <= 0) {
+    throw new Error('An enterprise is required to store a private file');
+  }
 
   const ext = mimetype.split('/')[1] || 'bin';
   const key = `${prefix}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
@@ -50,25 +55,12 @@ async function uploadToS3(buffer, mimetype, prefix = 'quotes') {
       Key: key,
       Body: buffer,
       ContentType: mimetype,
+      Metadata: { enterpriseid: String(scopedEnterpriseId) },
     })
   );
 
-  const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
-
-  let publicUrl = '';
-  if (PUBLIC_ENDPOINT && !PUBLIC_ENDPOINT.includes('.amazonaws.com')) {
-    const base = PUBLIC_ENDPOINT.endsWith('/') ? PUBLIC_ENDPOINT.slice(0, -1) : PUBLIC_ENDPOINT;
-    publicUrl = `${base}/${BUCKET}/${key}`;
-  } else {
-    publicUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
-  }
-  
-  // Hack to ensure internal network URL doesn't leak to clients on production
-  if (publicUrl.includes('minio:9000')) {
-    publicUrl = publicUrl.replace('http://minio:9000', 'https://parabellum-erp.online/storage');
-  }
-
-  return publicUrl;
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  return `/api/storage/${encodeURIComponent(BUCKET)}/${encodedKey}?enterpriseId=${scopedEnterpriseId}`;
 }
 
 async function deleteFromS3(url) {
@@ -77,9 +69,9 @@ async function deleteFromS3(url) {
   try {
     let key;
     if (url.includes(`/${BUCKET}/`)) {
-      key = url.split(`/${BUCKET}/`)[1];
+      key = url.split(`/${BUCKET}/`)[1].split(/[?#]/)[0];
     } else if (url.includes('.amazonaws.com/')) {
-      key = url.split('.amazonaws.com/')[1];
+      key = url.split('.amazonaws.com/')[1].split(/[?#]/)[0];
     } else {
       return false;
     }
@@ -98,8 +90,47 @@ async function deleteFromS3(url) {
   }
 }
 
+async function getPrivateObjectBuffer(url, expectedEnterpriseId) {
+  if (!isS3Configured() || typeof url !== 'string') {
+    throw new Error('Private storage is not configured');
+  }
+
+  const parsedUrl = new URL(url, 'http://storage.local');
+  const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+  if (pathParts.length < 4 || pathParts[0] !== 'api' || pathParts[1] !== 'storage') {
+    throw new Error('Private storage URL is invalid');
+  }
+
+  const bucket = decodeURIComponent(pathParts[2]);
+  const enterpriseId = Number(parsedUrl.searchParams.get('enterpriseId'));
+  const expectedId = Number(expectedEnterpriseId);
+  if (
+    bucket !== BUCKET ||
+    !Number.isInteger(enterpriseId) ||
+    enterpriseId <= 0 ||
+    !Number.isInteger(expectedId) ||
+    expectedId !== enterpriseId
+  ) {
+    throw new Error('Private storage URL has an invalid scope');
+  }
+
+  const key = pathParts.slice(3).map(decodeURIComponent).join('/');
+  const object = await getS3Client().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (Number(object.Metadata?.enterpriseid) !== enterpriseId) {
+    object.Body?.destroy?.();
+    throw new Error('Private storage object belongs to another enterprise');
+  }
+
+  const chunks = [];
+  for await (const chunk of object.Body) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
 module.exports = {
   uploadToS3,
   deleteFromS3,
   isS3Configured,
+  getPrivateObjectBuffer,
 };

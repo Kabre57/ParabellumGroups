@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '30d';
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET must be defined in environment variables');
@@ -23,6 +24,8 @@ const generateAccessToken = (user) => {
   const payload = {
     userId: user.id,
     email: user.email,
+    firstName: user.firstName || null,
+    lastName: user.lastName || null,
     roleId: user.roleId,
     roleCode,
     role: roleCode,
@@ -53,6 +56,7 @@ const generateRefreshToken = (user) => {
     userId: user.id,
     email: user.email,
     tokenType: 'refresh',
+    jti: randomUUID(),
   };
 
   return jwt.sign(payload, JWT_SECRET, {
@@ -105,9 +109,18 @@ const verifyRefreshToken = (token) => {
   }
 };
 
+const getRefreshTokenExpiresAt = (token) => {
+  const payload = jwt.decode(token);
+  if (!payload || !Number.isFinite(payload.exp)) {
+    throw new Error('Generated refresh token has no valid expiration');
+  }
+  return new Date(payload.exp * 1000);
+};
+
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
+  getRefreshTokenExpiresAt,
   verifyToken,
   verifyRefreshToken,
 };

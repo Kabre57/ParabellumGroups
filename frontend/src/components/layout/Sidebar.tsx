@@ -151,15 +151,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
   const visibleCategories = useMemo(() => {
     return professionalCategories.filter(category => {
-      if (!isAdmin && category.id === 'dashboard') {
-        return false;
-      }
       if (isAdmin) return true;
-      if (hasAccess(category)) return true;
-      if (category.children) {
+      if (category.children && category.children.length > 0) {
         return category.children.some(child => hasAccess(child));
       }
-      return false;
+      return hasAccess(category);
     });
   }, [isAdmin, hasAccess, professionalCategories]);
 

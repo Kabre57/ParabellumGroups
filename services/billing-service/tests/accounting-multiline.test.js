@@ -62,7 +62,7 @@ test('balance and general ledger reports aggregate journal lines, not only first
 });
 
 test('treasury overview keeps validated encaissement and decaissement journal entries visible', () => {
-  const content = read('controllers', 'accountingOverview.controller.js');
+  const content = read('controllers', 'accountingOverview', 'movements.js');
 
   assert.match(content, /postedPaymentIds/);
   assert.match(content, /sourceTreasuryAccount/);
@@ -96,9 +96,20 @@ test('manual encaissements and decaissements can post VAT on dedicated accounts'
 });
 
 test('account creation and family rules are scoped by enterprise', () => {
-  const accountController = read('controllers', 'account.controller.js');
-  const familyRuleController = read('controllers', 'accountingFamilyRule.controller.js');
-  const accountResolver = read('utils', 'accountingAccountResolver.js');
+  const accountDirectory = path.join(__dirname, '..', 'controllers', 'account');
+  const accountController = fs.readdirSync(accountDirectory)
+    .map((filename) => fs.readFileSync(path.join(accountDirectory, filename), 'utf8'))
+    .join('\n');
+  const familyRuleController = [
+    read('controllers', 'accountingFamilyRule', 'shared.js'),
+    read('controllers', 'accountingFamilyRule', 'queries.controller.js'),
+    read('controllers', 'accountingFamilyRule', 'families.controller.js'),
+    read('controllers', 'accountingFamilyRule', 'rules.controller.js'),
+  ].join('\n');
+  const accountResolver = [
+    read('utils', 'accountingAccountResolver.js'),
+    read('utils', 'accountingFamilyResolver.cache.js'),
+  ].join('\n');
 
   assert.match(accountController, /resolveEnterpriseContext/);
   assert.match(accountController, /code: normalizedCode,[\s\S]*enterpriseId/);

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-DEFAULT_DBS="parabellum_auth,parabellum_communication,parabellum_technical,parabellum_commercial,parabellum_inventory,parabellum_projects,parabellum_procurement,parabellum_customers,parabellum_hr,parabellum_billing,parabellum_Analytics,parabellum_notification"
+DEFAULT_DBS="parabellum_auth,parabellum_communication,parabellum_technical,parabellum_commercial,parabellum_inventory,parabellum_projects,parabellum_procurement,parabellum_customers,parabellum_hr,parabellum_billing,parabellum_Analytics,parabellum_notification,parabellum_operational_requests"
 
 DATABASES="${POSTGRES_MULTIPLE_DATABASES:-$DEFAULT_DBS}"
 POSTGRES_HOST="${POSTGRES_HOST:-postgres}"

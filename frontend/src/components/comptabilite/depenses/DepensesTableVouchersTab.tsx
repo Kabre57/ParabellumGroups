@@ -79,7 +79,7 @@ export function VouchersTab(props: DepensesTableProps) {
                               <Button size="sm" variant="outline" onClick={() => onPrintVoucher(voucher)}>
                                 Imprimer
                               </Button>
-                              {canApprove && voucher.status === 'EN_ATTENTE' && (
+                              {canApprove && (voucher.status === 'EN_ATTENTE' || voucher.status === 'BROUILLON') && (
                                 <Button size="sm" variant="secondary" onClick={() => onUpdateVoucher(voucher.id, 'VALIDE')}>
                                   Valider la piece
                                 </Button>

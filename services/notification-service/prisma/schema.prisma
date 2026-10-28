@@ -15,6 +15,7 @@ model Notification {
   message     String
   isRead      Boolean  @default(false)
   data        Json?
+  idempotencyKey String? @unique
   createdAt   DateTime @default(now())
   readAt      DateTime?
   

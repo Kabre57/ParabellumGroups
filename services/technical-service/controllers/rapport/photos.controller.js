@@ -25,7 +25,13 @@ exports.uploadPhotos = async (req, res) => {
       });
     }
 
-    const publicBaseUrl = process.env.MINIO_PUBLIC_URL || 'http://localhost:9000';
+    if (!rapport.enterpriseId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le rapport doit être rattaché à une entreprise avant l’upload des fichiers',
+      });
+    }
+
     const uploadedUrls = [];
 
     for (const file of files) {
@@ -33,14 +39,17 @@ exports.uploadPhotos = async (req, res) => {
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(-120);
       const key = `rapports/${id}/${Date.now()}-${safeName}`;
-
       await uploadBuffer({
         key,
         buffer: file.buffer,
         contentType: file.mimetype,
+        enterpriseId: rapport.enterpriseId,
       });
 
-      uploadedUrls.push(`${publicBaseUrl}/${process.env.MINIO_BUCKET || 'rapport-photos'}/${key}`);
+      const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+      uploadedUrls.push(
+        `/api/storage/${encodeURIComponent(MINIO_BUCKET)}/${encodedKey}?enterpriseId=${rapport.enterpriseId}`
+      );
     }
 
     const updated = await prisma.rapport.update({
@@ -92,7 +101,7 @@ exports.deletePhoto = async (req, res) => {
     const bucket = process.env.MINIO_BUCKET || MINIO_BUCKET || 'rapport-photos';
     const marker = `/${bucket}/`;
     const index = url.indexOf(marker);
-    const key = index >= 0 ? url.slice(index + marker.length) : null;
+    const key = index >= 0 ? url.slice(index + marker.length).split(/[?#]/)[0] : null;
 
     if (key) {
       await deleteObject({ key });

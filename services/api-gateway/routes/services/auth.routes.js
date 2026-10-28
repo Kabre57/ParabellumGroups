@@ -25,6 +25,9 @@ const rewriteAuthPath = (path) => {
   if (path.startsWith('/auth/enterprises')) {
     return path.replace(/^\/auth\/enterprises/, '/api/enterprises');
   }
+  if (path.startsWith('/auth/operational-requests')) {
+    return path.replace(/^\/auth\/operational-requests/, '/api/operational-requests');
+  }
   if (path.startsWith('/auth/enterprises/logo')) {
     return path.replace(/^\/auth\/enterprises\/logo/, '/api/enterprises/logo');
   }
@@ -99,6 +102,12 @@ module.exports = {
       method: 'post',
       auth: false,
       validation: schemas.auth.refresh,
+    },
+    {
+      path: '/auth/operational-requests/recipients',
+      method: 'get',
+      auth: true,
+      permission: ['operational_requests.submit', 'operational_requests.approve', 'operational_requests.finance'],
     },
     
     // Route catch-all auth

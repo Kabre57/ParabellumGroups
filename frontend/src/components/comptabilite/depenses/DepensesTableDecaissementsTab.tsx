@@ -60,23 +60,37 @@ export function DecaissementsTab(props: DepensesTableProps) {
                           <td className="px-4 py-3 text-right font-bold">{formatCurrency(decaissement.amountTTC)}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <Badge className="border-none bg-rose-100 text-rose-800">Paiement fournisseur</Badge>
+                              <Badge className={decaissement.isVoucher ? "border-none bg-indigo-100 text-indigo-800" : "border-none bg-rose-100 text-rose-800"}>
+                                {decaissement.isVoucher ? "Pièce de caisse" : "Paiement fournisseur"}
+                              </Badge>
                               <CashVoucherStatusBadge status={decaissement.status || 'VALIDE'} />
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
                               {canApprove && decaissement.status !== 'DECAISSE' && decaissement.status !== 'ANNULE' ? (
-                                <Button size="sm" onClick={() => onValidateDecaissement(decaissement)}>
-                                  Valider en compta
-                                </Button>
+                                decaissement.isVoucher ? (
+                                  decaissement.status === 'VALIDE' ? (
+                                    <Button size="sm" onClick={() => onUpdateVoucher(decaissement.id, 'DECAISSE')}>
+                                      Confirmer paiement
+                                    </Button>
+                                  ) : (
+                                    <Button size="sm" variant="secondary" onClick={() => onUpdateVoucher(decaissement.id, 'VALIDE')}>
+                                      Valider la pièce
+                                    </Button>
+                                  )
+                                ) : (
+                                  <Button size="sm" onClick={() => onValidateDecaissement(decaissement)}>
+                                    Valider en compta
+                                  </Button>
+                                )
                               ) : null}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
                                   onPrintVoucher({
-                                    ...decaissement,
+                                    ...(decaissement.rawVoucher || decaissement),
                                     flowType: 'DECAISSEMENT',
                                   })
                                 }

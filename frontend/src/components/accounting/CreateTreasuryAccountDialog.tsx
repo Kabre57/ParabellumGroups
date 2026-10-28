@@ -63,13 +63,18 @@ export function CreateTreasuryAccountDialog({
     enabled: open,
   });
 
-  const treasuryAccountingAccounts = useMemo(
-    () =>
-      ((accountingAccountsResponse?.data ?? []) as AccountingAccount[]).filter(
-        (account) => account.type === 'asset' && account.isActive !== false
-      ),
-    [accountingAccountsResponse?.data]
-  );
+  const treasuryAccountingAccounts = useMemo(() => {
+    const all = ((accountingAccountsResponse?.data ?? []) as AccountingAccount[]).filter(
+      (acc) => (acc.type === 'asset' || String(acc.code).startsWith('5')) && acc.isActive !== false
+    );
+    // Trier par classe 5 en premier (comptes de trésorerie), puis par code
+    return all.sort((a, b) => {
+      const aIs5 = String(a.code).startsWith('5') ? 0 : 1;
+      const bIs5 = String(b.code).startsWith('5') ? 0 : 1;
+      if (aIs5 !== bIs5) return aIs5 - bIs5;
+      return String(a.code).localeCompare(String(b.code));
+    });
+  }, [accountingAccountsResponse?.data]);
 
   useEffect(() => {
     if (open) {
@@ -158,7 +163,7 @@ export function CreateTreasuryAccountDialog({
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner un compte comptable" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72 overflow-y-auto">
                 <SelectItem value="__none__">Aucun lien comptable</SelectItem>
                 {treasuryAccountingAccounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>

@@ -27,7 +27,7 @@ PORT=4001
 DATABASE_URL=postgresql://postgres:replace-with-a-strong-database-password@localhost:5432/parabellum_auth
 JWT_SECRET=replace-with-a-long-random-secret
 JWT_EXPIRES_IN=7d
-REFRESH_TOKEN_EXPIRES_IN=30d
+REFRESH_TOKEN_EXPIRES_IN=7d
 
 # Optionnel: Stockage S3/MinIO pour images des services
 # S3_ENDPOINT=http://localhost:9000
@@ -263,7 +263,7 @@ node check-setup.js      # Vérifier la configuration
 | `DATABASE_URL` | URL PostgreSQL | - |
 | `JWT_SECRET` | Secret pour JWT | - |
 | `JWT_EXPIRES_IN` | Expiration access token | `7d` |
-| `REFRESH_TOKEN_EXPIRES_IN` | Expiration refresh token | `30d` |
+| `REFRESH_TOKEN_EXPIRES_IN` | Expiration refresh token | `7d` |
 | `CORS_ORIGIN` | Origines CORS autorisées | `http://localhost:3000` |
 
 ## 🐛 Dépannage

@@ -1,5 +1,6 @@
 // Gestion de la création et de la validation des bons de caisse.
 const { CashVoucherStatus, CashVoucherFlowType, resolveTreasuryAccountId, getTreasuryAccountingAccountId, assertEnterpriseInScope, resolveEnterpriseContext, resolveAccountingAccount, getTreasuryFamilyFromPaymentMethod, getTreasuryJournalMeta, AccountingPostingService, MappingService, prisma, ensureCreateAccess, ensureApprovalAccess, parseDate, parseAmount, nextVoucherNumber, serializeCashVoucher } = require('./shared');
+const { resolveCounterpartAccountId } = require('./counterpart');
 
 exports.createCashVoucher = async (req, res) => {
   try {
@@ -26,6 +27,7 @@ exports.createCashVoucher = async (req, res) => {
       paymentMethod,
       flowType,
       treasuryAccountId,
+      counterpartAccountId,
       issueDate,
       disbursementDate,
       reference,
@@ -80,6 +82,10 @@ exports.createCashVoucher = async (req, res) => {
       user: req.user,
       enterpriseId: resolvedEnterpriseId,
     });
+    const resolvedCounterpartAccountId = await resolveCounterpartAccountId(prisma, {
+      counterpartAccountId,
+      enterpriseId: resolvedEnterpriseId,
+    });
 
     await AccountingPostingService.assertTreasuryAccountPeriodOpen(
       resolvedTreasuryAccountId,
@@ -110,6 +116,7 @@ exports.createCashVoucher = async (req, res) => {
           ? flowType
           : 'DECAISSEMENT',
         treasuryAccountId: resolvedTreasuryAccountId,
+        counterpartAccountId: resolvedCounterpartAccountId,
         issueDate: parseDate(issueDate) || new Date(),
         disbursementDate: parseDate(disbursementDate),
         reference: reference || null,
@@ -198,17 +205,42 @@ exports.updateCashVoucherStatus = async (req, res) => {
 
         const journalMeta = await getTreasuryJournalMeta(tx, treasuryAccount, { enterpriseId: updatedVoucher.enterpriseId });
 
-        const mappingType = updatedVoucher.flowType === 'DECAISSEMENT' ? 'CASH_VOUCHER' : 'ENCAISSEMENT';
-        const counterpartMapping = await MappingService.resolveAccount(mappingType, updatedVoucher.expenseCategory || updatedVoucher.description, updatedVoucher.enterpriseId);
-        const counterpartAccount = await resolveAccountingAccount(tx, updatedVoucher.flowType === 'DECAISSEMENT' ? 'MISC_EXPENSE' : 'REVENUE', {
-          preferredAccountId: counterpartMapping?.accountId,
-          preferredCode: counterpartMapping?.code,
-          enterpriseId: updatedVoucher.enterpriseId,
-          user: req.user,
-        });
-
         const isDecaissement = updatedVoucher.flowType === 'DECAISSEMENT';
+        let counterpartAccount = null;
+
+        if (updatedVoucher.counterpartAccountId) {
+          counterpartAccount = await tx.accountingAccount.findUnique({
+            where: { id: updatedVoucher.counterpartAccountId },
+          });
+        }
+
+        if (!counterpartAccount) {
+          const mappingType = isDecaissement ? 'CASH_VOUCHER' : 'ENCAISSEMENT';
+          const counterpartMapping = await MappingService.resolveAccount(mappingType, updatedVoucher.expenseCategory || updatedVoucher.description, updatedVoucher.enterpriseId);
+          counterpartAccount = await resolveAccountingAccount(tx, isDecaissement ? 'MISC_EXPENSE' : 'REVENUE', {
+            preferredAccountId: counterpartMapping?.accountId,
+            preferredCode: counterpartMapping?.code,
+            enterpriseId: updatedVoucher.enterpriseId,
+            user: req.user,
+          });
+        }
+
         const amountValue = Number(updatedVoucher.amountTTC);
+
+        // Verification du solde de tresorerie : interdiction de decaisser si le compte est vide ou insuffisant
+        if (isDecaissement && resolvedTreasuryAccountId) {
+          const treasuryRecord = await tx.treasuryAccount.findUnique({
+            where: { id: resolvedTreasuryAccountId },
+          });
+          const availableBalance = Number(treasuryRecord?.currentBalance || 0);
+          if (availableBalance < amountValue) {
+            const err = new Error(
+              `Solde de trésorerie insuffisant : le compte "${treasuryRecord?.name || 'Trésorerie'}" dispose de ${availableBalance.toLocaleString('fr-FR')} F CFA, impossible de décaisser ${amountValue.toLocaleString('fr-FR')} F CFA.`
+            );
+            err.statusCode = 422;
+            throw err;
+          }
+        }
 
         const postingLines = [
           {

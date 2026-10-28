@@ -119,7 +119,7 @@ export function OverviewTab(props: DepensesTableProps) {
                                       Valider en compta
                                     </Button>
                                   )}
-                                {row.kind === 'voucher' && canApprove && row.status === 'EN_ATTENTE' && (
+                                {row.kind === 'voucher' && canApprove && (row.status === 'EN_ATTENTE' || row.status === 'BROUILLON') && (
                                   <Button size="sm" variant="secondary" onClick={() => onUpdateVoucher(entity.id, 'VALIDE')}>
                                     Valider la piece
                                   </Button>

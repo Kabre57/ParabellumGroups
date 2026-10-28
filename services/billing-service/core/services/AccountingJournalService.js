@@ -43,7 +43,14 @@ class AccountingJournalService {
   }
 
   async listJournals(enterpriseId, client = prisma) {
-    const where = enterpriseId ? { enterpriseId: Number(enterpriseId) } : {};
+    const enterpriseIds = Array.isArray(enterpriseId)
+      ? enterpriseId.map(Number).filter(Number.isInteger)
+      : enterpriseId !== undefined && enterpriseId !== null
+        ? [Number(enterpriseId)]
+        : [];
+    const where = enterpriseIds.length
+      ? { OR: [{ enterpriseId: { in: enterpriseIds } }, { enterpriseId: null }] }
+      : { enterpriseId: { in: [-1] } };
     return client.accountingJournal.findMany({
       where,
       orderBy: [{ code: 'asc' }],

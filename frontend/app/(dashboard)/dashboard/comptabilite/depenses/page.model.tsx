@@ -37,7 +37,6 @@ import {
 
 // État, chargement et actions du parcours d'interface.
 
-
 export const formatCurrency = (value: number) =>
   new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -47,16 +46,12 @@ export const formatCurrency = (value: number) =>
     .format(value || 0)
     .replace('XOF', 'F CFA');
 
-
-
 export const formatDate = (value?: string | null) => {
   if (!value) return '-';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '-';
   return parsed.toLocaleDateString('fr-FR');
 };
-
-
 
 export const sourceLabels: Record<string, string> = {
   PURCHASE_ORDER: 'Bon de commande',
@@ -304,21 +299,73 @@ export function useDepensesPageModel() {
 
   const filteredEncaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return encaissements.filter((item: any) =>
-      [item.numeroPiece, item.clientName, item.description, item.enterpriseName, item.serviceName]
-        .filter(Boolean)
-        .some((val) => String(val).toLowerCase().includes(query))
-    );
-  }, [encaissements, search]);
+    const encList = encaissements
+      .map((item: any) => ({ ...item, isVoucher: false }))
+      .filter((item: any) =>
+        [item.numeroPiece, item.clientName, item.description, item.enterpriseName, item.serviceName]
+          .filter(Boolean)
+          .some((val) => String(val).toLowerCase().includes(query))
+      );
+
+    const voucherEncList = vouchers
+      .filter((v: any) => v.flowType === 'ENCAISSEMENT')
+      .map((v: any) => ({
+        id: v.id,
+        isVoucher: true,
+        dateEncaissement: v.issueDate || v.disbursementDate,
+        numeroPiece: v.voucherNumber,
+        clientName: v.beneficiaryName,
+        paymentMethod: v.paymentMethod,
+        reference: v.reference,
+        amountTTC: v.amountTTC,
+        status: v.status,
+        enterpriseName: v.enterpriseName || v.serviceName,
+        serviceName: v.serviceName,
+        rawVoucher: v,
+      }))
+      .filter((item: any) =>
+        [item.numeroPiece, item.clientName, item.paymentMethod, item.reference, item.enterpriseName]
+          .filter(Boolean)
+          .some((val) => String(val).toLowerCase().includes(query))
+      );
+
+    return [...encList, ...voucherEncList];
+  }, [encaissements, vouchers, search]);
 
   const filteredDecaissements = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return decaissements.filter((item: any) =>
-      [item.numeroPiece, item.beneficiaryName, item.description, item.enterpriseName, item.serviceName]
-        .filter(Boolean)
-        .some((val) => String(val).toLowerCase().includes(query))
-    );
-  }, [decaissements, search]);
+    const decList = decaissements
+      .map((item: any) => ({ ...item, isVoucher: false }))
+      .filter((item: any) =>
+        [item.numeroPiece, item.beneficiaryName, item.description, item.enterpriseName, item.serviceName]
+          .filter(Boolean)
+          .some((val) => String(val).toLowerCase().includes(query))
+      );
+
+    const voucherDecList = vouchers
+      .filter((v: any) => v.flowType !== 'ENCAISSEMENT')
+      .map((v: any) => ({
+        id: v.id,
+        isVoucher: true,
+        dateDecaissement: v.issueDate || v.disbursementDate,
+        numeroPiece: v.voucherNumber,
+        beneficiaryName: v.beneficiaryName,
+        paymentMethod: v.paymentMethod,
+        reference: v.reference,
+        amountTTC: v.amountTTC,
+        status: v.status,
+        enterpriseName: v.enterpriseName || v.serviceName,
+        serviceName: v.serviceName,
+        rawVoucher: v,
+      }))
+      .filter((item: any) =>
+        [item.numeroPiece, item.beneficiaryName, item.paymentMethod, item.reference, item.enterpriseName]
+          .filter(Boolean)
+          .some((val) => String(val).toLowerCase().includes(query))
+      );
+
+    return [...decList, ...voucherDecList];
+  }, [decaissements, vouchers, search]);
 
   const consolidatedRows = useMemo(() => {
     const commitmentRows = filteredCommitments.map((item: any) => ({

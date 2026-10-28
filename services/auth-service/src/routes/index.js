@@ -8,6 +8,7 @@ const auditLogRoutes = require('./audit-log.routes');
 const permissionChangeRoutes = require('./permissionChange.routes');
 const enterpriseRoutes = require('./enterprise.routes');
 const storageRoutes = require('./storage.routes');
+const operationalRequestRoutes = require('./operationalRequest.routes');
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.use('/audit-logs', auditLogRoutes);
 router.use('/permission-requests', permissionChangeRoutes);
 router.use('/enterprises', enterpriseRoutes);
 router.use('/storage', storageRoutes);
+router.use('/operational-requests', operationalRequestRoutes);
 
 /**
  * 404 handler for API routes

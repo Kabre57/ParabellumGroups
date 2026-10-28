@@ -54,3 +54,12 @@ backups/
 **/.env
 logs/
 *.log
+
+# Non-server & mobile files
+mobile/
+.expo/
+scratch/
+"Rapport d'analyse/"
+Rapport d'analyse/
+docs/*.pdf
+docs/*.md

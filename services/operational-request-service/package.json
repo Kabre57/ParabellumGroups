@@ -9,7 +9,7 @@
     "dev": "node --watch server.js",
     "test": "node --test \"tests/**/*.test.js\" \"test/integration/**/*.test.ts\"",
     "test:integration": "node --test \"test/integration/**/*.test.ts\"",
-    "typecheck:test": "tsc --noEmit --strict --skipLibCheck --target es2023 --module esnext --moduleResolution bundler --allowImportingTsExtensions --allowJs --esModuleInterop test/helpers/testPrisma.ts test/helpers/billingStub.ts test/integration/linkCashVoucher.test.ts test/integration/createCashVoucher.test.ts",
+    "typecheck:test": "tsc --noEmit --strict --skipLibCheck --target es2023 --module esnext --moduleResolution bundler --allowImportingTsExtensions --allowJs --esModuleInterop test/helpers/testPrisma.ts test/helpers/billingStub.ts test/helpers/webCashVoucherFlow.ts test/integration/linkCashVoucher.test.ts test/integration/createCashVoucher.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },

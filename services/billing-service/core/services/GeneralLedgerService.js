@@ -80,13 +80,24 @@ class GeneralLedgerService {
       }
     }
 
+    const accountScopeWhere = Array.isArray(enterpriseIds)
+      ? enterpriseIds.length
+        ? { OR: [{ enterpriseId: { in: enterpriseIds.map(Number) } }, { enterpriseId: null }] }
+        : { enterpriseId: { in: [-1] } }
+      : enterpriseId
+        ? { OR: [{ enterpriseId: Number(enterpriseId) }, { enterpriseId: null }] }
+        : {};
+    const requestedAccountWhere = accountIds && accountIds.length > 0
+      ? { OR: accountIds.flatMap((value) => [{ id: value }, { code: { startsWith: value } }]) }
+      : {};
+    const scopedAccounts = await client.accountingAccount.findMany({
+      where: { AND: [accountScopeWhere, requestedAccountWhere] },
+      orderBy: [{ code: 'asc' }],
+    });
+
     const lineFilters = { entry: entryFilters };
     if (accountIds && accountIds.length > 0) {
-      const matchingAccounts = await client.accountingAccount.findMany({
-        where: { OR: accountIds.flatMap((value) => [{ id: value }, { code: { startsWith: value } }]) },
-        select: { id: true }
-      });
-      lineFilters.accountId = { in: matchingAccounts.map((account) => account.id) };
+      lineFilters.accountId = { in: scopedAccounts.map((account) => account.id) };
     }
 
     // Récupération des lignes avec jointure sur l'entrée pour les dates et libellés
@@ -112,6 +123,21 @@ class GeneralLedgerService {
 
     // Structuration en arbre: Compte -> Lignes d'écritures
     const ledgerMap = new Map();
+
+    for (const account of scopedAccounts) {
+      const openingBalance = Number(account.openingBalance || 0) + (openingByAccount.get(account.id) || 0);
+      if (openingBalance === 0) continue;
+      ledgerMap.set(account.id, {
+        accountId: account.id,
+        accountCode: account.code,
+        accountLabel: account.label,
+        openingBalance,
+        totalDebit: 0,
+        totalCredit: 0,
+        currentBalance: openingBalance,
+        lines: [],
+      });
+    }
 
     for (const line of journalLines) {
       const accountId = line.accountId;

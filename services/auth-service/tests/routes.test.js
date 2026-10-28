@@ -77,7 +77,7 @@ test('permission registry is modular and templates only reference known permissi
   const knownPermissionNames = new Set(getKnownPermissionNames());
 
   assert.equal(summary.valid, true, summary.errors.join('\n'));
-  assert.equal(modules.length, 11);
+  assert.equal(modules.length, 12);
   assert.deepEqual(
     modules.map((moduleConfig) => moduleConfig.key),
     [
@@ -90,6 +90,7 @@ test('permission registry is modular and templates only reference known permissi
       'technical',
       'procurement',
       'hr',
+      'operational_requests',
       'communication',
       'administration',
     ]

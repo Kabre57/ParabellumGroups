@@ -3,7 +3,7 @@ const { applyEnterpriseScope, assertEnterpriseInScope, getEnterpriseList } = req
 
 const prisma = new PrismaClient();
 
-const INTERNAL_EVENT_SECRET = process.env.PROCUREMENT_EVENT_SECRET || 'procurement-billing-shared-secret';
+const INTERNAL_EVENT_SECRET = process.env.PROCUREMENT_EVENT_SECRET;
 
 const normalizeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -22,7 +22,12 @@ const pickCommitmentValue = (nextValue, previousValue) => {
 const ensureInternalEventSecret = (req, res, next) => {
   const secret = req.headers['x-event-secret'];
 
-  if (!secret || secret !== INTERNAL_EVENT_SECRET) {
+  if (
+    !INTERNAL_EVENT_SECRET ||
+    INTERNAL_EVENT_SECRET.length < 32 ||
+    !secret ||
+    secret !== INTERNAL_EVENT_SECRET
+  ) {
     return res.status(403).json({
       success: false,
       message: 'Event secret invalide',

@@ -153,9 +153,7 @@ const buildOpeningWhere = (endDate, enterpriseIds) => {
           },
         }
       : {}),
-    status: {
-      not: 'REVERSED',
-    },
+    status: 'POSTED',
   };
 
   return where;
@@ -185,7 +183,16 @@ const getAccountingBalance = async (req, options = {}) => {
 
   const [accounts, entries] = await Promise.all([
     prisma.accountingAccount.findMany({
-      where: { isActive: true },
+      where: {
+        ...(scopeContext.enterpriseIds.length
+          ? {
+              OR: [
+                { enterpriseId: { in: scopeContext.enterpriseIds } },
+                { enterpriseId: null },
+              ],
+            }
+          : { enterpriseId: { in: [-1] } }),
+      },
       orderBy: [{ code: 'asc' }],
     }),
     prisma.accountingJournalEntry.findMany({
@@ -201,17 +208,28 @@ const getAccountingBalance = async (req, options = {}) => {
   ]);
 
   const serializedAccounts = accounts.map(serializeAccountingAccount);
-  const accountByCode = new Map(serializedAccounts.map((account) => [account.code, account]));
+  const accountById = new Map(serializedAccounts.map((account) => [account.id, account]));
   const rows = new Map();
+  const openingBalancesApplied = new Set();
 
-  const ensureRow = ({ code, label, type, enterpriseId = null, enterpriseName = null }) => {
+  const ensureRow = ({ accountId, code, label, type, enterpriseId = null, enterpriseName = null }) => {
     const normalizedCode = normalizeSortableText(code);
     const rowKey = groupBy === 'enterprise' ? `${enterpriseId || 'none'}:${normalizedCode || 'unknown'}` : normalizedCode || 'unknown';
+    const account = accountById.get(accountId);
     const existing = rows.get(rowKey);
-    if (existing) return existing;
+    if (existing) {
+      const canApplyOpeningBalance = groupBy === 'consolidated' ||
+        (account?.enterpriseId != null && Number(account.enterpriseId) === Number(enterpriseId)) ||
+        (account?.enterpriseId == null && (scopeContext.enterpriseIds.length === 1 || enterpriseId == null));
+      if (account?.id && canApplyOpeningBalance && !openingBalancesApplied.has(account.id)) {
+        const openingBalance = amount(account.openingBalance);
+        existing.openingDebit += openingBalance > 0 ? openingBalance : 0;
+        existing.openingCredit += openingBalance < 0 ? Math.abs(openingBalance) : 0;
+        openingBalancesApplied.add(account.id);
+      }
+      return existing;
+    }
 
-    const account = accountByCode.get(normalizedCode);
-    const openingBalance = groupBy === 'consolidated' ? amount(account?.openingBalance) : 0;
     const row = {
       id: rowKey,
       accountId: account?.id,
@@ -219,9 +237,11 @@ const getAccountingBalance = async (req, options = {}) => {
       label: account?.label || label || 'Compte non reference',
       type: account?.type || type || inferAccountType(normalizedCode),
       enterpriseId: groupBy === 'enterprise' ? enterpriseId : null,
-      enterpriseName: groupBy === 'enterprise' ? enterpriseName || 'Entreprise non renseignée' : null,
-      openingDebit: openingBalance > 0 ? openingBalance : 0,
-      openingCredit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
+      enterpriseName: groupBy === 'enterprise'
+        ? enterpriseName || (enterpriseId ? 'Entreprise non renseignée' : 'Comptes partagés')
+        : null,
+      openingDebit: 0,
+      openingCredit: 0,
       debit: 0,
       credit: 0,
       balanceDebit: 0,
@@ -230,15 +250,29 @@ const getAccountingBalance = async (req, options = {}) => {
       lastTransaction: account?.lastTransaction || null,
     };
     rows.set(rowKey, row);
+    const canApplyOpeningBalance = groupBy === 'consolidated' ||
+      (account?.enterpriseId != null && Number(account.enterpriseId) === Number(enterpriseId)) ||
+      (account?.enterpriseId == null && (scopeContext.enterpriseIds.length === 1 || enterpriseId == null));
+    if (account?.id && canApplyOpeningBalance && !openingBalancesApplied.has(account.id)) {
+      const openingBalance = amount(account.openingBalance);
+      row.openingDebit += openingBalance > 0 ? openingBalance : 0;
+      row.openingCredit += openingBalance < 0 ? Math.abs(openingBalance) : 0;
+      openingBalancesApplied.add(account.id);
+    }
     return row;
   };
 
-  if (includeZeroRows && groupBy === 'consolidated') {
+  if (includeZeroRows || serializedAccounts.some((account) => amount(account.openingBalance) !== 0)) {
     serializedAccounts.forEach((account) => {
+      if (!includeZeroRows && amount(account.openingBalance) === 0) return;
       ensureRow({
+        accountId: account.id,
         code: account.code,
         label: account.label,
         type: account.type,
+        enterpriseId: groupBy === 'enterprise'
+          ? account.enterpriseId ?? (scopeContext.enterpriseIds.length === 1 ? scopeContext.enterpriseIds[0] : null)
+          : null,
       });
     });
   }
@@ -249,6 +283,7 @@ const getAccountingBalance = async (req, options = {}) => {
       if (!accountCode) return;
 
       const row = ensureRow({
+        accountId: line.accountId,
         code: accountCode,
         label: line.account?.label,
         type: line.account?.type,

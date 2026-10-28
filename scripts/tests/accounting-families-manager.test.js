@@ -14,7 +14,10 @@ const componentPath = path.join(
   'comptes',
   'AccountingFamiliesManager.tsx'
 );
-const component = fs.readFileSync(componentPath, 'utf8');
+const component = [
+  fs.readFileSync(componentPath, 'utf8'),
+  fs.readFileSync(path.join(path.dirname(componentPath), 'AccountingFamiliesManager.model.tsx'), 'utf8'),
+].join('\n');
 
 test('accounting families manager uses a native account selector in the modal', () => {
   assert.match(component, /<select\s+[\s\S]*value=\{selectedCompatibleAccount\?\.id \|\| ''\}/);

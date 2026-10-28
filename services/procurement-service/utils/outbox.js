@@ -7,7 +7,13 @@ const DISPATCH_INTERVAL_MS = parseInt(process.env.PROCUREMENT_OUTBOX_INTERVAL_MS
 const RETRY_BASE_DELAY_MS = parseInt(process.env.PROCUREMENT_OUTBOX_RETRY_MS || '15000', 10);
 const BATCH_SIZE = parseInt(process.env.PROCUREMENT_OUTBOX_BATCH_SIZE || '20', 10);
 const BILLING_EVENTS_URL = process.env.BILLING_EVENTS_URL || 'http://billing-service:4010/api/internal/procurement-events';
-const EVENT_SECRET = process.env.PROCUREMENT_EVENT_SECRET || 'procurement-billing-shared-secret';
+const getEventSecret = () => {
+  const secret = process.env.PROCUREMENT_EVENT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('PROCUREMENT_EVENT_SECRET must contain at least 32 characters');
+  }
+  return secret;
+};
 
 let dispatcherStarted = false;
 let dispatcherHandle = null;
@@ -37,11 +43,12 @@ const computeNextAttemptAt = (attempts) =>
   new Date(Date.now() + Math.max(1, attempts) * RETRY_BASE_DELAY_MS);
 
 const dispatchEvent = async (event) => {
+  const eventSecret = getEventSecret();
   const response = await fetch(BILLING_EVENTS_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-event-secret': EVENT_SECRET,
+      'x-event-secret': eventSecret,
     },
     body: JSON.stringify(buildEnvelope(event)),
   });
@@ -108,6 +115,7 @@ const startOutboxDispatcher = () => {
     return dispatcherHandle;
   }
 
+  getEventSecret();
   dispatcherStarted = true;
   dispatcherHandle = setInterval(() => {
     flushOutboxBatch().catch((error) => {

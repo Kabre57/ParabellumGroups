@@ -314,6 +314,7 @@ const serializeCashVoucher = (voucher) => ({
   flowType: voucher.flowType,
   treasuryAccountId: voucher.treasuryAccountId,
   treasuryAccountName: voucher.treasuryAccount?.name || null,
+  counterpartAccountId: voucher.counterpartAccountId || null,
   status: voucher.status,
   issueDate: voucher.issueDate,
   disbursementDate: voucher.disbursementDate,

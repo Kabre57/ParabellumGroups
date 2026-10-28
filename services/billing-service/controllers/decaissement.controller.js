@@ -258,6 +258,21 @@ exports.updateStatus = async (req, res) => {
         enterpriseId: decaissement.enterpriseId,
       });
 
+      if (resolvedTreasuryAccountId) {
+        const treasuryRecord = await tx.treasuryAccount.findUnique({
+          where: { id: resolvedTreasuryAccountId },
+        });
+        const availableBalance = Number(treasuryRecord?.currentBalance || 0);
+        const amountValue = amount(decaissement.amountTTC);
+        if (availableBalance < amountValue) {
+          const err = new Error(
+            `Solde de trésorerie insuffisant : le compte "${treasuryRecord?.name || 'Trésorerie'}" dispose de ${availableBalance.toLocaleString('fr-FR')} F CFA, impossible de décaisser ${amountValue.toLocaleString('fr-FR')} F CFA.`
+          );
+          err.statusCode = 422;
+          throw err;
+        }
+      }
+
       if (decaissement.commitmentId) {
         const commitment = await tx.purchaseCommitment.findUnique({
           where: { id: decaissement.commitmentId },

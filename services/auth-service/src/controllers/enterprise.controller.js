@@ -163,9 +163,6 @@ const createEnterprise = async (req, res) => {
     const normalizedParentEnterpriseId = parseEnterpriseId(parentEnterpriseId);
 
     let logoUrl = null;
-    if (req.file && isS3Configured()) {
-      logoUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'enterprises');
-    }
 
     // Check if enterprise with same name exists
     const existingEnterprise = await prisma.enterprise.findUnique({
@@ -173,9 +170,6 @@ const createEnterprise = async (req, res) => {
     });
 
     if (existingEnterprise) {
-      if (req.file && isS3Configured() && logoUrl) {
-         await deleteFromS3(logoUrl);
-      }
       return res.status(409).json({
         success: false,
         message: 'Enterprise with this name already exists',
@@ -189,9 +183,6 @@ const createEnterprise = async (req, res) => {
       });
 
       if (codeExists) {
-        if (req.file && isS3Configured() && logoUrl) {
-           await deleteFromS3(logoUrl);
-        }
         return res.status(409).json({
           success: false,
           message: 'Enterprise code already exists',
@@ -206,9 +197,6 @@ const createEnterprise = async (req, res) => {
       });
 
       if (!parentEnterprise) {
-        if (req.file && isS3Configured() && logoUrl) {
-          await deleteFromS3(logoUrl);
-        }
         return res.status(404).json({
           success: false,
           message: 'Parent enterprise not found',
@@ -217,7 +205,7 @@ const createEnterprise = async (req, res) => {
     }
 
     // Create enterprise
-    const enterprise = await prisma.enterprise.create({
+    let enterprise = await prisma.enterprise.create({
       data: {
         name,
         description: description || null,
@@ -236,6 +224,24 @@ const createEnterprise = async (req, res) => {
         },
       },
     });
+
+    // The enterprise ID is needed to bind the private object to its owner.
+    if (req.file && isS3Configured()) {
+      try {
+        logoUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'enterprises', enterprise.id);
+        if (logoUrl) {
+          enterprise = await prisma.enterprise.update({
+            where: { id: enterprise.id },
+            data: { logoUrl },
+            include: {
+              parentEnterprise: { select: { id: true, name: true, code: true } },
+            },
+          });
+        }
+      } catch (uploadError) {
+        console.error('Enterprise created without logo because private storage upload failed:', uploadError);
+      }
+    }
 
     // Log audit
     await prisma.auditLog.create({
@@ -303,17 +309,7 @@ const updateEnterprise = async (req, res) => {
         : parseEnterpriseId(parentEnterpriseId);
 
     let logoUrl = existingEnterprise.logoUrl;
-    if (req.file && isS3Configured()) {
-      if (existingEnterprise.logoUrl) {
-        await deleteFromS3(existingEnterprise.logoUrl);
-      }
-      logoUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'enterprises');
-    } else if (removeLogo === true || removeLogo === 'true') {
-      if (existingEnterprise.logoUrl && isS3Configured()) {
-        await deleteFromS3(existingEnterprise.logoUrl);
-      }
-      logoUrl = null;
-    }
+    const shouldRemoveLogo = removeLogo === true || removeLogo === 'true';
 
     // If name is being updated, check for duplicates
     if (name && name !== existingEnterprise.name) {
@@ -375,6 +371,14 @@ const updateEnterprise = async (req, res) => {
       }
     }
 
+    // Upload the replacement only after validation, and keep the old logo until
+    // the enterprise update succeeds.
+    if (req.file && isS3Configured()) {
+      logoUrl = await uploadToS3(req.file.buffer, req.file.mimetype, 'enterprises', existingEnterprise.id);
+    } else if (shouldRemoveLogo) {
+      logoUrl = null;
+    }
+
     // Update enterprise
     const updatedEnterprise = await prisma.enterprise.update({
       where: { id: parseInt(id) },
@@ -396,6 +400,14 @@ const updateEnterprise = async (req, res) => {
         },
       },
     });
+
+    if (
+      existingEnterprise.logoUrl &&
+      existingEnterprise.logoUrl !== updatedEnterprise.logoUrl &&
+      isS3Configured()
+    ) {
+      await deleteFromS3(existingEnterprise.logoUrl);
+    }
 
     // Log audit
     await prisma.auditLog.create({

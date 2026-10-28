@@ -1,5 +1,5 @@
 // Transmission, conversion en facture et génération des documents.
-const { generateDevisPDF, uploadToS3, isS3Configured, path, moment, prisma, QUOTE_READ_INCLUDE, BILLING_READY_STATUS, fetchProspect, createQuoteEvent, fetchClientMeta, createInvoiceFromQuote, getScopedQuoteOrThrow } = require('../../services/devis');
+const { generateDevisPDF, uploadToS3, isS3Configured, path, moment, prisma, QUOTE_READ_INCLUDE, BILLING_READY_STATUS, fetchProspect, createQuoteEvent, fetchClientMeta, createInvoiceFromQuote, getScopedQuoteOrThrow, resolveEnterpriseContext } = require('../../services/devis');
 
 exports.forwardToBilling = async (req, res) => {
   try {
@@ -100,13 +100,17 @@ exports.uploadQuoteLineImage = async (req, res) => {
     if (!isS3Configured()) {
       return res.status(400).json({ error: 'Stockage S3 non configure' });
     }
-    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'quote-lines');
+    const { enterpriseId } = await resolveEnterpriseContext(req);
+    if (!enterpriseId) {
+      return res.status(400).json({ error: 'Sélectionnez une entreprise active avant l’upload' });
+    }
+    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'quote-lines', enterpriseId);
     if (!url) {
       return res.status(500).json({ error: 'Upload impossible pour le moment' });
     }
     res.status(201).json({ success: true, data: { url } });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 

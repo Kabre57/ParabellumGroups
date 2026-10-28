@@ -19,6 +19,7 @@ databases=(
   parabellum_commercial parabellum_inventory parabellum_projects
   parabellum_procurement parabellum_customers parabellum_hr
   parabellum_billing parabellum_Analytics parabellum_notification
+  parabellum_operational_requests
 )
 for database in "${databases[@]}"; do
   if [ ! -f "$SOURCE/$database.dump" ]; then
@@ -41,7 +42,7 @@ if [ -d "$SOURCE/minio" ]; then
     --entrypoint /bin/sh minio-init -c '
       set -eu
       mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-      for bucket in "$S3_BUCKET_NAME" rapport-photos communication-attachments; do
+      for bucket in "$S3_BUCKET_NAME" rapport-photos communication-attachments operational-attachments; do
         if [ -d "/restore/$bucket" ]; then
           mc ls "local/$bucket" >/dev/null 2>&1 || mc mb -p "local/$bucket"
           mc mirror --overwrite "/restore/$bucket" "local/$bucket"

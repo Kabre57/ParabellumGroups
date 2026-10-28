@@ -91,8 +91,12 @@ async function ensureBucketExists() {
  * @param {string} prefix - e.g. 'services'
  * @returns {Promise<string|null>} - Public URL or null if not configured
  */
-async function uploadToS3(buffer, mimetype, prefix = 'services') {
+async function uploadToS3(buffer, mimetype, prefix = 'services', enterpriseId) {
   if (!isS3Configured()) return null;
+  const scopedEnterpriseId = Number(enterpriseId);
+  if (!Number.isInteger(scopedEnterpriseId) || scopedEnterpriseId <= 0) {
+    throw new Error('An enterprise is required to store a private file');
+  }
 
   const ext = mimetype.split('/')[1] || 'jpg';
   const key = `${prefix}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
@@ -106,19 +110,12 @@ async function uploadToS3(buffer, mimetype, prefix = 'services') {
       Key: key,
       Body: buffer,
       ContentType: mimetype,
+      Metadata: { enterpriseid: String(scopedEnterpriseId) },
     })
   );
 
-  const PUBLIC_ENDPOINT = process.env.S3_PUBLIC_ENDPOINT || ENDPOINT;
-
-  // Si l'endpoint ne pointe pas vers AWS, c'est du minio / S3 custom
-  if (PUBLIC_ENDPOINT && !PUBLIC_ENDPOINT.includes('.amazonaws.com')) {
-    // Évite les doubles slash lors de la concaténation
-    const base = PUBLIC_ENDPOINT.endsWith('/') ? PUBLIC_ENDPOINT.slice(0, -1) : PUBLIC_ENDPOINT;
-    return `${base}/${BUCKET}/${key}`;
-  }
-  
-  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  return `/api/storage/${encodeURIComponent(BUCKET)}/${encodedKey}?enterpriseId=${scopedEnterpriseId}`;
 }
 
 /**
@@ -132,9 +129,9 @@ async function deleteFromS3(url) {
   try {
     let key;
     if (url.includes(`/${BUCKET}/`)) {
-      key = url.split(`/${BUCKET}/`)[1];
+      key = url.split(`/${BUCKET}/`)[1].split(/[?#]/)[0];
     } else if (url.includes('.amazonaws.com/')) {
-      key = url.split('.amazonaws.com/')[1];
+      key = url.split('.amazonaws.com/')[1].split(/[?#]/)[0];
     } else {
       return false;
     }
@@ -157,23 +154,23 @@ function extractObjectKeyFromUrl(url) {
   if (!url) return null;
 
   if (url.includes(`/${BUCKET}/`)) {
-    return url.split(`/${BUCKET}/`)[1] || null;
+    return url.split(`/${BUCKET}/`)[1]?.split(/[?#]/)[0] || null;
   }
 
   if (url.includes('.amazonaws.com/')) {
-    return url.split('.amazonaws.com/')[1] || null;
+    return url.split('.amazonaws.com/')[1]?.split(/[?#]/)[0] || null;
   }
 
   return null;
 }
 
-async function getObjectStreamFromS3(key) {
+async function getObjectStreamFromS3(key, bucket = BUCKET) {
   if (!isS3Configured() || !key) return null;
 
   const s3 = getS3Client();
   return s3.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: bucket,
       Key: key,
     })
   );

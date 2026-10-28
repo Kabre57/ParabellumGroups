@@ -1,15 +1,53 @@
-const { extractObjectKeyFromUrl, getObjectStreamFromS3, isS3Configured } = require('../utils/s3');
+const { getObjectStreamFromS3, isS3Configured } = require('../utils/s3');
+const prisma = require('../config/database');
 
-const normalizeRequestedKey = (rawPath) => {
+const getStorageTarget = (rawPath) => {
   const normalizedPath = String(rawPath || '').replace(/^\/+/, '');
-  if (!normalizedPath) return null;
+  const separator = normalizedPath.indexOf('/');
+  if (separator < 1 || separator === normalizedPath.length - 1) return null;
 
+  const bucket = normalizedPath.slice(0, separator);
+  const key = normalizedPath.slice(separator + 1);
   const configuredBucket = process.env.S3_BUCKET_NAME || 'parabellum-groups';
-  if (normalizedPath.startsWith(`${configuredBucket}/`)) {
-    return normalizedPath.slice(configuredBucket.length + 1);
+  const allowedBuckets = new Set([
+    configuredBucket,
+    ...(process.env.STORAGE_ALLOWED_BUCKETS || 'rapport-photos')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ]);
+
+  return allowedBuckets.has(bucket) ? { bucket, key } : null;
+};
+
+const parsePositiveId = (value) => {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+const isGlobalAdmin = (user) => {
+  const role = typeof user?.role === 'string' ? user.role : user?.role?.code || user?.role?.name;
+  return new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']).has(
+    String(role || '').trim().toUpperCase()
+  );
+};
+
+const isEnterpriseInUserScope = async (enterpriseId, userEnterpriseId) => {
+  if (!enterpriseId || !userEnterpriseId) return false;
+  const visited = new Set();
+  let currentId = enterpriseId;
+
+  while (currentId && !visited.has(currentId)) {
+    if (currentId === userEnterpriseId) return true;
+    visited.add(currentId);
+    const current = await prisma.enterprise.findUnique({
+      where: { id: currentId },
+      select: { parentEnterpriseId: true },
+    });
+    currentId = current?.parentEnterpriseId || null;
   }
 
-  return extractObjectKeyFromUrl(normalizedPath) || normalizedPath;
+  return false;
 };
 
 const serveStorageObject = async (req, res) => {
@@ -22,18 +60,43 @@ const serveStorageObject = async (req, res) => {
 
   try {
     const objectPath = req.params[0];
-    const objectKey = normalizeRequestedKey(objectPath);
+    const target = getStorageTarget(objectPath);
 
-    if (!objectKey) {
+    if (!target) {
       return res.status(400).json({
         success: false,
-        message: 'Storage object key is required',
+        message: 'Storage bucket or object key is invalid',
       });
     }
 
-    const object = await getObjectStreamFromS3(objectKey);
+    const object = await getObjectStreamFromS3(target.key, target.bucket);
 
     if (!object?.Body) {
+      return res.status(404).json({
+        success: false,
+        message: 'Storage object not found',
+      });
+    }
+
+    const metadataEnterpriseId = parsePositiveId(object.Metadata?.enterpriseid);
+    const requestedEnterpriseId = parsePositiveId(req.query?.enterpriseId);
+    const isAdmin = isGlobalAdmin(req.user);
+    const ownerEnterpriseId = metadataEnterpriseId || (isAdmin ? requestedEnterpriseId : null);
+    const requestedOwnerMatches =
+      !requestedEnterpriseId || !metadataEnterpriseId || requestedEnterpriseId === metadataEnterpriseId;
+    const authorized = isAdmin
+      ? requestedOwnerMatches
+      : Boolean(
+          metadataEnterpriseId &&
+            requestedEnterpriseId === metadataEnterpriseId &&
+            (await isEnterpriseInUserScope(metadataEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
+        );
+
+    if (!authorized || (ownerEnterpriseId && !(await prisma.enterprise.findUnique({
+      where: { id: ownerEnterpriseId },
+      select: { id: true },
+    })))) {
+      object.Body.destroy?.();
       return res.status(404).json({
         success: false,
         message: 'Storage object not found',
@@ -52,7 +115,8 @@ const serveStorageObject = async (req, res) => {
       res.setHeader('ETag', object.ETag);
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
 
     object.Body.on('error', (streamError) => {
       console.error('Storage stream error:', streamError);

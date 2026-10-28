@@ -1,8 +1,9 @@
 // Révoque le jeton de session présenté à la déconnexion.
-const { prisma } = require('./shared');
+const { prisma, clearStorageAccessCookie } = require('./shared');
 
 const logout = async (req, res) => {
   try {
+    clearStorageAccessCookie(res);
     const { refreshToken } = req.body || {};
 
     if (refreshToken) {

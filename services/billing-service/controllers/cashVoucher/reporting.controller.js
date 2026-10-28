@@ -66,12 +66,18 @@ exports.getSpendingOverview = async (req, res) => {
 
     const totalCommitted = commitments.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalVouchered = vouchers.reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
+    const totalVoucherDisbursed = vouchers
+      .filter((item) => item.status === 'DECAISSE' && item.flowType === 'DECAISSEMENT')
+      .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalDisbursed = decaissements
       .filter((item) => item.status === 'DECAISSE')
+      .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0) + totalVoucherDisbursed;
+    const totalVoucherReceived = vouchers
+      .filter((item) => (item.status === 'VALIDE' || item.status === 'DECAISSE' || item.status === 'ENCAISSEMENT') && item.flowType === 'ENCAISSEMENT')
       .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
     const totalReceived = encaissements
       .filter((item) => String(item.status || '').toUpperCase() === 'VALIDE')
-      .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0);
+      .reduce((sum, item) => sum + Number(item.amountTTC || 0), 0) + totalVoucherReceived;
 
     return res.json({
       success: true,

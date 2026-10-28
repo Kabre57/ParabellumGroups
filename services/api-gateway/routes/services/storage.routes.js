@@ -7,7 +7,8 @@ module.exports = {
     {
       path: '/storage/*',
       method: 'use',
-      auth: false,
+      auth: true,
+      authCookie: 'storage',
       pathRewrite: {
         '^/storage': '/api/storage'
       }

@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 
 const {
   MINIO_ENDPOINT = 'minio',
@@ -19,14 +19,23 @@ const s3Client = new S3Client({
   forcePathStyle: true,
 });
 
-async function uploadBuffer({ key, buffer, contentType }) {
+async function uploadBuffer({ key, buffer, contentType, enterpriseId }) {
+  const scopedEnterpriseId = Number(enterpriseId);
+  if (!Number.isInteger(scopedEnterpriseId) || scopedEnterpriseId <= 0) {
+    throw new Error('An enterprise is required to store a private file');
+  }
   const command = new PutObjectCommand({
     Bucket: MINIO_BUCKET,
     Key: key,
     Body: buffer,
     ContentType: contentType,
+    Metadata: { enterpriseid: String(scopedEnterpriseId) },
   });
   await s3Client.send(command);
+}
+
+async function getObjectStream({ key }) {
+  return s3Client.send(new GetObjectCommand({ Bucket: MINIO_BUCKET, Key: key }));
 }
 
 async function deleteObject({ key }) {
@@ -41,5 +50,6 @@ module.exports = {
   s3Client,
   uploadBuffer,
   deleteObject,
+  getObjectStream,
   MINIO_BUCKET,
 };

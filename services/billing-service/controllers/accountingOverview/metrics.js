@@ -19,6 +19,7 @@ const calculateAccountingMetrics = ({ factures, paiements, commitments, encaisse
     const totalInvoiceReceived = validatedEncaissements
       .filter((item) => item.factureClientId)
       .reduce((sum, item) => sum + safeAmount(item.amountTTC), 0);
+    const nonInvoiceEncaissements = validatedEncaissements.filter((item) => !item.factureClientId);
 
     const activeDecaissements = decaissements.filter((d) => d.status !== 'ANNULE');
     const disbursedVouchers = activeDecaissements.filter((d) => d.status === 'DECAISSE');
@@ -26,7 +27,8 @@ const calculateAccountingMetrics = ({ factures, paiements, commitments, encaisse
     const totalExpenseHT = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountHT || d.amountTTC), 0);
     const totalDeductibleVat = activeDecaissements.reduce((sum, d) => sum + safeAmount(d.amountTVA), 0);
     const totalDisbursed = disbursedVouchers.reduce((sum, d) => sum + safeAmount(d.amountTTC), 0);
-    const totalOtherIncome = receivedVouchers.reduce((sum, e) => sum + safeAmount(e.amountTTC), 0);
+    // Facture-linked receipts are already counted in totalInvoiceReceived.
+    const totalOtherIncome = nonInvoiceEncaissements.reduce((sum, e) => sum + safeAmount(e.amountTTC), 0);
     const totalTreasuryIncome = totalInvoiceReceived + totalOtherIncome;
 
     const bankInflows =
@@ -81,7 +83,7 @@ const calculateAccountingMetrics = ({ factures, paiements, commitments, encaisse
       totalRevenue,
       totalExpenseHT,
       totalDisbursed,
-      netResult: Math.max(totalRevenue - totalExpenseHT, 0),
+      netResult: totalRevenue - totalExpenseHT,
       bankMovementCount:
         receivedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length +
         disbursedVouchers.filter((item) => String(item.paymentMethod || '').toUpperCase() !== 'ESPECES').length,

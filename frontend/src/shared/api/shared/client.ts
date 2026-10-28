@@ -9,6 +9,7 @@ class ApiClient {
   private instance: AxiosInstance;
   private accessToken: string | null = null;
   private enterpriseId: string | null = null;
+  private refreshPromise: Promise<void> | null = null;
 
   private isPublicAuthEndpoint(url?: string): boolean {
     if (!url) return false;
@@ -63,6 +64,11 @@ class ApiClient {
 
         const isPublicEndpoint = this.isPublicAuthEndpoint(config.url);
         const token = this.getToken();
+        const authConfig = config as any;
+        if (!isPublicEndpoint && typeof window !== 'undefined') {
+          authConfig.__authAccessTokenAtRequest = token;
+          authConfig.__authRefreshTokenAtRequest = localStorage.getItem('refreshToken');
+        }
         if (!isPublicEndpoint && token && config.headers) {
           // Use .set() method for Axios 1.x AxiosHeaders
           if (typeof config.headers.set === 'function') {
@@ -140,7 +146,7 @@ class ApiClient {
   /**
    * Gestion globale des erreurs API
    */
-  private async handleError(error: AxiosError): Promise<never> {
+  private async handleError(error: AxiosError): Promise<AxiosResponse> {
     if (!error.response) {
       // Erreur réseau
       throw {
@@ -161,36 +167,81 @@ class ApiClient {
           this.handleUnauthorized();
           throw this.formatError(401, 'Adresse email ou mot de passe incorrect');
         }
+
+        // A refresh failure is handled by the original request below. Clearing
+        // storage here would log the user out even for a temporary 429/500.
+        if (requestConfig?.url?.includes('/auth/refresh')) {
+          throw this.formatError(401, (data as any)?.message || 'Refresh token invalide', data);
+        }
+
+        const latestAccessToken = this.getToken();
+        const requestAccessToken = requestConfig?.__authAccessTokenAtRequest as string | null | undefined;
+        const requestRefreshToken = requestConfig?.__authRefreshTokenAtRequest as string | null | undefined;
+
+        // Another tab (or a new login) may have replaced the session while this
+        // request was in flight. Retry with that session instead of erasing it.
+        if (
+          !requestConfig?._retry &&
+          latestAccessToken &&
+          (latestAccessToken !== requestAccessToken ||
+            (requestRefreshToken && localStorage.getItem('refreshToken') !== requestRefreshToken))
+        ) {
+          return this.retryRequestWithToken(requestConfig, latestAccessToken);
+        }
+
+        if (requestConfig?._retry) {
+          const currentAccessToken = this.getToken();
+          if (currentAccessToken && currentAccessToken !== requestAccessToken) {
+            return this.retryRequestWithToken(requestConfig, currentAccessToken);
+          }
+          this.handleUnauthorizedIfCurrent(requestAccessToken, requestRefreshToken);
+          throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
+        }
+
         // Token expiré ou invalide - tentative de refresh
         if (this.shouldRetryWithRefresh(error)) {
           const refreshToken = typeof window !== 'undefined'
             ? localStorage.getItem('refreshToken')
             : null;
           if (!refreshToken) {
-            this.handleUnauthorized();
+            this.handleUnauthorizedIfCurrent(requestAccessToken, requestRefreshToken);
             throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
           }
           try {
-            await this.refreshAccessToken();
+            await this.refreshAccessToken(requestAccessToken, requestRefreshToken);
             // Retry la requête originale avec le nouveau token
-            // IMPORTANT: marquer AVANT de modifier les headers
-            requestConfig._retry = true;
             const token = this.getToken();
-            if (token && requestConfig.headers) {
-              // Use .set() method for Axios 1.x AxiosHeaders
-              if (typeof requestConfig.headers.set === 'function') {
-                requestConfig.headers.set('Authorization', `Bearer ${token}`);
-              } else {
-                requestConfig.headers.Authorization = `Bearer ${token}`;
-              }
+            if (token) {
+              return this.retryRequestWithToken(requestConfig, token);
             }
-            return this.instance.request(requestConfig);
+            throw new Error('No access token available after refresh');
           } catch (refreshError) {
-            this.handleUnauthorized();
-            throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
+            const currentAccessToken = this.getToken();
+            const currentRefreshToken = typeof window !== 'undefined'
+              ? localStorage.getItem('refreshToken')
+              : null;
+
+            // If another tab rotated the token during the failed request, keep
+            // the newer session and retry with its access token.
+            if (
+              currentAccessToken &&
+              (currentAccessToken !== requestAccessToken ||
+                (currentRefreshToken && currentRefreshToken !== requestRefreshToken))
+            ) {
+              return this.retryRequestWithToken(requestConfig, currentAccessToken);
+            }
+
+            const refreshStatus = (refreshError as any)?.status ?? (refreshError as any)?.response?.status;
+            if (refreshStatus === 401 || refreshStatus === 403 || !currentRefreshToken) {
+              this.handleUnauthorizedIfCurrent(requestAccessToken, requestRefreshToken);
+              throw this.formatError(401, 'Session expirée, veuillez vous reconnecter');
+            }
+
+            // Transient refresh failures must not destroy a valid local session.
+            throw refreshError;
           }
         } else {
-          this.handleUnauthorized();
+          this.handleUnauthorizedIfCurrent(requestAccessToken, requestRefreshToken);
           throw this.formatError(401, 'Non autorisé');
         }
 
@@ -237,33 +288,120 @@ class ApiClient {
   /**
    * Refresh le token d'accès
    */
-  private async refreshAccessToken(): Promise<void> {
-    const refreshToken = typeof window !== 'undefined' 
-      ? localStorage.getItem('refreshToken') 
+  private refreshAccessToken(
+    expectedAccessToken?: string | null,
+    expectedRefreshToken?: string | null
+  ): Promise<void> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.performRefreshAccessToken(expectedAccessToken, expectedRefreshToken).finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+
+    return this.refreshPromise;
+  }
+
+  private async performRefreshAccessToken(
+    expectedAccessToken?: string | null,
+    expectedRefreshToken?: string | null
+  ): Promise<void> {
+    const runRefresh = async () => {
+      const currentRefreshToken = typeof window !== 'undefined'
+        ? localStorage.getItem('refreshToken')
+        : null;
+      const currentAccessToken = this.getToken();
+
+      if (!currentRefreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      // The lock may have been acquired after another tab already refreshed.
+      if (
+        currentAccessToken &&
+        ((expectedAccessToken !== undefined && currentAccessToken !== expectedAccessToken) ||
+          (expectedRefreshToken && currentRefreshToken !== expectedRefreshToken))
+      ) {
+        this.setToken(currentAccessToken);
+        return;
+      }
+
+      // The refresh endpoint is called through the same instance so its URL,
+      // cookies and gateway routing remain identical, while its 401 is left to
+      // the caller to handle conditionally.
+      const response = await this.instance.post('/auth/refresh', {
+        refreshToken: currentRefreshToken,
+      }, {
+        _retry: true,
+      } as any);
+
+      const accessToken = response.data?.data?.accessToken || response.data?.accessToken;
+      const newRefreshToken = response.data?.data?.refreshToken || response.data?.refreshToken;
+      if (!accessToken) {
+        throw new Error('No access token in refresh response');
+      }
+
+      // Do not let an older refresh response overwrite a session created by a
+      // newer login in another tab.
+      const latestRefreshToken = typeof window !== 'undefined'
+        ? localStorage.getItem('refreshToken')
+        : null;
+      if (latestRefreshToken && latestRefreshToken !== currentRefreshToken) {
+        return;
+      }
+
+      this.setToken(accessToken);
+      if (newRefreshToken && typeof window !== 'undefined') {
+        localStorage.setItem('refreshToken', newRefreshToken);
+      }
+    };
+
+    const lockManager = typeof navigator !== 'undefined'
+      ? (navigator as Navigator & { locks?: { request: <T>(name: string, callback: () => Promise<T>) => Promise<T> } }).locks
+      : undefined;
+
+    if (lockManager?.request) {
+      await lockManager.request('parabellum-auth-refresh', runRefresh);
+      return;
+    }
+
+    await runRefresh();
+  }
+
+  private retryRequestWithToken(requestConfig: any, token: string): Promise<AxiosResponse> {
+    requestConfig._retry = true;
+    requestConfig.__authAccessTokenAtRequest = token;
+    requestConfig.__authRefreshTokenAtRequest = typeof window !== 'undefined'
+      ? localStorage.getItem('refreshToken')
       : null;
 
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
+    if (requestConfig.headers) {
+      if (typeof requestConfig.headers.set === 'function') {
+        requestConfig.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        requestConfig.headers.Authorization = `Bearer ${token}`;
+      }
     }
 
-    // On utilise l'instance directement pour éviter l'intercepteur de réponse qui pourrait boucler
-    const response = await this.instance.post('/auth/refresh', {
-      refreshToken,
-    }, {
-      _retry: true,
-    } as any);
+    return this.instance.request(requestConfig);
+  }
 
-    const accessToken = response.data?.data?.accessToken || response.data?.accessToken;
-    if (!accessToken) {
-      throw new Error('No access token in refresh response');
+  private handleUnauthorizedIfCurrent(
+    expectedAccessToken?: string | null,
+    expectedRefreshToken?: string | null
+  ): void {
+    const currentAccessToken = this.getToken();
+    const currentRefreshToken = typeof window !== 'undefined'
+      ? localStorage.getItem('refreshToken')
+      : null;
+
+    if (
+      (expectedAccessToken !== undefined && currentAccessToken !== expectedAccessToken) ||
+      (expectedRefreshToken !== undefined && currentRefreshToken !== expectedRefreshToken)
+    ) {
+      return;
     }
-    this.setToken(accessToken);
-    
-    // Également mettre à jour le refreshToken si fourni
-    const newRefreshToken = response.data?.data?.refreshToken || response.data?.refreshToken;
-    if (newRefreshToken && typeof window !== 'undefined') {
-      localStorage.setItem('refreshToken', newRefreshToken);
-    }
+
+    this.handleUnauthorized();
   }
 
   /**

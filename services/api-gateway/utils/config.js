@@ -25,7 +25,8 @@ const config = {
     HR: process.env.HR_SERVICE_URL || 'http://host.docker.internal:8001',
     BILLING: process.env.BILLING_SERVICE_URL || 'http://localhost:4010',
     ANALYTICS: process.env.ANALYTICS_SERVICE_URL || 'http://localhost:4011',
-    NOTIFICATIONS: process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:4012'
+    NOTIFICATIONS: process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:4012',
+    OPERATIONAL_REQUESTS: process.env.OPERATIONAL_REQUESTS_SERVICE_URL || 'http://localhost:4013'
   },
   
   RATE_LIMIT: {

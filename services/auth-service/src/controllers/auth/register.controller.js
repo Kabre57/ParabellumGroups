@@ -1,5 +1,5 @@
 // Inscrit un compte utilisateur et crée sa première session.
-const { validationResult, prisma, hashPassword, generateAccessToken, generateRefreshToken, getUserPermissionNames } = require('./shared');
+const { validationResult, prisma, hashPassword, generateAccessToken, generateRefreshToken, getRefreshTokenExpiresAt, setStorageAccessCookie, getUserPermissionNames } = require('./shared');
 
 const register = async (req, res) => {
   try {
@@ -86,11 +86,13 @@ const register = async (req, res) => {
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: getRefreshTokenExpiresAt(refreshToken),
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }
     });
+
+    setStorageAccessCookie(res, accessToken);
 
     return res.status(201).json({
       success: true,

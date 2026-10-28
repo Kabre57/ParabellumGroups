@@ -579,6 +579,7 @@ model AccountingAccount {
   mappings         AccountingMapping[]
   familyRules      AccountingFamilyRule[]
   treasuryAccounts TreasuryAccount[]
+  cashVoucherCounterparts CashVoucher[] @relation("CashVoucherCounterpart")
 
   @@unique([code, enterpriseId])
   @@index([type])
@@ -941,6 +942,7 @@ model CashVoucher {
   paymentMethod     MethodePaiement
   flowType          CashVoucherFlowType @default(DECAISSEMENT)
   treasuryAccountId String?
+  counterpartAccountId String?
   status            CashVoucherStatus   @default(BROUILLON)
   issueDate         DateTime            @default(now())
   disbursementDate  DateTime?
@@ -953,12 +955,14 @@ model CashVoucher {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  treasuryAccount TreasuryAccount? @relation(fields: [treasuryAccountId], references: [id])
+  treasuryAccount    TreasuryAccount?   @relation(fields: [treasuryAccountId], references: [id])
+  counterpartAccount AccountingAccount? @relation("CashVoucherCounterpart", fields: [counterpartAccountId], references: [id], onDelete: SetNull)
 
   @@index([enterpriseId])
   @@index([issueDate])
   @@index([status])
   @@index([treasuryAccountId])
+  @@index([counterpartAccountId])
   @@map("cash_vouchers")
 }
 

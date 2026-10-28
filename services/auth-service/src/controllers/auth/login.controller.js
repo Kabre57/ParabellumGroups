@@ -1,5 +1,5 @@
 // Vérifie les identifiants et ouvre une session utilisateur.
-const { validationResult, prisma, comparePassword, generateAccessToken, generateRefreshToken, getUserPermissionNames } = require('./shared');
+const { validationResult, prisma, comparePassword, generateAccessToken, generateRefreshToken, getRefreshTokenExpiresAt, setStorageAccessCookie, getUserPermissionNames } = require('./shared');
 
 const login = async (req, res) => {
   try {
@@ -99,11 +99,13 @@ const login = async (req, res) => {
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: getRefreshTokenExpiresAt(refreshToken),
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       }
     });
+
+    setStorageAccessCookie(res, accessToken);
 
     return res.status(200).json({
       success: true,

@@ -124,7 +124,12 @@ exports.uploadSupplierInvoice = async (req, res) => {
       return res.status(404).json({ error: 'Réception non trouvée' });
     }
 
-    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'receptions');
+    const enterpriseId = Number(req.headers['x-enterprise-id'] || req.user?.enterpriseId);
+    if (!Number.isInteger(enterpriseId) || enterpriseId <= 0) {
+      return res.status(400).json({ error: 'Sélectionnez une entreprise active avant l’upload' });
+    }
+
+    const url = await uploadToS3(req.file.buffer, req.file.mimetype, 'receptions', enterpriseId);
     if (!url) {
       return res.status(500).json({ error: 'Impossible de téléverser la facture fournisseur' });
     }

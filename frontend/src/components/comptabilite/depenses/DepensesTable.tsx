@@ -19,8 +19,8 @@ export interface DepensesTableProps {
   onTabChange: (tab: string) => void;
   filteredCommitments: PurchaseCommitment[];
   filteredVouchers: any[];
-  filteredEncaissements: Encaissement[];
-  filteredDecaissements: Decaissement[];
+  filteredEncaissements: any[];
+  filteredDecaissements: any[];
   consolidatedRows: any[];
   showEnterpriseColumn: boolean;
   canMutate: boolean;
