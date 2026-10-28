@@ -14,6 +14,7 @@ import {
 
 interface OperationalRequestDetailProps {
   request: OperationalRequest | null;
+  typeLabel?: string;
   currentUserId: string;
   canReview: boolean;
   canReturn: boolean;
@@ -33,6 +34,7 @@ interface OperationalRequestDetailProps {
 
 export function OperationalRequestDetail({
   request,
+  typeLabel,
   currentUserId,
   canReview,
   canReturn,
@@ -67,7 +69,7 @@ export function OperationalRequestDetail({
             {request.requestNumber}
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-950">
-            {typeLabels[request.type] || request.type}
+            {typeLabel || typeLabels[request.type] || request.type}
           </h2>
         </div>
         <button

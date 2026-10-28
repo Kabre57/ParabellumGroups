@@ -28,6 +28,7 @@ export default function RequestTypesManagementPage() {
   const { selectedEnterprise } = useEnterprise();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<OperationalRequestTypeConfig | null>(null);
+  const [deletingType, setDeletingType] = useState<OperationalRequestTypeConfig | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: typesResponse, isLoading, error } = useQuery({
@@ -75,7 +76,15 @@ export default function RequestTypesManagementPage() {
   const createMutation = useMutation({
     mutationFn: (data: { label: string; code?: string; description?: string }) =>
       operationalRequestsService.createType(data),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      if (response?.data) {
+        queryClient.setQueryData(
+          ['operational-request-types-admin', selectedEnterprise?.id],
+          (current: any) => current && Array.isArray(current.data)
+            ? { ...current, data: [...current.data, response.data] }
+            : current
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['operational-request-types-admin'] });
       queryClient.invalidateQueries({ queryKey: ['operational-request-types'] });
       toast.success('Type de demande créé avec succès');
@@ -89,7 +98,20 @@ export default function RequestTypesManagementPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { label?: string; description?: string; isActive?: boolean } }) =>
       operationalRequestsService.updateType(id, data),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      if (response?.data) {
+        queryClient.setQueryData(
+          ['operational-request-types-admin', selectedEnterprise?.id],
+          (current: any) => current && Array.isArray(current.data)
+            ? {
+                ...current,
+                data: current.data.map((typeConfig: OperationalRequestTypeConfig) =>
+                  typeConfig.id === response.data.id ? response.data : typeConfig
+                ),
+              }
+            : current
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['operational-request-types-admin'] });
       queryClient.invalidateQueries({ queryKey: ['operational-request-types'] });
       toast.success('Type de demande mis à jour avec succès');
@@ -106,6 +128,7 @@ export default function RequestTypesManagementPage() {
       queryClient.invalidateQueries({ queryKey: ['operational-request-types-admin'] });
       queryClient.invalidateQueries({ queryKey: ['operational-request-types'] });
       toast.success(res?.message || 'Type supprimé avec succès');
+      setDeletingType(null);
     },
     onError: (mutationError: any) => {
       toast.error(mutationError?.response?.data?.message || 'Erreur lors de la suppression');
@@ -208,19 +231,12 @@ export default function RequestTypesManagementPage() {
               {filteredTypes.map((typeConfig) => (
                 <tr key={typeConfig.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 align-middle">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-blue-200 bg-blue-100 font-bold text-blue-700">
-                        {typeConfig.label.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-gray-900">{typeConfig.label}</div>
-                      </div>
-                    </div>
+                    <div className="text-sm font-bold text-gray-900">{typeConfig.label}</div>
                   </td>
-                  <td className="px-6 py-4 align-top text-sm text-gray-600">
+                  <td className="px-6 py-4 align-middle text-sm text-gray-600">
                     {typeConfig.description || <span className="text-gray-400 italic">Aucune description</span>}
                   </td>
-                  <td className="px-6 py-4 align-top">
+                  <td className="px-6 py-4 align-middle">
                     <span
                       className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
                         typeConfig.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -229,20 +245,18 @@ export default function RequestTypesManagementPage() {
                       {typeConfig.isActive ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 align-top text-right text-sm font-medium space-x-3">
+                  <td className="px-6 py-4 align-middle text-right text-sm font-medium space-x-3">
                     <button
+                      type="button"
                       className="text-blue-600 hover:text-blue-800"
                       onClick={() => handleOpenModal(typeConfig)}
                     >
                       Modifier
                     </button>
                     <button
+                      type="button"
                       className="text-red-600 hover:text-red-800"
-                      onClick={() => {
-                        if (confirm(`Supprimer ou désactiver le type "${typeConfig.label}" ?`)) {
-                          deleteMutation.mutate(typeConfig.id);
-                        }
-                      }}
+                      onClick={() => setDeletingType(typeConfig)}
                     >
                       Supprimer
                     </button>
@@ -317,6 +331,38 @@ export default function RequestTypesManagementPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deletingType && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              Confirmer la suppression
+            </h2>
+            <p className="text-sm text-gray-600">
+              Voulez-vous vraiment supprimer ou désactiver le type de demande{' '}
+              <span className="font-semibold text-gray-900">« {deletingType.label} »</span> ?
+            </p>
+            <div className="flex justify-end space-x-3 pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeletingType(null)}
+                disabled={deleteMutation.isPending}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deletingType.id)}
+              >
+                {deleteMutation.isPending ? 'Suppression...' : 'Supprimer'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

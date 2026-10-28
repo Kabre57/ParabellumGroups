@@ -80,7 +80,9 @@ export default function OperationalRequestsPage() {
   // Types dynamiques configurés
   const typesQuery = useQuery({
     queryKey: ['operational-request-types', selectedEnterprise?.id],
-    queryFn: () => operationalRequestsService.listTypes({ all: isAdmin }),
+    // Keep inactive types in the catalog so historical requests still display
+    // their configured label. The form filters inactive types separately.
+    queryFn: () => operationalRequestsService.listTypes({ all: true }),
     enabled: Boolean(selectedEnterprise),
   });
   const configuredTypes = Array.isArray(typesQuery.data?.data) ? typesQuery.data.data : [];
@@ -415,6 +417,7 @@ export default function OperationalRequestsPage() {
               <OperationalRequestCard
                 key={request.id}
                 request={request}
+                typeLabel={configuredTypes.find((typeConfig) => typeConfig.code === request.type)?.label}
                 isSelected={selectedId === request.id}
                 canViewRequester={canReadAll || canFinance}
                 onSelect={(id) => {
@@ -454,6 +457,9 @@ export default function OperationalRequestsPage() {
         <section className="min-w-0">
           <OperationalRequestDetail
             request={selectedRequest}
+            typeLabel={selectedRequest
+              ? configuredTypes.find((typeConfig) => typeConfig.code === selectedRequest.type)?.label
+              : undefined}
             currentUserId={String(user?.id)}
             canReview={canReview}
             canReturn={canReturn}

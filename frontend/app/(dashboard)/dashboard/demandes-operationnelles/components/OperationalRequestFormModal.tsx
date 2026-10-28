@@ -38,15 +38,7 @@ export function OperationalRequestFormModal({
 }: OperationalRequestFormModalProps) {
   if (!isOpen) return null;
 
-  const safeAvailableTypes =
-    Array.isArray(availableTypes) && availableTypes.length > 0
-      ? availableTypes
-      : [
-          { id: 'default-fuel', code: 'FUEL', label: 'Carburant', isActive: true },
-          { id: 'default-transport', code: 'TRANSPORT', label: 'Transport', isActive: true },
-          { id: 'default-mission', code: 'MISSION', label: 'Mission', isActive: true },
-          { id: 'default-other', code: 'OTHER', label: 'Autre dépense opérationnelle', isActive: true },
-        ];
+  const safeAvailableTypes = Array.isArray(availableTypes) ? availableTypes : [];
 
   return (
     <div
@@ -96,6 +88,11 @@ export function OperationalRequestFormModal({
                 </option>
               ))}
             </select>
+            {safeAvailableTypes.length === 0 && (
+              <span className="mt-1 block text-xs font-normal text-amber-700">
+                Aucun type actif n’est configuré pour cette entreprise.
+              </span>
+            )}
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -177,7 +174,7 @@ export function OperationalRequestFormModal({
             <Button type="button" variant="outline" className="min-h-11" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" className="min-h-11" disabled={isSaving}>
+            <Button type="submit" className="min-h-11" disabled={isSaving || safeAvailableTypes.length === 0}>
               {isSaving
                 ? 'Enregistrement…'
                 : isEditing
