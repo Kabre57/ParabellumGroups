@@ -17,9 +17,9 @@ const createOperationalRequestRouter = (prisma) => {
 
   // Type configuration routes
   router.get('/types', typeController.listTypes);
-  router.post('/types', requirePermission('operational_requests.create'), typeController.createType);
-  router.put('/types/:id', requirePermission('operational_requests.create'), typeController.updateType);
-  router.delete('/types/:id', requirePermission('operational_requests.create'), typeController.deleteType);
+  router.post('/types', requirePermission('operational_requests.manage_types'), typeController.createType);
+  router.put('/types/:id', requirePermission('operational_requests.manage_types'), typeController.updateType);
+  router.delete('/types/:id', requirePermission('operational_requests.manage_types'), typeController.deleteType);
 
   router.get(
     '/',

@@ -14,10 +14,10 @@ const operationalRequestPermissionRules = [
   {
     pattern: /^\/operational-requests\/types(?:\/[^/]+)?$/,
     permissions: {
-      GET: ['operational_requests.read_own', 'operational_requests.read_all', 'operational_requests.create', 'operational_requests.finance'],
-      POST: 'operational_requests.create',
-      PUT: 'operational_requests.create',
-      DELETE: 'operational_requests.create',
+      GET: ['operational_requests.read_own', 'operational_requests.read_all', 'operational_requests.create', 'operational_requests.finance', 'operational_requests.manage_types'],
+      POST: 'operational_requests.manage_types',
+      PUT: 'operational_requests.manage_types',
+      DELETE: 'operational_requests.manage_types',
     },
   },
   {

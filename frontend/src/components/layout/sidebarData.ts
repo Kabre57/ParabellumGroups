@@ -160,6 +160,7 @@ export const quickAccessItems: SidebarItem[] = [
 
 export const adminNavigation: SidebarItem[] = [
   { name: 'Entreprises', href: '/dashboard/admin/enterprises', icon: Building2, permission: ['enterprises.read', 'enterprises.read_all'] },
+  { name: 'Types de Demande', href: '/dashboard/admin/types-demandes', icon: ClipboardList, permission: ['operational_requests.manage_types'] },
   { name: 'Utilisateurs', href: '/dashboard/admin/users', icon: Users, permission: ['users.read', 'users.read_all', 'users.read_own', 'permissions.manage'] },
   { name: 'Rôles', href: '/dashboard/admin/roles-management', icon: Shield, permission: ['roles.read', 'roles.manage_permissions'] },
   { name: 'Services', href: '/dashboard/admin/services', icon: Building2, permission: ['services.read', 'services.read_all'] },

@@ -12,6 +12,7 @@ const groups = {
       { name: 'operational_requests.return', description: 'Retourner une demande pour complément' },
       { name: 'operational_requests.finance', description: 'Traiter les demandes approuvées et lier un bon de caisse' },
       { name: 'operational_requests.manage_attachments', description: 'Ajouter des justificatifs aux demandes opérationnelles' },
+      { name: 'operational_requests.manage_types', description: 'Configurer les types de demande opérationnelle (Administration)' },
     ],
   },
 };

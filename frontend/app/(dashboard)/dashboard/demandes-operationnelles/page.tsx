@@ -37,6 +37,7 @@ export default function OperationalRequestsPage() {
   const canReturn = !isAdmin && permissionSet.has('operational_requests.return');
   const canFinance = permissionSet.has('operational_requests.finance');
   const canAttach = permissionSet.has('operational_requests.manage_attachments');
+  const canManageTypes = isAdmin || permissionSet.has('operational_requests.manage_types');
 
   // #9 / D6 — Vue par défaut réactive dérivée du profil via useEffect
   const defaultView: ViewFilter = useMemo(
@@ -329,13 +330,15 @@ export default function OperationalRequestsPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {isAdmin && (
+          {canManageTypes && (
             <Button
               variant="outline"
               className="min-h-11 w-full sm:w-auto gap-2"
-              onClick={() => setShowTypesModal(true)}
+              asChild
             >
-              <Settings2 className="h-4 w-4" /> Types de demande
+              <a href="/dashboard/admin/types-demandes">
+                <Settings2 className="h-4 w-4" /> Gérer les types
+              </a>
             </Button>
           )}
           {canCreate && (

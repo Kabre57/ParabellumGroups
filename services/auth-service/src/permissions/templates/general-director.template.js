@@ -32,6 +32,7 @@ module.exports = [
   "operational_requests.reject",
   "operational_requests.return",
   "operational_requests.manage_attachments",
+  "operational_requests.manage_types",
   "purchases.read",
   "purchases.read_all",
   "services.read",
