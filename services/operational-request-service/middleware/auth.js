@@ -48,18 +48,87 @@ const requireAnyPermission = (...permissions) => (req, res, next) => {
   return fail(res, 403, 'Vous ne disposez pas de la permission nécessaire.');
 };
 
+const ENTERPRISE_CACHE_TTL_MS = 60 * 1000;
+let activeEnterprisesCache = {
+  url: null,
+  expiresAt: 0,
+  data: null,
+};
+
+const buildFallbackEnterprisesFromUser = (req) => {
+  const canReadAll = isAdmin(req.user) || hasPermission(req.user, 'enterprises.read_all');
+  const selectedId = Number(req.headers?.['x-enterprise-id']);
+  const userEnterpriseId = Number(req.user?.enterpriseId);
+  const fallbackMap = new Map();
+
+  if (Number.isInteger(userEnterpriseId) && userEnterpriseId > 0) {
+    fallbackMap.set(userEnterpriseId, {
+      id: userEnterpriseId,
+      name: req.user?.enterpriseName || `Entreprise #${userEnterpriseId}`,
+      isActive: true,
+      parentEnterpriseId: null,
+    });
+  }
+
+  if (canReadAll && Number.isInteger(selectedId) && selectedId > 0 && !fallbackMap.has(selectedId)) {
+    fallbackMap.set(selectedId, {
+      id: selectedId,
+      name: `Entreprise #${selectedId}`,
+      isActive: true,
+      parentEnterpriseId: null,
+    });
+  }
+
+  return [...fallbackMap.values()];
+};
+
+const fetchActiveEnterprisesList = async (req) => {
+  const authServiceUrl = String(process.env.AUTH_SERVICE_URL || 'http://localhost:4001').replace(/\/$/, '');
+  if (
+    activeEnterprisesCache.data &&
+    activeEnterprisesCache.url === authServiceUrl &&
+    activeEnterprisesCache.expiresAt > Date.now()
+  ) {
+    return activeEnterprisesCache.data;
+  }
+
+  try {
+    const response = await fetch(`${authServiceUrl}/api/enterprises?isActive=true`, {
+      headers: { Authorization: `Bearer ${req.token}` },
+    });
+    if (!response.ok) {
+      throw Object.assign(new Error('Impossible de vérifier le périmètre entreprise.'), { statusCode: 503 });
+    }
+    const payload = await response.json();
+    const enterprises = Array.isArray(payload?.data)
+      ? payload.data.filter((item) => item?.isActive !== false)
+      : [];
+    activeEnterprisesCache = {
+      url: authServiceUrl,
+      data: enterprises,
+      expiresAt: Date.now() + ENTERPRISE_CACHE_TTL_MS,
+    };
+    return enterprises;
+  } catch (error) {
+    if (activeEnterprisesCache.data && activeEnterprisesCache.url === authServiceUrl) {
+      return activeEnterprisesCache.data;
+    }
+    const fallback = buildFallbackEnterprisesFromUser(req);
+    if (fallback.length > 0) {
+      return fallback;
+    }
+    if (error?.statusCode) throw error;
+    throw Object.assign(new Error('Impossible de vérifier le périmètre entreprise.'), { statusCode: 503 });
+  }
+};
+
 const fetchAccessibleEnterprises = async (req) => {
   if (req.accessibleEnterprises) return req.accessibleEnterprises;
-  const response = await fetch(
-    `${String(process.env.AUTH_SERVICE_URL || 'http://localhost:4001').replace(/\/$/, '')}/api/enterprises?isActive=true`,
-    {
-      headers: { Authorization: `Bearer ${req.token}` },
-    }
-  );
-  if (!response.ok) throw Object.assign(new Error('Impossible de vérifier le périmètre entreprise.'), { statusCode: 503 });
-  const payload = await response.json();
-  const enterprises = Array.isArray(payload?.data) ? payload.data.filter((item) => item?.isActive !== false) : [];
-  const canReadAll = isAdmin(req.user) || hasPermission(req.user, 'enterprises.read_all');
+  const enterprises = await fetchActiveEnterprisesList(req);
+  const canReadAll =
+    isAdmin(req.user) ||
+    hasPermission(req.user, 'enterprises.read_all') ||
+    hasPermission(req.user, 'enterprises.read');
   if (canReadAll) {
     req.accessibleEnterprises = enterprises;
     return enterprises;

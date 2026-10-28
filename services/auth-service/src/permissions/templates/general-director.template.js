@@ -1,4 +1,6 @@
 module.exports = [
+  "enterprises.read",
+  "enterprises.read_all",
   "dashboard.read",
   "operational_requests.create",
   "operational_requests.read_own",

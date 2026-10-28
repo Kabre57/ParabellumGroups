@@ -56,7 +56,7 @@ const registerLimiter = rateLimit({
  */
 const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: parseInt(process.env.REFRESH_RATE_LIMIT_MAX) || 300,
   message: {
     success: false,
     error: 'Trop de rafraîchissements de token. Veuillez réessayer plus tard.'
@@ -72,7 +72,7 @@ const refreshLimiter = rateLimit({
  */
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: parseInt(process.env.GLOBAL_RATE_LIMIT_MAX) || 1500,
   message: {
     success: false,
     error: 'Trop de requêtes. Veuillez ralentir.'

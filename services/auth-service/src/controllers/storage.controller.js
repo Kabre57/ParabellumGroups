@@ -27,9 +27,22 @@ const parsePositiveId = (value) => {
 
 const isGlobalAdmin = (user) => {
   const role = typeof user?.role === 'string' ? user.role : user?.role?.code || user?.role?.name;
-  return new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']).has(
-    String(role || '').trim().toUpperCase()
-  );
+  if (
+    new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']).has(
+      String(role || '').trim().toUpperCase()
+    )
+  ) {
+    return true;
+  }
+  const permissions = Array.isArray(user?.permissions)
+    ? user.permissions
+    : Array.isArray(user?.permissionsList)
+      ? user.permissionsList
+      : [];
+  return permissions.some((p) => {
+    const normalized = String(p || '').trim().toLowerCase();
+    return normalized === '*' || normalized === 'enterprises.read_all' || normalized === 'enterprises.read';
+  });
 };
 
 const isEnterpriseInUserScope = async (enterpriseId, userEnterpriseId) => {
@@ -81,15 +94,28 @@ const serveStorageObject = async (req, res) => {
     const metadataEnterpriseId = parsePositiveId(object.Metadata?.enterpriseid);
     const requestedEnterpriseId = parsePositiveId(req.query?.enterpriseId);
     const isAdmin = isGlobalAdmin(req.user);
-    const ownerEnterpriseId = metadataEnterpriseId || (isAdmin ? requestedEnterpriseId : null);
+    const isEnterpriseAsset = target.key.startsWith('enterprises/');
+
+    let inferredEnterpriseId = metadataEnterpriseId || requestedEnterpriseId;
+    if (!inferredEnterpriseId && isEnterpriseAsset) {
+      const matchedEnterprise = await prisma.enterprise.findFirst({
+        where: { logoUrl: { contains: target.key } },
+        select: { id: true },
+      });
+      inferredEnterpriseId = parsePositiveId(matchedEnterprise?.id);
+    }
+
+    const ownerEnterpriseId = metadataEnterpriseId || (isAdmin || isEnterpriseAsset ? inferredEnterpriseId : null);
     const requestedOwnerMatches =
       !requestedEnterpriseId || !metadataEnterpriseId || requestedEnterpriseId === metadataEnterpriseId;
+    const effectiveEnterpriseId = metadataEnterpriseId || inferredEnterpriseId;
     const authorized = isAdmin
       ? requestedOwnerMatches
       : Boolean(
-          metadataEnterpriseId &&
-            requestedEnterpriseId === metadataEnterpriseId &&
-            (await isEnterpriseInUserScope(metadataEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
+          effectiveEnterpriseId &&
+            requestedOwnerMatches &&
+            (isEnterpriseAsset || requestedEnterpriseId === effectiveEnterpriseId) &&
+            (await isEnterpriseInUserScope(effectiveEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
         );
 
     if (!authorized || (ownerEnterpriseId && !(await prisma.enterprise.findUnique({

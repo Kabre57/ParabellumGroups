@@ -64,7 +64,7 @@ const createOperationalRequestController = (prisma) => {
       }
       if (req.query.mine === 'true') where.requesterId = actorId(req);
       if (req.query.status && STATUSES.has(String(req.query.status))) where.status = String(req.query.status);
-      if (req.query.type && TYPES.has(String(req.query.type))) where.type = String(req.query.type);
+      if (req.query.type && String(req.query.type).trim()) where.type = String(req.query.type).trim();
       if (req.query.search) {
         const search = String(req.query.search).trim().slice(0, 100);
         where.OR = [

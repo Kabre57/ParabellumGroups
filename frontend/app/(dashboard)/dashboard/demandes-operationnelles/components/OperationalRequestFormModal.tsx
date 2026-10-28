@@ -38,6 +38,16 @@ export function OperationalRequestFormModal({
 }: OperationalRequestFormModalProps) {
   if (!isOpen) return null;
 
+  const safeAvailableTypes =
+    Array.isArray(availableTypes) && availableTypes.length > 0
+      ? availableTypes
+      : [
+          { id: 'default-fuel', code: 'FUEL', label: 'Carburant', isActive: true },
+          { id: 'default-transport', code: 'TRANSPORT', label: 'Transport', isActive: true },
+          { id: 'default-mission', code: 'MISSION', label: 'Mission', isActive: true },
+          { id: 'default-other', code: 'OTHER', label: 'Autre dépense opérationnelle', isActive: true },
+        ];
+
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-3 sm:p-8"
@@ -78,12 +88,10 @@ export function OperationalRequestFormModal({
               required
             >
               <option value="" disabled>
-                {availableTypes.length === 0
-                  ? 'Aucun type configuré (veuillez contacter un administrateur)'
-                  : 'Sélectionnez un type de demande...'}
+                Sélectionnez un type de demande...
               </option>
-              {availableTypes.map((typeConfig) => (
-                <option key={typeConfig.id} value={typeConfig.code}>
+              {safeAvailableTypes.map((typeConfig) => (
+                <option key={typeConfig.id || typeConfig.code} value={typeConfig.code}>
                   {typeConfig.label}
                 </option>
               ))}
@@ -143,23 +151,25 @@ export function OperationalRequestFormModal({
             />
           </label>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {typeDetails[form.type].map((field) => (
-              <label key={field.key} className="block text-sm font-medium text-slate-800">
-                {field.label}
-                <Input
-                  value={form.details[field.key] || ''}
-                  onChange={(event) =>
-                    onChange((current) => ({
-                      ...current,
-                      details: { ...current.details, [field.key]: event.target.value },
-                    }))
-                  }
-                  className="mt-1 min-h-11"
-                />
-              </label>
-            ))}
-          </div>
+          {(typeDetails[form.type] ?? []).length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(typeDetails[form.type] ?? []).map((field) => (
+                <label key={field.key} className="block text-sm font-medium text-slate-800">
+                  {field.label}
+                  <Input
+                    value={form.details[field.key] || ''}
+                    onChange={(event) =>
+                      onChange((current) => ({
+                        ...current,
+                        details: { ...current.details, [field.key]: event.target.value },
+                      }))
+                    }
+                    className="mt-1 min-h-11"
+                  />
+                </label>
+              ))}
+            </div>
+          )}
 
           {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
 

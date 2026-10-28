@@ -171,9 +171,9 @@ export function OperationalRequestDetail({
               </label>
             )}
         </div>
-        {request.attachments.length ? (
+        {(request.attachments ?? []).length ? (
           <ul className="space-y-2">
-            {request.attachments.map((attachment) => (
+            {(request.attachments ?? []).map((attachment) => (
               <li key={attachment.id} className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm">
                 <a
                   href={attachment.url}
@@ -197,7 +197,7 @@ export function OperationalRequestDetail({
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-slate-900">Historique</h3>
         <ol className="space-y-3 border-l border-slate-200 pl-4">
-          {request.approvalLogs.map((log) => (
+          {(request.approvalLogs ?? []).map((log) => (
             <li key={log.id} className="relative text-sm">
               <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-500 ring-1 ring-blue-300" />
               <p className="font-medium text-slate-800">

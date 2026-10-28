@@ -4,14 +4,16 @@
  * pour être utilisé dans les composants d'impression.
  */
 import { useAuth } from './useAuth';
+import { useEnterprise } from '../providers/EnterpriseProvider';
 
 const DEFAULT_LOGO = '/parabellum.jpg';
 const DEFAULT_COMPANY = 'Parabellum Groups';
 
 export function useEnterpriseLogo() {
   const { user } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
 
-  const enterprise = user?.enterprise;
+  const enterprise = selectedEnterprise || user?.enterprise;
   const logoUrl = enterprise?.logoUrl || null;
   const companyName = enterprise?.name || DEFAULT_COMPANY;
 

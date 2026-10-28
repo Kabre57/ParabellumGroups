@@ -17,7 +17,6 @@ import {
 
 const typeConfigSchema = z.object({
   label: z.string().min(2, 'Le libellé doit contenir au moins 2 caractères'),
-  code: z.string().max(50, 'Le code ne doit pas dépasser 50 caractères').optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -37,13 +36,12 @@ export default function RequestTypesManagementPage() {
     enabled: Boolean(selectedEnterprise),
   });
 
-  const types = typesResponse?.data ?? [];
+  const types = Array.isArray(typesResponse?.data) ? typesResponse.data : [];
 
   const form = useForm<TypeConfigFormData>({
     resolver: zodResolver(typeConfigSchema),
     defaultValues: {
       label: '',
-      code: '',
       description: '',
       isActive: true,
     },
@@ -54,7 +52,6 @@ export default function RequestTypesManagementPage() {
       setEditingType(typeConfig);
       form.reset({
         label: typeConfig.label,
-        code: typeConfig.code,
         description: typeConfig.description || '',
         isActive: typeConfig.isActive,
       });
@@ -62,7 +59,6 @@ export default function RequestTypesManagementPage() {
       setEditingType(null);
       form.reset({
         label: '',
-        code: '',
         description: '',
         isActive: true,
       });
@@ -129,7 +125,6 @@ export default function RequestTypesManagementPage() {
     } else {
       createMutation.mutate({
         label: values.label,
-        code: values.code || undefined,
         description: values.description || undefined,
       });
     }
@@ -140,7 +135,7 @@ export default function RequestTypesManagementPage() {
     if (!query) return types;
 
     return types.filter((t) =>
-      [t.label, t.code, t.description].filter(Boolean).some((field) => field?.toLowerCase().includes(query))
+      [t.label, t.description].filter(Boolean).some((field) => field?.toLowerCase().includes(query))
     );
   }, [types, search]);
 
@@ -184,7 +179,7 @@ export default function RequestTypesManagementPage() {
         <div className="p-4 border-b">
           <Input
             type="search"
-            placeholder="Rechercher un type, un code ou un libellé..."
+            placeholder="Rechercher un type ou un libellé..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="max-w-xl"
@@ -196,7 +191,7 @@ export default function RequestTypesManagementPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Code & Libellé
+                  Libellé
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Description
@@ -212,14 +207,13 @@ export default function RequestTypesManagementPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTypes.map((typeConfig) => (
                 <tr key={typeConfig.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 align-top">
-                    <div className="flex items-start gap-3">
+                  <td className="px-6 py-4 align-middle">
+                    <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-blue-200 bg-blue-100 font-bold text-blue-700">
-                        {typeConfig.code.slice(0, 2)}
+                        {typeConfig.label.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-gray-900">{typeConfig.label}</div>
-                        <div className="text-xs font-mono text-gray-500">{typeConfig.code}</div>
                       </div>
                     </div>
                   </td>
@@ -286,20 +280,6 @@ export default function RequestTypesManagementPage() {
                   <p className="text-red-500 text-xs mt-1">{form.formState.errors.label.message}</p>
                 )}
               </div>
-
-              {!editingType && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Code interne (facultatif)</label>
-                  <Input
-                    {...form.register('code')}
-                    placeholder="Ex: PROCUREMENT"
-                    className="mt-1"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Généré automatiquement si vide (ex: ACHATS_APPROVISIONNEMENT).
-                  </p>
-                </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Description</label>

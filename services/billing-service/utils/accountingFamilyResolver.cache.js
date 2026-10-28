@@ -245,31 +245,35 @@ const loadAccountingFamilyDefinitions = async (client, { enterpriseId = null, fo
   );
 
   if (client.accountingFamilyDefinition) {
-    const storedDefinitions = await client.accountingFamilyDefinition.findMany({
-      where: eid === null
-        ? { enterpriseId: null }
-        : {
-            OR: [
-              { enterpriseId: eid },
-              { enterpriseId: null, isSystem: true },
-            ],
-          },
-      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
-    });
+    try {
+      const storedDefinitions = await client.accountingFamilyDefinition.findMany({
+        where: eid === null
+          ? { enterpriseId: null }
+          : {
+              OR: [
+                { enterpriseId: eid },
+                { enterpriseId: null, isSystem: true },
+              ],
+            },
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      });
 
-    storedDefinitions.forEach((definition) => {
-      definitions.set(
-        definition.code,
-        normalizeFamilyDefinition(definition.code, {
-          label: definition.label,
-          description: definition.description,
-          displayType: definition.displayType,
-          accountType: definition.accountType,
-          isSystem: definition.isSystem,
-          sortOrder: definition.sortOrder,
-        })
-      );
-    });
+      storedDefinitions.forEach((definition) => {
+        definitions.set(
+          definition.code,
+          normalizeFamilyDefinition(definition.code, {
+            label: definition.label,
+            description: definition.description,
+            displayType: definition.displayType,
+            accountType: definition.accountType,
+            isSystem: definition.isSystem,
+            sortOrder: definition.sortOrder,
+          })
+        );
+      });
+    } catch (error) {
+      console.warn('[AccountingFamilyCache] Fallback to default family definitions:', error.message);
+    }
   }
 
   familyDefinitionsCache.set(cacheKey, definitions);
@@ -293,14 +297,21 @@ const loadAccountingFamilyRules = async (client, { enterpriseId = null, force = 
   }
 
   const definitions = await loadAccountingFamilyDefinitions(client, { enterpriseId: eid, force });
-  const rules = await client.accountingFamilyRule.findMany({
-    where: { enterpriseId: eid },
-    include: {
-      account: true,
-      familyDefinition: true,
-    },
-    orderBy: [{ family: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }],
-  });
+  let rules = [];
+  if (client.accountingFamilyRule) {
+    try {
+      rules = await client.accountingFamilyRule.findMany({
+        where: { enterpriseId: eid },
+        include: {
+          account: true,
+          familyDefinition: true,
+        },
+        orderBy: [{ family: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }],
+      });
+    } catch (error) {
+      console.warn('[AccountingFamilyCache] Fallback to empty family rules:', error.message);
+    }
+  }
   const orderedRules = [...rules].sort((left, right) => {
     const leftScopeRank = eid !== null && Number(left.enterpriseId) === eid ? 0 : 1;
     const rightScopeRank = eid !== null && Number(right.enterpriseId) === eid ? 0 : 1;

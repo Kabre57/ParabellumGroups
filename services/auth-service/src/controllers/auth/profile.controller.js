@@ -1,5 +1,5 @@
 // Lit et met à jour le profil de l’utilisateur connecté.
-const { prisma, getUserPermissionNames } = require('./shared');
+const { prisma, getUserPermissionNames, setStorageAccessCookie } = require('./shared');
 
 const getCurrentUser = async (req, res) => {
   try {
@@ -61,6 +61,17 @@ const getCurrentUser = async (req, res) => {
     }
 
     const permissionsList = await getUserPermissionNames(user.id);
+
+    const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.substring(7)
+      : null;
+    if (bearerToken) {
+      try {
+        setStorageAccessCookie(res, bearerToken);
+      } catch {
+        // Ignore if token has no standard exp claim
+      }
+    }
 
     return res.status(200).json({
       success: true,

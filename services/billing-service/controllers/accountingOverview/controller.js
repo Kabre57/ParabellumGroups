@@ -41,10 +41,17 @@ exports.getAccountingOverview = async (req, res) => {
       accountingReports,
     }));
   } catch (error) {
-    console.error('Erreur récupération overview comptable:', error.message);
-    return res.status(500).json({
+    console.error('Erreur récupération overview comptable:', error);
+    const statusCode =
+      Number.isInteger(error?.statusCode) && error.statusCode >= 400 && error.statusCode < 600
+        ? error.statusCode
+        : 500;
+    return res.status(statusCode).json({
       success: false,
-      message: 'Erreur lors de la génération de la vue comptable',
+      message:
+        statusCode < 500 && error?.message
+          ? error.message
+          : 'Erreur lors de la génération de la vue comptable',
     });
   }
 };

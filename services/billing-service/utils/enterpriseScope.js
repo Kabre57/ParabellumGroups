@@ -29,27 +29,82 @@ const isAdminUser = (user) => {
   return ADMIN_ROLE_CODES.has(String(role || '').trim().toUpperCase());
 };
 
+const canReadAllEnterprises = (user) => {
+  if (isAdminUser(user)) return true;
+  const permissions = Array.isArray(user?.permissions)
+    ? user.permissions
+    : Array.isArray(user?.permissionsList)
+      ? user.permissionsList
+      : [];
+  return permissions.some((p) => {
+    const normalized = String(p || '').trim().toLowerCase();
+    return normalized === '*' || normalized === 'enterprises.read_all' || normalized === 'enterprises.read';
+  });
+};
+
 const getHeaderEnterpriseId = (req) =>
   parseEnterpriseId(req.headers?.['x-enterprise-id'] || req.headers?.['X-Enterprise-Id']);
+
+const buildFallbackEnterpriseList = (req) => {
+  const candidates = new Map();
+  const userEnterpriseId = parseEnterpriseId(req.user?.enterpriseId ?? req.user?.enterprise?.id);
+  const headerEnterpriseId = getHeaderEnterpriseId(req);
+  const queryEnterpriseId = parseEnterpriseId(req.query?.enterpriseId || req.body?.enterpriseId);
+
+  if (userEnterpriseId) {
+    candidates.set(userEnterpriseId, {
+      id: userEnterpriseId,
+      name: req.user?.enterpriseName || req.user?.enterprise?.name || null,
+      parentEnterpriseId: null,
+      isActive: true,
+    });
+  }
+
+  if (canReadAllEnterprises(req.user)) {
+    for (const id of [headerEnterpriseId, queryEnterpriseId]) {
+      if (id && !candidates.has(id)) {
+        candidates.set(id, {
+          id,
+          name: null,
+          parentEnterpriseId: null,
+          isActive: true,
+        });
+      }
+    }
+  }
+
+  return Array.from(candidates.values());
+};
 
 const getEnterpriseList = async (req) => {
   if (enterpriseCache.data && enterpriseCache.expiresAt > Date.now()) {
     return enterpriseCache.data;
   }
 
-  const response = await axios.get(`${AUTH_SERVICE_URL}/api/enterprises`, {
-    headers: {
-      authorization: req.headers.authorization || '',
-    },
-  });
+  try {
+    const response = await axios.get(`${AUTH_SERVICE_URL}/api/enterprises`, {
+      headers: {
+        authorization: req.headers?.authorization || '',
+      },
+    });
 
-  const enterprises = Array.isArray(response.data?.data) ? response.data.data : [];
-  enterpriseCache = {
-    data: enterprises,
-    expiresAt: Date.now() + ENTERPRISE_CACHE_TTL_MS,
-  };
+    const enterprises = Array.isArray(response.data?.data) ? response.data.data : [];
+    enterpriseCache = {
+      data: enterprises,
+      expiresAt: Date.now() + ENTERPRISE_CACHE_TTL_MS,
+    };
 
-  return enterprises;
+    return enterprises;
+  } catch (error) {
+    if (Array.isArray(enterpriseCache.data) && enterpriseCache.data.length > 0) {
+      return enterpriseCache.data;
+    }
+    const fallback = buildFallbackEnterpriseList(req);
+    if (fallback.length > 0) {
+      return fallback;
+    }
+    throw error;
+  }
 };
 
 const collectDescendants = (childrenByParentId, parentId, bucket) => {
@@ -82,6 +137,10 @@ const computeScopedEnterpriseIds = (enterprises, rootEnterpriseId) => {
 };
 
 const getAccessibleEnterpriseIds = async (req) => {
+  if (canReadAllEnterprises(req.user)) {
+    return null;
+  }
+
   const rootEnterpriseId = parseEnterpriseId(req.user?.enterpriseId);
   if (!rootEnterpriseId) return null;
 
@@ -173,7 +232,7 @@ const resolveEnterpriseIdsForRequest = async (req, requestedEnterpriseId = req.q
 
   if (!scopedIds) {
     if (!normalizedRequestedEnterpriseId) return [];
-    if (!isAdminUser(req.user)) {
+    if (!canReadAllEnterprises(req.user)) {
       const error = new Error("Vous n'avez pas acces a cette entreprise.");
       error.statusCode = 403;
       throw error;

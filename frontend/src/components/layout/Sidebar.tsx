@@ -247,6 +247,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                   width={40}
                   height={40}
                   className="rounded-lg object-cover"
+                  onError={(event) => {
+                    if (!event.currentTarget.src.endsWith('/parabellum.jpg')) {
+                      event.currentTarget.src = '/parabellum.jpg';
+                    }
+                  }}
                 />
                 <div className="flex flex-col">
                   <h1 className="text-gray-900 dark:text-gray-100 text-base font-bold leading-tight">{companyName}</h1>

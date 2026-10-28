@@ -73,10 +73,24 @@ const createProxy = (target, pathRewriteConfig = {}) => {
         proxyReq.setHeader('Authorization', `Bearer ${req.query.token}`);
       }
 
-      // Propagate X-Enterprise-Id from incoming request
+      // Propagate X-Enterprise-Id from incoming request (or fallback to JWT user enterpriseId)
       const enterpriseIdHeader = req.headers['x-enterprise-id'];
       if (enterpriseIdHeader) {
         proxyReq.setHeader('X-Enterprise-Id', enterpriseIdHeader.toString());
+      } else if (req.user?.enterpriseId) {
+        proxyReq.setHeader('X-Enterprise-Id', req.user.enterpriseId.toString());
+      }
+
+      // Forward client IP and protocol headers to downstream services
+      const forwardedFor = req.headers['x-forwarded-for'] || req.ip;
+      if (forwardedFor) {
+        proxyReq.setHeader('X-Forwarded-For', forwardedFor.toString());
+      }
+      if (req.headers['x-real-ip']) {
+        proxyReq.setHeader('X-Real-IP', req.headers['x-real-ip'].toString());
+      }
+      if (req.headers['x-forwarded-proto']) {
+        proxyReq.setHeader('X-Forwarded-Proto', req.headers['x-forwarded-proto'].toString());
       }
 
       // Multipart bodies must remain streamed with their original boundary so

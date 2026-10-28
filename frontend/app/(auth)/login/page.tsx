@@ -54,8 +54,8 @@ export default function LoginPage() {
       setErrorField(null);
       const sanitizedEmail = data.email.trim().toLowerCase();
       const sanitizedPassword = data.password.normalize('NFC').trim();
-      await login(sanitizedEmail, sanitizedPassword);
       prepareForEnterpriseSelection();
+      await login(sanitizedEmail, sanitizedPassword);
       router.replace('/select-enterprise');
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);

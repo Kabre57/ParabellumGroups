@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { getPreferredServiceRoute } from '@/shared/dashboard-routing';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 import type { Enterprise } from '@/shared/providers/EnterpriseProvider';
 import { Building2, ChevronRight, Loader2, LogOut, CheckCircle2 } from 'lucide-react';
@@ -19,6 +20,7 @@ export default function SelectEnterprisePage() {
     refreshEnterprises,
   } = useEnterprise();
   const [selecting, setSelecting] = useState<string | null>(null);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
   // Rediriger vers login si non authentifié
   useEffect(() => {
@@ -32,7 +34,8 @@ export default function SelectEnterprisePage() {
     selectEnterprise(enterprise);
     // Petit délai pour l'animation
     await new Promise((r) => setTimeout(r, 300));
-    router.replace('/dashboard');
+    const targetRoute = getPreferredServiceRoute(user);
+    router.replace(targetRoute || '/dashboard');
   };
 
   const handleLogout = async () => {
@@ -115,12 +118,16 @@ export default function SelectEnterprisePage() {
                     >
                       {/* Logo / Initials */}
                       <div className="flex-shrink-0">
-                        {enterprise.logoUrl ? (
+                        {enterprise.logoUrl && !failedLogos[enterprise.logoUrl] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={enterprise.logoUrl}
                             alt={enterprise.name}
                             className="w-12 h-12 rounded-xl object-cover border border-white/20"
+                            onError={() => {
+                              const url = enterprise.logoUrl;
+                              if (url) setFailedLogos((prev) => ({ ...prev, [url]: true }));
+                            }}
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center border border-white/20 shadow-inner">

@@ -65,6 +65,7 @@ const createAuthMiddleware = (options = {}) => (req, res, next) => {
       roleCode: decoded.roleCode,
       serviceId: decoded.serviceId,
       serviceName: decoded.serviceName || decoded.service?.name || null,
+      enterpriseId: decoded.enterpriseId || null,
       permissions: decoded.permissions || decoded.permissionsList || []
     };
     next();

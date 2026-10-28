@@ -7,13 +7,14 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Spinner } from '@/components/ui/spinner';
-import { sidebarItems, adminNavigation } from '@/components/layout/sidebarData';
-import { hasAnyPermission, hasPermission, isAdminRole } from '@/shared/permissions';
+import { isAdminRole } from '@/shared/permissions';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 import {
   getFallbackDashboardRoute,
+  getMatchingNavItemsForPath,
   getPreferredAnalyticsRoute,
   getPreferredServiceRoute,
+  isPathAuthorized,
 } from '@/shared/dashboard-routing';
 
 interface DashboardLayoutProps {
@@ -31,21 +32,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const requiredPermission = useMemo(() => {
-    if (!pathname) return undefined;
-    const allItems = [...sidebarItems, ...adminNavigation].filter(item => item.href && item.permission);
-    const matches = allItems.filter(item =>
-      pathname === item.href || pathname.startsWith(`${item.href}/`)
-    );
-    matches.sort((a, b) => (b.href?.length || 0) - (a.href?.length || 0));
+    const matches = getMatchingNavItemsForPath(pathname);
     return matches[0]?.permission;
   }, [pathname]);
-  const isAuthorized = useMemo(() => {
-    if (!requiredPermission) return true;
-    if (Array.isArray(requiredPermission)) {
-      return hasAnyPermission(user, requiredPermission);
-    }
-    return hasPermission(user, requiredPermission);
-  }, [requiredPermission, user]);
+  const isAuthorized = useMemo(() => isPathAuthorized(user, pathname), [pathname, user]);
   const isAdmin = useMemo(() => isAdminRole(user), [user]);
   const preferredServiceRoute = useMemo(() => getPreferredServiceRoute(user), [user]);
   const preferredAnalyticsRoute = useMemo(() => getPreferredAnalyticsRoute(user), [user]);
@@ -78,23 +68,36 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (isLoading || !user || isAdmin) return;
-    if (pathname === '/dashboard' && preferredServiceRoute !== '/dashboard') {
+    if (
+      pathname === '/dashboard' &&
+      preferredServiceRoute !== '/dashboard' &&
+      isPathAuthorized(user, preferredServiceRoute)
+    ) {
       router.replace(preferredServiceRoute);
+      return;
     }
-    if (pathname === '/dashboard/analytics' && preferredAnalyticsRoute !== '/dashboard/analytics') {
+    if (
+      pathname === '/dashboard/analytics' &&
+      preferredAnalyticsRoute !== '/dashboard/analytics' &&
+      isPathAuthorized(user, preferredAnalyticsRoute)
+    ) {
       router.replace(preferredAnalyticsRoute);
+      return;
     }
-  }, [isAdmin, isLoading, pathname, preferredAnalyticsRoute, preferredServiceRoute, router, user]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!user) return;
-    if (!requiredPermission) return;
-    if (!isAuthorized) {
-      const target = fallbackRoute === pathname ? '/dashboard' : fallbackRoute;
-      router.replace(target);
+    if (!isAuthorized && fallbackRoute && fallbackRoute !== pathname && isPathAuthorized(user, fallbackRoute)) {
+      router.replace(fallbackRoute);
     }
-  }, [fallbackRoute, isLoading, isAuthorized, pathname, requiredPermission, router, user]);
+  }, [
+    fallbackRoute,
+    isAdmin,
+    isAuthorized,
+    isLoading,
+    pathname,
+    preferredAnalyticsRoute,
+    preferredServiceRoute,
+    router,
+    user,
+  ]);
 
   if (isLoading) {
     return (
@@ -118,7 +121,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     );
   }
-  if (!isAuthorized && requiredPermission) return null;
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
@@ -138,7 +140,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           */}
           <div className="w-full max-w-7xl mx-auto p-4 md:p-6">
             <div className="min-h-[calc(100vh-160px)]">
-              {children}
+              {!isAuthorized && requiredPermission ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
+                  <h2 className="text-lg font-semibold">Accès restreint</h2>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Vous ne disposez pas des permissions nécessaires pour accéder à cette section. Utilisez le menu latéral pour naviguer vers vos modules autorisés.
+                  </p>
+                </div>
+              ) : (
+                children
+              )}
             </div>
             
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">

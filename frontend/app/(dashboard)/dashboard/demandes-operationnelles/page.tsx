@@ -83,7 +83,7 @@ export default function OperationalRequestsPage() {
     queryFn: () => operationalRequestsService.listTypes({ all: isAdmin }),
     enabled: Boolean(selectedEnterprise),
   });
-  const configuredTypes = typesQuery.data?.data ?? [];
+  const configuredTypes = Array.isArray(typesQuery.data?.data) ? typesQuery.data.data : [];
 
   const listParams =
     view === 'mine'
@@ -100,7 +100,7 @@ export default function OperationalRequestsPage() {
     queryFn: () => operationalRequestsService.list(listParams),
     enabled: Boolean(selectedEnterprise),
   });
-  const requests = requestsQuery.data?.data ?? [];
+  const requests = Array.isArray(requestsQuery.data?.data) ? requestsQuery.data.data : [];
   const meta = requestsQuery.data?.meta;
 
   // singleRequestQuery est la SEULE source de vérité pour le détail
@@ -390,6 +390,20 @@ export default function OperationalRequestsPage() {
         <section className="space-y-3">
           {requestsQuery.isLoading ? (
             <div className="rounded-xl border bg-white p-8 text-center text-slate-500">Chargement des demandes…</div>
+          ) : requestsQuery.isError ? (
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-800">
+              <CircleAlert className="mx-auto mb-2 h-6 w-6 text-rose-600" />
+              <p className="font-medium">{getErrorMessage(requestsQuery.error)}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => void requestsQuery.refetch()}
+              >
+                Réessayer
+              </Button>
+            </div>
           ) : requests.length === 0 ? (
             <div className="rounded-xl border border-dashed bg-white p-8 text-center">
               <FileText className="mx-auto h-8 w-8 text-slate-300" />

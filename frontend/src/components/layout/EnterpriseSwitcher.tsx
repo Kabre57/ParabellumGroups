@@ -16,6 +16,7 @@ export const EnterpriseSwitcher: React.FC = () => {
     refreshEnterprises,
   } = useEnterprise();
   const [isOpen, setIsOpen] = useState(false);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fermer le dropdown si on clique dehors
@@ -102,12 +103,16 @@ export const EnterpriseSwitcher: React.FC = () => {
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        {selectedEnterprise.logoUrl ? (
+        {selectedEnterprise.logoUrl && !failedLogos[selectedEnterprise.logoUrl] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={selectedEnterprise.logoUrl}
             alt={selectedEnterprise.name}
             className="w-5 h-5 rounded object-cover flex-shrink-0"
+            onError={() => {
+              const url = selectedEnterprise.logoUrl;
+              if (url) setFailedLogos((prev) => ({ ...prev, [url]: true }));
+            }}
           />
         ) : (
           <div className="w-5 h-5 rounded bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
@@ -149,12 +154,16 @@ export const EnterpriseSwitcher: React.FC = () => {
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                     }`}
                   >
-                    {enterprise.logoUrl ? (
+                    {enterprise.logoUrl && !failedLogos[enterprise.logoUrl] ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={enterprise.logoUrl}
                         alt={enterprise.name}
                         className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
+                        onError={() => {
+                          const url = enterprise.logoUrl;
+                          if (url) setFailedLogos((prev) => ({ ...prev, [url]: true }));
+                        }}
                       />
                     ) : (
                       <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">

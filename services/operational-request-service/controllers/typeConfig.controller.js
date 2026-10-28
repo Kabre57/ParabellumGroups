@@ -1,6 +1,29 @@
 const { fail } = require('../utils/helpers');
 const { resolveActiveEnterprise } = require('../middleware/auth');
 
+const DEFAULT_REQUEST_TYPES = [
+  {
+    code: 'FUEL',
+    label: 'Carburant',
+    description: 'Dotation et remboursement carburant',
+  },
+  {
+    code: 'TRANSPORT',
+    label: 'Transport',
+    description: 'Déplacements, courses et logistique',
+  },
+  {
+    code: 'MISSION',
+    label: 'Mission',
+    description: 'Frais de mission et per diem',
+  },
+  {
+    code: 'OTHER',
+    label: 'Autre dépense opérationnelle',
+    description: 'Besoins opérationnels divers',
+  },
+];
+
 const createTypeConfigController = (prisma) => {
   const listTypes = async (req, res) => {
     try {
@@ -8,13 +31,38 @@ const createTypeConfigController = (prisma) => {
       const enterpriseId = Number(enterprise.id);
       const includeInactive = req.query.all === 'true';
 
-      const types = await prisma.operationalRequestTypeConfig.findMany({
+      let types = await prisma.operationalRequestTypeConfig.findMany({
         where: {
           enterpriseId,
           ...(includeInactive ? {} : { isActive: true }),
         },
         orderBy: { label: 'asc' },
       });
+
+      if (types.length === 0) {
+        const totalForEnterprise = await prisma.operationalRequestTypeConfig.count({
+          where: { enterpriseId },
+        });
+        if (totalForEnterprise === 0) {
+          await prisma.operationalRequestTypeConfig.createMany({
+            data: DEFAULT_REQUEST_TYPES.map((item) => ({
+              enterpriseId,
+              code: item.code,
+              label: item.label,
+              description: item.description,
+              isActive: true,
+            })),
+            skipDuplicates: true,
+          });
+          types = await prisma.operationalRequestTypeConfig.findMany({
+            where: {
+              enterpriseId,
+              ...(includeInactive ? {} : { isActive: true }),
+            },
+            orderBy: { label: 'asc' },
+          });
+        }
+      }
 
       return res.json({ success: true, data: types });
     } catch (error) {

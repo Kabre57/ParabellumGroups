@@ -24,12 +24,13 @@ export function ManageRequestTypesModal({
   onDeleteType,
 }: ManageRequestTypesModalProps) {
   const [label, setLabel] = useState('');
-  const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
+
+  const safeTypes = Array.isArray(types) ? types : [];
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -42,11 +43,9 @@ export function ManageRequestTypesModal({
     try {
       await onCreateType({
         label: label.trim(),
-        code: code.trim() || undefined,
         description: description.trim() || undefined,
       });
       setLabel('');
-      setCode('');
       setDescription('');
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Erreur lors de la création.');
@@ -84,26 +83,15 @@ export function ManageRequestTypesModal({
 
         <form onSubmit={handleCreate} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <h3 className="text-sm font-medium text-slate-800">Ajouter un nouveau type</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-medium text-slate-700">Libellé affiché *</label>
-              <Input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="Ex: Achats / Approvisionnement"
-                className="mt-1"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700">Code interne (facultatif)</label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="Ex: PROCUREMENT"
-                className="mt-1"
-              />
-            </div>
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-slate-700">Libellé affiché *</label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Ex: Achats / Approvisionnement"
+              className="mt-1"
+              required
+            />
           </div>
           <div className="mt-3">
             <label className="block text-xs font-medium text-slate-700">Description (facultatif)</label>
@@ -123,21 +111,18 @@ export function ManageRequestTypesModal({
         </form>
 
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-slate-800">Types existants ({types.length})</h3>
+          <h3 className="text-sm font-medium text-slate-800">Types existants ({safeTypes.length})</h3>
           <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
-            {types.length === 0 ? (
+            {safeTypes.length === 0 ? (
               <div className="p-4 text-center text-sm text-slate-500">
                 Aucun type configuré. Utilisez le formulaire ci-dessus pour en ajouter.
               </div>
             ) : (
-              types.map((typeConfig) => (
+              safeTypes.map((typeConfig) => (
                 <div key={typeConfig.id} className="flex items-center justify-between p-3.5">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-slate-900">{typeConfig.label}</span>
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">
-                        {typeConfig.code}
-                      </span>
                       {!typeConfig.isActive && (
                         <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs text-rose-700">
                           Désactivé

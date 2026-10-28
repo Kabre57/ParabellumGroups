@@ -48,6 +48,7 @@ export default function EnterprisesManagementPage() {
   const [search, setSearch] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
   const { data: enterprisesResponse, isLoading, error } = useQuery({
     queryKey: ['enterprises-management'],
@@ -274,9 +275,18 @@ export default function EnterprisesManagementPage() {
                   <tr key={enterprise.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 align-top">
                       <div className="flex items-start gap-3">
-                        {enterprise.logoUrl ? (
+                        {enterprise.logoUrl && !failedLogos[enterprise.logoUrl] ? (
                           <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
-                            <Image src={enterprise.logoUrl} alt={enterprise.name} fill className="object-cover" />
+                            <Image
+                              src={enterprise.logoUrl}
+                              alt={enterprise.name}
+                              fill
+                              className="object-cover"
+                              onError={() => {
+                                const url = enterprise.logoUrl;
+                                if (url) setFailedLogos((prev) => ({ ...prev, [url]: true }));
+                              }}
+                            />
                           </div>
                         ) : (
                           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-blue-200 bg-blue-100 font-bold text-blue-700">
@@ -357,8 +367,14 @@ export default function EnterprisesManagementPage() {
                 <label className="block text-sm font-medium mb-1">Logo</label>
                 <div className="flex items-center gap-4">
                   <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-gray-100">
-                    {logoPreview ? (
-                      <Image src={logoPreview} alt="Preview" fill className="object-contain" />
+                    {logoPreview && !failedLogos[logoPreview] ? (
+                      <Image
+                        src={logoPreview}
+                        alt="Preview"
+                        fill
+                        className="object-contain"
+                        onError={() => setFailedLogos((prev) => ({ ...prev, [logoPreview]: true }))}
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">Aucun logo</div>
                     )}

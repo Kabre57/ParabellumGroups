@@ -52,7 +52,7 @@ const buildTreasuryOverview = async ({
     );
     const manualDeltasByType = manualJournalEntries.reduce(
       (accumulator, entry) => {
-        entry.lines.forEach((line) => {
+        (entry.lines || []).forEach((line) => {
           const accountType = String(line.account?.type || '').toLowerCase();
           const delta = computeSignedDelta(line.account?.type, line.side, line.amount);
 
@@ -140,7 +140,7 @@ const buildTreasuryOverview = async ({
       if (sourceType === 'TREASURY_TRANSFER') continue;
       const sourceKey = entry.sourceType && entry.sourceId ? `${sourceType}:${entry.sourceId}` : null;
       const sourceTreasuryAccount = sourceKey ? treasuryAccountBySourceKey.get(sourceKey) : null;
-      for (const line of entry.lines) {
+      for (const line of entry.lines || []) {
         if (!(await isTreasuryAccountingCode(prisma, line.account, entry.enterpriseId))) {
           continue;
         }
@@ -179,10 +179,12 @@ const buildTreasuryOverview = async ({
     }
 
     for (const transfer of treasuryTransfers) {
+      const sourceAccountName = transfer.sourceAccount?.name || 'Compte source';
+      const destinationAccountName = transfer.destinationAccount?.name || 'Compte destination';
       const movementBase = {
         date: transfer.date,
         category: 'Transfert interne',
-        description: `Transfert ${transfer.sourceAccount.name} → ${transfer.destinationAccount.name}`,
+        description: `Transfert ${sourceAccountName} → ${destinationAccountName}`,
         reference: transfer.reference,
         sourceType: 'TREASURY_TRANSFER',
         enterpriseId: transfer.enterpriseId || null,
@@ -194,8 +196,8 @@ const buildTreasuryOverview = async ({
         type: 'expense',
         amount: amount(transfer.amount),
         treasuryAccountId: transfer.sourceTreasuryAccountId,
-        treasuryAccountName: transfer.sourceAccount.name,
-        treasuryAccountType: transfer.sourceAccount.type,
+        treasuryAccountName: sourceAccountName,
+        treasuryAccountType: transfer.sourceAccount?.type,
       });
       pushMovement(movements, {
         ...movementBase,
@@ -203,8 +205,8 @@ const buildTreasuryOverview = async ({
         type: 'income',
         amount: amount(transfer.amount),
         treasuryAccountId: transfer.destinationTreasuryAccountId,
-        treasuryAccountName: transfer.destinationAccount.name,
-        treasuryAccountType: transfer.destinationAccount.type,
+        treasuryAccountName: destinationAccountName,
+        treasuryAccountType: transfer.destinationAccount?.type,
       });
     }
 

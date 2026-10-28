@@ -49,7 +49,7 @@ const calculateAccountingMetrics = ({ factures, paiements, commitments, encaisse
     const clientReceivables = factures
       .filter((invoice) => !['ANNULEE'].includes(String(invoice.status)))
       .reduce((sum, invoice) => {
-        const paid = invoice.paiements.reduce((paidSum, payment) => paidSum + amount(payment.montant), 0);
+        const paid = (invoice.paiements || []).reduce((paidSum, payment) => paidSum + amount(payment.montant), 0);
         return sum + Math.max(amount(invoice.montantTTC) - paid, 0);
       }, 0);
 
@@ -118,7 +118,7 @@ const calculateAccountingMetrics = ({ factures, paiements, commitments, encaisse
         id: account.id,
         code: account.code,
         label: account.label,
-        type: account.type.toLowerCase(),
+        type: String(account.type || '').toLowerCase(),
         balance: evaluation.balance,
         lastTransaction: evaluation.lastTransaction,
         movementCount: evaluation.movementCount,
