@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { OperationalRequestType } from '@/shared/api/operationalRequests.service';
+import type { OperationalRequestType, OperationalRequestTypeConfig } from '@/shared/api/operationalRequests.service';
 import { typeDetails } from '../constants';
 import type { FormValues } from '../types';
 
@@ -16,6 +16,7 @@ interface OperationalRequestFormModalProps {
   form: FormValues;
   error: string;
   isSaving: boolean;
+  availableTypes?: OperationalRequestTypeConfig[];
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
   onChange: (updater: (prev: FormValues) => FormValues) => void;
@@ -29,6 +30,7 @@ export function OperationalRequestFormModal({
   form,
   error,
   isSaving,
+  availableTypes = [],
   onClose,
   onSubmit,
   onChange,
@@ -73,11 +75,18 @@ export function OperationalRequestFormModal({
               value={form.type}
               onChange={(event) => onTypeChange(event.target.value as OperationalRequestType)}
               className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              required
             >
-              <option value="FUEL">Carburant</option>
-              <option value="TRANSPORT">Transport</option>
-              <option value="MISSION">Mission / planning</option>
-              <option value="OTHER">Autre dépense</option>
+              <option value="" disabled>
+                {availableTypes.length === 0
+                  ? 'Aucun type configuré (veuillez contacter un administrateur)'
+                  : 'Sélectionnez un type de demande...'}
+              </option>
+              {availableTypes.map((typeConfig) => (
+                <option key={typeConfig.id} value={typeConfig.code}>
+                  {typeConfig.label}
+                </option>
+              ))}
             </select>
           </label>
 

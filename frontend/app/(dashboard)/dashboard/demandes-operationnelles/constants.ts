@@ -5,7 +5,7 @@ import type {
 import type { FormValues } from './types';
 
 export const emptyForm = (): FormValues => ({
-  type: 'OTHER',
+  type: '',
   beneficiaryName: '',
   reason: '',
   amountRequested: '',
@@ -13,11 +13,12 @@ export const emptyForm = (): FormValues => ({
   details: {},
 });
 
-export const typeLabels: Record<OperationalRequestType, string> = {
+export const typeLabels: Record<string, string> = {
   FUEL: 'Carburant',
   TRANSPORT: 'Transport',
   MISSION: 'Mission / planning',
   OTHER: 'Autre dépense',
+  PROCUREMENT: 'Achats / Approvisionnement',
 };
 
 export const statusLabels: Record<OperationalRequestStatus, string> = {

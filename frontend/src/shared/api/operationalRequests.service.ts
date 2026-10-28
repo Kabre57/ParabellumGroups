@@ -1,6 +1,17 @@
 import { apiClient } from './shared/client';
 
-export type OperationalRequestType = 'FUEL' | 'TRANSPORT' | 'MISSION' | 'OTHER';
+export type OperationalRequestType = string;
+
+export interface OperationalRequestTypeConfig {
+  id: string;
+  enterpriseId: number;
+  code: string;
+  label: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 export type OperationalRequestStatus =
   | 'DRAFT'
   | 'SUBMITTED'
@@ -112,6 +123,22 @@ export const operationalRequestsService = {
     const form = new FormData();
     form.append('file', file);
     const response = await apiClient.post<ApiResponse<OperationalRequestAttachment>>(`/operational-requests/${id}/attachments`, form);
+    return response.data;
+  },
+  async listTypes(params?: { all?: boolean }) {
+    const response = await apiClient.get<ApiResponse<OperationalRequestTypeConfig[]>>('/operational-requests/types', { params });
+    return response.data;
+  },
+  async createType(data: { label: string; code?: string; description?: string }) {
+    const response = await apiClient.post<ApiResponse<OperationalRequestTypeConfig>>('/operational-requests/types', data);
+    return response.data;
+  },
+  async updateType(id: string, data: { label?: string; description?: string; isActive?: boolean }) {
+    const response = await apiClient.put<ApiResponse<OperationalRequestTypeConfig>>(`/operational-requests/types/${id}`, data);
+    return response.data;
+  },
+  async deleteType(id: string) {
+    const response = await apiClient.delete<ApiResponse<{ message: string; data?: OperationalRequestTypeConfig }>>(`/operational-requests/types/${id}`);
     return response.data;
   },
 };

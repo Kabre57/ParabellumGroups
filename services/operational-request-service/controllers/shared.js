@@ -48,8 +48,8 @@ const validateRequestFields = (body, { partial = false } = {}) => {
   }
 
   if (body.type !== undefined) {
-    const type = String(body.type).toUpperCase();
-    if (!TYPES.has(type)) return { error: 'Type de demande invalide.' };
+    const type = String(body.type || '').trim();
+    if (!type) return { error: 'Le type de demande ne peut pas être vide.' };
     data.type = type;
   } else if (!partial) {
     return { error: 'Le type de demande est obligatoire.' };

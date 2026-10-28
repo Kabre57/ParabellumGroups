@@ -12,6 +12,15 @@ const operationalRequestPermissionRules = [
   { pattern: /^\/operational-requests\/[^/]+\/(?:cash-voucher|sync-cash-voucher|close)$/, permissions: { POST: 'operational_requests.finance' } },
   { pattern: /^\/operational-requests\/[^/]+\/attachments$/, permissions: { POST: 'operational_requests.manage_attachments' } },
   {
+    pattern: /^\/operational-requests\/types(?:\/[^/]+)?$/,
+    permissions: {
+      GET: ['operational_requests.read_own', 'operational_requests.read_all', 'operational_requests.create', 'operational_requests.finance'],
+      POST: 'operational_requests.create',
+      PUT: 'operational_requests.create',
+      DELETE: 'operational_requests.create',
+    },
+  },
+  {
     pattern: /^\/operational-requests(?:\/|$)/,
     permissions: {
       GET: ['operational_requests.read_own', 'operational_requests.read_all', 'operational_requests.finance'],

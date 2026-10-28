@@ -66,7 +66,9 @@ export function OperationalRequestDetail({
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {request.requestNumber}
           </p>
-          <h2 className="mt-1 text-xl font-bold text-slate-950">{typeLabels[request.type]}</h2>
+          <h2 className="mt-1 text-xl font-bold text-slate-950">
+            {typeLabels[request.type] || request.type}
+          </h2>
         </div>
         <button
           type="button"

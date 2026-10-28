@@ -6,12 +6,20 @@ const {
   requireAnyPermission,
 } = require('../middleware/auth');
 const { createOperationalRequestController } = require('../controllers/operationalRequest.controller');
+const { createTypeConfigController } = require('../controllers/typeConfig.controller');
 
 const createOperationalRequestRouter = (prisma) => {
   const router = express.Router();
   const controller = createOperationalRequestController(prisma);
+  const typeController = createTypeConfigController(prisma);
 
   router.use(authenticate);
+
+  // Type configuration routes
+  router.get('/types', typeController.listTypes);
+  router.post('/types', requirePermission('operational_requests.create'), typeController.createType);
+  router.put('/types/:id', requirePermission('operational_requests.create'), typeController.updateType);
+  router.delete('/types/:id', requirePermission('operational_requests.create'), typeController.deleteType);
 
   router.get(
     '/',

@@ -2,13 +2,14 @@
 
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlert, FilePlus2, FileText } from 'lucide-react';
+import { CircleAlert, FilePlus2, FileText, Settings2 } from 'lucide-react';
 import { apiClient } from '@/shared/api/shared/client';
 import billingService from '@/shared/api/billing';
 import {
   operationalRequestsService,
   type OperationalRequest,
   type OperationalRequestType,
+  type OperationalRequestTypeConfig,
 } from '@/shared/api/operationalRequests.service';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
@@ -21,6 +22,7 @@ import { OperationalRequestCard } from './components/OperationalRequestCard';
 import { OperationalRequestFormModal } from './components/OperationalRequestFormModal';
 import { CashVoucherModal, type CashVoucherSelection } from './components/CashVoucherModal';
 import { OperationalRequestDetail } from './components/OperationalRequestDetail';
+import { ManageRequestTypesModal } from './components/ManageRequestTypesModal';
 
 export default function OperationalRequestsPage() {
   const { user } = useAuth();
@@ -58,6 +60,7 @@ export default function OperationalRequestsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [showTypesModal, setShowTypesModal] = useState(false);
   const [page, setPage] = useState(1);
   const LIMIT = 50;
 
@@ -72,6 +75,14 @@ export default function OperationalRequestsPage() {
   const closePayment = () => {
     setPaymentOpen(false);
   };
+
+  // Types dynamiques configurés
+  const typesQuery = useQuery({
+    queryKey: ['operational-request-types', selectedEnterprise?.id],
+    queryFn: () => operationalRequestsService.listTypes({ all: isAdmin }),
+    enabled: Boolean(selectedEnterprise),
+  });
+  const configuredTypes = typesQuery.data?.data ?? [];
 
   const listParams =
     view === 'mine'
@@ -317,11 +328,22 @@ export default function OperationalRequestsPage() {
             Créez une demande d’avance, suivez la décision puis le traitement du bon de caisse.
           </p>
         </div>
-        {canCreate && (
-          <Button className="min-h-11 w-full sm:w-auto" onClick={openCreateForm}>
-            <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle demande
-          </Button>
-        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:w-auto gap-2"
+              onClick={() => setShowTypesModal(true)}
+            >
+              <Settings2 className="h-4 w-4" /> Types de demande
+            </Button>
+          )}
+          {canCreate && (
+            <Button className="min-h-11 w-full sm:w-auto" onClick={openCreateForm}>
+              <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle demande
+            </Button>
+          )}
+        </div>
       </header>
 
       {message && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div>}
@@ -441,6 +463,7 @@ export default function OperationalRequestsPage() {
         form={form}
         error={error}
         isSaving={createMutation.isPending || updateMutation.isPending}
+        availableTypes={configuredTypes.filter((t) => t.isActive)}
         onClose={() => setShowForm(false)}
         onSubmit={handleFormSubmit}
         onChange={setForm}
@@ -454,6 +477,24 @@ export default function OperationalRequestsPage() {
         isPending={cashVoucherMutation.isPending}
         onClose={closePayment}
         onSubmit={(selection) => selectedRequest && cashVoucherMutation.mutate({ request: selectedRequest, selection })}
+      />
+
+      <ManageRequestTypesModal
+        isOpen={showTypesModal}
+        onClose={() => setShowTypesModal(false)}
+        types={configuredTypes}
+        onCreateType={async (data) => {
+          await operationalRequestsService.createType(data);
+          await queryClient.invalidateQueries({ queryKey: ['operational-request-types', selectedEnterprise?.id] });
+        }}
+        onToggleActive={async (typeConfig) => {
+          await operationalRequestsService.updateType(typeConfig.id, { isActive: !typeConfig.isActive });
+          await queryClient.invalidateQueries({ queryKey: ['operational-request-types', selectedEnterprise?.id] });
+        }}
+        onDeleteType={async (id) => {
+          await operationalRequestsService.deleteType(id);
+          await queryClient.invalidateQueries({ queryKey: ['operational-request-types', selectedEnterprise?.id] });
+        }}
       />
     </div>
   );

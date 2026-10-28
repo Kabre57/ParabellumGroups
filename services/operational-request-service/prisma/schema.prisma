@@ -7,13 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum OperationalRequestType {
-  FUEL
-  TRANSPORT
-  MISSION
-  OTHER
-}
-
 enum OperationalRequestStatus {
   DRAFT
   SUBMITTED
@@ -26,10 +19,25 @@ enum OperationalRequestStatus {
   CLOSED
 }
 
+model OperationalRequestTypeConfig {
+  id           String   @id @default(uuid())
+  enterpriseId Int
+  code         String
+  label        String
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([enterpriseId, code])
+  @@index([enterpriseId, isActive])
+  @@map("operational_request_type_configs")
+}
+
 model OperationalRequest {
   id                    String                    @id @default(uuid())
   requestNumber         String                    @unique
-  type                  OperationalRequestType
+  type                  String
   status                OperationalRequestStatus  @default(DRAFT)
   enterpriseId          Int
   enterpriseName        String
