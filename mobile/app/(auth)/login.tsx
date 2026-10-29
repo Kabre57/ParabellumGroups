@@ -58,6 +58,12 @@ export default function LoginScreen(): JSX.Element {
   const login = useMutation({
     mutationFn: authService.login,
     onSuccess: async (response) => {
+      if (response.user.mustChangePassword) {
+        await SecureStore.setItemAsync('access_token', response.accessToken);
+        useAuthStore.getState().setUser(response.user);
+        router.replace('/change-password');
+        return;
+      }
       if (response.enterprises.length === 0) throw new Error('Aucune entreprise accessible');
 
       await SecureStore.setItemAsync('access_token', response.accessToken);

@@ -13,7 +13,9 @@ const createUserSchema = z.object({
   email: z.string().email('Email invalide'),
   firstName: z.string().min(2, 'Le prenom doit contenir au moins 2 caracteres'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
-  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caracteres'),
+  password: z.string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caracteres')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Ajoutez une majuscule, une minuscule et un chiffre.'),
   confirmPassword: z.string(),
   roleId: z.string().min(1, 'Le role est requis'),
   serviceId: z.string().optional(),
@@ -185,6 +187,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
               <Lock className="h-4 w-4 mr-2" />
               Securite
             </h4>
+            <p className="mb-4 text-sm text-blue-700 dark:text-blue-300">
+              Ce mot de passe est provisoire. L’utilisateur devra le modifier lors de sa première connexion.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

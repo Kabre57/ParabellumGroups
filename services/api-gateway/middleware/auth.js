@@ -50,6 +50,19 @@ const createAuthMiddleware = (options = {}) => (req, res, next) => {
       });
     }
 
+    const requestedPath = String(req.originalUrl || req.path || '').split('?')[0].replace(/^\/api(?=\/|$)/, '');
+    const passwordChangeAllowed =
+      (req.method === 'POST' && requestedPath === '/auth/change-password') ||
+      (req.method === 'GET' && requestedPath === '/auth/me') ||
+      (req.method === 'POST' && requestedPath === '/auth/logout');
+    if (decoded.mustChangePassword && !passwordChangeAllowed) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        message: 'Vous devez modifier votre mot de passe avant de continuer.',
+      });
+    }
+
     if (config.NODE_ENV === 'development') {
       logInfo('Token authenticated', {
         userId: decoded.userId,

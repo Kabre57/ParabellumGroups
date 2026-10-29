@@ -12,6 +12,7 @@ export type User = {
   enterpriseId: number | null;
   enterpriseName: string | null;
   permissions: string[];
+  mustChangePassword: boolean;
 };
 
 export type NotificationRegistrationStatus =

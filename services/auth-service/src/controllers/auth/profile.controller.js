@@ -21,6 +21,7 @@ const getCurrentUser = async (req, res) => {
         roleId: true,
         serviceId: true,
         isActive: true,
+        mustChangePassword: true,
         lastLogin: true,
         preferences: true,
         permissions: true,

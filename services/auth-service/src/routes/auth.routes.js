@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const {
   register,
   login,
+  changePassword,
   refreshToken,
   logout,
   forgotPassword,
@@ -75,6 +76,19 @@ router.post(
       .withMessage('Password is required'),
   ],
   login
+);
+
+router.post(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('New password must be at least 8 characters and contain uppercase, lowercase and numeric characters'),
+  ],
+  changePassword
 );
 
 /**

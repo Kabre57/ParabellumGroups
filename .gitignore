@@ -101,6 +101,7 @@ mobile/src/components/layout/*
 !mobile/src/components/layout/AppHeader.tsx
 !mobile/app/(auth)/
 mobile/app/(auth)/*
+!mobile/app/(auth)/change-password.tsx
 !mobile/app/(auth)/login.tsx
 !mobile/image/
 mobile/image/*

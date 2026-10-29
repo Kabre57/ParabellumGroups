@@ -53,8 +53,8 @@ export default function LoginPage() {
       const sanitizedEmail = data.email.trim().toLowerCase();
       const sanitizedPassword = data.password.normalize('NFC').trim();
       prepareForEnterpriseSelection();
-      await login(sanitizedEmail, sanitizedPassword);
-      router.replace('/select-enterprise');
+      const user = await login(sanitizedEmail, sanitizedPassword);
+      router.replace(user?.mustChangePassword ? '/change-password' : '/select-enterprise');
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);
       setError(message);

@@ -56,6 +56,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [isAuthenticated, isLoading, router, pathname]);
 
   useEffect(() => {
+    if (!isLoading && user?.mustChangePassword) {
+      router.replace('/change-password');
+    }
+  }, [isLoading, router, user?.mustChangePassword]);
+
+  useEffect(() => {
     if (mustSelectEnterprise) {
       router.replace('/select-enterprise');
     }
@@ -111,6 +117,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   if (!isAuthenticated) return null;
+  if (user?.mustChangePassword) return null;
   if (isLoadingEnterprises || mustSelectEnterprise) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">

@@ -63,7 +63,7 @@ export default function RootLayout(): JSX.Element {
       try {
         if (!(await waitForSessionAndNavigation()) || !active) return;
         const user = useAuthStore.getState().user;
-        if (!user) return;
+        if (!user || user.mustChangePassword) return;
         const { enterprise, request } = await resolveNotificationRequestTarget(target, user.id);
         if (!active) return;
         useEnterpriseStore.getState().setActive(enterprise);
@@ -110,20 +110,22 @@ export default function RootLayout(): JSX.Element {
 
   useEffect(() => {
     let registeredUserId: string | null = null;
-    const register = (userId: string | null): void => {
-      if (!userId || userId === registeredUserId) return;
+    const register = (user: { id: string; mustChangePassword: boolean } | null): void => {
+      if (!user || user.mustChangePassword || user.id === registeredUserId) return;
+      const userId = user.id;
       registeredUserId = userId;
       void registerForPushNotificationsAsync().catch(() => {
         // Les permissions et services push ne doivent pas bloquer l'accès à l'application.
       });
     };
-    register(useAuthStore.getState().user?.id ?? null);
-    return useAuthStore.subscribe((state) => register(state.user?.id ?? null));
+    register(useAuthStore.getState().user);
+    return useAuthStore.subscribe((state) => register(state.user));
   }, []);
 
   useEffect(() => {
     let currentUserId: string | null = null;
-    const syncNotifications = (userId: string | null): void => {
+    const syncNotifications = (user: { id: string; mustChangePassword: boolean } | null): void => {
+      const userId = user?.mustChangePassword ? null : user?.id ?? null;
       if (userId === currentUserId) return;
       currentUserId = userId;
       if (!userId) {
@@ -136,8 +138,8 @@ export default function RootLayout(): JSX.Element {
         }
       }).catch(() => undefined);
     };
-    syncNotifications(useAuthStore.getState().user?.id ?? null);
-    return useAuthStore.subscribe((state) => syncNotifications(state.user?.id ?? null));
+    syncNotifications(useAuthStore.getState().user);
+    return useAuthStore.subscribe((state) => syncNotifications(state.user));
   }, []);
 
   return (

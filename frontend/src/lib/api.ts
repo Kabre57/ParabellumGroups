@@ -24,6 +24,7 @@ export interface User {
   lastName: string;
   email: string;
   actif: boolean;
+  mustChangePassword?: boolean;
   enterpriseId?: string | number;
   createdAt: string;
   updatedAt: string;

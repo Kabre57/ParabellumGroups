@@ -111,6 +111,7 @@ const createSqlFallback = () => {
       u.role_id AS "roleId",
       u.enterprise_id AS "enterpriseId",
       u.is_active AS "isActive",
+      u.must_change_password AS "mustChangePassword",
       u.last_login AS "lastLogin",
       u.preferences,
       u.permissions,
@@ -303,7 +304,7 @@ const createSqlFallback = () => {
     const created = mutationRows(`
       INSERT INTO users (
         email, password_hash, first_name, last_name, role_id, service_id,
-        enterprise_id, is_active, created_at, updated_at
+        enterprise_id, is_active, created_at, updated_at, must_change_password
       )
       VALUES (
         ${sqlLiteral(data.email)},
@@ -315,7 +316,8 @@ const createSqlFallback = () => {
         ${data.enterpriseId == null ? 'NULL' : Number(data.enterpriseId)},
         ${sqlLiteral(data.isActive !== false)},
         NOW(),
-        NOW()
+        NOW(),
+        ${sqlLiteral(Boolean(data.mustChangePassword))}
       )
       RETURNING id
     `)[0];

@@ -52,6 +52,7 @@ const authenticate = async (req, res, next) => {
         },
         isActive: true,
         permissions: true,
+        mustChangePassword: true,
       },
     });
 
@@ -66,6 +67,18 @@ const authenticate = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'User account is inactive',
+      });
+    }
+
+    const passwordChangeAllowed =
+      (req.method === 'POST' && req.path === '/change-password') ||
+      (req.method === 'GET' && req.path === '/me') ||
+      (req.method === 'POST' && req.path === '/logout');
+    if (user.mustChangePassword && !passwordChangeAllowed) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        message: 'Vous devez modifier votre mot de passe avant de continuer.',
       });
     }
 

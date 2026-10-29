@@ -210,6 +210,15 @@ export function EnterpriseProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (user.mustChangePassword) {
+      requestGeneration.current += 1;
+      setEnterprises([]);
+      setEnterpriseLoadError(null);
+      setIsLoadingEnterprises(false);
+      clearSelectedEnterprise();
+      return;
+    }
+
     void fetchEnterprises();
     return () => {
       requestGeneration.current += 1;

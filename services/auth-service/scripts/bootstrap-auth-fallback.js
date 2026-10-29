@@ -51,6 +51,10 @@ if (tableCount === 0) {
   console.log(`[auth-fallback] Database already contains ${tableCount} tables; migrations skipped.`);
 }
 
+// Keep the SQL-only fallback compatible with installations that already had
+// users before this migration was introduced.
+runPsql(['-q', '-c', 'ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;']);
+
 const email = process.env.ADMIN_EMAIL || 'admin@parabellum.com';
 const password = process.env.ADMIN_PASSWORD || 'Admin@2026!';
 const passwordHash = bcrypt.hashSync(password, 10);

@@ -33,6 +33,7 @@ const generateAccessToken = (user) => {
     serviceName: user?.service?.name || user?.serviceName || null,
     enterpriseId: user.enterpriseId,
     enterpriseName: user?.enterprise?.name || user?.enterpriseName || null,
+    mustChangePassword: Boolean(user.mustChangePassword),
   };
 
   const normalizedRole = String(roleCode || '').toUpperCase();

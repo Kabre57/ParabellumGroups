@@ -5,6 +5,7 @@ import {
   LoginResponse,
   RegisterRequest,
   UpdateProfileRequest,
+  ChangePasswordRequest,
   RefreshTokenRequest,
   RefreshTokenResponse,
   User,
@@ -126,6 +127,16 @@ class AuthService {
     this.setUser(user);
 
     return user;
+  }
+
+  async changePassword(data: ChangePasswordRequest): Promise<LoginResponse> {
+    const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.post(
+      `${this.basePath}/change-password`,
+      data,
+    );
+    const { user, accessToken, refreshToken } = response.data.data;
+    this.storeAuthData(user, accessToken, refreshToken);
+    return response.data.data;
   }
 
   /**

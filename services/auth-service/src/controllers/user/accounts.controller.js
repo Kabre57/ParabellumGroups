@@ -53,6 +53,7 @@ const createUser = async (req, res) => {
         serviceId: serviceId ? parseInt(serviceId) : null,
         enterpriseId: req.user.enterpriseId || (enterpriseId ? parseInt(enterpriseId) : null),
         isActive: isActive !== undefined ? isActive : true,
+        mustChangePassword: true,
       },
       select: {
         id: true,
@@ -63,6 +64,7 @@ const createUser = async (req, res) => {
         serviceId: true,
         enterpriseId: true,
         isActive: true,
+        mustChangePassword: true,
         createdAt: true,
         role: {
           select: {

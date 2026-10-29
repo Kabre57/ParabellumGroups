@@ -29,6 +29,7 @@ export interface User {
   avatar?: string;
   preferences?: string | Record<string, any> | null;
   isActive: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;

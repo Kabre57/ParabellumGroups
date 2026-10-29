@@ -16,7 +16,8 @@ export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -139,6 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authService.login(email, password);
     markActivity();
     setUser(response.user);
+    return response.user;
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const response = await authService.changePassword({ currentPassword, newPassword });
+    markActivity();
+    setUser(response.user);
   };
 
   const register = async (email: string, password: string, firstName: string, lastName: string) => {
@@ -215,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        changePassword,
         register,
         logout,
       }}

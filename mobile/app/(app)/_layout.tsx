@@ -96,6 +96,12 @@ export default function AppLayout(): JSX.Element {
     }
   }, [check.status, queryClient, user]);
 
+  useEffect(() => {
+    if (check.status === 'ready' && user?.mustChangePassword) {
+      router.replace('/change-password');
+    }
+  }, [check.status, user?.mustChangePassword]);
+
   if (check.status === 'ready' && user) {
     return (
       <Drawer
