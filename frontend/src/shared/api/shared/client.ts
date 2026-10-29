@@ -149,9 +149,12 @@ class ApiClient {
   private async handleError(error: AxiosError): Promise<AxiosResponse> {
     if (!error.response) {
       // Erreur réseau
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
       throw {
         success: false,
-        message: 'Erreur de connexion au serveur',
+        message: isLoginRequest
+          ? 'Le service de connexion ne répond pas pour le moment. Vérifiez votre connexion et réessayez dans quelques instants.'
+          : 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
         status: 0,
         data: null,
       } as ApiResponse<null>;
@@ -246,7 +249,12 @@ class ApiClient {
         }
 
       case 429:
-        throw this.formatError(429, 'Trop de requêtes, veuillez patienter');
+        throw this.formatError(
+          429,
+          requestConfig?.url?.includes('/auth/login')
+            ? 'Plusieurs tentatives ont été effectuées. Attendez quelques instants avant de réessayer.'
+            : 'Trop de requêtes ont été effectuées. Veuillez patienter avant de réessayer.'
+        );
 
       case 403:
         throw this.formatError(403, 'Accès refusé');
@@ -258,10 +266,29 @@ class ApiClient {
         throw this.formatError(422, (data as any)?.message || 'Données invalides', data);
 
       case 500:
-        throw this.formatError(500, 'Un incident interne est survenu. Réessayez plus tard ou contactez l’assistance.');
+        throw this.formatError(
+          500,
+          requestConfig?.url?.includes('/auth/login')
+            ? 'Un incident technique empêche la connexion pour le moment. Réessayez dans quelques instants.'
+            : 'Un incident interne est survenu. Réessayez plus tard ou contactez l’assistance.'
+        );
+
+      case 502:
+      case 504:
+        throw this.formatError(
+          status,
+          requestConfig?.url?.includes('/auth/login')
+            ? 'Le service de connexion rencontre un problème temporaire. Vos identifiants n’ont pas pu être vérifiés. Réessayez dans quelques instants.'
+            : 'Le service est momentanément indisponible. Réessayez dans quelques instants.'
+        );
 
       case 503:
-        throw this.formatError(503, 'Service temporairement indisponible');
+        throw this.formatError(
+          503,
+          requestConfig?.url?.includes('/auth/login')
+            ? 'Le service de connexion est momentanément indisponible. Vos identifiants n’ont pas pu être vérifiés. Réessayez dans quelques instants.'
+            : 'Le service est momentanément indisponible. Réessayez dans quelques instants.'
+        );
 
       default:
         throw this.formatError(

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Loader2, CircleAlert } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
@@ -26,7 +26,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errorField, setErrorField] = useState<'email' | 'password' | null>(null);
 
   const {
     register,
@@ -37,21 +36,20 @@ export default function LoginPage() {
   });
 
   const extractAuthErrorMessage = (value: unknown) => {
-    if (!value) return 'Échec de la connexion';
+    if (!value) return 'La connexion a échoué. Réessayez dans quelques instants.';
     if (typeof value === 'string') return value;
     if (typeof value === 'object' && value !== null) {
       const message = (value as { message?: string }).message;
       const nestedMessage = (value as { data?: { message?: string } }).data?.message;
-      return message || nestedMessage || 'Échec de la connexion';
+      return message || nestedMessage || 'La connexion a échoué. Réessayez dans quelques instants.';
     }
-    return 'Échec de la connexion';
+    return 'La connexion a échoué. Réessayez dans quelques instants.';
   };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
       setError('');
-      setErrorField(null);
       const sanitizedEmail = data.email.trim().toLowerCase();
       const sanitizedPassword = data.password.normalize('NFC').trim();
       prepareForEnterpriseSelection();
@@ -60,11 +58,6 @@ export default function LoginPage() {
     } catch (err: any) {
       const message = extractAuthErrorMessage(err);
       setError(message);
-      if (message.toLowerCase().includes('email')) {
-        setErrorField('email');
-      } else if (message.toLowerCase().includes('mot de passe')) {
-        setErrorField('password');
-      }
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +78,7 @@ export default function LoginPage() {
               />
               <div className="text-center">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  prarabellum groups
+                  Parabellum Groups
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   Solution technique innovante
@@ -104,11 +97,12 @@ export default function LoginPage() {
           {/* Error Alert */}
           {error && (
             <div
-              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
-              role="status"
+              className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+              role="alert"
               aria-live="assertive"
             >
-              {error}
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden="true" />
+              <p>{error}</p>
             </div>
           )}
 
@@ -134,7 +128,7 @@ export default function LoginPage() {
                     spellCheck={false}
                     {...register('email')}
                     className={`appearance-none block w-full px-12 py-3 border rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ${
-                      errors.email || errorField === 'email'
+                      errors.email
                         ? 'border-red-500 ring-red-100'
                         : 'border-gray-200'
                     }`}
@@ -144,11 +138,6 @@ export default function LoginPage() {
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
                   {errors.email.message}
-                </p>
-              )}
-              {!errors.email && errorField === 'email' && (
-                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
-                  {error}
                 </p>
               )}
             </div>
@@ -171,7 +160,7 @@ export default function LoginPage() {
                     spellCheck={false}
                     {...register('password')}
                     className={`appearance-none block w-full px-12 py-3 border rounded-xl bg-gray-50 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ${
-                      errors.password || errorField === 'password'
+                      errors.password
                         ? 'border-red-500 ring-red-100'
                         : 'border-gray-200'
                     }`}
@@ -195,11 +184,6 @@ export default function LoginPage() {
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
                   {errors.password.message}
-                </p>
-              )}
-              {!errors.password && errorField === 'password' && (
-                <p className="mt-1 text-sm text-red-600 ml-1 animate-fade-in">
-                  {error}
                 </p>
               )}
             </div>
