@@ -9,13 +9,15 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { adminUsersService, adminRolesService, adminServicesService } from '@/shared/api/admin/admin.service';
 
+const DEFAULT_INITIAL_PASSWORD = '12345678';
+
 const createUserSchema = z.object({
   email: z.string().email('Email invalide'),
   firstName: z.string().min(2, 'Le prenom doit contenir au moins 2 caracteres'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
   password: z.string()
     .min(8, 'Le mot de passe doit contenir au moins 8 caracteres')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Ajoutez une majuscule, une minuscule et un chiffre.'),
+    .refine((password) => password === DEFAULT_INITIAL_PASSWORD || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password), 'Utilisez le mot de passe provisoire 12345678 ou ajoutez une majuscule, une minuscule et un chiffre.'),
   confirmPassword: z.string(),
   roleId: z.string().min(1, 'Le role est requis'),
   serviceId: z.string().optional(),
@@ -75,7 +77,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
-      isActive: true
+      isActive: true,
+      password: DEFAULT_INITIAL_PASSWORD,
+      confirmPassword: DEFAULT_INITIAL_PASSWORD,
     }
   });
 
@@ -188,7 +192,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
               Securite
             </h4>
             <p className="mb-4 text-sm text-blue-700 dark:text-blue-300">
-              Ce mot de passe est provisoire. L’utilisateur devra le modifier lors de sa première connexion.
+              Le mot de passe provisoire par défaut est 12345678. L’utilisateur devra le modifier lors de sa première connexion.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

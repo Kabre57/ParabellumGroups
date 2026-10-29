@@ -139,6 +139,14 @@ class AuthService {
     return response.data.data;
   }
 
+  async requestPasswordReset(email: string): Promise<void> {
+    await apiClient.post(`${this.basePath}/forgot-password`, { email: email.trim() });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await apiClient.post(`${this.basePath}/reset-password`, { token, newPassword });
+  }
+
   /**
    * Vérification de l'authentification
    */

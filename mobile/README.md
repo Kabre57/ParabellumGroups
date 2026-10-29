@@ -38,7 +38,9 @@ sont décrits dans la section « Notifications ».
 
 ## Commandes pnpm
 
-Utiliser **pnpm 11.22.0**, déclaré dans `package.json`, pour toutes les commandes.
+Utiliser **Node.js 22.13 ou plus récent** et **pnpm 9.15.4**, déclaré dans
+`package.json`, pour toutes les commandes. Expo SDK 58 ne fonctionne pas avec
+Node 20.
 Depuis la racine du dépôt :
 
 ```bash
@@ -49,10 +51,8 @@ pnpm run lint
 pnpm exec expo install --check --pnpm
 ```
 
-La passerelle du dépôt expose les services sous `/api`. La stack Docker actuelle
-publie l'entrée Nginx sur le port **8080** ; aucun service n'écoute sur le port
-4000 de l'hôte. Copier `.env.example` vers `.env`, puis adapter
-`EXPO_PUBLIC_API_URL` à l'environnement :
+La passerelle API expose les services sous `/api`. Copier `.env.example` vers
+`.env`, puis adapter `EXPO_PUBLIC_API_URL` à l'appareil utilisé :
 
 ```bash
 cp -n .env.example .env
@@ -60,19 +60,19 @@ cp -n .env.example .env
 pnpm start
 ```
 
-Sur un téléphone physique, `localhost` désigne le téléphone : utiliser l'IP locale
-du PC hébergeant l'API. L'adresse validée sur ce poste est
-`http://192.168.100.125:8080/api` ; l'IP doit être adaptée si le réseau change.
-Vérifier que les deux appareils peuvent communiquer sur le réseau local.
-L'émulateur Android standard utilise `http://10.0.2.2:8080/api` pour joindre le PC.
-Un simulateur iOS sur le même Mac que l'API peut utiliser
-`http://localhost:8080/api`. Le fichier d'exemple conserve une URL générique :
-le `.env` local doit préciser le port réellement publié par l'environnement.
+Le suffixe `/api` doit être conservé. Le simulateur iOS sur le Mac hébergeant
+l'API utilise `http://localhost:4000/api`. L'émulateur Android standard utilise
+`http://10.0.2.2:4000/api`. Sur un téléphone physique, remplacer `localhost` par
+l'adresse IP locale du PC, par exemple `http://192.168.1.29:4000/api` ; l'IP
+dépend du réseau et les deux appareils doivent pouvoir communiquer.
 
-La route `/api/health` n'existe pas dans cette configuration. Pour vérifier l'accès
-depuis le téléphone, `/api/auth/me` répond `401` sans jeton : cette réponse confirme
-que l'API est atteinte. Le health check de la Gateway est `/health`, accessible
-localement via `http://localhost:3001/health`.
+Dans le `docker-compose.yml` de ce dépôt, Nginx publie par défaut le port `8080`.
+Pour utiliser les URL mobiles ci-dessus avec cette stack, définir `NGINX_HOST_PORT=4000`
+dans le `.env` de la racine avant de démarrer Docker ; sinon, mettre dans le `.env`
+mobile le port réellement publié par la stack.
+
+Pour vérifier que la passerelle est atteinte, `/api/auth/me` répond `401` sans
+jeton : cette réponse confirme que l'API est joignable.
 
 Le `.env` local est déjà ignoré par le `.gitignore` du dépôt. Redémarrer Metro
 après un changement d'URL.

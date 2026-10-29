@@ -56,7 +56,7 @@ export default function LoginScreen(): JSX.Element {
   const password = useWatch({ control, name: 'password', defaultValue: '' });
 
   const login = useMutation({
-    mutationFn: authService.login,
+    mutationFn: ({ email: loginEmail, password: loginPassword }: LoginValues) => authService.login(loginEmail, loginPassword),
     onSuccess: async (response) => {
       if (response.user.mustChangePassword) {
         await SecureStore.setItemAsync('access_token', response.accessToken);
@@ -228,7 +228,7 @@ export default function LoginScreen(): JSX.Element {
 
           <Button
             mode="text"
-            onPress={() => useToastStore.getState().show('La récupération du mot de passe n’est pas encore disponible. Contactez votre administrateur.', 'info')}
+            onPress={() => router.push('/forgot-password')}
             textColor={COLORS.primary}
             style={styles.forgotButton}
             labelStyle={styles.forgotLabel}

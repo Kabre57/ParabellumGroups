@@ -112,6 +112,8 @@ const createSqlFallback = () => {
       u.enterprise_id AS "enterpriseId",
       u.is_active AS "isActive",
       u.must_change_password AS "mustChangePassword",
+      u.password_reset_token_hash AS "passwordResetTokenHash",
+      u.password_reset_expires_at AS "passwordResetExpiresAt",
       u.last_login AS "lastLogin",
       u.preferences,
       u.permissions,
@@ -176,6 +178,9 @@ const createSqlFallback = () => {
     let predicate = null;
     if (hasOwn(where, 'id')) predicate = `u.id = ${Number(where.id)}`;
     if (hasOwn(where, 'email')) predicate = `LOWER(u.email) = LOWER(${sqlLiteral(where.email)})`;
+    if (hasOwn(where, 'passwordResetTokenHash')) {
+      predicate = `u.password_reset_token_hash = ${sqlLiteral(where.passwordResetTokenHash)}`;
+    }
     if (!predicate) return null;
     return rows(`${userSelect} WHERE ${predicate} LIMIT 1`)[0] || null;
   };
@@ -189,10 +194,12 @@ const createSqlFallback = () => {
 
     const predicate = hasOwn(where, 'email')
       ? `LOWER(email) = LOWER(${sqlLiteral(where.email)})`
-      : `id = ${Number(where.id)}`;
+      : hasOwn(where, 'passwordResetTokenHash')
+        ? `password_reset_token_hash = ${sqlLiteral(where.passwordResetTokenHash)}`
+        : `id = ${Number(where.id)}`;
 
-    execute(`UPDATE users SET ${clauses.join(', ')} WHERE ${predicate}`);
-    return getUser(where);
+    const changed = mutationRows(`UPDATE users SET ${clauses.join(', ')} WHERE ${predicate} RETURNING id`)[0];
+    return changed ? getUser({ id: changed.id }) : null;
   };
 
   const createRefreshToken = ({ data }) => {

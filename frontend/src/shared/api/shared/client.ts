@@ -17,6 +17,7 @@ class ApiClient {
       url.includes('/auth/login') ||
       url.includes('/auth/register') ||
       url.includes('/auth/forgot-password') ||
+      url.includes('/auth/reset-password') ||
       url.includes('/auth/refresh')
     );
   }
@@ -248,13 +249,23 @@ class ApiClient {
           throw this.formatError(401, 'Non autorisé');
         }
 
-      case 429:
-        throw this.formatError(
-          429,
-          requestConfig?.url?.includes('/auth/login')
-            ? 'Plusieurs tentatives ont été effectuées. Attendez quelques instants avant de réessayer.'
-            : 'Trop de requêtes ont été effectuées. Veuillez patienter avant de réessayer.'
+      case 429: {
+        const retryAfter = Math.max(
+          0,
+          Number((data as any)?.retryAfter || error.response?.headers?.['retry-after'] || 0),
         );
+        const retryDelay = retryAfter >= 60
+          ? `dans ${Math.ceil(retryAfter / 60)} minute${Math.ceil(retryAfter / 60) === 1 ? '' : 's'}`
+          : retryAfter > 0
+            ? `dans ${retryAfter} seconde${retryAfter === 1 ? '' : 's'}`
+            : 'un peu plus tard';
+        const message = requestConfig?.url?.includes('/auth/login')
+          ? `Trop de tentatives de connexion. Réessayez ${retryDelay}.`
+          : typeof (data as any)?.message === 'string'
+            ? (data as any).message
+            : `Trop de requêtes. Réessayez ${retryDelay}.`;
+        throw this.formatError(429, message, data);
+      }
 
       case 403:
         throw this.formatError(403, 'Accès refusé');

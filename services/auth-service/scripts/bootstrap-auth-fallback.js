@@ -54,6 +54,9 @@ if (tableCount === 0) {
 // Keep the SQL-only fallback compatible with installations that already had
 // users before this migration was introduced.
 runPsql(['-q', '-c', 'ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;']);
+runPsql(['-q', '-c', 'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT;']);
+runPsql(['-q', '-c', 'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP(3);']);
+runPsql(['-q', '-c', 'CREATE UNIQUE INDEX IF NOT EXISTS users_password_reset_token_hash_key ON users(password_reset_token_hash);']);
 
 const email = process.env.ADMIN_EMAIL || 'admin@parabellum.com';
 const password = process.env.ADMIN_PASSWORD || 'Admin@2026!';

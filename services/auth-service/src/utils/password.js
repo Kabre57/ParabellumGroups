@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 
 const SALT_ROUNDS = 10;
+const DEFAULT_INITIAL_PASSWORD = '12345678';
 
 /**
  * Hash password using bcrypt
@@ -38,4 +39,5 @@ const comparePassword = async (password, hash) => {
 module.exports = {
   hashPassword,
   comparePassword,
+  DEFAULT_INITIAL_PASSWORD,
 };

@@ -30,6 +30,8 @@ model User {
   email                String           @unique
   passwordHash         String           @map("password_hash")
   mustChangePassword   Boolean          @default(false) @map("must_change_password")
+  passwordResetTokenHash String?         @unique @map("password_reset_token_hash")
+  passwordResetExpiresAt DateTime?       @map("password_reset_expires_at")
   firstName            String           @map("first_name")
   lastName             String           @map("last_name")
   serviceId            Int?             @map("service_id")

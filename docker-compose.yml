@@ -251,9 +251,16 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_SECURE=${SMTP_SECURE:-}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
       - EMAIL_FROM=${EMAIL_FROM:-admin@parabellum-erp.online}
+      - FRONTEND_URL=${FRONTEND_URL:-}
+      - LOGIN_RATE_LIMIT_WINDOW_MS=${LOGIN_RATE_LIMIT_WINDOW_MS:-900000}
+      - LOGIN_RATE_LIMIT_MAX=${LOGIN_RATE_LIMIT_MAX:-5}
+      - REGISTER_RATE_LIMIT_WINDOW_MS=${REGISTER_RATE_LIMIT_WINDOW_MS:-3600000}
+      - REGISTER_RATE_LIMIT_MAX=${REGISTER_RATE_LIMIT_MAX:-3}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-parabellum-groups}
       - STORAGE_ALLOWED_BUCKETS=${S3_BUCKET_NAME:-parabellum-groups},rapport-photos,operational-attachments
       - S3_REGION=${S3_REGION:-us-east-1}

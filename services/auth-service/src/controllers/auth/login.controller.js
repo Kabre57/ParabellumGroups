@@ -1,5 +1,6 @@
 // Vérifie les identifiants et ouvre une session utilisateur.
 const { validationResult, prisma, comparePassword, generateAccessToken, generateRefreshToken, getRefreshTokenExpiresAt, setStorageAccessCookie, getUserPermissionNames } = require('./shared');
+const { DEFAULT_INITIAL_PASSWORD } = require('../../utils/password');
 
 const login = async (req, res) => {
   try {
@@ -64,11 +65,19 @@ const login = async (req, res) => {
       });
     }
 
+    // Older accounts may predate the mandatory first-login password change flag.
+    // Recognize the shared temporary password and persist the requirement at login.
+    const mustChangePassword = Boolean(user.mustChangePassword || password === DEFAULT_INITIAL_PASSWORD);
+
     // Update last login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: {
+        lastLogin: new Date(),
+        ...(mustChangePassword ? { mustChangePassword: true } : {}),
+      },
     });
+    user.mustChangePassword = mustChangePassword;
 
     // Log audit
     await prisma.auditLog.create({

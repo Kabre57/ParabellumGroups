@@ -16,6 +16,7 @@ const {
 const authenticate = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleCheck');
 const { registerPushToken, revokePushToken } = require('../controllers/pushToken.controller');
+const { DEFAULT_INITIAL_PASSWORD } = require('../utils/password');
 
 const router = express.Router();
 
@@ -82,8 +83,8 @@ router.post(
       .withMessage('Valid email is required'),
     body('password')
       .isLength({ min: 8 })
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-      .withMessage('Password must be at least 8 characters and contain uppercase, lowercase and numeric characters'),
+      .custom((password) => password === DEFAULT_INITIAL_PASSWORD || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password))
+      .withMessage('Use the temporary password 12345678 or a password with uppercase, lowercase and numeric characters'),
     body('firstName')
       .trim()
       .notEmpty()

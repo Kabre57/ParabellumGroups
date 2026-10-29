@@ -35,16 +35,20 @@ class EmailService {
       });
     }
 
-    // Default: Local SMTP server (e.g., Mailhog, Mailtrap, or custom SMTP)
+    // Generic SMTP server (local Mailhog, Mailtrap, or a production provider).
+    const port = Number(process.env.SMTP_PORT) || 1025;
+    const configuredSecure = process.env.SMTP_SECURE;
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'localhost',
-      port: process.env.SMTP_PORT || 1025,
+      port,
+      secure: configuredSecure === 'true' || (configuredSecure !== 'false' && port === 465),
       auth: process.env.SMTP_USER ? {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
       } : undefined,
-      // Skip TLS in development
-      tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     });
   }
 

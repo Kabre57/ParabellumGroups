@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
+import { router } from 'expo-router';
 import { useState, type JSX } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -7,6 +8,9 @@ import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { z } from 'zod';
 
 import { authService } from '@/api/auth';
+import { useAuthStore } from '@/stores/authStore';
+import { useEnterpriseStore } from '@/stores/enterpriseStore';
+import { useToastStore } from '@/stores/toastStore';
 
 const schema = z.object({
   currentPassword: z.string().min(1, 'Saisissez le mot de passe provisoire.'),
@@ -36,7 +40,20 @@ export default function ChangePasswordScreen(): JSX.Element {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      await authService.changePassword(values.currentPassword, values.newPassword);
+      const response = await authService.changePassword(values.currentPassword, values.newPassword);
+      useAuthStore.getState().setUser(response.user);
+      const enterprises = await authService.enterprises();
+      const enterpriseStore = useEnterpriseStore.getState();
+      enterpriseStore.setEnterprises(enterprises);
+      const preferred = enterprises.find(({ id }) => id === response.user.enterpriseId);
+      const selection = preferred ?? (enterprises.length === 1 ? enterprises[0] : undefined);
+      if (selection) {
+        enterpriseStore.setActive(selection);
+        router.replace('/');
+      } else {
+        router.replace('/selection-entreprise');
+      }
+      useToastStore.getState().show('Mot de passe modifié avec succès.', 'success');
     } catch (error: unknown) {
       const message = isAxiosError<{ message?: unknown }>(error) && typeof error.response?.data?.message === 'string'
         ? error.response.data.message
@@ -63,8 +80,20 @@ export default function ChangePasswordScreen(): JSX.Element {
             <PasswordField control={control} name="newPassword" label="Nouveau mot de passe" autoComplete="new-password" />
             <PasswordField control={control} name="confirmPassword" label="Confirmer le nouveau mot de passe" autoComplete="new-password" />
             <Text variant="bodySmall" style={styles.hint}>8 caractères minimum, avec une majuscule, une minuscule et un chiffre.</Text>
-            <Button mode="contained" onPress={submit} loading={isSubmitting} disabled={isSubmitting} style={styles.button} contentStyle={styles.buttonContent}>
+            <Button mode="contained" onPress={() => void submit()} loading={isSubmitting} disabled={isSubmitting} style={styles.button} contentStyle={styles.buttonContent}>
               Modifier le mot de passe
+            </Button>
+            <Button
+              mode="text"
+              disabled={isSubmitting}
+              onPress={() => {
+                void authService.logout();
+                useAuthStore.getState().logout();
+                router.replace('/login');
+              }}
+              textColor="#475569"
+            >
+              Se déconnecter
             </Button>
           </View>
         </View>
@@ -94,7 +123,7 @@ function PasswordField({ control, name, label, autoComplete }: {
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete={autoComplete}
-            textContentType={autoComplete}
+            textContentType={name === 'currentPassword' ? 'password' : 'newPassword'}
             value={value}
             onChangeText={onChange}
             onBlur={onBlur}

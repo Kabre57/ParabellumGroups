@@ -66,6 +66,24 @@ const refreshLimiter = rateLimit({
   validate: { trustProxy: false }
 });
 
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: { success: false, message: 'Trop de demandes de récupération. Réessayez dans 15 minutes.' },
+});
+
+const passwordResetCompleteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: { success: false, message: 'Trop de tentatives. Demandez un nouveau lien et réessayez plus tard.' },
+});
+
 /**
  * Rate limiter global pour toutes les routes API
  * 100 requêtes maximum par 15 minutes
@@ -111,6 +129,8 @@ module.exports = {
   loginLimiter,
   registerLimiter,
   refreshLimiter,
+  passwordResetRequestLimiter,
+  passwordResetCompleteLimiter,
   globalLimiter,
   strictLimiter
 };

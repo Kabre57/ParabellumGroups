@@ -30,13 +30,12 @@ const createServiceLimiter = (serviceName, options = {}) => {
 };
 
 /**
- * Rate limiter pour le service Auth
- * Plus strict car opérations sensibles (login, register)
- * 50 requêtes / 15 minutes
+ * Limite de trafic générale du service Auth. Les routes de connexion,
+ * inscription et récupération gardent leurs limites dédiées dans auth-service.
  */
 const authServiceLimiter = createServiceLimiter('auth', {
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 500,
   message: {
     success: false,
     error: 'Trop de requêtes vers le service auth'

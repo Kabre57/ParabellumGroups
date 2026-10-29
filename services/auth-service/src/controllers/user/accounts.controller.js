@@ -194,6 +194,7 @@ const updateUser = async (req, res) => {
     // Hash new password if provided
     if (newPassword) {
       updateData.passwordHash = await hashPassword(newPassword);
+      updateData.mustChangePassword = true;
     }
 
     // Update user

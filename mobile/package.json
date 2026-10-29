@@ -2,7 +2,7 @@
   "name": "parabellum-mobile",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@9.15.4",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -35,7 +35,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.90.0",
-    "react-native": "0.88.0",
+    "react-native": "0.88.1",
     "react-native-gesture-handler": "~3.3.0",
     "react-native-paper": "^5.15.3",
     "react-native-reanimated": "4.7.1",

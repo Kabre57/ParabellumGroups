@@ -7,12 +7,19 @@ const {
   refreshToken,
   logout,
   forgotPassword,
+  resetPassword,
   getCurrentUser,
   updateProfile,
   revokeAllTokens
 } = require('../controllers/auth.controller');
 const authenticate = require('../middleware/auth');
-const { loginLimiter, registerLimiter, refreshLimiter } = require('../middleware/rateLimiter');
+const {
+  loginLimiter,
+  registerLimiter,
+  refreshLimiter,
+  passwordResetRequestLimiter,
+  passwordResetCompleteLimiter,
+} = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -114,6 +121,7 @@ router.post(
  */
 router.post(
   '/forgot-password',
+  passwordResetRequestLimiter,
   [
     body('email')
       .isEmail()
@@ -121,6 +129,19 @@ router.post(
       .withMessage('Valid email is required'),
   ],
   forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  passwordResetCompleteLimiter,
+  [
+    body('token').isLength({ min: 32, max: 256 }).withMessage('Reset token is required'),
+    body('newPassword')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('New password must be at least 8 characters and contain uppercase, lowercase and numeric characters'),
+  ],
+  resetPassword
 );
 
 /**

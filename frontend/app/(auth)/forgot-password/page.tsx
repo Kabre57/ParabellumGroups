@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
       }
 
       setEmailSent(true);
-      toast.success('Email de réinitialisation envoyé avec succès !');
+      toast.success('Demande de réinitialisation prise en compte.');
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'envoi de l\'email');
     } finally {
@@ -100,10 +100,10 @@ export default function ForgotPasswordPage() {
                   <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
                 <h2 className="text-center text-2xl font-bold text-gray-900 mb-2">
-                  Email envoyé !
+                  Demande prise en compte
                 </h2>
                 <p className="text-center text-gray-600 mb-6 text-sm">
-                  Vérifiez votre boîte de réception pour réinitialiser votre mot de passe
+                  Si cette adresse est liée à un compte, un lien sera envoyé. Il expire après 30 minutes.
                 </p>
               </>
             )}
@@ -157,7 +157,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <div className="space-y-4">
               <p className="text-center text-sm text-gray-600">
-                Vous n'avez pas reçu l'email ? Vérifiez votre dossier spam ou{' '}
+                Vérifiez aussi votre dossier spam. Si rien n’arrive après quelques minutes, contactez votre administrateur ou{' '}
                 <button
                   onClick={() => setEmailSent(false)}
                   className="text-blue-600 hover:text-blue-700 font-medium"
