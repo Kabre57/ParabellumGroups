@@ -1,0 +1,29 @@
+# EAS reads this file from the Git repository root and uses it instead of
+# .gitignore. Keep the mobile project source available to builds.
+.git
+
+# Dependencies and generated output
+**/node_modules/
+**/.expo/
+**/dist/
+**/build/
+**/coverage/
+**/.turbo/
+**/.next/
+
+# Local secrets and machine-specific environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!mobile/.env.example
+
+# The Expo app is self-contained in mobile/; backend sources are not needed
+# by the Android/iOS build.
+services/
+Doc/
+docs/
+scratch/
+backups/
+logs/
+*.log

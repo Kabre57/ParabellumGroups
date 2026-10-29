@@ -27,6 +27,18 @@ test('auth route config exposes public auth endpoints and protected admin routes
   assert.match(content, /admin: true/);
 });
 
+test('push-token endpoints are authenticated self-service routes before the admin users route', () => {
+  const content = read('routes', 'services', 'auth.routes.js');
+  const registerRoute = content.indexOf("path: '/users/push-token'");
+  const adminUsersRoute = content.indexOf("path: '/auth/users'");
+
+  assert.notEqual(registerRoute, -1);
+  assert.ok(registerRoute < adminUsersRoute);
+  assert.equal((content.match(/path: '\/users\/push-token'/g) || []).length, 2);
+  assert.match(content, /method: 'post',[\s\S]*?auth: true,[\s\S]*?pathRewrite: \{ '\^\/users': '\/api\/users' \}/);
+  assert.match(content, /method: 'delete',[\s\S]*?auth: true,[\s\S]*?pathRewrite: \{ '\^\/users': '\/api\/users' \}/);
+});
+
 test('technical route config keeps permission rules for key technical domains', () => {
   const content = read('routes', 'services', 'technical.routes.js');
 

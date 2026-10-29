@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Router, Request, Response } from 'express';
 import prisma from '../prisma';
 import notificationEmitter from '../emitter';
+import { sendPushNotificationToUser } from '../pushDelivery';
 
 const router = Router();
 
@@ -41,6 +42,10 @@ router.post('/notifications', authenticateOperationalRequestService, async (req:
       update: {},
     });
     notificationEmitter.emit('notification', { userId, notification });
+    const notificationData = req.body?.data;
+    if (typeof notificationData?.link === 'string' && notificationData.link.startsWith('/dashboard/demandes-operationnelles')) {
+      await sendPushNotificationToUser({ userId, title, message, data: notificationData });
+    }
     return res.status(200).json({ success: true, data: notification });
   } catch (error) {
     console.error('Internal notification delivery failed:', error);

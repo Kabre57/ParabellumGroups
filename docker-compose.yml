@@ -527,6 +527,7 @@ services:
       - PORT=4012
       - NODE_ENV=${NODE_ENV:-production}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - AUTH_SERVICE_URL=http://auth-service:4001
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/parabellum_notification?schema=public
     volumes:
       - ./scripts/service-entrypoint.sh:/usr/local/bin/service-entrypoint.sh:ro

@@ -154,6 +154,7 @@ export const getUserNotifications = async (req: Request, res: Response) => {
         read: n.isRead,
         createdAt: n.createdAt,
         link: (n.data as any)?.link || undefined,
+        enterpriseId: (n.data as any)?.enterpriseId || undefined,
       })),
       unreadCount,
     };

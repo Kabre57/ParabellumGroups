@@ -66,6 +66,7 @@ model User {
   service              Service?         @relation(fields: [serviceId], references: [id])
   enterpriseId         Int?             @map("enterprise_id")
   enterprise           Enterprise?      @relation(fields: [enterpriseId], references: [id])
+  pushTokens           UserPushToken[]
 
   // relations for permission change workflow
   requestedRequests    PermissionChangeRequest[] @relation("Requester")
@@ -74,6 +75,20 @@ model User {
   @@index([roleId])
   @@index([enterpriseId])
   @@map("users")
+}
+
+model UserPushToken {
+  id        String   @id @default(uuid())
+  userId    Int      @map("user_id")
+  token     String   @unique
+  platform  String   @db.VarChar(16)
+  projectId String?  @map("project_id") @db.VarChar(128)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_push_tokens")
 }
 
 model Service {

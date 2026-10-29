@@ -27,7 +27,10 @@ const enqueueNotifications = async (tx, { request, recipients, title, message, a
       title,
       message,
       type: 'INFO',
-      data: { link: `/dashboard/demandes-operationnelles?request=${request.id}` },
+      data: {
+        link: `/dashboard/demandes-operationnelles?request=${request.id}`,
+        enterpriseId: request.enterpriseId,
+      },
     },
   }));
   if (data.length) {

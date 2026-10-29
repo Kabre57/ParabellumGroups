@@ -134,3 +134,9 @@ Tests : `test/integration/createCashVoucher.test.ts` (Billing `200`, `409` + bon
 > Billing, la reprise sur `409` et la liaison. La route et son code restent
 > inchangés pendant la migration des clients (le web l'utilise encore) et
 > seront retirés une fois tous les écrans migrés.
+
+## Notifications push des demandes
+
+Les transitions métier existantes alimentent l'outbox dans leur transaction. Après livraison de l'événement au `notification-service`, celui-ci enregistre la notification, récupère les tokens du destinataire via l'endpoint interne de l'`auth-service`, puis appelle l'API Expo. La soumission notifie les approbateurs configurés; une approbation notifie le demandeur et les utilisateurs autorisés au traitement financier. Le payload inclut le lien web de demande et `enterpriseId` pour le deep linking mobile.
+
+Les erreurs HTTP Expo, les tickets en erreur et les échecs de lecture des tokens font échouer la livraison interne afin que l'outbox applique sa stratégie de nouvelle tentative. Configurer `JWT_SECRET`, `AUTH_SERVICE_URL` et un projet EAS avec les identifiants FCM/APNs adéquats. Ce service ne change ni les permissions ni les transitions d'état.

@@ -9,6 +9,7 @@ const permissionChangeRoutes = require('./permissionChange.routes');
 const enterpriseRoutes = require('./enterprise.routes');
 const storageRoutes = require('./storage.routes');
 const operationalRequestRoutes = require('./operationalRequest.routes');
+const internalPushTokenRoutes = require('./internalPushToken.routes');
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.use('/permission-requests', permissionChangeRoutes);
 router.use('/enterprises', enterpriseRoutes);
 router.use('/storage', storageRoutes);
 router.use('/operational-requests', operationalRequestRoutes);
+router.use('/internal/push-tokens', internalPushTokenRoutes);
 
 /**
  * 404 handler for API routes

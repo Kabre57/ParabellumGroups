@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Parabellum Mobile",
+    "slug": "parabellum-mobile",
+    "version": "1.0.0",
+    "icon": "./image/icons/icon.png",
+    "scheme": "parabellum",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f8fafc",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.parabellumgroups.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Parabellum Mobile utilise la caméra pour photographier les justificatifs de vos demandes.",
+        "NSPhotoLibraryUsageDescription": "Parabellum Mobile accède à vos photos pour joindre des justificatifs à vos demandes.",
+        "NSUserNotificationUsageDescription": "Parabellum Mobile vous envoie des notifications sur les nouvelles demandes et leur traitement."
+      }
+    },
+    "android": {
+      "package": "com.parabellumgroups.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./image/icons/adaptive-icon.png",
+        "backgroundColor": "#050817"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "97eabfb6-c345-4759-b566-d82dd86f375a"
+      }
+    },
+    "owner": "kabre57"
+  }
+}

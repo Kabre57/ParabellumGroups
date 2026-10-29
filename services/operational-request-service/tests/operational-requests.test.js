@@ -10,12 +10,16 @@ const { validateRequestFields } = require('../controllers/operationalRequest.con
 const { requirePermission } = require('../middleware/auth');
 const { selectActiveBillingVoucher, classifyVoucherLookupResult } = require('../utils/billing');
 
-test('request field validation enforces mandatory fields and allowed types', () => {
+test('request field validation requires a type but accepts configured custom type codes', () => {
   const missingType = validateRequestFields({ beneficiaryName: 'Jean', reason: 'Mission', amountRequested: 50000 });
   assert.equal(missingType.error, 'Le type de demande est obligatoire.');
 
-  const invalidType = validateRequestFields({ type: 'INVALID', beneficiaryName: 'Jean', reason: 'Mission', amountRequested: 50000 });
-  assert.equal(invalidType.error, 'Type de demande invalide.');
+  const emptyType = validateRequestFields({ type: '', beneficiaryName: 'Jean', reason: 'Mission', amountRequested: 50000 });
+  assert.equal(emptyType.error, 'Le type de demande ne peut pas être vide.');
+
+  const customType = validateRequestFields({ type: 'CUSTOM_PURCHASE', beneficiaryName: 'Jean', reason: 'Mission', amountRequested: 50000 });
+  assert.equal(customType.error, undefined);
+  assert.equal(customType.data.type, 'CUSTOM_PURCHASE');
 
   const negativeAmount = validateRequestFields({ type: 'FUEL', beneficiaryName: 'Jean', reason: 'Carburant', amountRequested: -100 });
   assert.equal(negativeAmount.error, 'Le montant doit être supérieur à zéro.');

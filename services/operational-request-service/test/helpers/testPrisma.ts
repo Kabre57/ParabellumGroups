@@ -61,11 +61,20 @@ async function prepareClient(): Promise<ClientConstructor> {
  * Unknown statements fail instead of silently creating an incomplete database.
  */
 function sqliteStatements(migration: string): string[] {
+  // Prisma Postgres migrations may contain operations that are already
+  // reflected by the SQLite-compatible initial schema, plus comments that
+  // otherwise prevent statement classification below.
+  let sql = migration.replace(/^\s*--.*$/gm, '');
   const enumNames = [...migration.matchAll(/CREATE TYPE "([^"]+)" AS ENUM \([^;]+\);/g)]
     .map((match) => match[1]);
-  let sql = migration.replace(/CREATE TYPE "[^"]+" AS ENUM \([^;]+\);/g, '');
+  sql = sql.replace(/CREATE TYPE "[^"]+" AS ENUM \([^;]+\);/g, '');
   for (const name of enumNames) sql = sql.replaceAll(`"${name}"`, 'TEXT');
   sql = sql.replace(/TIMESTAMP\(3\)/g, 'DATETIME');
+  // The first migration already creates this column as TEXT after translating
+  // its enum. PostgreSQL's type alteration and enum removal have no SQLite
+  // equivalent and would not change the resulting test schema.
+  sql = sql.replace(/ALTER TABLE "operational_requests" ALTER COLUMN "type" TYPE TEXT;/g, '');
+  sql = sql.replace(/DROP TYPE IF EXISTS "OperationalRequestType";/g, '');
   const foreignKeys: { table: string; constraint: string }[] = [];
   sql = sql.replace(
     /ALTER TABLE "([^"]+)" ADD CONSTRAINT "([^"]+)" (FOREIGN KEY[^;]+);/g,

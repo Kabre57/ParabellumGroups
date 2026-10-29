@@ -15,11 +15,15 @@ const {
 } = require('../controllers/user-permission.controller');
 const authenticate = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleCheck');
+const { registerPushToken, revokePushToken } = require('../controllers/pushToken.controller');
 
 const router = express.Router();
 
 // All user routes require authentication
 router.use(authenticate);
+
+router.post('/push-token', registerPushToken);
+router.delete('/push-token', revokePushToken);
 
 /**
  * @route   GET /api/users

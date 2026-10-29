@@ -44,6 +44,19 @@ module.exports = {
   limiter: authServiceLimiter,
   
   routes: [
+    // Un utilisateur peut gérer uniquement son propre token d'appareil.
+    {
+      path: '/users/push-token',
+      method: 'post',
+      auth: true,
+      pathRewrite: { '^/users': '/api/users' },
+    },
+    {
+      path: '/users/push-token',
+      method: 'delete',
+      auth: true,
+      pathRewrite: { '^/users': '/api/users' },
+    },
     // Routes admin protégées
     {
       path: '/auth/users',

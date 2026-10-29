@@ -1,7 +1,7 @@
 import type {
   Attachment,
   OperationalRequest,
-  OperationalRequestType,
+  OperationalRequestTypeConfig,
 } from '../types/operationalRequest';
 import { apiClient } from './client';
 
@@ -12,7 +12,7 @@ export type ListParams =
   | { page?: number; limit?: number };
 
 export type CreatePayload = {
-  type: OperationalRequestType;
+  type: string;
   beneficiaryName: string;
   reason: string;
   amountRequested: number;
@@ -138,6 +138,14 @@ export const operationalRequestsService = {
       `/operational-requests/${encodeURIComponent(id)}/attachments`,
       body,
       { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data.data;
+  },
+
+  async listTypes(params?: { all?: boolean }): Promise<OperationalRequestTypeConfig[]> {
+    const response = await apiClient.get<ApiResponse<OperationalRequestTypeConfig[]>>(
+      '/operational-requests/types',
+      { params },
     );
     return response.data.data;
   },

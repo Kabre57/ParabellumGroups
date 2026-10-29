@@ -342,3 +342,9 @@ MIT
 
 **Version:** 1.0.0  
 **Dernière mise à jour:** 2026-01-19
+
+## Notifications push mobiles
+
+Les appareils mobiles enregistrent leur token Expo avec `POST /api/users/push-token` après authentification. La route reçoit `expoPushToken`, `platform` (`ios` ou `android`) et `projectId`; elle rattache le token à l'utilisateur de la session. Les appareils multiples sont pris en charge et un token déjà connu est transféré à son nouveau propriétaire. `DELETE /api/users/push-token` révoque le token fourni pour l'utilisateur authentifié.
+
+Les tokens sont stockés dans `user_push_tokens`. La migration Prisma `20261029140000_add_user_push_tokens` est appliquée au démarrage par l'entrypoint Docker. Le service de notifications consulte les tokens par l'endpoint interne `GET /api/internal/push-tokens/:userId`, réservé aux appels signés du `notification-service` avec `JWT_SECRET`; ne pas exposer cette route dans la Gateway.
