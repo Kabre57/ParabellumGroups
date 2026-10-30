@@ -112,11 +112,11 @@ const serveStorageObject = async (req, res) => {
     const authorized = isAdmin
       ? requestedOwnerMatches
       : Boolean(
-        effectiveEnterpriseId &&
-        requestedOwnerMatches &&
-        (isEnterpriseAsset || requestedEnterpriseId === effectiveEnterpriseId) &&
-        (await isEnterpriseInUserScope(effectiveEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
-      );
+          effectiveEnterpriseId &&
+            requestedOwnerMatches &&
+            (isEnterpriseAsset || requestedEnterpriseId === effectiveEnterpriseId) &&
+            (await isEnterpriseInUserScope(effectiveEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
+        );
 
     if (!authorized || (ownerEnterpriseId && !(await prisma.enterprise.findUnique({
       where: { id: ownerEnterpriseId },
