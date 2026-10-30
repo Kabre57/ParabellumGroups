@@ -36,6 +36,7 @@ export type OperationalRequest = {
   status: OperationalRequestStatus;
   enterpriseId: number;
   enterpriseName: string;
+  serviceName?: string | null;
   requesterId: string;
   requesterName: string;
   beneficiaryName: string;
@@ -50,6 +51,9 @@ export type OperationalRequest = {
   cashVoucherNumber?: string | null;
   createdAt: string;
   updatedAt: string;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  disbursedAt?: string | null;
   attachments?: Attachment[];
   approvalLogs?: OperationalRequestLog[];
 };

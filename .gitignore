@@ -101,6 +101,8 @@ mobile/app/(app)/*
 !mobile/app/(app)/index.tsx
 !mobile/app/(app)/notifications.tsx
 !mobile/app/(app)/selection-entreprise.tsx
+!mobile/app/(app)/demandes/
+!mobile/app/(app)/demandes/**
 !mobile/app/(app)/(tabs)/
 mobile/app/(app)/(tabs)/*
 !mobile/app/(app)/(tabs)/profil.tsx
@@ -110,6 +112,7 @@ mobile/src/api/*
 !mobile/src/api/billing.ts
 !mobile/src/api/client.ts
 !mobile/src/api/notifications.ts
+!mobile/src/api/operationalRequests.ts
 !mobile/src/stores/
 mobile/src/stores/*
 !mobile/src/stores/authStore.ts

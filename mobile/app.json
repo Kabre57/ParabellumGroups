@@ -46,6 +46,9 @@
         "asyncRoutes": {
           "web": true
         }
+      },
+      "eas": {
+        "projectId": "b58c2632-f4f6-455b-b500-f355508ee4ce"
       }
     },
     "owner": "kabre57"

@@ -113,8 +113,9 @@ export default function AppLayout(): JSX.Element {
           drawerType: 'front',
         }}
       >
-        <Drawer.Screen name="index" options={{ headerShown: false }} />
-        <Drawer.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Drawer.Screen name="index" options={{ headerShown: false, drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="(tabs)" options={{ headerShown: false, title: 'Mon profil' }} />
+        <Drawer.Screen name="demandes" options={{ title: 'Demandes opérationnelles' }} />
         <Drawer.Screen name="selection-entreprise" options={{ title: 'Choisir une entreprise' }} />
         <Drawer.Screen name="notifications" options={{ title: 'Notifications' }} />
       </Drawer>

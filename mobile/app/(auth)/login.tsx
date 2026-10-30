@@ -75,7 +75,7 @@ export default function LoginScreen(): JSX.Element {
       const onlyEnterprise = response.enterprises[0];
       if (response.enterprises.length === 1 && onlyEnterprise) enterpriseStore.setActive(onlyEnterprise);
       useAuthStore.getState().setUser(response.user);
-      router.replace(response.enterprises.length === 1 ? '/' : '/selection-entreprise');
+      router.replace(response.enterprises.length === 1 ? '/demandes' : '/selection-entreprise');
     },
     onError: async (error: unknown) => {
       try {

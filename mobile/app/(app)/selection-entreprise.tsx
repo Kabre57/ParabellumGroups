@@ -32,7 +32,7 @@ export default function SelectEnterpriseScreen(): JSX.Element {
 
   const choose = (enterprise: Enterprise): void => {
     setActive(enterprise);
-    router.replace('/');
+    router.replace('/demandes');
   };
 
   return (
