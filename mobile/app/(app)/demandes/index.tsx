@@ -1,7 +1,7 @@
 import { isAxiosError } from 'axios';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Card, Chip, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import { formatMoney } from '@/constants/format';
 import { requestStatusLabels, requestTypeLabels, requestViews, type OperationalRequestView } from '@/constants/operationalRequests';
 import { useAuthStore } from '@/stores/authStore';
 import { useEnterpriseStore } from '@/stores/enterpriseStore';
-import { hasExplicitPermission, isAdminRole } from '@/utils/permissions';
+import { hasExplicitPermission } from '@/utils/permissions';
 import type { OperationalRequest } from '@/types/operationalRequest';
 
 const pageSize = 50;
@@ -42,7 +42,7 @@ function RequestCard({
 }: {
   request: OperationalRequest;
   view: OperationalRequestView;
-  configuredTypes: Array<{ code: string; label: string }>;
+  configuredTypes: { code: string; label: string }[];
 }): JSX.Element {
   const { colors } = useTheme();
   const typeLabel = configuredTypes.find((item) => item.code === request.type)?.label ?? requestTypeLabels[request.type] ?? request.type;
@@ -110,16 +110,18 @@ export default function OperationalRequestsScreen(): JSX.Element {
         ? 'all'
         : 'mine';
 
-  const [view, setView] = useState<OperationalRequestView>(preferredView);
-  const [hasManuallySelectedView, setHasManuallySelectedView] = useState(false);
+  const [manualView, setManualView] = useState<OperationalRequestView | null>(null);
+  const isViewAvailable = (candidate: OperationalRequestView): boolean => {
+    if (candidate === 'review') return canReviewQueue;
+    if (candidate === 'finance') return canFinance;
+    if (candidate === 'all') return canReadAll;
+    return true;
+  };
+  const view = manualView && isViewAvailable(manualView) ? manualView : preferredView;
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<OperationalRequestFormValues>(newOperationalRequestForm());
   const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!hasManuallySelectedView) setView(preferredView);
-  }, [hasManuallySelectedView, preferredView]);
 
   const typesQuery = useQuery({
     queryKey: ['mobile-operational-request-types', enterpriseId],
@@ -150,7 +152,7 @@ export default function OperationalRequestsScreen(): JSX.Element {
       setFormOpen(false);
       setForm(newOperationalRequestForm());
       setFormError(null);
-      setView('mine');
+      setManualView('mine');
       setPage(1);
       await queryClient.invalidateQueries({ queryKey: ['mobile-operational-requests', user?.id, enterpriseId] });
       router.push(`/demandes/${encodeURIComponent(request.id)}`);
@@ -159,12 +161,7 @@ export default function OperationalRequestsScreen(): JSX.Element {
   });
 
   const currentView = requestViews.find((item) => item.key === view)?.label ?? 'Mes demandes';
-  const visibleViews = requestViews.filter((item) => {
-    if (item.key === 'review') return canReviewQueue;
-    if (item.key === 'finance') return canFinance;
-    if (item.key === 'all') return canReadAll;
-    return true;
-  });
+  const visibleViews = requestViews.filter((item) => isViewAvailable(item.key));
 
   const emptyMessage: Record<OperationalRequestView, string> = {
     mine: `Aucune demande créée par toi ne correspond à ${enterpriseName || 'cette entreprise'}.`,
@@ -228,8 +225,7 @@ export default function OperationalRequestsScreen(): JSX.Element {
               mode={view === item.key ? 'contained' : 'outlined'}
               compact
               onPress={() => {
-                setHasManuallySelectedView(true);
-                setView(item.key);
+                setManualView(item.key);
                 setPage(1);
               }}
               style={styles.tabButton}
@@ -264,8 +260,7 @@ export default function OperationalRequestsScreen(): JSX.Element {
               ) : null}
               {view !== 'mine' ? (
                 <Button mode="outlined" onPress={() => {
-                  setHasManuallySelectedView(true);
-                  setView('mine');
+                  setManualView('mine');
                   setPage(1);
                 }}>Voir mes demandes</Button>
               ) : null}
@@ -294,9 +289,9 @@ export default function OperationalRequestsScreen(): JSX.Element {
         ) : null}
       </ScrollView>
 
-      {enterpriseName ? (
+      {formOpen && enterpriseName ? (
         <OperationalRequestFormModal
-          isOpen={formOpen}
+          isOpen
           isEditing={false}
           enterpriseName={enterpriseName}
           initialValues={form}

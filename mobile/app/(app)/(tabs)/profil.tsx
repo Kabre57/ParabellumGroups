@@ -21,7 +21,7 @@ export default function ProfileScreen(): JSX.Element {
   useEffect(() => {
     if (!user || activeEnterpriseId !== null) return;
     let active = true;
-    void authService.enterprises().then((enterprises) => {
+    void authService.enterprises().then(async (enterprises) => {
       if (!active) return;
       const store = useEnterpriseStore.getState();
       store.setEnterprises(enterprises);

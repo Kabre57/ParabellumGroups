@@ -403,9 +403,9 @@ export default function OperationalRequestDetailScreen(): JSX.Element {
         ) : null}
       </ScrollView>
 
-      {request && enterpriseName ? (
+      {formOpen && request && enterpriseName ? (
         <OperationalRequestFormModal
-          isOpen={formOpen}
+          isOpen
           isEditing
           enterpriseName={enterpriseName}
           initialValues={formValues ?? { type: '', beneficiaryName: '', reason: '', amountRequested: '', desiredDate: '', details: {} }}

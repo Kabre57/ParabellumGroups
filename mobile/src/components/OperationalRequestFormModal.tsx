@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Chip, HelperText, Modal, Portal, Text, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,13 +44,6 @@ export function OperationalRequestFormModal(props: Props): JSX.Element | null {
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState(props.initialValues);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (props.isOpen) {
-      setForm(props.initialValues);
-      setValidationError(null);
-    }
-  }, [props.initialValues, props.isOpen]);
 
   if (!props.isOpen) return null;
 

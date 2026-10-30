@@ -22,7 +22,7 @@ export const requestTypeLabels: Record<string, string> = {
   PROCUREMENT: 'Achats / approvisionnement',
 };
 
-export const requestTypeDetails: Record<string, Array<{ key: string; label: string }>> = {
+export const requestTypeDetails: Record<string, { key: string; label: string }[]> = {
   FUEL: [
     { key: 'vehicle', label: 'Véhicule' },
     { key: 'quantity', label: 'Quantité estimée (litres)' },
@@ -42,7 +42,7 @@ export const requestTypeDetails: Record<string, Array<{ key: string; label: stri
   OTHER: [{ key: 'category', label: 'Catégorie de dépense' }],
 };
 
-export const requestViews: Array<{ key: OperationalRequestView; label: string }> = [
+export const requestViews: { key: OperationalRequestView; label: string }[] = [
   { key: 'mine', label: 'Mes demandes' },
   { key: 'review', label: 'À valider' },
   { key: 'finance', label: 'Traitement financier' },
