@@ -6,10 +6,10 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
 active_file="$root_dir/docker/nginx/active-upstreams.inc"
-if rg -q 'api-gateway-blue:3001' "$active_file"; then
+if grep -Fq 'api-gateway-blue:3001' "$active_file"; then
   live_color=blue
   next_color=green
-elif rg -q 'api-gateway-green:3001' "$active_file"; then
+elif grep -Fq 'api-gateway-green:3001' "$active_file"; then
   live_color=green
   next_color=blue
 else
