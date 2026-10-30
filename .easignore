@@ -20,10 +20,10 @@
 
 # The Expo app is self-contained in mobile/; backend sources are not needed
 # by the Android/iOS build.
-services/
-Doc/
-docs/
-scratch/
-backups/
-logs/
+/services/
+/Doc/
+/docs/
+/scratch/
+/backups/
+/logs/
 *.log
