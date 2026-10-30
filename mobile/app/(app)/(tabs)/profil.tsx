@@ -9,7 +9,7 @@ import { NotificationSettings } from '@/components/NotificationSettings';
 import { authService } from '@/api/auth';
 import { useLogout } from '@/hooks/useLogout';
 import { useAuthStore } from '@/stores/authStore';
-import { useEnterpriseStore } from '@/stores/enterpriseStore';
+import { loadPreferredEnterprise, savePreferredEnterprise, useEnterpriseStore } from '@/stores/enterpriseStore';
 import { useToastStore } from '@/stores/toastStore';
 
 export default function ProfileScreen(): JSX.Element {
@@ -25,10 +25,12 @@ export default function ProfileScreen(): JSX.Element {
       if (!active) return;
       const store = useEnterpriseStore.getState();
       store.setEnterprises(enterprises);
-      const preferred = enterprises.find(({ id }) => id === user.enterpriseId);
-      const selection = preferred ?? (enterprises.length === 1 ? enterprises[0] : undefined);
+      const preferred = await loadPreferredEnterprise(user.id, enterprises);
+      const accountEnterprise = enterprises.find(({ id }) => Number(id) === user.enterpriseId);
+      const selection = preferred ?? accountEnterprise ?? (enterprises.length === 1 ? enterprises[0] : undefined);
       if (selection) {
         store.setActive(selection);
+        await savePreferredEnterprise(user.id, selection);
       } else {
         router.replace('/selection-entreprise');
       }

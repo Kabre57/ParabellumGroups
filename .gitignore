@@ -64,7 +64,7 @@ Rapport d'analyse/
 docs/*.pdf
 docs/*.md
 
-# The mobile app is normally kept local; allow the notification integration files to be reviewed.
+# The mobile app stays excluded by default; allow the shipped mobile workflow files.
 !mobile/
 mobile/*
 !mobile/README.md
@@ -79,6 +79,7 @@ mobile/src/*
 !mobile/src/constants/
 mobile/src/constants/*
 !mobile/src/constants/format.ts
+!mobile/src/constants/operationalRequests.ts
 !mobile/src/hooks/
 mobile/src/hooks/*
 !mobile/src/hooks/useLogout.ts
@@ -119,10 +120,15 @@ mobile/src/stores/*
 !mobile/src/stores/enterpriseStore.ts
 !mobile/src/stores/notificationStore.ts
 !mobile/src/stores/toastStore.ts
+!mobile/src/utils/
+mobile/src/utils/*
+!mobile/src/utils/permissions.ts
 !mobile/src/components/
 mobile/src/components/*
 !mobile/src/components/NotificationSettings.tsx
 !mobile/src/components/Toast.tsx
+!mobile/src/components/CashVoucherModal.tsx
+!mobile/src/components/OperationalRequestFormModal.tsx
 !mobile/src/components/layout/
 mobile/src/components/layout/*
 !mobile/src/components/layout/AppHeader.tsx

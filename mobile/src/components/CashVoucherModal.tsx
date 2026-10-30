@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useEnterpriseStore } from '@/stores/enterpriseStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { OperationalRequest } from '@/types/operationalRequest';
+import { hasPermission } from '@/utils/permissions';
 
 type CashVoucherModalProps = {
   isOpen: boolean;
@@ -83,8 +84,7 @@ function CashVoucherContent(props: ModalContentProps): JSX.Element {
       current.request.id === request.id && current.request.enterpriseId === enterpriseId;
   };
   const assertAccess = (): void => {
-    const rights = useAuthStore.getState().user?.permissions ?? [];
-    if (!isCurrentContext() || !(rights.includes('*') || rights.includes('operational_requests.finance'))) {
+    if (!isCurrentContext() || !hasPermission(useAuthStore.getState().user, 'operational_requests.finance')) {
       throw new Error('Votre session, votre entreprise ou vos permissions ont changé.');
     }
   };

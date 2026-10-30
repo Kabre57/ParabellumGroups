@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { authService } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
-import { useEnterpriseStore } from '@/stores/enterpriseStore';
+import { loadPreferredEnterprise, savePreferredEnterprise, useEnterpriseStore } from '@/stores/enterpriseStore';
 import { useToastStore } from '@/stores/toastStore';
 
 const schema = z.object({
@@ -45,10 +45,12 @@ export default function ChangePasswordScreen(): JSX.Element {
       const enterprises = await authService.enterprises();
       const enterpriseStore = useEnterpriseStore.getState();
       enterpriseStore.setEnterprises(enterprises);
-      const preferred = enterprises.find(({ id }) => id === response.user.enterpriseId);
-      const selection = preferred ?? (enterprises.length === 1 ? enterprises[0] : undefined);
+      const preferred = await loadPreferredEnterprise(response.user.id, enterprises);
+      const accountEnterprise = enterprises.find(({ id }) => Number(id) === response.user.enterpriseId);
+      const selection = preferred ?? accountEnterprise ?? (enterprises.length === 1 ? enterprises[0] : undefined);
       if (selection) {
         enterpriseStore.setActive(selection);
+        await savePreferredEnterprise(response.user.id, selection);
         router.replace('/');
       } else {
         router.replace('/selection-entreprise');

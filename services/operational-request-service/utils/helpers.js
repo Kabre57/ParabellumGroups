@@ -1,7 +1,7 @@
 const normalizePermissions = (permissions) => (Array.isArray(permissions) ? permissions.map(String) : []);
 
 const isAdmin = (user) =>
-  ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPERADMIN'].includes(
+  ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN'].includes(
     String(user?.role || user?.roleCode || '').toUpperCase()
   );
 

@@ -12,7 +12,9 @@ const getRequestForUser = async (prisma, req, id, enterprise) => {
   const canReadAll = hasPermission(req.user, 'operational_requests.read_all');
   const canReadFinance =
     hasPermission(req.user, 'operational_requests.finance') && FINANCE_STATUSES.includes(request.status);
-  if (!isOwner && !canReadAll && !canReadFinance) {
+  const canReviewSubmitted = request.status === 'SUBMITTED' &&
+    ['approve', 'reject', 'return'].some((action) => hasPermission(req.user, `operational_requests.${action}`));
+  if (!isOwner && !canReadAll && !canReadFinance && !canReviewSubmitted) {
     return { error: { status: 403, message: 'Accès refusé à cette demande.' } };
   }
   return { request };

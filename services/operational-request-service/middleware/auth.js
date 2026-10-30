@@ -36,7 +36,7 @@ const authenticate = (req, res, next) => {
 
 const requirePermission = (permission, { explicit = false } = {}) => (req, res, next) => {
   const role = String(req.user?.role || req.user?.roleCode || '').toUpperCase();
-  if (explicit && ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPERADMIN'].includes(role)) {
+  if (explicit && ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN'].includes(role)) {
     return fail(res, 403, 'Un administrateur ne peut pas remplacer une décision métier.');
   }
   if (hasPermission(req.user, permission)) return next();

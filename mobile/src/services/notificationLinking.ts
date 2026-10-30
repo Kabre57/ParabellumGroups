@@ -2,7 +2,7 @@ import { authService } from '@/api/auth';
 import { operationalRequestsService } from '@/api/operationalRequests';
 import type { OperationalRequest } from '@/types/operationalRequest';
 import { useAuthStore } from '@/stores/authStore';
-import { useEnterpriseStore, type Enterprise } from '@/stores/enterpriseStore';
+import { savePreferredEnterprise, useEnterpriseStore, type Enterprise } from '@/stores/enterpriseStore';
 
 export class NotificationLinkingError extends Error {
   constructor(message: string) {
@@ -66,6 +66,7 @@ export async function resolveNotificationRequestTarget(
     if (request.enterpriseId !== enterprise.id) {
       throw new NotificationLinkingError('Cette demande n’appartient pas à l’entreprise indiquée.');
     }
+    await savePreferredEnterprise(userId, enterprise).catch(() => undefined);
     return { enterprise, request };
   } catch (error: unknown) {
     if (previous && useEnterpriseStore.getState().activeEnterpriseId === enterprise.id) {

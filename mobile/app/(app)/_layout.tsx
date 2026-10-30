@@ -12,6 +12,7 @@ import { authService } from '@/api/auth';
 import { AppDrawerContent } from '@/components/layout/AppDrawerContent';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { useAuthStore } from '@/stores/authStore';
+import { loadPreferredEnterprise, savePreferredEnterprise, useEnterpriseStore } from '@/stores/enterpriseStore';
 import { useToastStore } from '@/stores/toastStore';
 
 type AuthCheck = { status: 'checking' | 'ready' } | { status: 'error'; message: string };
@@ -62,7 +63,36 @@ export default function AppLayout(): JSX.Element {
           useAuthStore.getState().setUser(restoredUser);
         }
 
-        if (active) setCheck({ status: 'ready' });
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) throw new Error('Votre session utilisateur est introuvable.');
+
+        let enterprises = useEnterpriseStore.getState().enterprises;
+        if (enterprises.length === 0) {
+          enterprises = await authService.enterprises();
+          if (!active) return;
+          useEnterpriseStore.getState().setEnterprises(enterprises);
+        }
+
+        const enterpriseStore = useEnterpriseStore.getState();
+        const activeEnterprise = enterprises.find(
+          (enterprise) => Number(enterprise.id) === Number(enterpriseStore.activeEnterpriseId),
+        );
+        if (!activeEnterprise) {
+          enterpriseStore.clearActive();
+          const preferred = await loadPreferredEnterprise(currentUser.id, enterprises);
+          const selected = preferred ?? (enterprises.length === 1 ? enterprises[0] : undefined);
+          if (selected) {
+            enterpriseStore.setActive(selected);
+            await savePreferredEnterprise(currentUser.id, selected);
+          }
+        }
+
+        if (active) {
+          setCheck({ status: 'ready' });
+          if (!currentUser.mustChangePassword && useEnterpriseStore.getState().activeEnterpriseId === null) {
+            router.replace('/selection-entreprise');
+          }
+        }
       } catch (error: unknown) {
         if (!active) return;
         if (isAxiosError(error) && error.response?.status === 401) {

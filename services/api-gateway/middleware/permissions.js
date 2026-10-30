@@ -50,7 +50,7 @@ const isAdminUser = (user) => {
   if (!user) return false;
   const role = user.role || user.roleCode || '';
   const roleValue = String(role).toUpperCase();
-  return roleValue === 'ADMIN' || roleValue === 'ADMINISTRATOR' || roleValue === 'ADMINISTRATEUR';
+  return ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN'].includes(roleValue);
 };
 
 const requireAdmin = () => (req, res, next) => {

@@ -5,11 +5,11 @@ Application React Native / Expo qui se connecte à l’API Parabellum Groups.
 ## Fonctions disponibles
 
 - Connexion, mot de passe oublié et changement du mot de passe provisoire.
-- Sélection d’entreprise et profil du compte.
-- Consultation des demandes opérationnelles appartenant à l’utilisateur, avec leur détail et leur historique.
+- Sélection d’entreprise mémorisée par compte, et profil utilisateur.
+- Demandes opérationnelles : création, modification d’un brouillon, soumission, consultation et historique.
+- Files adaptées aux permissions : « Mes demandes », « À valider », « Traitement financier » et « Toutes du périmètre ».
+- Approbation, rejet ou retour pour complément, ajout de justificatifs, création et synchronisation du bon de caisse, clôture.
 - Notifications de demandes et ouverture d’une demande depuis une notification.
-
-La liste et le détail des demandes sont en lecture seule dans l’application mobile. La création, la modification, les décisions d’approbation et le traitement financier restent disponibles dans la version web, pas encore dans cette application.
 
 ## Développement
 
@@ -33,9 +33,13 @@ Conserver le suffixe `/api`. Redémarrer Metro après une modification de l’UR
 
 ## Parcours des demandes
 
-Après connexion, l’application ouvre directement « Mes demandes opérationnelles ». La liste charge les demandes de l’utilisateur dans l’entreprise active depuis `GET /api/operational-requests?mine=true`. Le serveur vérifie les droits d’accès ; si la réponse est `403`, un administrateur doit attribuer une permission de lecture des demandes au compte.
+Après la première sélection, l’entreprise est enregistrée dans le stockage sécurisé de l’appareil pour le compte connecté. Elle est revalidée avec les entreprises auxquelles le compte a encore accès à la prochaine connexion. Le bouton « Changer d’entreprise » permet d’en choisir une autre.
 
-Toucher une demande ouvre son détail, avec le bénéficiaire, le motif, le montant, le statut, les commentaires, l’historique et les noms des pièces jointes. Le geste de rafraîchissement recharge la liste.
+La file initiale suit les permissions comme sur le web : approbation → « À valider », finance → « Traitement financier », lecture globale → « Toutes du périmètre », sinon → « Mes demandes ». Les onglets ne s’affichent que si le compte a les droits correspondants. Toutes les listes restent limitées à l’entreprise active côté API.
+
+Le détail permet au demandeur de modifier un brouillon ou une demande retournée et de la soumettre. Un approbateur peut approuver, rejeter ou retourner une demande à compléter. La finance peut créer un bon de caisse, vérifier son statut et clôturer le dossier après décaissement. Les justificatifs PDF/JPG/PNG sont limités à 8 Mo. Les actions et changements d’état apparaissent dans l’historique.
+
+Les permissions d’approbation donnent maintenant accès uniquement à la file `SUBMITTED` lorsque le compte n’a pas `read_all`. Elles ne donnent pas accès aux autres demandes de l’entreprise. Un refus `403` indique que le compte n’a pas le droit requis ; l’administrateur doit vérifier ses permissions.
 
 ## Build Android avec EAS
 

@@ -15,6 +15,7 @@ export type Attachment = {
   contentType: string;
   size: number;
   createdAt: string;
+  url?: string | null;
   downloadUrl?: string | null;
 };
 
@@ -37,6 +38,7 @@ export type OperationalRequest = {
   enterpriseId: number;
   enterpriseName: string;
   serviceName?: string | null;
+  serviceId?: string | null;
   requesterId: string;
   requesterName: string;
   beneficiaryName: string;

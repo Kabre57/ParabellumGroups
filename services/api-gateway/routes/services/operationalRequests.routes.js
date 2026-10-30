@@ -23,7 +23,14 @@ const operationalRequestPermissionRules = [
   {
     pattern: /^\/operational-requests(?:\/|$)/,
     permissions: {
-      GET: ['operational_requests.read_own', 'operational_requests.read_all', 'operational_requests.finance'],
+      GET: [
+        'operational_requests.read_own',
+        'operational_requests.read_all',
+        'operational_requests.finance',
+        'operational_requests.approve',
+        'operational_requests.reject',
+        'operational_requests.return',
+      ],
       POST: 'operational_requests.create',
       PATCH: 'operational_requests.update',
     },

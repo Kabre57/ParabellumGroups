@@ -26,7 +26,10 @@ const createOperationalRequestRouter = (prisma) => {
     requireAnyPermission(
       'operational_requests.read_own',
       'operational_requests.read_all',
-      'operational_requests.finance'
+      'operational_requests.finance',
+      'operational_requests.approve',
+      'operational_requests.reject',
+      'operational_requests.return'
     ),
     controller.listRequests
   );

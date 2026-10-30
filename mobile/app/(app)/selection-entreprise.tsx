@@ -6,13 +6,15 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { authService } from '@/api/auth';
 import type { Enterprise } from '@/stores/enterpriseStore';
-import { useEnterpriseStore } from '@/stores/enterpriseStore';
+import { savePreferredEnterprise, useEnterpriseStore } from '@/stores/enterpriseStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
 
 export default function SelectEnterpriseScreen(): JSX.Element {
   const enterprises = useEnterpriseStore((state) => state.enterprises);
   const setEnterprises = useEnterpriseStore((state) => state.setEnterprises);
   const setActive = useEnterpriseStore((state) => state.setActive);
+  const userId = useAuthStore((state) => state.user?.id);
   const [loading, setLoading] = useState(enterprises.length === 0);
 
   useEffect(() => {
@@ -32,6 +34,12 @@ export default function SelectEnterpriseScreen(): JSX.Element {
 
   const choose = (enterprise: Enterprise): void => {
     setActive(enterprise);
+    if (userId) {
+      void savePreferredEnterprise(userId, enterprise).then(() => router.replace('/demandes')).catch(() => {
+        router.replace('/demandes');
+      });
+      return;
+    }
     router.replace('/demandes');
   };
 

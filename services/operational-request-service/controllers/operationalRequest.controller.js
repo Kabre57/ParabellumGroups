@@ -55,7 +55,19 @@ const createOperationalRequestController = (prisma) => {
       const where = { enterpriseId: Number(enterprise.id) };
       const canReadAll = hasPermission(req.user, 'operational_requests.read_all');
       const canReadFinance = hasPermission(req.user, 'operational_requests.finance');
-      if (!canReadAll && !canReadFinance) where.requesterId = actorId(req);
+      const canReviewSubmitted = ['approve', 'reject', 'return'].some((action) =>
+        hasPermission(req.user, `operational_requests.${action}`)
+      );
+      const requestedStatus = String(req.query.status || '').toUpperCase();
+      if (req.query.mine === 'true') {
+        where.requesterId = actorId(req);
+      } else if (!canReadAll && requestedStatus === 'SUBMITTED' && !canReviewSubmitted) {
+        // A finance-only or own-read account must not use a status filter to
+        // widen its scope into another user's validation queue.
+        where.requesterId = actorId(req);
+      } else if (!canReadAll && !canReadFinance && !(canReviewSubmitted && requestedStatus === 'SUBMITTED')) {
+        where.requesterId = actorId(req);
+      }
       if (req.query.financeQueue === 'true') {
         if (!canReadFinance) return fail(res, 403, 'Vous ne disposez pas de la permission financière.');
         where.status = { in: FINANCE_STATUSES };
@@ -63,7 +75,9 @@ const createOperationalRequestController = (prisma) => {
         where.status = { in: FINANCE_STATUSES };
       }
       if (req.query.mine === 'true') where.requesterId = actorId(req);
-      if (req.query.status && STATUSES.has(String(req.query.status))) where.status = String(req.query.status);
+      if (req.query.financeQueue !== 'true' && req.query.status && STATUSES.has(requestedStatus)) {
+        where.status = requestedStatus;
+      }
       if (req.query.type && String(req.query.type).trim()) where.type = String(req.query.type).trim();
       if (req.query.search) {
         const search = String(req.query.search).trim().slice(0, 100);

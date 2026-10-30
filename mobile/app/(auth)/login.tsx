@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { authService } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
-import { useEnterpriseStore } from '@/stores/enterpriseStore';
+import { loadPreferredEnterprise, savePreferredEnterprise, useEnterpriseStore } from '@/stores/enterpriseStore';
 import { useToastStore } from '@/stores/toastStore';
 
 const COLORS = {
@@ -58,6 +58,8 @@ export default function LoginScreen(): JSX.Element {
   const login = useMutation({
     mutationFn: ({ email: loginEmail, password: loginPassword }: LoginValues) => authService.login(loginEmail, loginPassword),
     onSuccess: async (response) => {
+      const enterpriseStore = useEnterpriseStore.getState();
+      enterpriseStore.clear();
       if (response.user.mustChangePassword) {
         await SecureStore.setItemAsync('access_token', response.accessToken);
         useAuthStore.getState().setUser(response.user);
@@ -69,13 +71,16 @@ export default function LoginScreen(): JSX.Element {
       await SecureStore.setItemAsync('access_token', response.accessToken);
       await queryClient.cancelQueries();
       queryClient.removeQueries();
-      const enterpriseStore = useEnterpriseStore.getState();
-      enterpriseStore.clear();
       enterpriseStore.setEnterprises(response.enterprises);
-      const onlyEnterprise = response.enterprises[0];
-      if (response.enterprises.length === 1 && onlyEnterprise) enterpriseStore.setActive(onlyEnterprise);
+      const preferred = await loadPreferredEnterprise(response.user.id, response.enterprises);
+      const onlyEnterprise = response.enterprises.length === 1 ? response.enterprises[0] : undefined;
+      const selected = preferred ?? onlyEnterprise;
+      if (selected) {
+        enterpriseStore.setActive(selected);
+        await savePreferredEnterprise(response.user.id, selected);
+      }
       useAuthStore.getState().setUser(response.user);
-      router.replace(response.enterprises.length === 1 ? '/demandes' : '/selection-entreprise');
+      router.replace(selected ? '/demandes' : '/selection-entreprise');
     },
     onError: async (error: unknown) => {
       try {

@@ -29,7 +29,7 @@ type AuthState = {
   logout: () => void;
 };
 
-const adminRoles = new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPERADMIN']);
+const adminRoles = new Set(['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN']);
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
