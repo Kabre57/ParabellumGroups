@@ -49,39 +49,18 @@ interface EditUserModalProps {
   onSuccess?: () => void;
 }
 
-import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSuccess }) => {
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const { user: currentUser } = useAuth();
+  const { enterprises, selectedEnterprise } = useEnterprise();
   const isServiceManager = isServiceManagerRole(currentUser);
   const isSuperAdmin = !currentUser?.enterpriseId && !isServiceManager;
-
-  const { data: rolesData, isLoading: rolesLoading } = useQuery({
-    queryKey: ['admin-roles-edit-modal', user?.enterpriseId],
-    queryFn: () => adminRolesService.getRoles(),
-    enabled: isOpen && !isServiceManager,
-  });
-
-  const { data: servicesData } = useQuery({
-    queryKey: ['admin-services-edit-modal', user?.enterpriseId],
-    queryFn: () => adminServicesService.getServices(true),
-    enabled: isOpen && !isServiceManager,
-  });
-
-  const { data: enterprisesData, isLoading: enterprisesLoading } = useQuery({
-    queryKey: ['admin-enterprises-edit-modal'],
-    queryFn: () => enterpriseApi.getAll({ limit: 100 }),
-    enabled: isOpen && isSuperAdmin && !isServiceManager,
-  });
-
-  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
-  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
-  const enterprises = Array.isArray(enterprisesData?.data) ? enterprisesData.data : [];
 
   const {
     register,
@@ -104,6 +83,27 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     }
   });
 
+  const selectedEnterpriseId = watch('enterpriseId') ?? String(user?.enterpriseId ?? user?.enterprise?.id ?? selectedEnterprise?.id ?? '');
+
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ['admin-roles-edit-modal', selectedEnterpriseId],
+    queryFn: () => adminRolesService.getRoles(false, Number(selectedEnterpriseId)),
+    enabled: isOpen && !isServiceManager && Boolean(selectedEnterpriseId),
+  });
+
+  const { data: servicesData, isLoading: servicesLoading } = useQuery({
+    queryKey: ['admin-services-edit-modal', selectedEnterpriseId],
+    queryFn: () => adminServicesService.getServices(true, false, Number(selectedEnterpriseId)),
+    enabled: isOpen && !isServiceManager && Boolean(selectedEnterpriseId),
+  });
+
+  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
+  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const enterpriseOptions = enterprises.length > 0
+    ? enterprises
+    : user?.enterprise ? [user.enterprise]
+      : selectedEnterprise ? [selectedEnterprise] : [];
+
   useEffect(() => {
     if (user && isOpen) {
       reset({
@@ -112,7 +112,9 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         lastName: user.lastName || '',
         roleId: user.roleId ? String(user.roleId) : (user.role?.id ? String(user.role.id) : ''),
         serviceId: user.serviceId ? String(user.serviceId) : '',
-        enterpriseId: user.enterpriseId ? String(user.enterpriseId) : '',
+        enterpriseId: user.enterpriseId || user.enterprise?.id
+          ? String(user.enterpriseId || user.enterprise?.id)
+          : String(selectedEnterprise?.id ?? ''),
         isActive: user.isActive ?? true,
         changePassword: false,
         newPassword: '',
@@ -121,7 +123,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         position: user.position || '',
       });
     }
-  }, [user, isOpen, reset]);
+  }, [user, isOpen, reset, selectedEnterprise?.id]);
 
   const selectedRoleId = watch('roleId');
   const selectedServiceId = watch('serviceId');
@@ -420,7 +422,17 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       ))}
                     </select>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Certains profils exigent un service. Le service doit appartenir à la même entreprise que le compte.</p>
+                  {servicesLoading ? (
+                    <p className="mt-1 text-xs text-gray-500">Chargement des services de l’entreprise…</p>
+                  ) : !selectedEnterpriseId ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Sélectionnez d’abord une entreprise pour charger ses services.</p>
+                  ) : services.length === 0 ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      Aucun service n’est rattaché à cette entreprise. Ouvrez <a className="font-medium underline" href="/dashboard/admin/services">Administration &gt; Services</a>, modifiez le service du catalogue et choisissez cette entreprise.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">Certains profils exigent un service. Le service doit appartenir à la même entreprise que le compte.</p>
+                  )}
                 </div>
               )}
 
@@ -436,7 +448,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Selectionner une entreprise</option>
-                      {enterprises.map((enterprise: any) => (
+                      {enterpriseOptions.map((enterprise: any) => (
                         <option key={enterprise.id} value={enterprise.id}>
                           {enterprise.name}
                         </option>

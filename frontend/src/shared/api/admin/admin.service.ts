@@ -323,9 +323,12 @@ export const adminUsersService = {
 };
 
 export const adminRolesService = {
-  getRoles: async (includeInactive = false): Promise<ApiListResponse<Role>> => {
-    const params = includeInactive ? '?includeInactive=true' : '';
-    const response = await apiClient.get<ApiListResponse<Role>>(`/auth/roles${params}`);
+  getRoles: async (includeInactive = false, enterpriseId?: number): Promise<ApiListResponse<Role>> => {
+    const params = new URLSearchParams();
+    if (includeInactive) params.set('includeInactive', 'true');
+    if (enterpriseId) params.set('enterpriseId', String(enterpriseId));
+    const query = params.toString();
+    const response = await apiClient.get<ApiListResponse<Role>>(`/auth/roles${query ? `?${query}` : ''}`);
     return response.data;
   },
 
@@ -381,10 +384,11 @@ export const adminRolesService = {
 };
 
 export const adminServicesService = {
-  getServices: async (includeInactive = false, includeAllEnterprises = false): Promise<ApiListResponse<Service>> => {
+  getServices: async (includeInactive = false, includeAllEnterprises = false, enterpriseId?: number): Promise<ApiListResponse<Service>> => {
     const params = new URLSearchParams();
     if (includeInactive) params.set('isActive', 'false');
     if (includeAllEnterprises) params.set('scope', 'all');
+    if (enterpriseId) params.set('enterpriseId', String(enterpriseId));
     const query = params.toString();
     const response = await apiClient.get<ApiListResponse<Service>>(`/auth/services${query ? `?${query}` : ''}`);
     return response.data;

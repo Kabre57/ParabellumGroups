@@ -16,7 +16,7 @@ const attachEnterpriseContext = (service) => ({
 
 const isGlobalAdmin = (user) => (user?.role?.code || user?.roleCode) === 'ADMIN';
 const getActiveEnterpriseId = (req) => {
-  const selectedEnterpriseId = parseNum(req.headers['x-enterprise-id']);
+  const selectedEnterpriseId = parseNum(req.query?.enterpriseId || req.headers['x-enterprise-id']);
   return isGlobalAdmin(req.user)
     ? selectedEnterpriseId || req.user.enterpriseId || null
     : req.user.enterpriseId || selectedEnterpriseId || null;

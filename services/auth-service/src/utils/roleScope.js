@@ -7,7 +7,7 @@ const isGlobalAdmin = (user) => (user?.role?.code || user?.roleCode) === 'ADMIN'
 
 const getActiveEnterpriseId = (req) => {
   const selectedEnterpriseId = parseEnterpriseId(
-    req.headers['x-enterprise-id'] || req.body?.enterpriseId || req.query?.enterpriseId
+    req.query?.enterpriseId || req.body?.enterpriseId || req.headers['x-enterprise-id']
   );
   if (isGlobalAdmin(req.user)) return selectedEnterpriseId || req.user.enterpriseId || null;
   return req.user.enterpriseId || selectedEnterpriseId || null;
