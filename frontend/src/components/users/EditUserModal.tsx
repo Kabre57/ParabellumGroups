@@ -51,6 +51,7 @@ interface EditUserModalProps {
 
 import { useAuth } from '@/shared/hooks/useAuth';
 import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
+import { isAdminRole } from '@/shared/permissions';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSuccess }) => {
@@ -60,7 +61,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
   const { user: currentUser } = useAuth();
   const { enterprises, selectedEnterprise } = useEnterprise();
   const isServiceManager = isServiceManagerRole(currentUser);
-  const isSuperAdmin = !currentUser?.enterpriseId && !isServiceManager;
+  const isSuperAdmin = isAdminRole(currentUser) && !isServiceManager;
 
   const {
     register,

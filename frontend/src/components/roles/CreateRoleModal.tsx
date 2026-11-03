@@ -10,6 +10,7 @@ import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 const createRoleSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
+  enterpriseId: z.string().min(1, 'Sélectionnez une entreprise'),
   description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
 });
 
@@ -22,7 +23,7 @@ interface CreateRoleModalProps {
 }
 
 export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalProps) {
-  const { selectedEnterprise } = useEnterprise();
+  const { enterprises } = useEnterprise();
   const {
     register,
     handleSubmit,
@@ -30,18 +31,15 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
     reset,
   } = useForm<CreateRoleForm>({
     resolver: zodResolver(createRoleSchema),
+    defaultValues: { name: '', enterpriseId: '', description: '' },
   });
 
   const onSubmit = async (data: CreateRoleForm) => {
     try {
-      if (!selectedEnterprise) {
-        toast.error('Sélectionnez une entreprise avant de créer un profil d’accès.');
-        return;
-      }
       await adminRolesService.createRole({
         name: data.name,
         description: data.description,
-        enterpriseId: Number(selectedEnterprise.id),
+        enterpriseId: Number(data.enterpriseId),
       });
       
       toast.success('Role cree avec succes');
@@ -82,7 +80,21 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
             <div className="rounded-md border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-100">
-              Ce profil d’accès sera propre à <strong>{selectedEnterprise?.name || 'l’entreprise sélectionnée'}</strong>. Les rôles système restent communs.
+              Les rôles système restent communs. Choisissez l’entreprise à laquelle rattacher ce profil d’accès.
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise *</label>
+              <select
+                {...register('enterpriseId')}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                defaultValue=""
+              >
+                <option value="">Sélectionner une entreprise</option>
+                {enterprises.map((enterprise) => (
+                  <option key={enterprise.id} value={enterprise.id}>{enterprise.name}</option>
+                ))}
+              </select>
+              {errors.enterpriseId && <p className="mt-1 text-sm text-red-600">{errors.enterpriseId.message}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -130,7 +142,7 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !selectedEnterprise}
+                disabled={isSubmitting || enterprises.length === 0}
                 className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creation...' : 'Creer le role'}

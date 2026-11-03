@@ -23,7 +23,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { email, password, firstName, lastName, serviceId, phone, position } = req.body;
+    const { email, password, firstName, lastName, serviceId, enterpriseId, phone, position } = req.body;
     const managedServices = isServiceManager(req.user) ? await getManagedServices(req.user) : [];
     const managedServiceId = serviceId ? parseInt(serviceId, 10) : (managedServices.length === 1 ? managedServices[0].id : null);
     const managedService = managedServices.find((service) => service.id === managedServiceId);
@@ -49,10 +49,21 @@ const createUser = async (req, res) => {
 
     const finalEnterpriseId = isServiceManager(req.user)
       ? managedService.enterpriseId
-      : getActiveEnterpriseId(req);
+      : isGlobalAdmin(req.user)
+        ? Number(enterpriseId)
+        : getActiveEnterpriseId(req);
 
-    if (!finalEnterpriseId) {
-      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise avant de créer le compte.' });
+    if (!Number.isInteger(finalEnterpriseId) || finalEnterpriseId <= 0) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise valide avant de créer le compte.' });
+    }
+    if (!isServiceManager(req.user)) {
+      const enterprise = await prisma.enterprise.findFirst({
+        where: { id: finalEnterpriseId, isActive: true },
+        select: { id: true },
+      });
+      if (!enterprise) {
+        return res.status(400).json({ success: false, message: 'L’entreprise sélectionnée est introuvable ou inactive.' });
+      }
     }
 
     // New administrator-created accounts stay inactive without a role until
@@ -213,7 +224,7 @@ const updateUser = async (req, res) => {
       whereClause.serviceId = target.serviceId;
     }
     const activeEnterpriseId = getActiveEnterpriseId(req);
-    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
+    if (!isGlobalAdmin(req.user) && activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if user exists
     const existingUser = await prisma.user.findFirst({
@@ -364,7 +375,7 @@ const deleteUser = async (req, res) => {
 
     const whereClause = { id: parseInt(id) };
     const activeEnterpriseId = getActiveEnterpriseId(req);
-    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
+    if (!isGlobalAdmin(req.user) && activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if user exists
     const user = await prisma.user.findFirst({

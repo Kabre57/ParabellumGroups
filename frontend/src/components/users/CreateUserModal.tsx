@@ -19,6 +19,7 @@ const createUserSchema = z.object({
     .min(8, 'Le mot de passe doit contenir au moins 8 caracteres')
     .refine((password) => password === DEFAULT_INITIAL_PASSWORD || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password), 'Utilisez le mot de passe provisoire 12345678 ou ajoutez une majuscule, une minuscule et un chiffre.'),
   confirmPassword: z.string(),
+  enterpriseId: z.string().optional(),
   serviceId: z.string().optional(),
   phone: z.string().max(50).optional(),
   position: z.string().max(100).optional(),
@@ -36,7 +37,7 @@ interface CreateUserModalProps {
 }
 
 import { useAuth } from '@/shared/hooks/useAuth';
-import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
+import { isAdminRole, isServiceManager as isServiceManagerRole } from '@/shared/permissions';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -44,7 +45,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   
   const { user: currentUser } = useAuth();
-  const { selectedEnterprise } = useEnterprise();
+  const { selectedEnterprise, enterprises } = useEnterprise();
+  const isGlobalAdmin = isAdminRole(currentUser);
   const isServiceManager = isServiceManagerRole(currentUser);
 
   const { data: servicesData, isLoading: servicesLoading } = useQuery({
@@ -67,6 +69,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
     defaultValues: {
       password: DEFAULT_INITIAL_PASSWORD,
       confirmPassword: DEFAULT_INITIAL_PASSWORD,
+      enterpriseId: '',
     }
   });
 
@@ -80,7 +83,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
 
   const onSubmit = async (data: CreateUserFormData) => {
     try {
-      if (!isServiceManager && !selectedEnterprise) {
+      if (!isServiceManager && isGlobalAdmin && !data.enterpriseId) {
+        toast.error('Sélectionnez l’entreprise de rattachement du compte.');
+        return;
+      }
+      if (!isServiceManager && !isGlobalAdmin && !selectedEnterprise) {
         toast.error('Sélectionnez une entreprise dans le tableau de bord avant de créer le compte.');
         return;
       }
@@ -95,7 +102,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         firstName: data.firstName,
         lastName: data.lastName,
         serviceId: data.serviceId ? parseInt(data.serviceId) : undefined,
-        enterpriseId: !isServiceManager && selectedEnterprise ? Number(selectedEnterprise.id) : undefined,
+        enterpriseId: !isServiceManager
+          ? Number(data.enterpriseId || selectedEnterprise?.id)
+          : undefined,
         isActive: isServiceManager,
         phone: data.phone?.trim() || undefined,
         position: data.position?.trim() || undefined,
@@ -302,8 +311,26 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                 </div>
               ) : (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
-                  Entreprise : <strong>{selectedEnterprise?.name || 'aucune entreprise sélectionnée'}</strong>.
-                  Le compte sera créé sans rôle et restera désactivé jusqu’à ce que tu lui attribues un profil dans Modifier.
+                  {isGlobalAdmin ? (
+                    <>
+                      <label className="mb-2 block font-medium" htmlFor="new-user-enterprise">Entreprise de rattachement *</label>
+                      <select
+                        id="new-user-enterprise"
+                        {...register('enterpriseId')}
+                        required
+                        className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-gray-900"
+                      >
+                        <option value="">Sélectionner une entreprise</option>
+                        {enterprises.map((enterprise) => (
+                          <option key={enterprise.id} value={enterprise.id}>{enterprise.name}</option>
+                        ))}
+                      </select>
+                      {errors.enterpriseId && <p className="mt-1 text-red-700">Sélectionnez une entreprise.</p>}
+                    </>
+                  ) : (
+                    <>Entreprise : <strong>{selectedEnterprise?.name || 'aucune entreprise sélectionnée'}</strong>.</>
+                  )}
+                  <p className="mt-2">Le compte sera créé sans rôle et restera désactivé jusqu’à ce que vous lui attribuiez un profil dans Modifier.</p>
                 </div>
               )}
             </div>
@@ -320,7 +347,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || (!isServiceManager && !selectedEnterprise) || (isServiceManager && servicesLoading)}
+              disabled={isSubmitting || (!isServiceManager && !isGlobalAdmin && !selectedEnterprise) || (!isServiceManager && isGlobalAdmin && enterprises.length === 0) || (isServiceManager && servicesLoading)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isSubmitting ? (

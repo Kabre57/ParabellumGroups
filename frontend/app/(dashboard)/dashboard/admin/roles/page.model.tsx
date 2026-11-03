@@ -25,7 +25,6 @@ import {
 import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
 import { hasPermission } from '@/shared/permissions';
 import { groupPermissionsByService } from '@/components/users/permissionGrouping';
-import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 // État, chargement et actions du parcours d'interface.
 
@@ -86,7 +85,6 @@ export const normalizeRolePermissions = (rolePermissions: RolePermission[]): Rec
 export function useRolesPermissionsPageModel() {
 
   const { user } = useAuth();
-  const { selectedEnterprise } = useEnterprise();
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
@@ -99,15 +97,11 @@ export function useRolesPermissionsPageModel() {
   const canManagePermissions = hasPermission(user, 'roles.manage_permissions') || hasPermission(user, 'permissions.manage');
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
-    queryKey: ['admin-roles', selectedEnterprise?.id],
+    queryKey: ['admin-roles', 'all-enterprises'],
     queryFn: () => adminRolesService.getRoles(true),
   });
 
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
-
-  useEffect(() => {
-    setSelectedRoleId(null);
-  }, [selectedEnterprise?.id]);
 
   const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
     queryKey: ['admin-permissions'],
@@ -124,7 +118,7 @@ export function useRolesPermissionsPageModel() {
   const permissionModules = Array.isArray(permissionModulesData?.data) ? permissionModulesData.data : [];
 
   const { data: rolePermissionsData, isLoading: rolePermissionsLoading } = useQuery({
-    queryKey: ['admin-role-permissions', selectedEnterprise?.id, selectedRoleId],
+    queryKey: ['admin-role-permissions', selectedRoleId],
     queryFn: () => adminRolesService.getRolePermissions(selectedRoleId!),
     enabled: !!selectedRoleId,
   });

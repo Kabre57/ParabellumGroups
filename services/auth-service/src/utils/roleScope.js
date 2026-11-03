@@ -3,7 +3,10 @@ const parseEnterpriseId = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
-const isGlobalAdmin = (user) => (user?.role?.code || user?.roleCode) === 'ADMIN';
+const isGlobalAdmin = (user) => {
+  const roleCode = String(user?.role?.code || user?.roleCode || user?.role || '').toUpperCase();
+  return ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN'].includes(roleCode);
+};
 
 const getActiveEnterpriseId = (req) => {
   const selectedEnterpriseId = parseEnterpriseId(
@@ -14,7 +17,14 @@ const getActiveEnterpriseId = (req) => {
 };
 
 const getRoleScopeWhere = (req) => {
-  const enterpriseId = getActiveEnterpriseId(req);
+  // The global admin pages manage the shared role catalogue. An explicit
+  // enterpriseId is still honored by assignment forms that need a local list.
+  const explicitEnterpriseId = isGlobalAdmin(req.user)
+    ? parseEnterpriseId(req.query?.enterpriseId)
+    : null;
+  if (isGlobalAdmin(req.user) && !explicitEnterpriseId) return {};
+
+  const enterpriseId = explicitEnterpriseId || getActiveEnterpriseId(req);
   if (!enterpriseId) return { enterpriseId: null };
   return { OR: [{ enterpriseId: null }, { enterpriseId }] };
 };
@@ -26,6 +36,7 @@ const findRoleInScope = (prisma, req, roleId) => prisma.role.findFirst({
 const findRoleByCodeInScope = async (prisma, req, code) => {
   const role = await prisma.role.findUnique({ where: { code } });
   if (!role) return null;
+  if (isGlobalAdmin(req.user) && !parseEnterpriseId(req.query?.enterpriseId)) return role;
   const enterpriseId = getActiveEnterpriseId(req);
   return role.enterpriseId === null || role.enterpriseId === enterpriseId ? role : null;
 };

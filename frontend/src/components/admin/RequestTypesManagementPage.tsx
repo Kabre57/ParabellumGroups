@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { isAdminRole } from '@/shared/permissions';
 import {
   operationalRequestsService,
   type OperationalRequestTypeConfig,
@@ -17,6 +19,7 @@ import {
 
 const typeConfigSchema = z.object({
   label: z.string().min(2, 'Le libellé doit contenir au moins 2 caractères'),
+  enterpriseId: z.string().min(1, 'Sélectionnez une entreprise'),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -25,16 +28,18 @@ type TypeConfigFormData = z.infer<typeof typeConfigSchema>;
 
 export default function RequestTypesManagementPage() {
   const queryClient = useQueryClient();
-  const { selectedEnterprise } = useEnterprise();
+  const { selectedEnterprise, enterprises } = useEnterprise();
+  const { user } = useAuth();
+  const isGlobalAdmin = isAdminRole(user);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<OperationalRequestTypeConfig | null>(null);
   const [deletingType, setDeletingType] = useState<OperationalRequestTypeConfig | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: typesResponse, isLoading, error } = useQuery({
-    queryKey: ['operational-request-types-admin', selectedEnterprise?.id],
-    queryFn: () => operationalRequestsService.listTypes({ all: true }),
-    enabled: Boolean(selectedEnterprise),
+    queryKey: ['operational-request-types-admin', isGlobalAdmin ? 'all-enterprises' : selectedEnterprise?.id],
+    queryFn: () => operationalRequestsService.listTypes({ all: true, ...(isGlobalAdmin ? { scope: 'all' as const } : {}) }),
+    enabled: isGlobalAdmin || Boolean(selectedEnterprise),
   });
 
   const types = Array.isArray(typesResponse?.data) ? typesResponse.data : [];
@@ -43,6 +48,7 @@ export default function RequestTypesManagementPage() {
     resolver: zodResolver(typeConfigSchema),
     defaultValues: {
       label: '',
+      enterpriseId: '',
       description: '',
       isActive: true,
     },
@@ -53,6 +59,7 @@ export default function RequestTypesManagementPage() {
       setEditingType(typeConfig);
       form.reset({
         label: typeConfig.label,
+        enterpriseId: String(typeConfig.enterpriseId),
         description: typeConfig.description || '',
         isActive: typeConfig.isActive,
       });
@@ -60,6 +67,7 @@ export default function RequestTypesManagementPage() {
       setEditingType(null);
       form.reset({
         label: '',
+        enterpriseId: !isGlobalAdmin && selectedEnterprise ? String(selectedEnterprise.id) : '',
         description: '',
         isActive: true,
       });
@@ -74,12 +82,12 @@ export default function RequestTypesManagementPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: { label: string; code?: string; description?: string }) =>
+    mutationFn: (data: { label: string; code?: string; description?: string; enterpriseId: number }) =>
       operationalRequestsService.createType(data),
     onSuccess: (response) => {
       if (response?.data) {
         queryClient.setQueryData(
-          ['operational-request-types-admin', selectedEnterprise?.id],
+          ['operational-request-types-admin', isGlobalAdmin ? 'all-enterprises' : selectedEnterprise?.id],
           (current: any) => current && Array.isArray(current.data)
             ? { ...current, data: [...current.data, response.data] }
             : current
@@ -101,7 +109,7 @@ export default function RequestTypesManagementPage() {
     onSuccess: (response) => {
       if (response?.data) {
         queryClient.setQueryData(
-          ['operational-request-types-admin', selectedEnterprise?.id],
+          ['operational-request-types-admin', isGlobalAdmin ? 'all-enterprises' : selectedEnterprise?.id],
           (current: any) => current && Array.isArray(current.data)
             ? {
                 ...current,
@@ -149,6 +157,7 @@ export default function RequestTypesManagementPage() {
       createMutation.mutate({
         label: values.label,
         description: values.description || undefined,
+        enterpriseId: Number(values.enterpriseId || selectedEnterprise?.id),
       });
     }
   };
@@ -158,11 +167,12 @@ export default function RequestTypesManagementPage() {
     if (!query) return types;
 
     return types.filter((t) =>
-      [t.label, t.description].filter(Boolean).some((field) => field?.toLowerCase().includes(query))
+      [t.label, t.description, enterprises.find((enterprise) => Number(enterprise.id) === t.enterpriseId)?.name]
+        .filter(Boolean).some((field) => field?.toLowerCase().includes(query))
     );
-  }, [types, search]);
+  }, [types, search, enterprises]);
 
-  if (!selectedEnterprise) {
+  if (!isGlobalAdmin && !selectedEnterprise) {
     return (
       <div className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
         Veuillez sélectionner une entreprise active pour gérer ses types de demande opérationnelle.
@@ -192,7 +202,9 @@ export default function RequestTypesManagementPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Types de Demandes Opérationnelles</h1>
           <p className="text-gray-600 mt-1">
-            Définissez les catégories de demandes autorisées pour {selectedEnterprise.name}
+            {isGlobalAdmin
+              ? 'Consultez et gérez les types de demandes de toutes les entreprises.'
+              : `Définissez les catégories de demandes autorisées pour ${selectedEnterprise?.name}`}
           </p>
         </div>
         <Button onClick={() => handleOpenModal()}>Nouveau Type</Button>
@@ -217,6 +229,9 @@ export default function RequestTypesManagementPage() {
                   Libellé
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Entreprise
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Description
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -232,6 +247,9 @@ export default function RequestTypesManagementPage() {
                 <tr key={typeConfig.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 align-middle">
                     <div className="text-sm font-bold text-gray-900">{typeConfig.label}</div>
+                  </td>
+                  <td className="px-6 py-4 align-middle text-sm text-gray-600">
+                    {enterprises.find((enterprise) => Number(enterprise.id) === typeConfig.enterpriseId)?.name || `Entreprise #${typeConfig.enterpriseId}`}
                   </td>
                   <td className="px-6 py-4 align-middle text-sm text-gray-600">
                     {typeConfig.description || <span className="text-gray-400 italic">Aucune description</span>}
@@ -265,7 +283,7 @@ export default function RequestTypesManagementPage() {
               ))}
               {filteredTypes.length === 0 && (
                 <tr>
-                  <td className="px-6 py-10 text-center text-sm text-gray-500" colSpan={4}>
+                  <td className="px-6 py-10 text-center text-sm text-gray-500" colSpan={5}>
                     Aucun type de demande configuré. Cliquez sur « Nouveau Type » pour en ajouter un.
                   </td>
                 </tr>
@@ -283,6 +301,20 @@ export default function RequestTypesManagementPage() {
             </h2>
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {!editingType && isGlobalAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Entreprise *</label>
+                  <select {...form.register('enterpriseId')} className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2">
+                    <option value="">Sélectionner une entreprise</option>
+                    {enterprises.map((enterprise) => (
+                      <option key={enterprise.id} value={enterprise.id}>{enterprise.name}</option>
+                    ))}
+                  </select>
+                  {form.formState.errors.enterpriseId && (
+                    <p className="mt-1 text-xs text-red-500">{form.formState.errors.enterpriseId.message}</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Libellé affiché *</label>
                 <Input

@@ -15,7 +15,6 @@ import {
 import { toast } from 'sonner';
 import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
 import { adminRolesService } from '@/shared/api/admin';
-import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 interface Role {
   id: number;
@@ -24,6 +23,8 @@ interface Role {
   description: string | null;
   isSystem: boolean;
   isActive: boolean;
+  enterpriseId?: number | null;
+  enterprise?: { id: number; name: string } | null;
   _count?: {
     users: number;
     rolePermissions: number;
@@ -38,14 +39,13 @@ interface RolesResponse {
 export default function RolesManagementPage() {
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const { selectedEnterprise } = useEnterprise();
 
   const queryClient = useQueryClient();
 
   // Fetch roles
   const { data: rolesData, isLoading } = useQuery<RolesResponse>({
-    queryKey: ['roles', selectedEnterprise?.id],
-    queryFn: () => adminRolesService.getRoles(),
+    queryKey: ['roles', 'all-enterprises'],
+    queryFn: () => adminRolesService.getRoles(true),
   });
 
   const deleteRoleMutation = useMutation({
@@ -94,7 +94,7 @@ export default function RolesManagementPage() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profils d’accès{selectedEnterprise ? ` — ${selectedEnterprise.name}` : ''}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profils d’accès</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Créez et gérez les rôles utilisateurs
           </p>
@@ -146,6 +146,9 @@ export default function RolesManagementPage() {
                 Rôle
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Entreprise
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Utilisateurs
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -176,6 +179,7 @@ export default function RolesManagementPage() {
                     )}
                   </div>
                 </td>
+                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{role.enterprise?.name || 'Toutes (rôle global)'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                     <UsersIcon className="h-4 w-4 mr-1" />
@@ -245,6 +249,9 @@ export default function RolesManagementPage() {
                   Rôle
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Entreprise
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Utilisateurs
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -278,6 +285,7 @@ export default function RolesManagementPage() {
                       )}
                     </div>
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{role.enterprise?.name || 'Toutes (rôle global)'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                       <UsersIcon className="h-4 w-4 mr-1" />

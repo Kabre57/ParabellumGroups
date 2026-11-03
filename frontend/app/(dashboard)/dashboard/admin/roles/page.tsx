@@ -84,6 +84,9 @@ export default function RolesPermissionsPage() {  const { user, selectedRoleId, 
                       <div>
                         <span className="block font-medium text-gray-900">{role.name}</span>
                         <span className="text-xs text-gray-500">{role.code}</span>
+                        <span className="mt-1 block text-xs text-gray-500">
+                          {role.enterprise?.name || 'Toutes les entreprises'}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -282,7 +285,9 @@ export default function RolesPermissionsPage() {  const { user, selectedRoleId, 
             <div className="flex">
               <Shield className="mr-3 h-5 w-5 flex-shrink-0 text-blue-600" />
               <div>
-                <h4 className="text-sm font-medium text-blue-900">Role actuel : {selectedRole?.name}</h4>
+                <h4 className="text-sm font-medium text-blue-900">
+                  Rôle actuel : {selectedRole?.name} · {selectedRole?.enterprise?.name || 'toutes les entreprises'}
+                </h4>
                 <p className="mt-1 text-sm text-blue-700">
                   Les permissions sont maintenant organisees par service et conservent la granularite voir/creer/modifier/supprimer/approuver.
                 </p>

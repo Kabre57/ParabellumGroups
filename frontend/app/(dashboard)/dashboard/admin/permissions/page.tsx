@@ -15,11 +15,9 @@ import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Building2, Edit, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export default function PermissionsPage() {
   const { user } = useAuth();
-  const { selectedEnterprise } = useEnterprise();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModule, setSelectedModule] = useState('all');
@@ -44,7 +42,7 @@ export default function PermissionsPage() {
   });
 
   const { data: rolesData } = useQuery({
-    queryKey: ['admin-roles', selectedEnterprise?.id],
+    queryKey: ['admin-roles', 'all-enterprises'],
     queryFn: () => adminRolesService.getRoles(),
   });
 
@@ -204,7 +202,7 @@ export default function PermissionsPage() {
           <p className="mt-2 text-2xl font-bold">{permissionModules.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-gray-600">Rôles système</p>
+          <p className="text-sm text-gray-600">Rôles disponibles</p>
           <p className="mt-2 text-2xl font-bold">{roles.length}</p>
         </Card>
       </div>

@@ -34,7 +34,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 
 import { adminUsersService, adminRolesService, type AdminUser } from '@/shared/api/admin';
 
-import { hasAnyPermission, hasPermission, isServiceManager } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission, isAdminRole, isServiceManager } from '@/shared/permissions';
 import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 // Logique d'interface et chargement des comptes utilisateurs.
@@ -57,6 +57,7 @@ export function useUsersManagementPageData() {
 
   const { user: currentUser } = useAuth();
   const { selectedEnterprise } = useEnterprise();
+  const isGlobalAdmin = isAdminRole(currentUser);
   const isServiceManagerUser = isServiceManager(currentUser);
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [page, setPage] = useState(1);
@@ -72,7 +73,7 @@ export function useUsersManagementPageData() {
   useEffect(() => {
     setPage(1);
     setRoleFilter('');
-  }, [selectedEnterprise?.id]);
+  }, [isGlobalAdmin ? 'all' : selectedEnterprise?.id, isGlobalAdmin]);
 
   const queryClient = useQueryClient();
   const canReadUsers = hasAnyPermission(currentUser, ['users.read', 'users.read_own', 'users.read_all']);
@@ -94,7 +95,7 @@ export function useUsersManagementPageData() {
   const normalizedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || 'users';
 
   const { data: rolesData } = useQuery({
-    queryKey: ['admin-roles', selectedEnterprise?.id],
+    queryKey: ['admin-roles', isGlobalAdmin ? 'all-enterprises' : selectedEnterprise?.id],
     queryFn: () => adminRolesService.getRoles(),
     enabled: !isServiceManagerUser,
   });
@@ -102,12 +103,13 @@ export function useUsersManagementPageData() {
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
 
   const { data: usersData, isLoading, error } = useQuery({
-    queryKey: ['admin-users', selectedEnterprise?.id, page, limit, search, roleFilter],
+    queryKey: ['admin-users', isGlobalAdmin ? 'all-enterprises' : selectedEnterprise?.id, page, limit, search, roleFilter],
     queryFn: () => adminUsersService.getUsers({
       page,
       limit,
       search: search || undefined,
       roleId: roleFilter ? parseInt(roleFilter) : undefined,
+      ...(isGlobalAdmin ? { scope: 'all' as const } : {}),
     }),
   });
 

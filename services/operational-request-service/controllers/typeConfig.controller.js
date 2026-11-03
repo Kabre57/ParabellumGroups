@@ -1,5 +1,6 @@
 const { fail } = require('../utils/helpers');
-const { resolveActiveEnterprise } = require('../middleware/auth');
+const { fetchAccessibleEnterprises, resolveActiveEnterprise } = require('../middleware/auth');
+const { isAdmin } = require('../utils/helpers');
 
 const DEFAULT_REQUEST_TYPES = [
   {
@@ -27,9 +28,33 @@ const DEFAULT_REQUEST_TYPES = [
 const createTypeConfigController = (prisma) => {
   const listTypes = async (req, res) => {
     try {
+      const includeInactive = req.query.all === 'true';
+
+      if (req.query.scope === 'all') {
+        if (!isAdmin(req.user)) return fail(res, 403, 'Cette vue globale est réservée à l’administration.');
+        const enterprises = await fetchAccessibleEnterprises(req);
+        const enterpriseIds = enterprises.map((enterprise) => Number(enterprise.id));
+        for (const enterpriseId of enterpriseIds) {
+          const existingCount = await prisma.operationalRequestTypeConfig.count({ where: { enterpriseId } });
+          if (existingCount === 0) {
+            await prisma.operationalRequestTypeConfig.createMany({
+              data: DEFAULT_REQUEST_TYPES.map((item) => ({ enterpriseId, ...item, isActive: true })),
+              skipDuplicates: true,
+            });
+          }
+        }
+        const types = enterpriseIds.length === 0 ? [] : await prisma.operationalRequestTypeConfig.findMany({
+          where: {
+            enterpriseId: { in: enterpriseIds },
+            ...(includeInactive ? {} : { isActive: true }),
+          },
+          orderBy: [{ enterpriseId: 'asc' }, { label: 'asc' }],
+        });
+        return res.json({ success: true, data: types });
+      }
+
       const enterprise = await resolveActiveEnterprise(req);
       const enterpriseId = Number(enterprise.id);
-      const includeInactive = req.query.all === 'true';
 
       let types = await prisma.operationalRequestTypeConfig.findMany({
         where: {
@@ -72,8 +97,17 @@ const createTypeConfigController = (prisma) => {
 
   const createType = async (req, res) => {
     try {
-      const enterprise = await resolveActiveEnterprise(req);
-      const enterpriseId = Number(enterprise.id);
+      let enterpriseId;
+      if (req.body?.enterpriseId !== undefined && req.body?.enterpriseId !== null && req.body?.enterpriseId !== '') {
+        enterpriseId = Number(req.body.enterpriseId);
+        const accessibleEnterprises = await fetchAccessibleEnterprises(req);
+        if (!Number.isInteger(enterpriseId) || !accessibleEnterprises.some((item) => Number(item.id) === enterpriseId)) {
+          return fail(res, 403, 'Cette entreprise ne fait pas partie de votre périmètre.');
+        }
+      } else {
+        const enterprise = await resolveActiveEnterprise(req);
+        enterpriseId = Number(enterprise.id);
+      }
       const { code, label, description } = req.body || {};
 
       const trimmedLabel = String(label || '').trim();
@@ -118,14 +152,14 @@ const createTypeConfigController = (prisma) => {
 
   const updateType = async (req, res) => {
     try {
-      const enterprise = await resolveActiveEnterprise(req);
-      const enterpriseId = Number(enterprise.id);
       const { id } = req.params;
       const { label, description, isActive } = req.body || {};
 
-      const existing = await prisma.operationalRequestTypeConfig.findFirst({
-        where: { id, enterpriseId },
-      });
+      const existing = isAdmin(req.user)
+        ? await prisma.operationalRequestTypeConfig.findUnique({ where: { id } })
+        : await prisma.operationalRequestTypeConfig.findFirst({
+            where: { id, enterpriseId: Number((await resolveActiveEnterprise(req)).id) },
+          });
 
       if (!existing) {
         return fail(res, 404, 'Type de demande introuvable.');
@@ -157,13 +191,13 @@ const createTypeConfigController = (prisma) => {
 
   const deleteType = async (req, res) => {
     try {
-      const enterprise = await resolveActiveEnterprise(req);
-      const enterpriseId = Number(enterprise.id);
       const { id } = req.params;
 
-      const existing = await prisma.operationalRequestTypeConfig.findFirst({
-        where: { id, enterpriseId },
-      });
+      const existing = isAdmin(req.user)
+        ? await prisma.operationalRequestTypeConfig.findUnique({ where: { id } })
+        : await prisma.operationalRequestTypeConfig.findFirst({
+            where: { id, enterpriseId: Number((await resolveActiveEnterprise(req)).id) },
+          });
 
       if (!existing) {
         return fail(res, 404, 'Type de demande introuvable.');
@@ -172,7 +206,7 @@ const createTypeConfigController = (prisma) => {
       // Check if any operational request is using this type
       const usageCount = await prisma.operationalRequest.count({
         where: {
-          enterpriseId,
+          enterpriseId: existing.enterpriseId,
           type: existing.code,
         },
       });

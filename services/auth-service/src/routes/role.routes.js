@@ -53,6 +53,9 @@ router.post(
       .withMessage('Role name is required')
       .isLength({ max: 100 })
       .withMessage('Role name must not exceed 100 characters'),
+    body('enterpriseId')
+      .isInt({ min: 1 })
+      .withMessage('Enterprise ID must be a positive integer'),
     body('code')
       .optional({ values: 'falsy' })
       .trim()

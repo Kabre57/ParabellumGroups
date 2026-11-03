@@ -125,11 +125,11 @@ export const operationalRequestsService = {
     const response = await apiClient.post<ApiResponse<OperationalRequestAttachment>>(`/operational-requests/${id}/attachments`, form);
     return response.data;
   },
-  async listTypes(params?: { all?: boolean }) {
+  async listTypes(params?: { all?: boolean; scope?: 'all' }) {
     const response = await apiClient.get<ApiResponse<OperationalRequestTypeConfig[]>>('/operational-requests/types', { params });
     return response.data;
   },
-  async createType(data: { label: string; code?: string; description?: string }) {
+  async createType(data: { label: string; code?: string; description?: string; enterpriseId?: number }) {
     const response = await apiClient.post<ApiResponse<OperationalRequestTypeConfig>>('/operational-requests/types', data);
     return response.data;
   },

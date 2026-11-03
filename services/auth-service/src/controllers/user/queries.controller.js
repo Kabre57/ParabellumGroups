@@ -21,6 +21,7 @@ const getAllUsers = async (req, res) => {
       serviceId,
       isActive,
       search,
+      scope,
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -46,7 +47,12 @@ const getAllUsers = async (req, res) => {
     }
 
     const selectedEnterpriseId = parseInt(req.query.enterpriseId || req.headers['x-enterprise-id'], 10);
-    if (isGlobalAdmin(req.user) && Number.isInteger(selectedEnterpriseId) && selectedEnterpriseId > 0) {
+    if (scope === 'all' && !isGlobalAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'La vue globale des utilisateurs est réservée à l’administration.' });
+    }
+    if (isGlobalAdmin(req.user) && scope === 'all' && !req.query.enterpriseId) {
+      // Explicit global-admin list request: show users from every enterprise.
+    } else if (isGlobalAdmin(req.user) && Number.isInteger(selectedEnterpriseId) && selectedEnterpriseId > 0) {
       where.enterpriseId = selectedEnterpriseId;
     } else if (req.user.enterpriseId) {
       where.enterpriseId = req.user.enterpriseId;
@@ -155,7 +161,7 @@ const getUserById = async (req, res) => {
 
     const whereClause = { id: parseInt(id) };
     const activeEnterpriseId = getActiveEnterpriseId(req);
-    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
+    if (!isGlobalAdmin(req.user) && activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     if (isServiceManager(req.user)) {
       const target = await ensureManagedTarget(req.user, id);

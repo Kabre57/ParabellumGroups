@@ -33,6 +33,7 @@ export interface Role {
   isSystem: boolean;
   isActive: boolean;
   enterpriseId?: number | null;
+  enterprise?: { id: number; name: string } | null;
   createdAt: string;
   updatedAt: string;
   rolePermissions?: RolePermission[];
@@ -229,6 +230,7 @@ export interface UserFilters {
   isActive?: boolean;
   page?: number;
   limit?: number;
+  scope?: 'all';
 }
 
 interface ApiListResponse<T> {
@@ -255,6 +257,7 @@ export const adminUsersService = {
     if (filters?.search) params.append('search', filters.search);
     if (filters?.serviceId) params.append('serviceId', String(filters.serviceId));
     if (filters?.enterpriseId) params.append('enterpriseId', String(filters.enterpriseId));
+    if (filters?.scope) params.append('scope', filters.scope);
     if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));

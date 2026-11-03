@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { applyTemplate } = require('../utils/roleTemplates');
 const { generateRoleCode } = require('../utils/generatedCodes');
-const { findRoleInScope, getActiveEnterpriseId, getRoleScopeWhere } = require('../utils/roleScope');
+const { findRoleInScope, getActiveEnterpriseId, getRoleScopeWhere, isGlobalAdmin } = require('../utils/roleScope');
 
 /**
  * Get all roles
@@ -115,8 +115,10 @@ const createRole = async (req, res) => {
     }
 
     const { name, description, isActive, template } = req.body;
-    const enterpriseId = getActiveEnterpriseId(req);
-    if (!enterpriseId) {
+    const enterpriseId = isGlobalAdmin(req.user)
+      ? Number(req.body.enterpriseId)
+      : getActiveEnterpriseId(req);
+    if (!Number.isInteger(enterpriseId) || enterpriseId <= 0) {
       return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise avant de créer un rôle.' });
     }
     const enterprise = await prisma.enterprise.findFirst({
