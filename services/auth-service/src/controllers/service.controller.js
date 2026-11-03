@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
+const { isServiceManager } = require('../utils/serviceManagerScope');
 
 const parseBool = (value) => value === true || value === 'true';
 const parseNum = (value) =>
@@ -21,6 +22,10 @@ const getAllServices = async (req, res) => {
     const whereClause = req.user.enterpriseId 
       ? { enterpriseId: req.user.enterpriseId } 
       : {};
+    if (isServiceManager(req.user)) {
+      whereClause.managerId = Number(req.user.id);
+      whereClause.isActive = true;
+    }
 
     const services = await prisma.service.findMany({
       where: whereClause,
@@ -78,6 +83,10 @@ const getServiceById = async (req, res) => {
     const whereClause = { id: parseInt(id) };
     if (req.user.enterpriseId) {
       whereClause.enterpriseId = req.user.enterpriseId;
+    }
+    if (isServiceManager(req.user)) {
+      whereClause.managerId = Number(req.user.id);
+      whereClause.isActive = true;
     }
 
     const service = await prisma.service.findFirst({

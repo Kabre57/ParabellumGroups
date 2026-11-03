@@ -13,13 +13,15 @@ const editUserSchema = z.object({
   email: z.string().email('Email invalide'),
   firstName: z.string().min(2, 'Le prenom doit contenir au moins 2 caracteres'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
-  roleId: z.string().min(1, 'Le role est requis'),
+  roleId: z.string().optional(),
   serviceId: z.string().optional(),
   enterpriseId: z.string().optional(),
   isActive: z.boolean().default(true),
   changePassword: z.boolean().default(false),
   newPassword: z.string().optional(),
   confirmNewPassword: z.string().optional(),
+  phone: z.string().max(50).optional(),
+  position: z.string().max(100).optional(),
 }).refine((data) => {
   if (data.changePassword && data.newPassword) {
     return data.newPassword.length >= 8;
@@ -49,30 +51,32 @@ interface EditUserModalProps {
 
 import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSuccess }) => {
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const { user: currentUser } = useAuth();
-  const isSuperAdmin = !currentUser?.enterpriseId;
+  const isServiceManager = isServiceManagerRole(currentUser);
+  const isSuperAdmin = !currentUser?.enterpriseId && !isServiceManager;
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['admin-roles-edit-modal'],
     queryFn: () => adminRolesService.getRoles(),
-    enabled: isOpen,
+    enabled: isOpen && !isServiceManager,
   });
 
   const { data: servicesData } = useQuery({
     queryKey: ['admin-services-edit-modal'],
     queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen,
+    enabled: isOpen && !isServiceManager,
   });
 
   const { data: enterprisesData, isLoading: enterprisesLoading } = useQuery({
     queryKey: ['admin-enterprises-edit-modal'],
     queryFn: () => enterpriseApi.getAll({ limit: 100 }),
-    enabled: isOpen && isSuperAdmin,
+    enabled: isOpen && isSuperAdmin && !isServiceManager,
   });
 
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
@@ -95,6 +99,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       serviceId: '',
       isActive: true,
       changePassword: false,
+      phone: '',
+      position: '',
     }
   });
 
@@ -111,13 +117,15 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         changePassword: false,
         newPassword: '',
         confirmNewPassword: '',
+        phone: user.phone || '',
+        position: user.position || '',
       });
     }
   }, [user, isOpen, reset]);
 
   const selectedRoleId = watch('roleId');
   const changePassword = watch('changePassword');
-  const selectedRole = roles.find((r: any) => r.id === parseInt(selectedRoleId));
+  const selectedRole = roles.find((r: any) => r.id === parseInt(selectedRoleId || '', 10));
   const requiresService = selectedRole && ['SERVICE_MANAGER', 'COMMERCIAL', 'PURCHASING_MANAGER', 'TECHNICIAN'].includes(selectedRole.code);
 
   const onSubmit = async (data: EditUserFormData) => {
@@ -126,26 +134,29 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
-        isActive: data.isActive,
+        ...(isServiceManager ? {
+          phone: data.phone?.trim() || '',
+          position: data.position?.trim() || '',
+        } : { isActive: data.isActive }),
       };
 
-      if (data.roleId) {
+      if (!isServiceManager && data.roleId) {
         updateData.roleId = parseInt(data.roleId, 10);
       }
 
-      if (data.serviceId === '') {
+      if (!isServiceManager && data.serviceId === '') {
         updateData.serviceId = null;
-      } else if (data.serviceId) {
+      } else if (!isServiceManager && data.serviceId) {
         updateData.serviceId = parseInt(data.serviceId, 10);
       }
 
-      if (data.enterpriseId === '') {
+      if (!isServiceManager && data.enterpriseId === '') {
         updateData.enterpriseId = null;
-      } else if (data.enterpriseId) {
+      } else if (!isServiceManager && data.enterpriseId) {
         updateData.enterpriseId = parseInt(data.enterpriseId, 10);
       }
 
-      if (data.changePassword && data.newPassword) {
+      if (!isServiceManager && data.changePassword && data.newPassword) {
         updateData.password = data.newPassword;
       }
 
@@ -239,7 +250,20 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
             )}
           </div>
 
-          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+          {isServiceManager && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Téléphone</label>
+                <input {...register('phone')} type="tel" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fonction</label>
+                <input {...register('position')} type="text" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              </div>
+            </div>
+          )}
+
+          {!isServiceManager && <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
             <div className="flex items-center space-x-3 mb-4">
               <input
                 {...register('changePassword')}
@@ -307,14 +331,18 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
           <div>
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
               <Shield className="h-4 w-4 mr-2" />
               Role et Affectation
             </h4>
-            <div className="space-y-4">
+            {isServiceManager ? (
+              <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+                Le rôle et le service de ce membre sont gérés par l’administration. Vous pouvez modifier ses coordonnées et ses accès autorisés.
+              </div>
+            ) : <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Role *
@@ -413,10 +441,10 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                   )}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
 
-          <div className="flex items-center space-x-3">
+          {!isServiceManager && <div className="flex items-center space-x-3">
             <input
               {...register('isActive')}
               type="checkbox"
@@ -426,7 +454,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Compte actif
             </label>
-          </div>
+          </div>}
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button

@@ -1,12 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
   Plus,
   Search,
-  Eye,
   Edit,
   Trash2,
   Shield,
@@ -14,19 +11,15 @@ import {
   ChevronRight,
   Ban,
   CheckCircle,
-  RefreshCw,
   UserCheck
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { CreateUserModal } from '@/components/users/CreateUserModal';
 import { EditUserModal } from '@/components/users/EditUserModal';
 import { PermissionsModal } from '@/components/users/PermissionsModal';
-import { useAuth } from '@/shared/hooks/useAuth';
-import { adminUsersService, adminRolesService, type AdminUser } from '@/shared/api/admin';
-import { hasAnyPermission, hasPermission } from '@/shared/permissions';
 import { roleColors, useUsersManagementPageData } from './page.hooks';
 
-export default function UsersManagementPage() {  const { currentUser, activeTab, setActiveTab, page, setPage, limit, search, setSearch, roleFilter, setRoleFilter, showCreateModal, setShowCreateModal, showEditModal, setShowEditModal, showPermissionsModal, setShowPermissionsModal, selectedUser, setSelectedUser, selectedPermissionsUser, setSelectedPermissionsUser, queryClient, canReadUsers, canCreateUsers, canUpdateUsers, canDeleteUsers, canManagePermissionOverrides, canManageUserActions, userTableColumnCount, visibleTabs, normalizedActiveTab, rolesData, roles, usersData, isLoading, error, selectedUserPermissionsData, selectedUserPermissionsLoading, deleteUserMutation, activateMutation, deactivateMutation, handleDeleteUser, handleToggleStatus, handleEditUser, handleCreateSuccess, handleEditSuccess, handlePermissionsSuccess, formatDate, users, pagination, selectedUserPermissions, permissionsByCategory } = useUsersManagementPageData();
+export default function UsersManagementPage() {
+  const { currentUser, activeTab, setActiveTab, page, setPage, search, setSearch, roleFilter, setRoleFilter, showCreateModal, setShowCreateModal, showEditModal, setShowEditModal, showPermissionsModal, setShowPermissionsModal, selectedUser, setSelectedUser, selectedPermissionsUser, setSelectedPermissionsUser, canReadUsers, isServiceManagerUser, canCreateUsers, canUpdateUsers, canDeleteUsers, canManagePermissionOverrides, canManageUserActions, userTableColumnCount, normalizedActiveTab, roles, isLoading, error, selectedUserPermissionsLoading, activateMutation, deactivateMutation, handleDeleteUser, handleToggleStatus, handleEditUser, handleCreateSuccess, handleEditSuccess, handlePermissionsSuccess, formatDate, users, pagination, selectedUserPermissions, permissionsByCategory } = useUsersManagementPageData();
 
 
 
@@ -43,9 +36,13 @@ export default function UsersManagementPage() {  const { currentUser, activeTab,
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isServiceManagerUser ? 'Personnel de mon service' : 'Gestion des Utilisateurs'}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gerez les comptes utilisateurs, roles et permissions
+            {isServiceManagerUser
+              ? 'Consultez uniquement les membres des services dont vous êtes responsable et gérez leurs accès autorisés.'
+              : 'Gérez les comptes utilisateurs, rôles et permissions'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -87,8 +84,8 @@ export default function UsersManagementPage() {  const { currentUser, activeTab,
 
       {normalizedActiveTab === 'users' && canReadUsers && (
         <div className="bg-white shadow rounded-lg p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
+          <div className={`grid grid-cols-1 ${isServiceManagerUser ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-4`}>
+            <div className={isServiceManagerUser ? '' : 'md:col-span-2'}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
@@ -100,7 +97,7 @@ export default function UsersManagementPage() {  const { currentUser, activeTab,
                 />
               </div>
             </div>
-            <div>
+            {!isServiceManagerUser && <div>
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
@@ -111,7 +108,7 @@ export default function UsersManagementPage() {  const { currentUser, activeTab,
                   <option key={role.id} value={role.id}>{role.name}</option>
                 ))}
               </select>
-            </div>
+            </div>}
           </div>
         </div>
       )}

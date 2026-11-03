@@ -93,6 +93,41 @@ async function syncRolePermissions(roleCode, dryRun = false) {
     logger: console,
   });
 
+  if (roleCode === 'SERVICE_MANAGER') {
+    const role = await prisma.role.findUnique({ where: { code: roleCode } });
+    const permissions = await prisma.permission.findMany({
+      where: { name: { in: ['users.read', 'users.create', 'users.update'] } },
+      select: { id: true, name: true },
+    });
+    for (const permission of permissions) {
+      const flags = permission.name === 'users.read'
+        ? { canView: true, canCreate: false, canEdit: false, canDelete: false, canApprove: false }
+        : permission.name === 'users.create'
+          ? { canView: true, canCreate: true, canEdit: false, canDelete: false, canApprove: false }
+          : { canView: true, canCreate: false, canEdit: true, canDelete: false, canApprove: false };
+      const existing = role
+        ? await prisma.rolePermission.findUnique({
+            where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+          })
+        : null;
+      if (dryRun) {
+        if (!existing) console.log(`[dry-run] SERVICE_MANAGER recevra ${permission.name}`);
+        continue;
+      }
+      if (role) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+          update: flags,
+          create: {
+            roleId: role.id,
+            permissionId: permission.id,
+            ...flags,
+          },
+        });
+      }
+    }
+  }
+
   if (dryRun) {
     console.log(
       `[dry-run] ${roleCode}: ${summary.matchedPermissions} permissions, +${summary.wouldCreate}, ~${summary.wouldUpdate}, -${summary.wouldDelete}`

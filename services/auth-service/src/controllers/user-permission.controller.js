@@ -5,6 +5,82 @@ const {
   applyUserOverride,
   computeMeaningfulOverride,
 } = require('../utils/userPermissionOverrides');
+const {
+  isServiceManager,
+  ensureManagedTarget,
+  getManagedServices,
+} = require('../utils/serviceManagerScope');
+
+const DELEGATION_BLOCKED_PREFIXES = new Set([
+  'admin', 'users', 'roles', 'permissions', 'enterprises', 'services',
+  'audit_logs', 'system_settings', 'backups', 'logs', 'integrations',
+]);
+const DELEGATION_BLOCKED_PERMISSION_NAMES = new Set([
+  'operational_requests.finance',
+  'operational_requests.manage_types',
+]);
+
+const canDelegatePermission = (permissionName) => {
+  const prefix = String(permissionName || '').split('.')[0].toLowerCase();
+  return Boolean(permissionName) &&
+    permissionName !== '*' &&
+    !DELEGATION_BLOCKED_PREFIXES.has(prefix) &&
+    !DELEGATION_BLOCKED_PERMISSION_NAMES.has(permissionName);
+};
+
+const getEffectivePermissionFlags = async (userId, client = prisma) => {
+  const user = await client.user.findUnique({
+    where: { id: Number(userId) },
+    include: {
+      role: { include: { rolePermissions: { include: { permission: true } } } },
+      user_permissions: { include: { permissions: true } },
+    },
+  });
+  if (!user) return new Map();
+
+  const flagsById = new Map();
+  for (const rolePermission of user.role?.rolePermissions || []) {
+    flagsById.set(rolePermission.permissionId, normalizeFlags(rolePermission));
+  }
+  for (const userPermission of user.user_permissions || []) {
+    flagsById.set(
+      userPermission.permission_id,
+      normalizeFlags(userPermission, {
+        canView: 'can_view',
+        canCreate: 'can_create',
+        canEdit: 'can_edit',
+        canDelete: 'can_delete',
+        canApprove: 'can_approve',
+      }),
+    );
+  }
+  return flagsById;
+};
+
+const getDelegablePermissions = async (req, res) => {
+  try {
+    if (!isServiceManager(req.user) || (await getManagedServices(req.user)).length === 0) {
+      return res.status(403).json({ success: false, message: 'Vous ne gérez aucun service actif.' });
+    }
+
+    const flagsById = await getEffectivePermissionFlags(req.user.id);
+    const allowedIds = Array.from(flagsById.keys());
+    const permissions = await prisma.permission.findMany({
+      where: { id: { in: allowedIds } },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: permissions
+        .filter((permission) => canDelegatePermission(permission.name) && hasAnyFlag(flagsById.get(permission.id)))
+        .map((permission) => ({ ...permission, ...flagsById.get(permission.id) })),
+    });
+  } catch (error) {
+    console.error('Get delegable permissions error:', error);
+    return res.status(500).json({ success: false, message: 'Erreur lors du chargement des accès transmissibles.' });
+  }
+};
 
 /**
  * Get user permissions
@@ -13,6 +89,9 @@ const {
 const getUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
+    if (isServiceManager(req.user) && !(await ensureManagedTarget(req.user, userId))) {
+      return res.status(404).json({ success: false, message: 'Utilisateur introuvable dans votre service.' });
+    }
 
     // Récupérer l'utilisateur avec ses permissions et son rôle
     const user = await prisma.user.findUnique({
@@ -125,6 +204,131 @@ const updateUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
     let { permissions, permissionIds } = req.body;
+
+    if (isServiceManager(req.user)) {
+      const target = await ensureManagedTarget(req.user, userId);
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Utilisateur introuvable dans votre service.' });
+      }
+      if (permissionIds !== undefined || !Array.isArray(permissions)) {
+        return res.status(400).json({ success: false, message: 'Envoyez une liste de permissions avec leurs droits détaillés.' });
+      }
+      if (!permissions.every((permission) =>
+        permission &&
+        typeof permission === 'object' &&
+        !Array.isArray(permission) &&
+        Number.isInteger(Number(permission.permissionId)) &&
+        Number(permission.permissionId) > 0
+      )) {
+        return res.status(400).json({ success: false, message: 'Chaque permission doit avoir un identifiant valide.' });
+      }
+
+      const managerFlags = await getEffectivePermissionFlags(req.user.id);
+      const managerPermissionIds = Array.from(managerFlags.keys());
+      const managerPermissions = await prisma.permission.findMany({
+        where: { id: { in: managerPermissionIds } },
+        select: { id: true, name: true },
+      });
+      const allowedFlags = new Map(
+        managerPermissions
+          .filter((permission) => canDelegatePermission(permission.name))
+          .map((permission) => [permission.id, managerFlags.get(permission.id)]),
+      );
+      const currentTargetFlags = await getEffectivePermissionFlags(target.id);
+      const submittedIds = permissions.map((permission) => Number(permission.permissionId));
+      if (new Set(submittedIds).size !== submittedIds.length) {
+        return res.status(400).json({ success: false, message: 'Une permission ne peut être envoyée qu’une seule fois.' });
+      }
+
+      for (const permission of permissions) {
+        const permissionId = Number(permission.permissionId);
+        const maximum = allowedFlags.get(permissionId);
+        if (!maximum) {
+          return res.status(403).json({ success: false, message: 'Vous ne pouvez pas transmettre cette permission.' });
+        }
+        for (const flag of ['canView', 'canCreate', 'canEdit', 'canDelete', 'canApprove']) {
+          if (permission[flag] !== undefined && typeof permission[flag] !== 'boolean') {
+            return res.status(400).json({ success: false, message: `Le droit ${flag} doit être booléen.` });
+          }
+          if (permission[flag] === true && !maximum[flag] && !currentTargetFlags.get(permissionId)?.[flag]) {
+            return res.status(403).json({ success: false, message: 'Vous ne pouvez pas transmettre un droit que vous ne possédez pas.' });
+          }
+        }
+      }
+
+      const targetRolePermissions = target.roleId
+        ? await prisma.rolePermission.findMany({ where: { roleId: target.roleId } })
+        : [];
+      const targetRoleFlags = new Map(targetRolePermissions.map((permission) => [permission.permissionId, normalizeFlags(permission)]));
+      const changedPermissions = [];
+
+      await prisma.$transaction(async (tx) => {
+        for (const permission of permissions) {
+          const permissionId = Number(permission.permissionId);
+          const userFlags = normalizeFlags(permission);
+          const override = computeMeaningfulOverride({
+            roleFlags: targetRoleFlags.get(permissionId) || null,
+            userFlags,
+          });
+          const existing = await tx.userPermission.findFirst({
+            where: { user_id: Number(userId), permission_id: permissionId },
+            select: { id: true },
+          });
+
+          if (!override) {
+            if (existing) await tx.userPermission.delete({ where: { id: existing.id } });
+          } else if (existing) {
+            await tx.userPermission.update({
+              where: { id: existing.id },
+              data: {
+                can_view: override.canView,
+                can_create: override.canCreate,
+                can_edit: override.canEdit,
+                can_delete: override.canDelete,
+                can_approve: override.canApprove,
+                updated_at: new Date(),
+              },
+            });
+          } else {
+            await tx.userPermission.create({
+              data: {
+                user_id: Number(userId),
+                permission_id: permissionId,
+                can_view: override.canView,
+                can_create: override.canCreate,
+                can_edit: override.canEdit,
+                can_delete: override.canDelete,
+                can_approve: override.canApprove,
+                updated_at: new Date(),
+              },
+            });
+          }
+          changedPermissions.push({ permissionId, ...userFlags });
+        }
+
+        if (changedPermissions.length) {
+          await tx.auditLog.create({
+            data: {
+              userId: req.user.id,
+              action: 'SERVICE_MEMBER_PERMISSIONS_UPDATED',
+              entityType: 'UserPermission',
+              entityId: String(userId),
+              details: `Accès mis à jour par le responsable de service pour ${target.firstName} ${target.lastName}`,
+              newValue: JSON.stringify(changedPermissions),
+              level: 'CRITICAL',
+              ipAddress: req.ip,
+              userAgent: req.get('user-agent'),
+            },
+          });
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Accès du membre mis à jour.',
+        data: { userId: Number(userId), updatedCount: changedPermissions.length },
+      });
+    }
 
     // Support des deux formats: permissionIds simple ou permissions détaillées
     if (permissionIds && Array.isArray(permissionIds)) {
@@ -444,6 +648,7 @@ const getPermissionCategories = async (req, res) => {
 };
 
 module.exports = {
+  getDelegablePermissions,
   getUserPermissions,
   updateUserPermissions,
   checkUserPermission,

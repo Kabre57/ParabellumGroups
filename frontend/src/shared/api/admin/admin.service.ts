@@ -97,6 +97,11 @@ export interface Permission {
   category: string;
   createdAt: string;
   updatedAt: string;
+  canView?: boolean;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canApprove?: boolean;
 }
 
 export interface PermissionModuleCategory {
@@ -288,6 +293,11 @@ export const adminUsersService = {
 
   getUserPermissions: async (id: number): Promise<ApiListResponse<UserPermission>> => {
     const response = await apiClient.get<ApiListResponse<UserPermission>>(`/auth/users/${id}/permissions`);
+    return response.data;
+  },
+
+  getDelegablePermissions: async (): Promise<ApiListResponse<Permission>> => {
+    const response = await apiClient.get<ApiListResponse<Permission>>('/auth/users/delegable-permissions');
     return response.data;
   },
 

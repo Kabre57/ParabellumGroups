@@ -4,8 +4,36 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { X, Shield, Check, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { adminUsersService, adminPermissionsService } from '@/shared/api/admin/admin.service';
+import { adminUsersService, adminPermissionsService, type UserPermission } from '@/shared/api/admin/admin.service';
 import { groupPermissionsByService } from './permissionGrouping';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
+
+type PermissionFlags = Pick<UserPermission, 'canView' | 'canCreate' | 'canEdit' | 'canDelete' | 'canApprove'>;
+
+const emptyPermissionFlags = (): PermissionFlags => ({
+  canView: false,
+  canCreate: false,
+  canEdit: false,
+  canDelete: false,
+  canApprove: false,
+});
+
+const readPermissionFlags = (permission?: any): PermissionFlags => ({
+  canView: Boolean(permission?.canView),
+  canCreate: Boolean(permission?.canCreate),
+  canEdit: Boolean(permission?.canEdit),
+  canDelete: Boolean(permission?.canDelete),
+  canApprove: Boolean(permission?.canApprove),
+});
+
+const permissionFlagLabels: Array<{ key: keyof PermissionFlags; label: string }> = [
+  { key: 'canView', label: 'Voir' },
+  { key: 'canCreate', label: 'Créer' },
+  { key: 'canEdit', label: 'Modifier' },
+  { key: 'canDelete', label: 'Supprimer' },
+  { key: 'canApprove', label: 'Valider' },
+];
 
 interface PermissionsModalProps {
   isOpen: boolean;
@@ -23,11 +51,14 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   canEdit = true,
 }) => {
   const [selectedPermissions, setSelectedPermissions] = useState<Set<number>>(new Set());
+  const [delegatedFlags, setDelegatedFlags] = useState<Record<number, PermissionFlags>>({});
   const [expandedServices, setExpandedServices] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user: currentUser } = useAuth();
+  const isDelegationMode = isServiceManagerRole(currentUser);
   const targetRoleCode = String(user?.role?.code || user?.roleCode || user?.role || '').toUpperCase();
-  const isAdministratorTarget = targetRoleCode === 'ADMIN' || targetRoleCode === 'ADMINISTRATEUR';
+  const isAdministratorTarget = ['ADMIN', 'ADMINISTRATOR', 'ADMINISTRATEUR', 'SUPER_ADMIN', 'SUPERADMIN', 'GENERAL_DIRECTOR', 'GERANT', 'SERVICE_MANAGER'].includes(targetRoleCode);
   const canModifyTarget = canEdit && !isAdministratorTarget;
 
   const hasPermissionFlags = (permission: any) =>
@@ -42,13 +73,19 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
     queryKey: ['admin-permissions-modal'],
     queryFn: () => adminPermissionsService.getPermissions(),
-    enabled: isOpen,
+    enabled: isOpen && !isDelegationMode,
   });
 
   const { data: permissionModulesData, isLoading: permissionModulesLoading } = useQuery({
     queryKey: ['admin-permission-modules'],
     queryFn: () => adminPermissionsService.getPermissionModules(),
-    enabled: isOpen,
+    enabled: isOpen && !isDelegationMode,
+  });
+
+  const { data: delegablePermissionsData, isLoading: delegablePermissionsLoading } = useQuery({
+    queryKey: ['admin-delegable-permissions'],
+    queryFn: () => adminUsersService.getDelegablePermissions(),
+    enabled: isOpen && isDelegationMode,
   });
 
   const { data: userPermissionsData, isLoading: userPermissionsLoading } = useQuery({
@@ -57,7 +94,10 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
     enabled: isOpen && !!user?.id,
   });
 
-  const permissions = useMemo(() => permissionsData?.data || [], [permissionsData]);
+  const permissions = useMemo(
+    () => (isDelegationMode ? delegablePermissionsData?.data || [] : permissionsData?.data || []),
+    [delegablePermissionsData, isDelegationMode, permissionsData],
+  );
   const permissionModules = useMemo(() => permissionModulesData?.data || [], [permissionModulesData]);
   const userPermissions = useMemo(() => userPermissionsData?.data || [], [userPermissionsData]);
   const userPermissionsById = useMemo(() => {
@@ -105,6 +145,16 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   );
 
   useEffect(() => {
+    if (isDelegationMode) {
+      const next: Record<number, PermissionFlags> = {};
+      permissions.forEach((permission: any) => {
+        const current = userPermissionsById.get(permission.id);
+        next[permission.id] = readPermissionFlags(current);
+      });
+      setDelegatedFlags(next);
+      return;
+    }
+
     const permIds = new Set(
       userPermissions
         .filter(hasPermissionFlags)
@@ -112,7 +162,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
         .filter(Boolean),
     );
     setSelectedPermissions(permIds);
-  }, [userPermissions]);
+  }, [isDelegationMode, permissions, userPermissions, userPermissionsById]);
 
   useEffect(() => {
     if (permissionServices.length > 0) {
@@ -121,7 +171,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   }, [permissionServices]);
 
   const togglePermission = (permissionId: number) => {
-    if (!canModifyTarget) return;
+    if (!canModifyTarget || isDelegationMode) return;
 
     setSelectedPermissions((current) => {
       const next = new Set(current);
@@ -129,6 +179,17 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
       else next.add(permissionId);
       return next;
     });
+  };
+
+  const toggleDelegatedFlag = (permissionId: number, flag: keyof PermissionFlags, enabled: boolean) => {
+    if (!canModifyTarget || !isDelegationMode) return;
+    setDelegatedFlags((current) => ({
+      ...current,
+      [permissionId]: {
+        ...(current[permissionId] || emptyPermissionFlags()),
+        [flag]: enabled,
+      },
+    }));
   };
 
   const toggleService = (serviceId: string) => {
@@ -141,7 +202,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   };
 
   const selectAllInService = (serviceId: string) => {
-    if (!canModifyTarget) return;
+    if (!canModifyTarget || isDelegationMode) return;
 
     const service = permissionServices.find((item) => item.id === serviceId);
     if (!service) return;
@@ -154,7 +215,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
   };
 
   const deselectAllInService = (serviceId: string) => {
-    if (!canModifyTarget) return;
+    if (!canModifyTarget || isDelegationMode) return;
 
     const service = permissionServices.find((item) => item.id === serviceId);
     if (!service) return;
@@ -171,6 +232,29 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
     try {
       setIsSubmitting(true);
+      if (isDelegationMode) {
+        const changedPermissions = permissions
+          .filter((permission: any) => {
+            const before = readPermissionFlags(userPermissionsById.get(permission.id));
+            const after = delegatedFlags[permission.id] || emptyPermissionFlags();
+            return permissionFlagLabels.some(({ key }) => before[key] !== after[key]);
+          })
+          .map((permission: any) => ({
+            permissionId: permission.id,
+            ...(delegatedFlags[permission.id] || emptyPermissionFlags()),
+          }));
+
+        if (!changedPermissions.length) {
+          toast.info('Aucun changement à enregistrer.');
+          return;
+        }
+        await adminUsersService.setUserPermissions(user.id, { permissions: changedPermissions });
+        toast.success('Accès du membre mis à jour avec succès');
+        onSuccess?.();
+        onClose();
+        return;
+      }
+
       await adminUsersService.setUserPermissions(user.id, {
         permissions: permissions.map((permission: any) => {
           const isSelected = selectedPermissions.has(permission.id);
@@ -198,7 +282,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isLoading = permissionsLoading || permissionModulesLoading || userPermissionsLoading;
+  const isLoading = permissionsLoading || permissionModulesLoading || delegablePermissionsLoading || userPermissionsLoading;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 p-4">
@@ -230,8 +314,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
             />
           </div>
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-            Les permissions <strong>héritées du rôle</strong> peuvent être cochées ou retirées via une exception utilisateur.
-            Le rôle <strong>Administrateur</strong> reste protégé et ne peut pas être surchargé ici.
+            {isDelegationMode ? (
+              <>Vous pouvez transmettre uniquement les droits que vous possédez. Les accès d’administration et les droits supérieurs aux vôtres sont bloqués.</>
+            ) : (
+              <>Les permissions <strong>héritées du rôle</strong> peuvent être cochées ou retirées via une exception utilisateur. Le rôle <strong>Administrateur</strong> reste protégé et ne peut pas être surchargé ici.</>
+            )}
           </div>
         </div>
 
@@ -246,7 +333,9 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
           ) : (
             <div className="space-y-4">
               {permissionServices.map((service) => {
-                const selectedCount = service.permissions.filter((perm) => selectedPermissions.has(perm.id)).length;
+                const selectedCount = service.permissions.filter((perm) => isDelegationMode
+                  ? hasPermissionFlags(delegatedFlags[perm.id])
+                  : selectedPermissions.has(perm.id)).length;
                 const inheritedCount = service.permissions.filter((perm: any) => (perm as any).source === 'role').length;
                 const exceptionCount = service.permissions.filter((perm: any) => {
                   const source = (perm as any).source;
@@ -272,7 +361,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                         </span>
                       </button>
 
-                      {canModifyTarget && (
+                      {canModifyTarget && !isDelegationMode && (
                         <div className="flex items-center space-x-2">
                           <button
                             type="button"
@@ -336,7 +425,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                             </div>
                             <div className="space-y-2">
                               {subgroup.permissions.map((permission) => {
-                                const isSelected = selectedPermissions.has(permission.id);
+                                const isSelected = isDelegationMode
+                                  ? hasPermissionFlags(delegatedFlags[permission.id])
+                                  : selectedPermissions.has(permission.id);
+                                const currentFlags = delegatedFlags[permission.id] || emptyPermissionFlags();
+                                const maximumFlags = readPermissionFlags(permission);
                                 const source = (permission as any).source;
                                 const isInheritedOnly = source === 'role';
                                 const isDirectException = source === 'user' || source === 'mixed';
@@ -352,7 +445,7 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                           ? 'Retirée par exception'
                                         : null;
                                 return (
-                                  <label
+                                  <div
                                     key={permission.id}
                                     className={`flex items-start rounded p-2 transition-colors ${
                                       !canModifyTarget
@@ -360,15 +453,32 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                         : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                   >
-                                    <div className="flex h-5 items-center">
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => togglePermission(permission.id)}
-                                        disabled={!canModifyTarget}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                    </div>
+                                    {isDelegationMode ? (
+                                      <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
+                                        {permissionFlagLabels.map(({ key, label }) => (
+                                          <label key={key} className={`inline-flex items-center gap-1 text-[11px] ${maximumFlags[key] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                                            <input
+                                              type="checkbox"
+                                              checked={currentFlags[key]}
+                                              onChange={(event) => toggleDelegatedFlag(permission.id, key, event.target.checked)}
+                                              disabled={!canModifyTarget || !maximumFlags[key]}
+                                              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            {label}
+                                          </label>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="flex h-5 items-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => togglePermission(permission.id)}
+                                          disabled={!canModifyTarget}
+                                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                    )}
                                     <div className="ml-3 min-w-0 flex-1">
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -383,29 +493,29 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
                                       {permission.description && (
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{permission.description}</p>
                                       )}
-                                      {isInheritedOnly && (
+                                      {!isDelegationMode && isInheritedOnly && (
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                                           Cette permission vient du rôle. Décoche-la pour créer une exception de retrait.
                                         </p>
                                       )}
-                                      {!source && (
+                                      {!isDelegationMode && !source && (
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                                           Non accordée actuellement. Coche-la pour créer une exception utilisateur.
                                         </p>
                                       )}
-                                      {isDirectException && (
+                                      {!isDelegationMode && isDirectException && (
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                                           Cette permission est portée par une exception utilisateur explicite.
                                         </p>
                                       )}
-                                      {isRevoked && (
+                                      {!isDelegationMode && isRevoked && (
                                         <p className="mt-1 text-[11px] text-red-500 dark:text-red-300">
                                           Cette permission vient du rôle mais elle est retirée pour cet utilisateur.
                                         </p>
                                       )}
                                     </div>
                                     {isSelected && <Check className="ml-3 h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />}
-                                  </label>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -422,8 +532,11 @@ export const PermissionsModal: React.FC<PermissionsModalProps> = ({
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{selectedPermissions.size}</span> permission(s) effectives ·{' '}
-            <span className="font-medium">{currentExceptionCount}</span> exception(s) utilisateur
+            {isDelegationMode ? (
+              <><span className="font-medium">{Object.values(delegatedFlags).filter(hasPermissionFlags).length}</span> accès avec au moins un droit activé</>
+            ) : (
+              <><span className="font-medium">{selectedPermissions.size}</span> permission(s) effectives · <span className="font-medium">{currentExceptionCount}</span> exception(s) utilisateur</>
+            )}
           </div>
           <div className="flex space-x-3">
             <button

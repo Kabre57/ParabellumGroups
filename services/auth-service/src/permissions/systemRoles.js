@@ -10,6 +10,11 @@ const systemRoles = [
     description: 'Validation et supervision generale',
   },
   {
+    name: 'Responsable de service',
+    code: 'SERVICE_MANAGER',
+    description: 'Gestion des membres et accès de son service',
+  },
+  {
     name: 'Gerant',
     code: 'GERANT',
     description: 'Supervision des dashboards et validation des achats',
@@ -18,6 +23,11 @@ const systemRoles = [
     name: 'Employe',
     code: 'EMPLOYEE',
     description: 'Utilisateur standard',
+  },
+  {
+    name: 'Membre de service',
+    code: 'SERVICE_MEMBER',
+    description: 'Accès de base pour un membre créé et géré par son responsable de service',
   },
   {
     name: 'Comptable',

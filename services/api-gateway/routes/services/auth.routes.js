@@ -57,7 +57,62 @@ module.exports = {
       auth: true,
       pathRewrite: { '^/users': '/api/users' },
     },
-    // Routes admin protégées
+    // Gestion des utilisateurs : permissions vérifiées ici et périmètre vérifié par auth-service.
+    {
+      path: '/auth/users/delegable-permissions',
+      method: 'get',
+      auth: true,
+      permission: 'users.update',
+    },
+    {
+      path: '/auth/users/:userId/permissions',
+      method: 'get',
+      auth: true,
+      permission: 'users.update',
+    },
+    {
+      path: '/auth/users/:userId/permissions',
+      method: 'put',
+      auth: true,
+      permission: 'users.update',
+    },
+    {
+      path: '/auth/users/:id/status',
+      method: 'patch',
+      auth: true,
+      permission: 'users.update',
+    },
+    {
+      path: '/auth/users/:id',
+      method: 'get',
+      auth: true,
+      permission: ['users.read', 'users.read_all'],
+    },
+    {
+      path: '/auth/users/:id',
+      method: 'put',
+      auth: true,
+      permission: 'users.update',
+    },
+    {
+      path: '/auth/users/:id',
+      method: 'delete',
+      auth: true,
+      admin: true,
+    },
+    {
+      path: '/auth/users',
+      method: 'get',
+      auth: true,
+      permission: ['users.read', 'users.read_all'],
+    },
+    {
+      path: '/auth/users',
+      method: 'post',
+      auth: true,
+      permission: 'users.create',
+    },
+    // Routes administratives non détaillées ci-dessus restent réservées à l'administrateur.
     {
       path: '/auth/users',
       auth: true,

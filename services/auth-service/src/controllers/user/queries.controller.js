@@ -1,5 +1,10 @@
 // Lecture et recherche des comptes utilisateurs.
 const { validationResult, prisma } = require('./shared');
+const {
+  isServiceManager,
+  getManagedServiceIds,
+  ensureManagedTarget,
+} = require('../../utils/serviceManagerScope');
 
 /**
  * Get all users with pagination and filtering
@@ -43,6 +48,16 @@ const getAllUsers = async (req, res) => {
       where.enterpriseId = req.user.enterpriseId;
     } else if (req.query.enterpriseId) {
       where.enterpriseId = parseInt(req.query.enterpriseId);
+    }
+
+    if (isServiceManager(req.user)) {
+      const managedServiceIds = await getManagedServiceIds(req.user);
+      if (serviceId && !managedServiceIds.includes(parseInt(serviceId))) {
+        return res.status(403).json({ success: false, message: 'Ce service est hors de votre périmètre.' });
+      }
+      where.serviceId = serviceId ? parseInt(serviceId) : { in: managedServiceIds };
+      where.id = { not: req.user.id };
+      if (managedServiceIds.length === 0) where.id = { in: [] };
     }
 
     if (isActive !== undefined) {
@@ -139,7 +154,15 @@ const getUserById = async (req, res) => {
       whereClause.enterpriseId = req.user.enterpriseId;
     }
 
-    const user = await prisma.user.findUnique({
+    if (isServiceManager(req.user)) {
+      const target = await ensureManagedTarget(req.user, id);
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Utilisateur introuvable dans votre service.' });
+      }
+      whereClause.serviceId = target.serviceId;
+    }
+
+    const user = await prisma.user.findFirst({
       where: whereClause,
       select: {
         id: true,

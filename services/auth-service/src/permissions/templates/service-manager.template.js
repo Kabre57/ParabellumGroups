@@ -6,5 +6,7 @@ module.exports = [
   "operational_requests.submit",
   "operational_requests.manage_attachments",
   "services.read",
-  "users.read"
+  "users.read",
+  "users.create",
+  "users.update"
 ];

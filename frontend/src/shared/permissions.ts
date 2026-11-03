@@ -77,6 +77,15 @@ const ADMIN_ROLE_CODES = new Set([
   'SUPER_ADMIN', 'SUPERADMIN',
 ]);
 
+export const getUserRoleCode = (user: User | null | undefined): string => {
+  const role = user?.role as any;
+  if (typeof role === 'string') return role.toUpperCase();
+  return String(role?.code || role?.name || '').toUpperCase();
+};
+
+export const isServiceManager = (user: User | null | undefined): boolean =>
+  getUserRoleCode(user) === 'SERVICE_MANAGER';
+
 export const isAdminRole = (user: User | null | undefined): boolean => {
   if (!user?.role) return false;
 

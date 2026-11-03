@@ -10,6 +10,7 @@ const {
 } = require('../controllers/user.controller');
 const {
   getUserPermissions,
+  getDelegablePermissions,
   updateUserPermissions,
   checkUserPermission
 } = require('../controllers/user-permission.controller');
@@ -25,6 +26,8 @@ router.use(authenticate);
 
 router.post('/push-token', registerPushToken);
 router.delete('/push-token', revokePushToken);
+
+router.get('/delegable-permissions', checkRole('SERVICE_MANAGER'), getDelegablePermissions);
 
 /**
  * @route   GET /api/users
@@ -75,7 +78,7 @@ router.get(
  */
 router.post(
   '/',
-  checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
+  checkRole(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER']),
   [
     body('email')
       .isEmail()
@@ -97,6 +100,16 @@ router.post(
       .withMessage('Last name is required')
       .isLength({ max: 100 })
       .withMessage('Last name must not exceed 100 characters'),
+    body('phone')
+      .optional()
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('Phone must not exceed 50 characters'),
+    body('position')
+      .optional()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Position must not exceed 100 characters'),
     body('roleId')
       .optional()
       .isInt({ min: 1 })
@@ -131,7 +144,7 @@ router.get('/:id', getUserById);
  */
 router.put(
   '/:id',
-  checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
+  checkRole(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER']),
   [
     body('email')
       .optional()
@@ -205,7 +218,7 @@ router.delete('/:id', checkRole('ADMIN'), deleteUser);
  */
 router.patch(
   '/:id/status',
-  checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
+  checkRole(['ADMIN', 'GENERAL_DIRECTOR', 'SERVICE_MANAGER']),
   [
     body('isActive')
       .isBoolean()
@@ -219,7 +232,7 @@ router.patch(
  * @desc    Get user permissions
  * @access  Private - ADMIN
  */
-router.get('/:userId/permissions', checkRole('ADMIN'), getUserPermissions);
+router.get('/:userId/permissions', checkRole(['ADMIN', 'SERVICE_MANAGER']), getUserPermissions);
 
 /**
  * @route   PUT /api/users/:userId/permissions
@@ -228,7 +241,7 @@ router.get('/:userId/permissions', checkRole('ADMIN'), getUserPermissions);
  */
 router.put(
   '/:userId/permissions',
-  checkRole('ADMIN'),
+  checkRole(['ADMIN', 'SERVICE_MANAGER']),
   [
     body('permissions')
       .optional()

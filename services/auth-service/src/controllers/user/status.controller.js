@@ -1,5 +1,6 @@
 // Activation et désactivation des comptes utilisateurs.
-const { prisma } = require('./shared');
+const { validationResult, prisma } = require('./shared');
+const { isServiceManager, ensureManagedTarget } = require('../../utils/serviceManagerScope');
 
 /**
  * Update user status (activate/deactivate)
@@ -20,12 +21,19 @@ const updateUserStatus = async (req, res) => {
     const { isActive } = req.body;
 
     const whereClause = { id: parseInt(id) };
+    if (isServiceManager(req.user)) {
+      const target = await ensureManagedTarget(req.user, id);
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Utilisateur introuvable dans votre service.' });
+      }
+      whereClause.serviceId = target.serviceId;
+    }
     if (req.user.enterpriseId) {
       whereClause.enterpriseId = req.user.enterpriseId;
     }
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: whereClause,
     });
 

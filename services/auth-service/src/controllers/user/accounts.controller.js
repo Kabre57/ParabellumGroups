@@ -1,5 +1,11 @@
 // Création, modification et suppression des comptes.
 const { validationResult, prisma, hashPassword } = require('./shared');
+const { DEFAULT_INITIAL_PASSWORD } = require('../../utils/password');
+const {
+  isServiceManager,
+  getManagedServices,
+  ensureManagedTarget,
+} = require('../../utils/serviceManagerScope');
 
 /**
  * Create new user
@@ -16,7 +22,17 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { email, password, firstName, lastName, roleId, serviceId, enterpriseId, isActive } = req.body;
+    const { email, password, firstName, lastName, roleId, serviceId, enterpriseId, isActive, phone, position } = req.body;
+    const managedServices = isServiceManager(req.user) ? await getManagedServices(req.user) : [];
+    const managedServiceId = serviceId ? parseInt(serviceId, 10) : (managedServices.length === 1 ? managedServices[0].id : null);
+    const managedService = managedServices.find((service) => service.id === managedServiceId);
+
+    if (isServiceManager(req.user) && !managedService) {
+      return res.status(403).json({
+        success: false,
+        message: 'Choisissez un service que vous gérez.',
+      });
+    }
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -31,16 +47,20 @@ const createUser = async (req, res) => {
     }
 
     // Get default EMPLOYEE role if no roleId provided
-    let finalRoleId = roleId;
+    let finalRoleId = isServiceManager(req.user) ? null : roleId;
     if (!finalRoleId) {
       const employeeRole = await prisma.role.findUnique({
-        where: { code: 'EMPLOYEE' },
+        where: { code: isServiceManager(req.user) ? 'SERVICE_MEMBER' : 'EMPLOYEE' },
       });
       finalRoleId = employeeRole?.id || null;
     }
 
+    if (!finalRoleId) {
+      return res.status(500).json({ success: false, message: 'Le rôle de base requis est indisponible.' });
+    }
+
     // Hash password
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await hashPassword(isServiceManager(req.user) ? DEFAULT_INITIAL_PASSWORD : password);
 
     // Create user
     const user = await prisma.user.create({
@@ -50,9 +70,13 @@ const createUser = async (req, res) => {
         firstName,
         lastName,
         roleId: finalRoleId,
-        serviceId: serviceId ? parseInt(serviceId) : null,
-        enterpriseId: req.user.enterpriseId || (enterpriseId ? parseInt(enterpriseId) : null),
-        isActive: isActive !== undefined ? isActive : true,
+        serviceId: isServiceManager(req.user) ? managedService.id : (serviceId ? parseInt(serviceId) : null),
+        enterpriseId: isServiceManager(req.user)
+          ? managedService.enterpriseId
+          : (req.user.enterpriseId || (enterpriseId ? parseInt(enterpriseId) : null)),
+        isActive: isServiceManager(req.user) ? true : (isActive !== undefined ? isActive : true),
+        phone: phone || null,
+        position: position || null,
         mustChangePassword: true,
       },
       select: {
@@ -161,12 +185,30 @@ const updateUser = async (req, res) => {
     }
 
     const whereClause = { id: parseInt(id) };
+    if (isServiceManager(req.user)) {
+      const target = await ensureManagedTarget(req.user, id);
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Utilisateur introuvable dans votre service.' });
+      }
+      const restrictedFields = ['password', 'roleId', 'serviceId', 'enterpriseId', 'isActive', 'mustChangePassword'];
+      if (restrictedFields.some((field) => Object.prototype.hasOwnProperty.call(req.body, field))) {
+        return res.status(403).json({
+          success: false,
+          message: 'Le responsable peut modifier les coordonnées du membre, pas son rôle, son service, son statut ou son mot de passe.',
+        });
+      }
+      const permittedFields = ['email', 'firstName', 'lastName', 'phone', 'position', 'employeeNumber'];
+      Object.keys(updateData).forEach((field) => {
+        if (!permittedFields.includes(field)) delete updateData[field];
+      });
+      whereClause.serviceId = target.serviceId;
+    }
     if (req.user.enterpriseId) {
       whereClause.enterpriseId = req.user.enterpriseId;
     }
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.user.findFirst({
       where: whereClause,
     });
 

@@ -1,6 +1,7 @@
 const ADMIN = require('./admin.template.js');
 const EMPLOYEE = require('./employee.template.js');
 const SERVICE_MANAGER = require('./service-manager.template.js');
+const SERVICE_MEMBER = require('./service-member.template.js');
 const PURCHASING_MANAGER = require('./purchasing-manager.template.js');
 const GERANT = require('./gerant.template.js');
 const GENERAL_DIRECTOR = require('./general-director.template.js');
@@ -11,6 +12,7 @@ const roleTemplates = {
   ADMIN,
   EMPLOYEE,
   SERVICE_MANAGER,
+  SERVICE_MEMBER,
   PURCHASING_MANAGER,
   GERANT,
   GENERAL_DIRECTOR,

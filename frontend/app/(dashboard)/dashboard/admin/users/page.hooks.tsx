@@ -34,7 +34,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 
 import { adminUsersService, adminRolesService, type AdminUser } from '@/shared/api/admin';
 
-import { hasAnyPermission, hasPermission } from '@/shared/permissions';
+import { hasAnyPermission, hasPermission, isServiceManager } from '@/shared/permissions';
 
 // Logique d'interface et chargement des comptes utilisateurs.
 
@@ -44,6 +44,7 @@ export const roleColors: Record<string, string> = {
   GENERAL_DIRECTOR: 'bg-purple-100 text-purple-800',
   GERANT: 'bg-cyan-100 text-cyan-800',
   SERVICE_MANAGER: 'bg-blue-100 text-blue-800',
+  SERVICE_MEMBER: 'bg-sky-100 text-sky-800',
   EMPLOYEE: 'bg-gray-100 text-gray-800',
   ACCOUNTANT: 'bg-green-100 text-green-800',
   COMMERCIAL: 'bg-orange-100 text-orange-800',
@@ -54,6 +55,7 @@ export const roleColors: Record<string, string> = {
 export function useUsersManagementPageData() {
 
   const { user: currentUser } = useAuth();
+  const isServiceManagerUser = isServiceManager(currentUser);
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -77,9 +79,9 @@ export function useUsersManagementPageData() {
     () =>
       [
         canReadUsers ? 'users' : null,
-        canManagePermissionOverrides ? 'permissions' : null,
+        canManagePermissionOverrides && !isServiceManagerUser ? 'permissions' : null,
       ].filter(Boolean) as Array<'users' | 'permissions'>,
-    [canManagePermissionOverrides, canReadUsers]
+    [canManagePermissionOverrides, canReadUsers, isServiceManagerUser]
   );
 
   const normalizedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || 'users';
@@ -87,6 +89,7 @@ export function useUsersManagementPageData() {
   const { data: rolesData } = useQuery({
     queryKey: ['admin-roles'],
     queryFn: () => adminRolesService.getRoles(),
+    enabled: !isServiceManagerUser,
   });
 
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
@@ -222,6 +225,7 @@ export function useUsersManagementPageData() {
     setSelectedPermissionsUser,
     queryClient,
     canReadUsers,
+    isServiceManagerUser,
     canCreateUsers,
     canUpdateUsers,
     canDeleteUsers,
