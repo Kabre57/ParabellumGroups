@@ -98,7 +98,6 @@ export function CreateServiceModal({
                   {errors.name.message}
                 </p>
               )}
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Le code du service sera généré automatiquement.</p>
             </div>
 
             <div>

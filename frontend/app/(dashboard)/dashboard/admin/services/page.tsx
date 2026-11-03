@@ -62,8 +62,7 @@ export default function ServicesManagementPage() {
 
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
   const filteredServices = services.filter(s => 
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.code?.toLowerCase().includes(search.toLowerCase())
+    s.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   if (error) {
@@ -148,11 +147,6 @@ export default function ServicesManagementPage() {
                         <span className="text-sm font-medium text-gray-900">
                           {service.name}
                         </span>
-                        {service.code && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                            {service.code}
-                          </span>
-                        )}
                       </div>
                       {service.description && (
                         <span className="text-sm text-gray-500 mt-1">

@@ -224,6 +224,7 @@ export interface SetPermissionsRequest {
 
 export interface UserFilters {
   search?: string;
+  role?: string;
   roleId?: number;
   serviceId?: number;
   enterpriseId?: number;
@@ -254,6 +255,7 @@ export const adminUsersService = {
     const params = new URLSearchParams();
     
     if (filters?.roleId) params.append('roleId', String(filters.roleId));
+    if (filters?.role) params.append('role', filters.role);
     if (filters?.search) params.append('search', filters.search);
     if (filters?.serviceId) params.append('serviceId', String(filters.serviceId));
     if (filters?.enterpriseId) params.append('enterpriseId', String(filters.enterpriseId));

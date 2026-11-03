@@ -56,19 +56,50 @@ export function EditServiceModal({
 
   const { data: usersData } = useQuery({
     queryKey: ['admin-users-list', selectedEnterpriseId],
-    queryFn: () => adminUsersService.getUsers({ limit: 100, enterpriseId: Number(selectedEnterpriseId) }),
-    enabled: isOpen && Boolean(selectedEnterpriseId),
+    queryFn: () => adminUsersService.getUsers({
+      limit: 100,
+      role: 'SERVICE_MANAGER',
+      ...(selectedEnterpriseId
+        ? { enterpriseId: Number(selectedEnterpriseId) }
+        : { scope: 'all' as const }),
+    }),
+    enabled: isOpen,
   });
 
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
   const users = (Array.isArray(usersData?.data) ? usersData.data : [])
-    .filter((user) => String(user.enterpriseId ?? '') === selectedEnterpriseId && user.isActive && user.role?.code === 'SERVICE_MANAGER');
+    .filter((user) =>
+      user.isActive &&
+      user.role?.code === 'SERVICE_MANAGER' &&
+      (!selectedEnterpriseId || String(user.enterpriseId ?? '') === selectedEnterpriseId)
+    );
 
-  const availableParentServices = services.filter((candidate) =>
-    candidate.id !== service?.id &&
-    String(candidate.enterpriseId ?? candidate.enterprise?.id ?? '') === selectedEnterpriseId &&
-    Boolean(selectedEnterpriseId)
-  );
+  const availableParentServices = services.filter((candidate) => {
+    if (candidate.id === service?.id) return false;
+    if (!selectedEnterpriseId) return true;
+    return String(candidate.enterpriseId ?? candidate.enterprise?.id ?? '') === selectedEnterpriseId;
+  });
+
+  const handleParentSelection = (value: string) => {
+    setValue('parentId', value);
+    if (selectedEnterpriseId || !value) return;
+    const selectedParent = availableParentServices.find((candidate) => String(candidate.id) === value);
+    const parentEnterpriseId = selectedParent?.enterpriseId ?? selectedParent?.enterprise?.id;
+    if (parentEnterpriseId) {
+      setValue('enterpriseId', String(parentEnterpriseId));
+      setValue('managerId', '');
+    }
+  };
+
+  const handleManagerSelection = (value: string) => {
+    setValue('managerId', value);
+    if (selectedEnterpriseId || !value) return;
+    const selectedManager = users.find((candidate) => String(candidate.id) === value);
+    if (selectedManager?.enterpriseId) {
+      setValue('enterpriseId', String(selectedManager.enterpriseId));
+      setValue('parentId', '');
+    }
+  };
 
   useEffect(() => {
     if (service) {
@@ -161,36 +192,21 @@ export function EditServiceModal({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom du service *
-                </label>
-                <input
-                  {...register('name')}
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Direction Commerciale"
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Code automatique
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={service.code || ''}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 dark:text-gray-300 uppercase cursor-not-allowed"
-                />
-                <p className="mt-1 text-xs text-gray-500">Le code ne peut pas etre modifie</p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nom du service *
+              </label>
+              <input
+                {...register('name')}
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Direction Commerciale"
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -218,16 +234,21 @@ export function EditServiceModal({
                 </label>
                 <select
                   {...register('parentId')}
-                  disabled={!selectedEnterpriseId}
+                  onChange={(event) => handleParentSelection(event.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Aucun (Service racine)</option>
                   {availableParentServices.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}
+                      {selectedEnterpriseId ? s.name : `${s.enterprise?.name || 'Catalogue global'} — ${s.name}`}
                     </option>
                   ))}
                 </select>
+                {!selectedEnterpriseId && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Choisir un service rattaché sélectionnera aussi son entreprise.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -236,16 +257,23 @@ export function EditServiceModal({
                 </label>
                 <select
                   {...register('managerId')}
-                  disabled={!selectedEnterpriseId}
+                  onChange={(event) => handleManagerSelection(event.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Aucun</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName}
+                      {selectedEnterpriseId
+                        ? `${user.firstName} ${user.lastName}`
+                        : `${user.firstName} ${user.lastName} — ${user.enterprise?.name || `Entreprise #${user.enterpriseId}`}`}
                     </option>
                   ))}
                 </select>
+                {!selectedEnterpriseId && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Choisir un responsable rattache aussi le service à son entreprise.
+                  </p>
+                )}
               </div>
             </div>
 
