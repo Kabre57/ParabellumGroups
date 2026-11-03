@@ -36,8 +36,16 @@ wait_healthy() {
   return 1
 }
 
-echo "Building inactive $next_color edge pair (live: $live_color)..."
-docker compose build "api-gateway-$next_color" "frontend-$next_color"
+echo "Building auth-service and inactive $next_color edge pair (live: $live_color)..."
+docker compose build auth-service "api-gateway-$next_color" "frontend-$next_color"
+
+echo "Applying auth-service database migrations..."
+docker compose run --rm --no-deps --entrypoint pnpm auth-service exec prisma migrate deploy
+
+echo "Restarting auth-service with the updated application..."
+docker compose up -d --no-deps auth-service
+wait_healthy auth-service
+
 docker compose up -d --no-deps "api-gateway-$next_color" "frontend-$next_color"
 wait_healthy "api-gateway-$next_color"
 wait_healthy "frontend-$next_color"

@@ -104,9 +104,11 @@ docker compose ps
 
 5) Accéder à l’ERP via Nginx / reverse-proxy.
 
-For each later update, run `./scripts/deploy-blue-green.sh`. It rebuilds the
-inactive frontend/API pair, waits for its health checks, then reloads Nginx to
-it. The live pair remains available until the switch.
+For each later update, run `./scripts/deploy-blue-green.sh`. It rebuilds
+`auth-service` and the inactive frontend/API pair, applies pending auth database
+migrations before restarting the service, waits for health checks, then reloads
+Nginx to the new pair. The previous frontend/API pair remains available until
+the switch.
 
 ## 🔐 Variables d’environnement (par service)
 
