@@ -5,6 +5,7 @@ const {
   getManagedServiceIds,
   ensureManagedTarget,
 } = require('../../utils/serviceManagerScope');
+const { getActiveEnterpriseId, isGlobalAdmin } = require('../../utils/roleScope');
 
 /**
  * Get all users with pagination and filtering
@@ -44,9 +45,8 @@ const getAllUsers = async (req, res) => {
       where.serviceId = parseInt(serviceId);
     }
 
-    const userRoleCode = req.user.role?.code || req.user.roleCode;
-    const selectedEnterpriseId = parseInt(req.headers['x-enterprise-id'] || req.query.enterpriseId, 10);
-    if (userRoleCode === 'ADMIN' && Number.isInteger(selectedEnterpriseId) && selectedEnterpriseId > 0) {
+    const selectedEnterpriseId = parseInt(req.query.enterpriseId || req.headers['x-enterprise-id'], 10);
+    if (isGlobalAdmin(req.user) && Number.isInteger(selectedEnterpriseId) && selectedEnterpriseId > 0) {
       where.enterpriseId = selectedEnterpriseId;
     } else if (req.user.enterpriseId) {
       where.enterpriseId = req.user.enterpriseId;
@@ -154,9 +154,8 @@ const getUserById = async (req, res) => {
     const { id } = req.params;
 
     const whereClause = { id: parseInt(id) };
-    if (req.user.enterpriseId) {
-      whereClause.enterpriseId = req.user.enterpriseId;
-    }
+    const activeEnterpriseId = getActiveEnterpriseId(req);
+    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     if (isServiceManager(req.user)) {
       const target = await ensureManagedTarget(req.user, id);

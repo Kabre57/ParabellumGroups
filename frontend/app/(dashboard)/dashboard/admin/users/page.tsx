@@ -256,7 +256,7 @@ export default function UsersManagementPage() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       roleColors[user.role?.code || ''] || 'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.role?.name || 'Non defini'}
+                      {user.role?.name || 'Accès à configurer'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

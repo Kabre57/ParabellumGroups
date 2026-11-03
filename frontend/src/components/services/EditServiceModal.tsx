@@ -8,10 +8,12 @@ import { X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { adminServicesService, adminUsersService, type Service } from '@/shared/api/admin';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 const editServiceSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
   description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
+  enterpriseId: z.string().optional(),
   parentId: z.string().optional(),
   managerId: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -32,37 +34,48 @@ export function EditServiceModal({
   onSuccess,
   service
 }: EditServiceModalProps) {
-  const { data: servicesData } = useQuery({
-    queryKey: ['admin-services-list'],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen,
-  });
-
-  const { data: usersData } = useQuery({
-    queryKey: ['admin-users-list'],
-    queryFn: () => adminUsersService.getUsers({ limit: 100 }),
-    enabled: isOpen,
-  });
-
-  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
-  const users = Array.isArray(usersData?.data) ? usersData.data : [];
-
-  const availableParentServices = services.filter(s => s.id !== service?.id);
+  const { enterprises } = useEnterprise();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    watch,
+    setValue,
   } = useForm<EditServiceForm>({
     resolver: zodResolver(editServiceSchema),
   });
+  const selectedEnterpriseId = watch('enterpriseId') || '';
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['admin-services-list', 'all'],
+    queryFn: () => adminServicesService.getServices(true, true),
+    enabled: isOpen,
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users-list', selectedEnterpriseId],
+    queryFn: () => adminUsersService.getUsers({ limit: 100, enterpriseId: Number(selectedEnterpriseId) }),
+    enabled: isOpen && Boolean(selectedEnterpriseId),
+  });
+
+  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const users = (Array.isArray(usersData?.data) ? usersData.data : [])
+    .filter((user) => String(user.enterpriseId ?? '') === selectedEnterpriseId && user.isActive && user.role?.code === 'SERVICE_MANAGER');
+
+  const availableParentServices = services.filter((candidate) =>
+    candidate.id !== service?.id &&
+    String(candidate.enterpriseId ?? candidate.enterprise?.id ?? '') === selectedEnterpriseId &&
+    Boolean(selectedEnterpriseId)
+  );
 
   useEffect(() => {
     if (service) {
       reset({
         name: service.name,
         description: service.description || '',
+        enterpriseId: service.enterpriseId || service.enterprise?.id ? String(service.enterpriseId || service.enterprise?.id) : '',
         parentId: service.parentId?.toString() || '',
         managerId: service.managerId?.toString() || '',
         isActive: service.isActive,
@@ -77,6 +90,7 @@ export function EditServiceModal({
       await adminServicesService.updateService(service.id, {
         name: data.name,
         description: data.description,
+        enterpriseId: data.enterpriseId ? Number(data.enterpriseId) : null,
         parentId: data.parentId ? parseInt(data.parentId) : null,
         managerId: data.managerId ? parseInt(data.managerId) : null,
         isActive: data.isActive,
@@ -119,6 +133,34 @@ export function EditServiceModal({
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Entreprise de rattachement
+              </label>
+              {(() => {
+                const enterpriseField = register('enterpriseId');
+                return (
+                  <select
+                    {...enterpriseField}
+                    onChange={(event) => {
+                      enterpriseField.onChange(event);
+                      setValue('parentId', '');
+                      setValue('managerId', '');
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="">Non attribué (catalogue global)</option>
+                    {enterprises.map((enterprise) => (
+                      <option key={enterprise.id} value={String(enterprise.id)}>{enterprise.name}</option>
+                    ))}
+                  </select>
+                );
+              })()}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Tu peux laisser le service dans le catalogue global ou le rattacher à n’importe quelle entreprise accessible.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -139,7 +181,7 @@ export function EditServiceModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Code
+                  Code automatique
                 </label>
                 <input
                   type="text"
@@ -176,6 +218,7 @@ export function EditServiceModal({
                 </label>
                 <select
                   {...register('parentId')}
+                  disabled={!selectedEnterpriseId}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Aucun (Service racine)</option>
@@ -193,6 +236,7 @@ export function EditServiceModal({
                 </label>
                 <select
                   {...register('managerId')}
+                  disabled={!selectedEnterpriseId}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Aucun</option>

@@ -2,7 +2,7 @@
 
 
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -35,6 +35,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { adminUsersService, adminRolesService, type AdminUser } from '@/shared/api/admin';
 
 import { hasAnyPermission, hasPermission, isServiceManager } from '@/shared/permissions';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 // Logique d'interface et chargement des comptes utilisateurs.
 
@@ -55,6 +56,7 @@ export const roleColors: Record<string, string> = {
 export function useUsersManagementPageData() {
 
   const { user: currentUser } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
   const isServiceManagerUser = isServiceManager(currentUser);
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [page, setPage] = useState(1);
@@ -66,6 +68,11 @@ export function useUsersManagementPageData() {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedPermissionsUser, setSelectedPermissionsUser] = useState<AdminUser | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+    setRoleFilter('');
+  }, [selectedEnterprise?.id]);
 
   const queryClient = useQueryClient();
   const canReadUsers = hasAnyPermission(currentUser, ['users.read', 'users.read_own', 'users.read_all']);
@@ -87,7 +94,7 @@ export function useUsersManagementPageData() {
   const normalizedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0] || 'users';
 
   const { data: rolesData } = useQuery({
-    queryKey: ['admin-roles'],
+    queryKey: ['admin-roles', selectedEnterprise?.id],
     queryFn: () => adminRolesService.getRoles(),
     enabled: !isServiceManagerUser,
   });
@@ -95,7 +102,7 @@ export function useUsersManagementPageData() {
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
 
   const { data: usersData, isLoading, error } = useQuery({
-    queryKey: ['admin-users', page, limit, search, roleFilter],
+    queryKey: ['admin-users', selectedEnterprise?.id, page, limit, search, roleFilter],
     queryFn: () => adminUsersService.getUsers({
       page,
       limit,

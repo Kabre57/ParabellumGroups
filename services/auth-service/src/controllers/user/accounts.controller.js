@@ -6,6 +6,7 @@ const {
   getManagedServices,
   ensureManagedTarget,
 } = require('../../utils/serviceManagerScope');
+const { getActiveEnterpriseId, isGlobalAdmin } = require('../../utils/roleScope');
 
 /**
  * Create new user
@@ -22,7 +23,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const { email, password, firstName, lastName, roleId, serviceId, enterpriseId, isActive, phone, position } = req.body;
+    const { email, password, firstName, lastName, serviceId, phone, position } = req.body;
     const managedServices = isServiceManager(req.user) ? await getManagedServices(req.user) : [];
     const managedServiceId = serviceId ? parseInt(serviceId, 10) : (managedServices.length === 1 ? managedServices[0].id : null);
     const managedService = managedServices.find((service) => service.id === managedServiceId);
@@ -46,17 +47,25 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Get default EMPLOYEE role if no roleId provided
-    let finalRoleId = isServiceManager(req.user) ? null : roleId;
-    if (!finalRoleId) {
-      const employeeRole = await prisma.role.findUnique({
-        where: { code: isServiceManager(req.user) ? 'SERVICE_MEMBER' : 'EMPLOYEE' },
-      });
-      finalRoleId = employeeRole?.id || null;
+    const finalEnterpriseId = isServiceManager(req.user)
+      ? managedService.enterpriseId
+      : getActiveEnterpriseId(req);
+
+    if (!finalEnterpriseId) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise avant de créer le compte.' });
     }
 
-    if (!finalRoleId) {
-      return res.status(500).json({ success: false, message: 'Le rôle de base requis est indisponible.' });
+    // New administrator-created accounts stay inactive without a role until
+    // the company-specific access profile is assigned.
+    let finalRoleId = null;
+    if (isServiceManager(req.user)) {
+      const employeeRole = await prisma.role.findUnique({
+        where: { code: 'SERVICE_MEMBER' },
+      });
+      finalRoleId = employeeRole?.id || null;
+      if (!finalRoleId) {
+        return res.status(500).json({ success: false, message: 'Le rôle membre de service requis est indisponible.' });
+      }
     }
 
     // Hash password
@@ -70,11 +79,9 @@ const createUser = async (req, res) => {
         firstName,
         lastName,
         roleId: finalRoleId,
-        serviceId: isServiceManager(req.user) ? managedService.id : (serviceId ? parseInt(serviceId) : null),
-        enterpriseId: isServiceManager(req.user)
-          ? managedService.enterpriseId
-          : (req.user.enterpriseId || (enterpriseId ? parseInt(enterpriseId) : null)),
-        isActive: isServiceManager(req.user) ? true : (isActive !== undefined ? isActive : true),
+        serviceId: isServiceManager(req.user) ? managedService.id : null,
+        enterpriseId: finalEnterpriseId,
+        isActive: isServiceManager(req.user),
         phone: phone || null,
         position: position || null,
         mustChangePassword: true,
@@ -163,7 +170,9 @@ const updateUser = async (req, res) => {
     delete updateData.passwordHash;
     delete updateData.createdAt;
 
-    if (updateData.roleId !== undefined && updateData.roleId !== null) {
+    if (updateData.roleId === '') {
+      updateData.roleId = null;
+    } else if (updateData.roleId !== undefined && updateData.roleId !== null) {
       updateData.roleId = parseInt(updateData.roleId);
     }
 
@@ -179,7 +188,7 @@ const updateUser = async (req, res) => {
       updateData.enterpriseId = parseInt(updateData.enterpriseId);
     }
 
-    if (req.user.enterpriseId) {
+    if (req.user.enterpriseId && !isGlobalAdmin(req.user)) {
        // Cannot change your enterprise if you are bounded to one
        delete updateData.enterpriseId;
     }
@@ -203,9 +212,8 @@ const updateUser = async (req, res) => {
       });
       whereClause.serviceId = target.serviceId;
     }
-    if (req.user.enterpriseId) {
-      whereClause.enterpriseId = req.user.enterpriseId;
-    }
+    const activeEnterpriseId = getActiveEnterpriseId(req);
+    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if user exists
     const existingUser = await prisma.user.findFirst({
@@ -217,6 +225,47 @@ const updateUser = async (req, res) => {
         success: false,
         message: 'User not found',
       });
+    }
+
+    const targetEnterpriseId = updateData.enterpriseId !== undefined
+      ? updateData.enterpriseId
+      : existingUser.enterpriseId;
+    const nextRoleId = Object.prototype.hasOwnProperty.call(updateData, 'roleId')
+      ? updateData.roleId
+      : existingUser.roleId;
+    const nextIsActive = updateData.isActive !== undefined ? updateData.isActive : existingUser.isActive;
+    if (nextIsActive && !targetEnterpriseId) {
+      return res.status(400).json({ success: false, message: 'Rattachez le compte à une entreprise avant de l’activer.' });
+    }
+    if (nextIsActive && !nextRoleId) {
+      return res.status(400).json({ success: false, message: 'Attribuez un rôle à cet utilisateur avant de l’activer.' });
+    }
+    let nextRole = null;
+    if (nextRoleId) {
+      nextRole = await prisma.role.findUnique({
+        where: { id: Number(nextRoleId) },
+        select: { id: true, enterpriseId: true, code: true, isActive: true },
+      });
+      if (!nextRole || !nextRole.isActive || (nextRole.enterpriseId !== null && nextRole.enterpriseId !== targetEnterpriseId)) {
+        return res.status(400).json({ success: false, message: 'Le rôle doit être global ou appartenir à la même entreprise que l’utilisateur.' });
+      }
+    }
+
+    const nextServiceId = Object.prototype.hasOwnProperty.call(updateData, 'serviceId')
+      ? updateData.serviceId
+      : existingUser.serviceId;
+    const serviceRequiredForRole = ['SERVICE_MANAGER', 'COMMERCIAL', 'PURCHASING_MANAGER', 'TECHNICIAN'].includes(nextRole?.code || '');
+    if (nextIsActive && serviceRequiredForRole && !nextServiceId) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez un service pour ce profil avant d’activer le compte.' });
+    }
+    if (nextServiceId) {
+      const service = await prisma.service.findFirst({
+        where: { id: Number(nextServiceId), enterpriseId: targetEnterpriseId },
+        select: { id: true },
+      });
+      if (!service) {
+        return res.status(400).json({ success: false, message: 'Le service doit être rattaché à la même entreprise que l’utilisateur.' });
+      }
     }
 
     // If email is being updated, check for duplicates
@@ -314,12 +363,11 @@ const deleteUser = async (req, res) => {
     const { id } = req.params;
 
     const whereClause = { id: parseInt(id) };
-    if (req.user.enterpriseId) {
-      whereClause.enterpriseId = req.user.enterpriseId;
-    }
+    const activeEnterpriseId = getActiveEnterpriseId(req);
+    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: whereClause,
     });
 

@@ -1,6 +1,7 @@
 // Activation et désactivation des comptes utilisateurs.
 const { validationResult, prisma } = require('./shared');
 const { isServiceManager, ensureManagedTarget } = require('../../utils/serviceManagerScope');
+const { getActiveEnterpriseId } = require('../../utils/roleScope');
 
 /**
  * Update user status (activate/deactivate)
@@ -28,13 +29,13 @@ const updateUserStatus = async (req, res) => {
       }
       whereClause.serviceId = target.serviceId;
     }
-    if (req.user.enterpriseId) {
-      whereClause.enterpriseId = req.user.enterpriseId;
-    }
+    const activeEnterpriseId = getActiveEnterpriseId(req);
+    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if user exists
     const user = await prisma.user.findFirst({
       where: whereClause,
+      include: { role: { select: { code: true } } },
     });
 
     if (!user) {
@@ -42,6 +43,17 @@ const updateUserStatus = async (req, res) => {
         success: false,
         message: 'User not found',
       });
+    }
+
+    if (isActive && !user.enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Rattachez le compte à une entreprise avant de l’activer.' });
+    }
+    if (isActive && !user.roleId) {
+      return res.status(400).json({ success: false, message: 'Attribuez un rôle à cet utilisateur avant de l’activer.' });
+    }
+    const serviceRequiredForRole = ['SERVICE_MANAGER', 'COMMERCIAL', 'PURCHASING_MANAGER', 'TECHNICIAN'].includes(user.role?.code || '');
+    if (isActive && serviceRequiredForRole && !user.serviceId) {
+      return res.status(400).json({ success: false, message: 'Attribuez un service à cet utilisateur avant de l’activer.' });
     }
 
     // Prevent deactivating yourself

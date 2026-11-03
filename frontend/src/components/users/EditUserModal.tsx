@@ -62,14 +62,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
   const isSuperAdmin = !currentUser?.enterpriseId && !isServiceManager;
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
-    queryKey: ['admin-roles-edit-modal'],
+    queryKey: ['admin-roles-edit-modal', user?.enterpriseId],
     queryFn: () => adminRolesService.getRoles(),
     enabled: isOpen && !isServiceManager,
   });
 
   const { data: servicesData } = useQuery({
-    queryKey: ['admin-services-edit-modal'],
-    queryFn: () => adminServicesService.getServices(),
+    queryKey: ['admin-services-edit-modal', user?.enterpriseId],
+    queryFn: () => adminServicesService.getServices(true),
     enabled: isOpen && !isServiceManager,
   });
 
@@ -124,9 +124,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
   }, [user, isOpen, reset]);
 
   const selectedRoleId = watch('roleId');
+  const selectedServiceId = watch('serviceId');
   const changePassword = watch('changePassword');
-  const selectedRole = roles.find((r: any) => r.id === parseInt(selectedRoleId || '', 10));
-  const requiresService = selectedRole && ['SERVICE_MANAGER', 'COMMERCIAL', 'PURCHASING_MANAGER', 'TECHNICIAN'].includes(selectedRole.code);
+  const selectedRole = roles.find((role: any) => String(role.id) === selectedRoleId);
+  const roleRequiresService = ['SERVICE_MANAGER', 'COMMERCIAL', 'PURCHASING_MANAGER', 'TECHNICIAN'].includes(selectedRole?.code || '');
+  const canActivateAccount = Boolean(selectedRoleId) && (!roleRequiresService || Boolean(selectedServiceId));
+  const requiresService = !isServiceManager;
 
   const onSubmit = async (data: EditUserFormData) => {
     try {
@@ -140,14 +143,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         } : { isActive: data.isActive }),
       };
 
-      if (!isServiceManager && data.roleId) {
-        updateData.roleId = parseInt(data.roleId, 10);
+      if (!isServiceManager) {
+        updateData.roleId = data.roleId ? parseInt(data.roleId, 10) : null;
       }
 
-      if (!isServiceManager && data.serviceId === '') {
-        updateData.serviceId = null;
-      } else if (!isServiceManager && data.serviceId) {
-        updateData.serviceId = parseInt(data.serviceId, 10);
+      if (!isServiceManager) {
+        updateData.serviceId = data.serviceId ? parseInt(data.serviceId, 10) : null;
       }
 
       if (!isServiceManager && data.enterpriseId === '') {
@@ -343,9 +344,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                 Le rôle et le service de ce membre sont gérés par l’administration. Vous pouvez modifier ses coordonnées et ses accès autorisés.
               </div>
             ) : <div className="space-y-4">
+              {!user?.roleId && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                  Ce compte est en attente d’accès. Choisis un profil de cette entreprise, puis active le compte.
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Role *
+                  Profil d’accès de l’entreprise *
                 </label>
                 {rolesLoading ? (
                   <div className="text-sm text-gray-500">Chargement des roles...</div>
@@ -406,7 +412,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       {...register('serviceId')}
                       className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      <option value="">Selectionner un service</option>
+                      <option value="">Aucun service</option>
                       {services.map((service: any) => (
                         <option key={service.id} value={service.id}>
                           {service.name}
@@ -414,6 +420,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       ))}
                     </select>
                   </div>
+                  <p className="mt-1 text-xs text-gray-500">Certains profils exigent un service. Le service doit appartenir à la même entreprise que le compte.</p>
                 </div>
               )}
 
@@ -449,10 +456,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               {...register('isActive')}
               type="checkbox"
               id="isActive"
+              disabled={!canActivateAccount}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Compte actif
+            <label htmlFor="isActive" className={`text-sm font-medium ${canActivateAccount ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
+              Compte actif {!canActivateAccount && '— choisissez un profil et, si nécessaire, un service'}
             </label>
           </div>}
 

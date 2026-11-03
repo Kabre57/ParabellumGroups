@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { applyTemplate } = require('../utils/roleTemplates');
 const { generateRoleCode } = require('../utils/generatedCodes');
+const { findRoleInScope, getActiveEnterpriseId, getRoleScopeWhere } = require('../utils/roleScope');
 
 /**
  * Get all roles
@@ -11,14 +12,14 @@ const getAllRoles = async (req, res) => {
   try {
     const { isActive } = req.query;
 
-    const where = {};
-    if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
-    }
+    const where = getRoleScopeWhere(req);
+    if (isActive !== undefined) where.isActive = isActive === 'true';
+    else if (req.query.includeInactive !== 'true') where.isActive = true;
 
     const roles = await prisma.role.findMany({
       where,
       include: {
+        enterprise: { select: { id: true, name: true } },
         _count: {
           select: {
             users: true,
@@ -51,8 +52,8 @@ const getRoleById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const role = await prisma.role.findUnique({
-      where: { id: parseInt(id) },
+    const role = await prisma.role.findFirst({
+      where: { id: parseInt(id), ...getRoleScopeWhere(req) },
       include: {
         users: {
           select: {
@@ -114,11 +115,22 @@ const createRole = async (req, res) => {
     }
 
     const { name, description, isActive, template } = req.body;
+    const enterpriseId = getActiveEnterpriseId(req);
+    if (!enterpriseId) {
+      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise avant de créer un rôle.' });
+    }
+    const enterprise = await prisma.enterprise.findFirst({
+      where: { id: enterpriseId, isActive: true },
+      select: { id: true },
+    });
+    if (!enterprise) {
+      return res.status(400).json({ success: false, message: 'L’entreprise sélectionnée est introuvable ou inactive.' });
+    }
     const code = req.body.code?.trim() || await generateRoleCode(prisma, name);
 
     // Check if role with same name exists
-    const existingName = await prisma.role.findUnique({
-      where: { name },
+    const existingName = await prisma.role.findFirst({
+      where: { name, enterpriseId },
     });
 
     if (existingName) {
@@ -145,6 +157,7 @@ const createRole = async (req, res) => {
       data: {
         name,
         code,
+        enterpriseId,
         description,
         isActive: isActive !== undefined ? isActive : true,
         isSystem: false,
@@ -205,9 +218,7 @@ const updateRole = async (req, res) => {
     const { name, code, description, isActive } = req.body;
 
     // Check if role exists
-    const existingRole = await prisma.role.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existingRole = await findRoleInScope(prisma, req, id);
 
     if (!existingRole) {
       return res.status(404).json({
@@ -226,8 +237,8 @@ const updateRole = async (req, res) => {
 
     // If name is being updated, check for duplicates
     if (name && name !== existingRole.name) {
-      const nameExists = await prisma.role.findUnique({
-        where: { name },
+      const nameExists = await prisma.role.findFirst({
+        where: { name, enterpriseId: existingRole.enterpriseId },
       });
 
       if (nameExists) {
@@ -303,8 +314,8 @@ const deleteRole = async (req, res) => {
     const { id } = req.params;
 
     // Check if role exists
-    const role = await prisma.role.findUnique({
-      where: { id: parseInt(id) },
+    const role = await prisma.role.findFirst({
+      where: { id: parseInt(id), ...getRoleScopeWhere(req) },
       include: {
         _count: {
           select: { users: true },

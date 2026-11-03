@@ -6,15 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { adminServicesService, adminUsersService } from '@/shared/api/admin';
-import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
+import { adminServicesService } from '@/shared/api/admin';
 
 const createServiceSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
   description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
-  parentId: z.string().optional(),
-  managerId: z.string().optional(),
 });
 
 type CreateServiceForm = z.infer<typeof createServiceSchema>;
@@ -30,24 +26,6 @@ export function CreateServiceModal({
   onClose, 
   onSuccess
 }: CreateServiceModalProps) {
-  const { selectedEnterprise } = useEnterprise();
-  const { data: servicesData } = useQuery({
-    queryKey: ['admin-services-list', selectedEnterprise?.id],
-    queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen && Boolean(selectedEnterprise),
-  });
-
-  const { data: usersData } = useQuery({
-    queryKey: ['admin-users-list', selectedEnterprise?.id],
-    queryFn: () => adminUsersService.getUsers({ limit: 100, enterpriseId: Number(selectedEnterprise?.id) }),
-    enabled: isOpen && Boolean(selectedEnterprise),
-  });
-
-  const services = (Array.isArray(servicesData?.data) ? servicesData.data : [])
-    .filter((service) => String(service.enterprise?.id ?? '') === String(selectedEnterprise?.id));
-  const users = (Array.isArray(usersData?.data) ? usersData.data : [])
-    .filter((user) => String(user.enterpriseId ?? '') === String(selectedEnterprise?.id));
-
   const {
     register,
     handleSubmit,
@@ -59,20 +37,12 @@ export function CreateServiceModal({
 
   const onSubmit = async (data: CreateServiceForm) => {
     try {
-      if (!selectedEnterprise) {
-        toast.error('Choisissez une entreprise avant de créer un service');
-        return;
-      }
-
       await adminServicesService.createService({
         name: data.name,
         description: data.description,
-        parentId: data.parentId ? parseInt(data.parentId) : undefined,
-        managerId: data.managerId ? parseInt(data.managerId) : undefined,
-        enterpriseId: Number(selectedEnterprise.id),
       });
 
-      toast.success(`Service créé pour ${selectedEnterprise.name}`);
+      toast.success('Service créé dans le catalogue global. Vous pourrez ensuite le rattacher à une entreprise.');
       reset();
       onSuccess();
     } catch (error: any) {
@@ -110,7 +80,7 @@ export function CreateServiceModal({
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
             <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
-              Entreprise de rattachement : <strong>{selectedEnterprise?.name || 'aucune entreprise sélectionnée'}</strong>. Changez l’entreprise dans le sélecteur du tableau de bord avant d’ouvrir ce formulaire.
+              Le service sera créé sans entreprise. Vous pourrez le rattacher à l’entreprise de votre choix depuis sa modification.
             </div>
 
             <div>
@@ -149,42 +119,6 @@ export function CreateServiceModal({
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Service parent
-                </label>
-                <select
-                  {...register('parentId')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="">Aucun (Service racine)</option>
-                  {services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Responsable
-                </label>
-                <select
-                  {...register('managerId')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                <option value="">Aucun</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
@@ -195,7 +129,7 @@ export function CreateServiceModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !selectedEnterprise}
+                disabled={isSubmitting}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creation...' : 'Creer le service'}

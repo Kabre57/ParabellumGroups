@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { CreateRoleModal } from '@/components/roles/CreateRoleModal';
 import { adminRolesService } from '@/shared/api/admin';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 interface Role {
   id: number;
@@ -37,12 +38,13 @@ interface RolesResponse {
 export default function RolesManagementPage() {
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { selectedEnterprise } = useEnterprise();
 
   const queryClient = useQueryClient();
 
   // Fetch roles
   const { data: rolesData, isLoading } = useQuery<RolesResponse>({
-    queryKey: ['roles'],
+    queryKey: ['roles', selectedEnterprise?.id],
     queryFn: () => adminRolesService.getRoles(),
   });
 
@@ -92,7 +94,7 @@ export default function RolesManagementPage() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestion des Rôles</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profils d’accès{selectedEnterprise ? ` — ${selectedEnterprise.name}` : ''}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Créez et gérez les rôles utilisateurs
           </p>

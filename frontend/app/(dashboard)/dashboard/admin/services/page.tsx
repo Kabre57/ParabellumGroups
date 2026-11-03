@@ -14,20 +14,18 @@ import { toast } from 'sonner';
 import { CreateServiceModal } from '@/components/services/CreateServiceModal';
 import { EditServiceModal } from '@/components/services/EditServiceModal';
 import { adminServicesService, type Service } from '@/shared/api/admin';
-import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export default function ServicesManagementPage() {
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const { selectedEnterprise } = useEnterprise();
 
   const queryClient = useQueryClient();
 
   const { data: servicesData, isLoading, error } = useQuery({
-    queryKey: ['admin-services', selectedEnterprise?.id],
-    queryFn: () => adminServicesService.getServices(true),
+    queryKey: ['admin-services', 'all-enterprises'],
+    queryFn: () => adminServicesService.getServices(true, true),
   });
 
   const deleteServiceMutation = useMutation({
@@ -83,7 +81,7 @@ export default function ServicesManagementPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Services</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gerez les services et departements{selectedEnterprise ? ` de ${selectedEnterprise.name}` : ' de l’entreprise'}
+            Créez les services dans le catalogue global, puis rattachez-les à une entreprise si nécessaire.
           </p>
         </div>
         <button
@@ -113,6 +111,7 @@ export default function ServicesManagementPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entreprise</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -121,14 +120,14 @@ export default function ServicesManagementPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {isLoading ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center">
+                <td colSpan={5} className="px-6 py-12 text-center">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   <p className="mt-2 text-sm text-gray-500">Chargement...</p>
                 </td>
               </tr>
             ) : filteredServices.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center">
+                <td colSpan={5} className="px-6 py-12 text-center">
                   <Building2 className="mx-auto h-12 w-12 text-gray-400" />
                   <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun service</h3>
                   <p className="mt-1 text-sm text-gray-500">Commencez par creer un service</p>
@@ -161,6 +160,9 @@ export default function ServicesManagementPage() {
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    {service.enterprise?.name || <span className="text-amber-700">Non attribué</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {service.manager ? (

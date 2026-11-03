@@ -32,6 +32,7 @@ export interface Role {
   description: string | null;
   isSystem: boolean;
   isActive: boolean;
+  enterpriseId?: number | null;
   createdAt: string;
   updatedAt: string;
   rolePermissions?: RolePermission[];
@@ -42,6 +43,7 @@ export interface Service {
   name: string;
   code: string | null;
   description: string | null;
+  enterpriseId?: number | null;
   parentId: number | null;
   managerId: number | null;
   isActive: boolean;
@@ -178,6 +180,7 @@ export interface CreateRoleRequest {
   name: string;
   code?: string;
   description?: string;
+  enterpriseId?: number;
 }
 
 export interface UpdateRoleRequest {
@@ -200,6 +203,7 @@ export interface UpdateServiceRequest {
   name?: string;
   code?: string;
   description?: string;
+  enterpriseId?: number | null;
   parentId?: number | null;
   managerId?: number | null;
   isActive?: boolean;
@@ -320,7 +324,7 @@ export const adminUsersService = {
 
 export const adminRolesService = {
   getRoles: async (includeInactive = false): Promise<ApiListResponse<Role>> => {
-    const params = includeInactive ? '?isActive=false' : '';
+    const params = includeInactive ? '?includeInactive=true' : '';
     const response = await apiClient.get<ApiListResponse<Role>>(`/auth/roles${params}`);
     return response.data;
   },
@@ -377,9 +381,12 @@ export const adminRolesService = {
 };
 
 export const adminServicesService = {
-  getServices: async (includeInactive = false): Promise<ApiListResponse<Service>> => {
-    const params = includeInactive ? '?isActive=false' : '';
-    const response = await apiClient.get<ApiListResponse<Service>>(`/auth/services${params}`);
+  getServices: async (includeInactive = false, includeAllEnterprises = false): Promise<ApiListResponse<Service>> => {
+    const params = new URLSearchParams();
+    if (includeInactive) params.set('isActive', 'false');
+    if (includeAllEnterprises) params.set('scope', 'all');
+    const query = params.toString();
+    const response = await apiClient.get<ApiListResponse<Service>>(`/auth/services${query ? `?${query}` : ''}`);
     return response.data;
   },
 

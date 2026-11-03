@@ -1,5 +1,6 @@
 // Attribution et retrait des permissions associées aux rôles.
 const { prisma, notification } = require('./shared');
+const { findRoleInScope, findRoleByCodeInScope } = require('../../utils/roleScope');
 
 /**
  * Update role permission
@@ -29,21 +30,11 @@ const updateRolePermission = async (req, res) => {
 
     // Convertir role en roleId
     const roleIdNum = parseInt(role);
-    let roleId;
-    if (!isNaN(roleIdNum)) {
-      roleId = roleIdNum;
-    } else {
-      const roleRecord = await prisma.role.findUnique({
-        where: { code: role }
-      });
-      if (!roleRecord) {
-        return res.status(404).json({
-          success: false,
-          message: 'Role not found',
-        });
-      }
-      roleId = roleRecord.id;
-    }
+    const roleRecord = !isNaN(roleIdNum)
+      ? await findRoleInScope(prisma, req, roleIdNum)
+      : await findRoleByCodeInScope(prisma, req, role);
+    if (!roleRecord) return res.status(404).json({ success: false, message: 'Role not found' });
+    const roleId = roleRecord.id;
 
     // Check if permission exists
     const permission = await prisma.permission.findUnique({
@@ -129,21 +120,11 @@ const deleteRolePermission = async (req, res) => {
 
     // Convertir role en roleId
     const roleIdNum = parseInt(role);
-    let roleId;
-    if (!isNaN(roleIdNum)) {
-      roleId = roleIdNum;
-    } else {
-      const roleRecord = await prisma.role.findUnique({
-        where: { code: role }
-      });
-      if (!roleRecord) {
-        return res.status(404).json({
-          success: false,
-          message: 'Role not found',
-        });
-      }
-      roleId = roleRecord.id;
-    }
+    const roleRecord = !isNaN(roleIdNum)
+      ? await findRoleInScope(prisma, req, roleIdNum)
+      : await findRoleByCodeInScope(prisma, req, role);
+    if (!roleRecord) return res.status(404).json({ success: false, message: 'Role not found' });
+    const roleId = roleRecord.id;
 
     // Check if role permission exists
     const rolePermission = await prisma.rolePermission.findUnique({

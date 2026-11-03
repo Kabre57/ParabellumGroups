@@ -28,7 +28,8 @@ const getActiveEnterpriseId = (req) => {
  */
 const getAllServices = async (req, res) => {
   try {
-    const activeEnterpriseId = getActiveEnterpriseId(req);
+    const includeAllEnterprises = isGlobalAdmin(req.user) && req.query.scope === 'all';
+    const activeEnterpriseId = includeAllEnterprises ? null : getActiveEnterpriseId(req);
     const whereClause = activeEnterpriseId
       ? { enterpriseId: activeEnterpriseId }
       : {};
@@ -91,7 +92,7 @@ const getServiceById = async (req, res) => {
     const { id } = req.params;
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = getActiveEnterpriseId(req);
+    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
     if (activeEnterpriseId) {
       whereClause.enterpriseId = activeEnterpriseId;
     }
@@ -189,30 +190,10 @@ const createService = async (req, res) => {
 
     const { name, description, parentId, managerId, enterpriseId, isActive } = req.body;
 
-    const requestedEnterpriseId = parseNum(enterpriseId) || parseNum(req.headers['x-enterprise-id']);
-    const isAdmin = isGlobalAdmin(req.user);
-    if (!isAdmin && req.user.enterpriseId && requestedEnterpriseId && requestedEnterpriseId !== req.user.enterpriseId) {
-      return res.status(403).json({ success: false, message: 'Vous ne pouvez pas créer un service dans une autre entreprise.' });
-    }
-
-    // A global administrator assigns the service to the selected enterprise.
-    const finalEnterpriseId = isAdmin
-      ? requestedEnterpriseId || req.user.enterpriseId
-      : req.user.enterpriseId || requestedEnterpriseId;
-
-    if (!finalEnterpriseId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Enterprise ID is required to create a service',
-      });
-    }
-
-    const enterprise = await prisma.enterprise.findUnique({
-      where: { id: finalEnterpriseId },
-      select: { id: true, isActive: true },
-    });
-    if (!enterprise || !enterprise.isActive) {
-      return res.status(400).json({ success: false, message: 'Sélectionnez une entreprise active pour créer ce service.' });
+    // Services are created in the global catalogue without an enterprise.
+    const finalEnterpriseId = null;
+    if (!isGlobalAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Seul un administrateur peut créer un service dans le catalogue global.' });
     }
 
     // Check if service with same name exists in this enterprise
@@ -240,27 +221,8 @@ const createService = async (req, res) => {
       }
     }
 
-    const requestedParentId = parseNum(parentId);
-    if (requestedParentId) {
-      const parentService = await prisma.service.findFirst({
-        where: { id: requestedParentId, enterpriseId: finalEnterpriseId },
-        select: { id: true },
-      });
-      if (!parentService) {
-        return res.status(400).json({ success: false, message: 'Le service parent doit appartenir à la même entreprise.' });
-      }
-    }
-
-    const requestedManagerId = parseNum(managerId);
-    if (requestedManagerId) {
-      const manager = await prisma.user.findFirst({
-        where: { id: requestedManagerId, enterpriseId: finalEnterpriseId },
-        select: { id: true },
-      });
-      if (!manager) {
-        return res.status(400).json({ success: false, message: 'Le responsable doit appartenir à la même entreprise.' });
-      }
-    }
+    const requestedParentId = null;
+    const requestedManagerId = null;
 
     // Create service
     const service = await prisma.service.create({
@@ -347,7 +309,7 @@ const updateService = async (req, res) => {
     const { name, description, code, parentId, enterpriseId, managerId, isActive } = req.body;
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = getActiveEnterpriseId(req);
+    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
     if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if service exists
@@ -364,8 +326,18 @@ const updateService = async (req, res) => {
 
     const requestedEnterpriseId = parseNum(enterpriseId);
     const finalEnterpriseId = isGlobalAdmin(req.user)
-      ? requestedEnterpriseId || existingService.enterpriseId
+      ? (enterpriseId !== undefined ? requestedEnterpriseId : existingService.enterpriseId)
       : req.user.enterpriseId || requestedEnterpriseId || existingService.enterpriseId;
+
+    if (finalEnterpriseId) {
+      const enterprise = await prisma.enterprise.findUnique({
+        where: { id: finalEnterpriseId },
+        select: { id: true, isActive: true },
+      });
+      if (!enterprise || !enterprise.isActive) {
+        return res.status(400).json({ success: false, message: 'Choisissez une entreprise active ou laissez le service non attribué.' });
+      }
+    }
 
     const nextParentId = parentId !== undefined ? parseNum(parentId) : existingService.parentId;
     if (nextParentId) {
@@ -381,7 +353,7 @@ const updateService = async (req, res) => {
     const nextManagerId = managerId !== undefined ? parseNum(managerId) : existingService.managerId;
     if (nextManagerId) {
       const manager = await prisma.user.findFirst({
-        where: { id: nextManagerId, enterpriseId: finalEnterpriseId },
+        where: { id: nextManagerId, enterpriseId: finalEnterpriseId, isActive: true, role: { code: 'SERVICE_MANAGER' } },
         select: { id: true },
       });
       if (!manager) {
@@ -390,9 +362,10 @@ const updateService = async (req, res) => {
     }
 
     // If name is being updated, check for duplicates
-    if (name && name !== existingService.name) {
+    const nextName = name || existingService.name;
+    if (nextName !== existingService.name || finalEnterpriseId !== existingService.enterpriseId) {
       const nameExists = await prisma.service.findFirst({
-        where: { name, enterpriseId: finalEnterpriseId },
+        where: { name: nextName, enterpriseId: finalEnterpriseId, NOT: { id: existingService.id } },
       });
 
       if (nameExists) {
@@ -419,7 +392,7 @@ const updateService = async (req, res) => {
     const updatedService = await prisma.service.update({
       where: { id: parseInt(id) },
       data: {
-        name: name || existingService.name,
+        name: nextName,
         description: description !== undefined ? description : existingService.description,
         code: code !== undefined ? code : existingService.code,
         parentId: nextParentId,
@@ -492,7 +465,7 @@ const deleteService = async (req, res) => {
     const { id } = req.params;
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = getActiveEnterpriseId(req);
+    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
     if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if service exists

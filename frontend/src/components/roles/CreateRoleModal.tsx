@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminRolesService } from '@/shared/api/admin';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 const createRoleSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
@@ -21,6 +22,7 @@ interface CreateRoleModalProps {
 }
 
 export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalProps) {
+  const { selectedEnterprise } = useEnterprise();
   const {
     register,
     handleSubmit,
@@ -32,9 +34,14 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
 
   const onSubmit = async (data: CreateRoleForm) => {
     try {
+      if (!selectedEnterprise) {
+        toast.error('Sélectionnez une entreprise avant de créer un profil d’accès.');
+        return;
+      }
       await adminRolesService.createRole({
         name: data.name,
         description: data.description,
+        enterpriseId: Number(selectedEnterprise.id),
       });
       
       toast.success('Role cree avec succes');
@@ -74,6 +81,9 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+            <div className="rounded-md border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-100">
+              Ce profil d’accès sera propre à <strong>{selectedEnterprise?.name || 'l’entreprise sélectionnée'}</strong>. Les rôles système restent communs.
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Nom du role *
@@ -120,7 +130,7 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !selectedEnterprise}
                 className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creation...' : 'Creer le role'}

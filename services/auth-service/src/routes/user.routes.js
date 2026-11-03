@@ -111,7 +111,7 @@ router.post(
       .isLength({ max: 100 })
       .withMessage('Position must not exceed 100 characters'),
     body('roleId')
-      .optional()
+      .optional({ nullable: true, checkFalsy: true })
       .isInt({ min: 1 })
       .withMessage('Role ID must be a positive integer'),
     body('serviceId')
@@ -170,7 +170,7 @@ router.put(
       .isLength({ max: 100 })
       .withMessage('Last name must not exceed 100 characters'),
     body('roleId')
-      .optional()
+      .optional({ nullable: true, checkFalsy: true })
       .isInt({ min: 1 })
       .withMessage('Role ID must be a positive integer'),
     body('serviceId')

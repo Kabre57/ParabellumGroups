@@ -36,7 +36,7 @@ router.get('/:id', getServiceById);
  */
 router.post(
   '/',
-  checkRole(['ADMIN', 'GENERAL_DIRECTOR']),
+  checkRole('ADMIN'),
   [
     body('name')
       .trim()

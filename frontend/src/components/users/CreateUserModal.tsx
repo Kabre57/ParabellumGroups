@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { X, User, Mail, Lock, Shield, Building2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { adminUsersService, adminRolesService, adminServicesService } from '@/shared/api/admin/admin.service';
+import { adminUsersService, adminServicesService } from '@/shared/api/admin/admin.service';
 
 const DEFAULT_INITIAL_PASSWORD = '12345678';
 
@@ -19,12 +19,9 @@ const createUserSchema = z.object({
     .min(8, 'Le mot de passe doit contenir au moins 8 caracteres')
     .refine((password) => password === DEFAULT_INITIAL_PASSWORD || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password), 'Utilisez le mot de passe provisoire 12345678 ou ajoutez une majuscule, une minuscule et un chiffre.'),
   confirmPassword: z.string(),
-  roleId: z.string().optional(),
   serviceId: z.string().optional(),
-  enterpriseId: z.string().optional(),
   phone: z.string().max(50).optional(),
   position: z.string().max(100).optional(),
-  isActive: z.boolean().default(true)
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
   path: ["confirmPassword"],
@@ -38,39 +35,25 @@ interface CreateUserModalProps {
   onSuccess?: () => void;
 }
 
-import { enterpriseApi } from '@/lib/api';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { isServiceManager as isServiceManagerRole } from '@/shared/permissions';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   
   const { user: currentUser } = useAuth();
+  const { selectedEnterprise } = useEnterprise();
   const isServiceManager = isServiceManagerRole(currentUser);
-  const isSuperAdmin = !currentUser?.enterpriseId && !isServiceManager;
-
-  const { data: rolesData, isLoading: rolesLoading } = useQuery({
-    queryKey: ['admin-roles-modal'],
-    queryFn: () => adminRolesService.getRoles(),
-    enabled: isOpen && !isServiceManager,
-  });
 
   const { data: servicesData, isLoading: servicesLoading } = useQuery({
-    queryKey: ['admin-services-modal'],
+    queryKey: ['admin-services-modal', selectedEnterprise?.id],
     queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen,
+    enabled: isOpen && isServiceManager,
   });
 
-  const { data: enterprisesData, isLoading: enterprisesLoading } = useQuery({
-    queryKey: ['admin-enterprises-modal'],
-    queryFn: () => enterpriseApi.getAll({ limit: 100 }),
-    enabled: isOpen && isSuperAdmin,
-  });
-
-  const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
   const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
-  const enterprises = Array.isArray(enterprisesData?.data) ? enterprisesData.data : [];
 
   const {
     register,
@@ -82,16 +65,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
-      isActive: true,
       password: DEFAULT_INITIAL_PASSWORD,
       confirmPassword: DEFAULT_INITIAL_PASSWORD,
     }
   });
 
-  const selectedRoleId = watch('roleId');
   const selectedServiceId = watch('serviceId');
-  const selectedRole = roles.find((r: any) => r.id === parseInt(selectedRoleId || '', 10));
-  const requiresService = isServiceManager || Boolean(selectedRole && ['SERVICE_MANAGER', 'PURCHASING_MANAGER', 'TECHNICIAN', 'COMMERCIAL'].includes(selectedRole.code));
 
   React.useEffect(() => {
     if (isServiceManager && services.length === 1 && !selectedServiceId) {
@@ -101,12 +80,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
 
   const onSubmit = async (data: CreateUserFormData) => {
     try {
-      if (isSuperAdmin && !data.enterpriseId) {
-        toast.error('L\'entreprise est requise');
-        return;
-      }
-      if (!isServiceManager && !data.roleId) {
-        toast.error('Le rôle est requis');
+      if (!isServiceManager && !selectedEnterprise) {
+        toast.error('Sélectionnez une entreprise dans le tableau de bord avant de créer le compte.');
         return;
       }
       if (isServiceManager && !data.serviceId) {
@@ -119,15 +94,16 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         password: isServiceManager ? DEFAULT_INITIAL_PASSWORD : data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        roleId: !isServiceManager && data.roleId ? parseInt(data.roleId, 10) : undefined,
         serviceId: data.serviceId ? parseInt(data.serviceId) : undefined,
-        enterpriseId: data.enterpriseId ? parseInt(data.enterpriseId) : undefined,
-        isActive: data.isActive,
+        enterpriseId: !isServiceManager && selectedEnterprise ? Number(selectedEnterprise.id) : undefined,
+        isActive: isServiceManager,
         phone: data.phone?.trim() || undefined,
         position: data.position?.trim() || undefined,
       });
       
-      toast.success('Utilisateur cree avec succes');
+      toast.success(isServiceManager
+        ? 'Utilisateur créé dans votre service.'
+        : 'Compte créé en attente d’attribution des accès.');
       reset();
       onSuccess?.();
       onClose();
@@ -297,69 +273,13 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
           <div>
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
               <Shield className="h-4 w-4 mr-2" />
-              Role et Affectation
+              Accès au compte
             </h4>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Role *
-                </label>
-                {isServiceManager ? (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-200">
-                    Rôle attribué automatiquement : <strong>Membre de service</strong>. Vous pourrez ensuite lui transmettre les accès autorisés pour votre service.
-                  </div>
-                ) : rolesLoading ? (
-                  <div className="text-sm text-gray-500">Chargement des roles...</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {roles.map((role: any) => (
-                      <label
-                        key={role.id}
-                        className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
-                          watch('roleId') === String(role.id)
-                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
-                        }`}
-                      >
-                        <input
-                          {...register('roleId')}
-                          type="radio"
-                          value={String(role.id)}
-                          className="sr-only"
-                        />
-                        <div className="flex flex-1">
-                          <div className="flex flex-col">
-                            <span className={`block text-sm font-medium ${
-                              watch('roleId') === String(role.id)
-                                ? 'text-blue-900 dark:text-blue-200'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {role.name}
-                            </span>
-                            {role.description && (
-                              <span className={`mt-1 flex items-center text-xs ${
-                                watch('roleId') === String(role.id)
-                                  ? 'text-blue-700 dark:text-blue-300'
-                                  : 'text-gray-500 dark:text-gray-400'
-                              }`}>
-                                {role.description}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                {errors.roleId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.roleId.message}</p>
-                )}
-              </div>
-
-              {requiresService && (
+              {isServiceManager ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Service
+                    Service de rattachement *
                   </label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -380,46 +300,14 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                     <p className="mt-1 text-sm text-red-600">{errors.serviceId.message}</p>
                   )}
                 </div>
-              )}
-
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Entreprise *
-                  </label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <select
-                      {...register('enterpriseId')}
-                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Selectionner une entreprise</option>
-                      {enterprises.map((enterprise: any) => (
-                        <option key={enterprise.id} value={enterprise.id}>
-                          {enterprise.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors.enterpriseId && (
-                    <p className="mt-1 text-sm text-red-600">{errors.enterpriseId.message}</p>
-                  )}
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                  Entreprise : <strong>{selectedEnterprise?.name || 'aucune entreprise sélectionnée'}</strong>.
+                  Le compte sera créé sans rôle et restera désactivé jusqu’à ce que tu lui attribues un profil dans Modifier.
                 </div>
               )}
             </div>
           </div>
-
-          {!isServiceManager && <div className="flex items-center space-x-3">
-            <input
-              {...register('isActive')}
-              type="checkbox"
-              id="isActive"
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Compte actif
-            </label>
-          </div>}
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
@@ -432,7 +320,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || (!isServiceManager && rolesLoading) || (isServiceManager && servicesLoading)}
+              disabled={isSubmitting || (!isServiceManager && !selectedEnterprise) || (isServiceManager && servicesLoading)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isSubmitting ? (

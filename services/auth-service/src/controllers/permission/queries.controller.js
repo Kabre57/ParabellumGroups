@@ -1,5 +1,6 @@
 // Consultation des permissions, modules et droits par rôle.
 const { prisma, getPermissionModules } = require('./shared');
+const { findRoleInScope, findRoleByCodeInScope } = require('../../utils/roleScope');
 
 /**
  * Get all permissions
@@ -102,22 +103,13 @@ const getRolePermissions = async (req, res) => {
     const roleId = parseInt(role);
     const isId = !isNaN(roleId);
 
-    let whereClause;
-    if (isId) {
-      whereClause = { roleId };  // ← Utiliser roleId, pas role
-    } else {
-      // Si c'est un code, trouver le rôle correspondant
-      const roleRecord = await prisma.role.findUnique({
-        where: { code: role }
-      });
-      if (!roleRecord) {
-        return res.status(404).json({
-          success: false,
-          message: 'Role not found'
-        });
-      }
-      whereClause = { roleId: roleRecord.id };  // ← Utiliser roleId
+    const roleRecord = isId
+      ? await findRoleInScope(prisma, req, roleId)
+      : await findRoleByCodeInScope(prisma, req, role);
+    if (!roleRecord) {
+      return res.status(404).json({ success: false, message: 'Role not found' });
     }
+    const whereClause = { roleId: roleRecord.id };
 
     const rolePermissions = await prisma.rolePermission.findMany({
       where: whereClause,

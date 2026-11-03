@@ -10,8 +10,9 @@ datasource db {
 
 model Role {
   id              Int              @id @default(autoincrement())
-  name            String           @unique
+  name            String
   code            String           @unique @db.VarChar(50)
+  enterpriseId    Int?             @map("enterprise_id")
   description     String?
   isSystem        Boolean          @default(false) @map("is_system")
   isActive        Boolean          @default(true) @map("is_active")
@@ -20,8 +21,11 @@ model Role {
   rolePermissions RolePermission[]
   users           User[]
   permissionChangeRequests PermissionChangeRequest[]
+  enterprise      Enterprise?      @relation(fields: [enterpriseId], references: [id], onDelete: Restrict)
 
+  @@unique([name, enterpriseId])
   @@index([isActive])
+  @@index([enterpriseId])
   @@map("roles")
 }
 
@@ -96,7 +100,7 @@ model UserPushToken {
 
 model Service {
   id          Int       @id @default(autoincrement())
-  name        String    @unique
+  name        String
   description String?
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -111,6 +115,7 @@ model Service {
   children    Service[] @relation("ServiceHierarchy")
   members     User[]
 
+  @@unique([name, enterpriseId])
   @@index([parentId])
   @@index([managerId])
   @@index([enterpriseId])
@@ -247,6 +252,7 @@ model Enterprise {
   childEnterprises   Enterprise[] @relation("EnterpriseHierarchy")
   users              User[]
   services           Service[]
+  roles              Role[]
 
   @@index([isActive])
   @@index([parentEnterpriseId])
