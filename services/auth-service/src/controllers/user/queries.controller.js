@@ -44,10 +44,14 @@ const getAllUsers = async (req, res) => {
       where.serviceId = parseInt(serviceId);
     }
 
-    if (req.user.enterpriseId) {
+    const userRoleCode = req.user.role?.code || req.user.roleCode;
+    const selectedEnterpriseId = parseInt(req.headers['x-enterprise-id'] || req.query.enterpriseId, 10);
+    if (userRoleCode === 'ADMIN' && Number.isInteger(selectedEnterpriseId) && selectedEnterpriseId > 0) {
+      where.enterpriseId = selectedEnterpriseId;
+    } else if (req.user.enterpriseId) {
       where.enterpriseId = req.user.enterpriseId;
     } else if (req.query.enterpriseId) {
-      where.enterpriseId = parseInt(req.query.enterpriseId);
+      where.enterpriseId = parseInt(req.query.enterpriseId, 10);
     }
 
     if (isServiceManager(req.user)) {

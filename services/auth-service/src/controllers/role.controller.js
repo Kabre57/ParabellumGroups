@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { applyTemplate } = require('../utils/roleTemplates');
+const { generateRoleCode } = require('../utils/generatedCodes');
 
 /**
  * Get all roles
@@ -112,7 +113,8 @@ const createRole = async (req, res) => {
       });
     }
 
-    const { name, code, description, isActive, template } = req.body;
+    const { name, description, isActive, template } = req.body;
+    const code = req.body.code?.trim() || await generateRoleCode(prisma, name);
 
     // Check if role with same name exists
     const existingName = await prisma.role.findUnique({

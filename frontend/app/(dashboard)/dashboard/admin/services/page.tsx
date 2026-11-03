@@ -14,17 +14,19 @@ import { toast } from 'sonner';
 import { CreateServiceModal } from '@/components/services/CreateServiceModal';
 import { EditServiceModal } from '@/components/services/EditServiceModal';
 import { adminServicesService, type Service } from '@/shared/api/admin';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 export default function ServicesManagementPage() {
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const { selectedEnterprise } = useEnterprise();
 
   const queryClient = useQueryClient();
 
   const { data: servicesData, isLoading, error } = useQuery({
-    queryKey: ['admin-services'],
+    queryKey: ['admin-services', selectedEnterprise?.id],
     queryFn: () => adminServicesService.getServices(true),
   });
 
@@ -81,7 +83,7 @@ export default function ServicesManagementPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Services</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gerez les services et departements de l'entreprise
+            Gerez les services et departements{selectedEnterprise ? ` de ${selectedEnterprise.name}` : ' de l’entreprise'}
           </p>
         </div>
         <button

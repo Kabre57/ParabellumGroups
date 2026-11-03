@@ -9,10 +9,6 @@ import { adminRolesService } from '@/shared/api/admin';
 
 const createRoleSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
-  code: z.string()
-    .min(2, 'Le code doit contenir au moins 2 caracteres')
-    .max(50, 'Le code ne peut pas depasser 50 caracteres')
-    .regex(/^[A-Z_]+$/, 'Le code doit contenir uniquement des majuscules et underscores'),
   description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
 });
 
@@ -34,23 +30,10 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
     resolver: zodResolver(createRoleSchema),
   });
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value;
-    const code = name
-      .toUpperCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^A-Z\s]/g, '')
-      .replace(/\s+/g, '_');
-    
-    return code;
-  };
-
   const onSubmit = async (data: CreateRoleForm) => {
     try {
       await adminRolesService.createRole({
         name: data.name,
-        code: data.code,
         description: data.description,
       });
       
@@ -91,51 +74,22 @@ export function CreateRoleModal({ isOpen, onClose, onSuccess }: CreateRoleModalP
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom du role *
-                </label>
-                <input
-                  {...register('name', {
-                    onChange: (e) => {
-                      const codeInput = document.querySelector('input[name="code"]') as HTMLInputElement;
-                      if (codeInput && !codeInput.value) {
-                        codeInput.value = handleNameChange(e);
-                      }
-                    }
-                  })}
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Responsable Logistique"
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Code *
-                </label>
-                <input
-                  {...register('code')}
-                  type="text"
-                  maxLength={50}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white uppercase font-mono"
-                  placeholder="RESPONSABLE_LOGISTIQUE"
-                />
-                {errors.code && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.code.message}
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Majuscules et underscores uniquement
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nom du role *
+              </label>
+              <input
+                {...register('name')}
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Responsable Logistique"
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.name.message}
                 </p>
-              </div>
+              )}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Le code technique sera généré automatiquement.</p>
             </div>
 
             <div>

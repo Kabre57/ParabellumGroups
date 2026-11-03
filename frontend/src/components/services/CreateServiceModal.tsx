@@ -8,10 +8,10 @@ import { X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { adminServicesService, adminUsersService } from '@/shared/api/admin';
+import { useEnterprise } from '@/shared/providers/EnterpriseProvider';
 
 const createServiceSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caracteres'),
-  code: z.string().max(50, 'Le code ne peut pas depasser 50 caracteres').min(1, 'Le code est requis'),
   description: z.string().max(500, 'La description ne peut pas depasser 500 caracteres').optional(),
   parentId: z.string().optional(),
   managerId: z.string().optional(),
@@ -30,20 +30,23 @@ export function CreateServiceModal({
   onClose, 
   onSuccess
 }: CreateServiceModalProps) {
+  const { selectedEnterprise } = useEnterprise();
   const { data: servicesData } = useQuery({
-    queryKey: ['admin-services-list'],
+    queryKey: ['admin-services-list', selectedEnterprise?.id],
     queryFn: () => adminServicesService.getServices(),
-    enabled: isOpen,
+    enabled: isOpen && Boolean(selectedEnterprise),
   });
 
   const { data: usersData } = useQuery({
-    queryKey: ['admin-users-list'],
-    queryFn: () => adminUsersService.getUsers({ limit: 100 }),
-    enabled: isOpen,
+    queryKey: ['admin-users-list', selectedEnterprise?.id],
+    queryFn: () => adminUsersService.getUsers({ limit: 100, enterpriseId: Number(selectedEnterprise?.id) }),
+    enabled: isOpen && Boolean(selectedEnterprise),
   });
 
-  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
-  const users = Array.isArray(usersData?.data) ? usersData.data : [];
+  const services = (Array.isArray(servicesData?.data) ? servicesData.data : [])
+    .filter((service) => String(service.enterprise?.id ?? '') === String(selectedEnterprise?.id));
+  const users = (Array.isArray(usersData?.data) ? usersData.data : [])
+    .filter((user) => String(user.enterpriseId ?? '') === String(selectedEnterprise?.id));
 
   const {
     register,
@@ -56,15 +59,20 @@ export function CreateServiceModal({
 
   const onSubmit = async (data: CreateServiceForm) => {
     try {
+      if (!selectedEnterprise) {
+        toast.error('Choisissez une entreprise avant de créer un service');
+        return;
+      }
+
       await adminServicesService.createService({
         name: data.name,
-        code: data.code,
         description: data.description,
         parentId: data.parentId ? parseInt(data.parentId) : undefined,
         managerId: data.managerId ? parseInt(data.managerId) : undefined,
+        enterpriseId: Number(selectedEnterprise.id),
       });
 
-      toast.success('Service cree avec succes');
+      toast.success(`Service créé pour ${selectedEnterprise.name}`);
       reset();
       onSuccess();
     } catch (error: any) {
@@ -101,41 +109,26 @@ export function CreateServiceModal({
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom du service *
-                </label>
-                <input
-                  {...register('name')}
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Direction Commerciale"
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
+              Entreprise de rattachement : <strong>{selectedEnterprise?.name || 'aucune entreprise sélectionnée'}</strong>. Changez l’entreprise dans le sélecteur du tableau de bord avant d’ouvrir ce formulaire.
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Code *
-                </label>
-                <input
-                  {...register('code')}
-                  type="text"
-                  maxLength={50}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white uppercase"
-                  placeholder="COMM"
-                />
-                {errors.code && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.code.message}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nom du service *
+              </label>
+              <input
+                {...register('name')}
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Direction Commerciale"
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.name.message}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Le code du service sera généré automatiquement.</p>
             </div>
 
             <div>
@@ -182,7 +175,7 @@ export function CreateServiceModal({
                   {...register('managerId')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
-                  <option value="">Aucun</option>
+                <option value="">Aucun</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.firstName} {user.lastName}
@@ -202,7 +195,7 @@ export function CreateServiceModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !selectedEnterprise}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creation...' : 'Creer le service'}

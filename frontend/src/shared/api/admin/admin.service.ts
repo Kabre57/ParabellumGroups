@@ -176,7 +176,7 @@ export interface UpdateUserRequest {
 
 export interface CreateRoleRequest {
   name: string;
-  code: string;
+  code?: string;
   description?: string;
 }
 
@@ -193,6 +193,7 @@ export interface CreateServiceRequest {
   description?: string;
   parentId?: number;
   managerId?: number;
+  enterpriseId?: number;
 }
 
 export interface UpdateServiceRequest {

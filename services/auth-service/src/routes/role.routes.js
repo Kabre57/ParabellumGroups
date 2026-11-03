@@ -54,9 +54,8 @@ router.post(
       .isLength({ max: 100 })
       .withMessage('Role name must not exceed 100 characters'),
     body('code')
+      .optional({ values: 'falsy' })
       .trim()
-      .notEmpty()
-      .withMessage('Role code is required')
       .isLength({ max: 50 })
       .withMessage('Role code must not exceed 50 characters')
       .matches(/^[A-Z_]+$/)
