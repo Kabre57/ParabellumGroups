@@ -34,7 +34,7 @@ export function EditServiceModal({
   onSuccess,
   service
 }: EditServiceModalProps) {
-  const { enterprises } = useEnterprise();
+  const { enterprises, selectedEnterprise } = useEnterprise();
 
   const {
     register,
@@ -56,13 +56,22 @@ export function EditServiceModal({
 
   const { data: usersData } = useQuery({
     queryKey: ['admin-users-list', selectedEnterpriseId],
-    queryFn: () => adminUsersService.getUsers({
-      limit: 100,
-      role: 'SERVICE_MANAGER',
-      ...(selectedEnterpriseId
+    queryFn: async () => {
+      const filters = selectedEnterpriseId
         ? { enterpriseId: Number(selectedEnterpriseId) }
-        : { scope: 'all' as const }),
-    }),
+        : { scope: 'all' as const };
+      const firstPage = await adminUsersService.getUsers({ ...filters, limit: 100, page: 1 });
+      const pageCount = firstPage.pagination?.totalPages || 1;
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+          adminUsersService.getUsers({ ...filters, limit: 100, page: index + 2 })
+        )
+      );
+      return {
+        ...firstPage,
+        data: [...firstPage.data, ...remainingPages.flatMap((response) => response.data)],
+      };
+    },
     enabled: isOpen,
   });
 
@@ -70,9 +79,9 @@ export function EditServiceModal({
   const users = (Array.isArray(usersData?.data) ? usersData.data : [])
     .filter((user) =>
       user.isActive &&
-      user.role?.code === 'SERVICE_MANAGER' &&
       (!selectedEnterpriseId || String(user.enterpriseId ?? '') === selectedEnterpriseId)
     );
+  const selectedManager = users.find((user) => String(user.id) === watch('managerId'));
 
   const availableParentServices = services.filter((candidate) => {
     if (candidate.id === service?.id) return false;
@@ -106,13 +115,15 @@ export function EditServiceModal({
       reset({
         name: service.name,
         description: service.description || '',
-        enterpriseId: service.enterpriseId || service.enterprise?.id ? String(service.enterpriseId || service.enterprise?.id) : '',
+        enterpriseId: service.enterpriseId || service.enterprise?.id
+          ? String(service.enterpriseId || service.enterprise?.id)
+          : selectedEnterprise ? String(selectedEnterprise.id) : '',
         parentId: service.parentId?.toString() || '',
         managerId: service.managerId?.toString() || '',
         isActive: service.isActive,
       });
     }
-  }, [service, reset]);
+  }, [service, reset, selectedEnterprise?.id]);
 
   const onSubmit = async (data: EditServiceForm) => {
     if (!service) return;
@@ -180,7 +191,7 @@ export function EditServiceModal({
                     }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
-                    <option value="">Non attribué (catalogue global)</option>
+                    <option value="">Aucune entreprise</option>
                     {enterprises.map((enterprise) => (
                       <option key={enterprise.id} value={String(enterprise.id)}>{enterprise.name}</option>
                     ))}
@@ -188,7 +199,7 @@ export function EditServiceModal({
                 );
               })()}
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Tu peux laisser le service dans le catalogue global ou le rattacher à n’importe quelle entreprise accessible.
+                Choisissez l’entreprise de ce service. Si aucune n’est choisie, le service reste sans entreprise.
               </p>
             </div>
 
@@ -240,7 +251,7 @@ export function EditServiceModal({
                   <option value="">Aucun (Service racine)</option>
                   {availableParentServices.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {selectedEnterpriseId ? s.name : `${s.enterprise?.name || 'Catalogue global'} — ${s.name}`}
+                      {selectedEnterpriseId ? s.name : `${s.enterprise?.name || 'Sans entreprise'} — ${s.name}`}
                     </option>
                   ))}
                 </select>
@@ -264,11 +275,16 @@ export function EditServiceModal({
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {selectedEnterpriseId
-                        ? `${user.firstName} ${user.lastName}`
-                        : `${user.firstName} ${user.lastName} — ${user.enterprise?.name || `Entreprise #${user.enterpriseId}`}`}
+                        ? `${user.firstName} ${user.lastName} (${user.email})`
+                        : `${user.firstName} ${user.lastName} — ${user.enterprise?.name || `Entreprise #${user.enterpriseId}`} (${user.email})`}
                     </option>
                   ))}
                 </select>
+                {selectedManager && selectedManager.role?.code !== 'SERVICE_MANAGER' && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    Cette personne sera désignée responsable. Pour gérer les membres du service, son profil doit aussi être « Responsable de service ».
+                  </p>
+                )}
                 {!selectedEnterpriseId && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Choisir un responsable rattache aussi le service à son entreprise.

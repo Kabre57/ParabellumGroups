@@ -42,7 +42,7 @@ export function CreateServiceModal({
         description: data.description,
       });
 
-      toast.success('Service créé dans le catalogue global. Vous pourrez ensuite le rattacher à une entreprise.');
+      toast.success('Service créé sans entreprise. Vous pourrez choisir son entreprise lors de sa modification.');
       reset();
       onSuccess();
     } catch (error: any) {
@@ -80,7 +80,7 @@ export function CreateServiceModal({
 
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
             <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
-              Le service sera créé sans entreprise. Vous pourrez le rattacher à l’entreprise de votre choix depuis sa modification.
+              Le service sera créé sans entreprise. Vous pourrez choisir son entreprise depuis sa modification.
             </div>
 
             <div>

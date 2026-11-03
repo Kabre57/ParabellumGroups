@@ -190,10 +190,10 @@ const createService = async (req, res) => {
 
     const { name, description, parentId, managerId, enterpriseId, isActive } = req.body;
 
-    // Services are created in the global catalogue without an enterprise.
+    // New services are created without an enterprise and assigned later.
     const finalEnterpriseId = null;
     if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ success: false, message: 'Seul un administrateur peut créer un service dans le catalogue global.' });
+      return res.status(403).json({ success: false, message: 'Seul un administrateur peut créer un service sans entreprise.' });
     }
 
     // Check if service with same name exists in this enterprise
@@ -335,7 +335,7 @@ const updateService = async (req, res) => {
         select: { id: true, isActive: true },
       });
       if (!enterprise || !enterprise.isActive) {
-        return res.status(400).json({ success: false, message: 'Choisissez une entreprise active ou laissez le service non attribué.' });
+        return res.status(400).json({ success: false, message: 'Choisissez une entreprise active ou laissez le service sans entreprise.' });
       }
     }
 
@@ -353,7 +353,7 @@ const updateService = async (req, res) => {
     const nextManagerId = managerId !== undefined ? parseNum(managerId) : existingService.managerId;
     if (nextManagerId) {
       const manager = await prisma.user.findFirst({
-        where: { id: nextManagerId, enterpriseId: finalEnterpriseId, isActive: true, role: { code: 'SERVICE_MANAGER' } },
+        where: { id: nextManagerId, enterpriseId: finalEnterpriseId, isActive: true },
         select: { id: true },
       });
       if (!manager) {

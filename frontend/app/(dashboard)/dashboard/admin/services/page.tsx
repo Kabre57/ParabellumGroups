@@ -80,7 +80,7 @@ export default function ServicesManagementPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Services</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Créez les services dans le catalogue global, puis rattachez-les à une entreprise si nécessaire.
+            Créez les services, puis choisissez leur entreprise lors de leur modification.
           </p>
         </div>
         <button
@@ -156,7 +156,7 @@ export default function ServicesManagementPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {service.enterprise?.name || <span className="text-amber-700">Non attribué</span>}
+                    {service.enterprise?.name || <span className="text-amber-700">Sans entreprise</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {service.manager ? (
