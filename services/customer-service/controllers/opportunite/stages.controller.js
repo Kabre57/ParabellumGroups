@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Gestion de changement d??tape et cl?ture.
 const { generateContratNumber, prisma, logger } = require('./shared');
 
 exports.updateStage = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { etape, notes } = req.body;
 
@@ -16,7 +19,7 @@ exports.updateStage = async (req, res) => {
       });
     }
 
-    const opportunite = await prisma.$transaction(async (tx) => {
+    const opportunite = await scoped.$transaction(async (tx) => {
       const existingOpportunite = await tx.opportunite.findUnique({
         where: { id }
       });
@@ -55,6 +58,7 @@ exports.updateStage = async (req, res) => {
       data: opportunite
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de l\'étape:', error);
 
     if (error.message === 'Opportunité non trouvée') {
@@ -77,6 +81,7 @@ exports.updateStage = async (req, res) => {
 
 exports.close = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { statut, raisonPerdue, montantFinal } = req.body;
 
@@ -88,7 +93,7 @@ exports.close = async (req, res) => {
       });
     }
 
-    const opportunite = await prisma.$transaction(async (tx) => {
+    const opportunite = await scoped.$transaction(async (tx) => {
       const existingOpportunite = await tx.opportunite.findUnique({
         where: { id }
       });
@@ -170,6 +175,7 @@ exports.close = async (req, res) => {
       data: opportunite
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la fermeture de l\'opportunité:', error);
 
     if (error.message === 'Opportunité non trouvée') {

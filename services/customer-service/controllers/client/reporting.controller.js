@@ -1,11 +1,15 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError, resolveEnterpriseScope } = require('../../utils/enterpriseScope');
 // Gestion de la recherche et les statistiques clients.
 const { prisma, logger, buildClientScopeWhere } = require('./shared');
 
 exports.getStats = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { startDate, endDate, commercialId, enterpriseId, serviceId } = req.query;
 
-    const where = buildClientScopeWhere(req, enterpriseId, serviceId);
+    const { enterpriseId: activeEnterpriseId } = await resolveEnterpriseScope(req);
+    const where = buildClientScopeWhere(req, enterpriseId, serviceId, activeEnterpriseId);
 
     if (startDate || endDate) {
       where.createdAt = {};
@@ -25,13 +29,13 @@ exports.getStats = async (req, res) => {
       conversionStats
     ] = await Promise.all([
       // Total clients
-      prisma.client.count({ where }),
+      scoped.client.count({ where }),
 
       // Active clients
-      prisma.client.count({ where: { ...where, status: 'ACTIF' } }),
+      scoped.client.count({ where: { ...where, status: 'ACTIF' } }),
 
       // New clients this month
-      prisma.client.count({
+      scoped.client.count({
         where: {
           ...where,
           createdAt: {
@@ -41,21 +45,21 @@ exports.getStats = async (req, res) => {
       }),
 
       // Clients grouped by status
-      prisma.client.groupBy({
+      scoped.client.groupBy({
         by: ['status'],
         _count: true,
         where
       }),
 
       // Clients grouped by type
-      prisma.client.groupBy({
+      scoped.client.groupBy({
         by: ['typeClientId'],
         _count: true,
         where
       }),
 
       // Revenue statistics from active contracts
-      prisma.contrat.aggregate({
+      scoped.contrat.aggregate({
         where: {
           status: 'ACTIF',
           client: where
@@ -70,7 +74,7 @@ exports.getStats = async (req, res) => {
       }),
 
       // Conversion statistics from prospects
-      prisma.client.groupBy({
+      scoped.client.groupBy({
         by: ['source'],
         _count: true,
         where: {
@@ -84,7 +88,7 @@ exports.getStats = async (req, res) => {
     const lastMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
     const lastMonthEnd = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
 
-    const lastMonthClients = await prisma.client.count({
+    const lastMonthClients = await scoped.client.count({
       where: {
         ...where,
         createdAt: {
@@ -145,6 +149,7 @@ exports.getStats = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des statistiques:', error);
     res.status(500).json({
       success: false,
@@ -160,6 +165,7 @@ exports.getStats = async (req, res) => {
 
 exports.search = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { q, limit = 10 } = req.query;
 
     if (!q || q.length < 2) {
@@ -169,7 +175,7 @@ exports.search = async (req, res) => {
       });
     }
 
-    const clients = await prisma.client.findMany({
+    const clients = await scoped.client.findMany({
       where: {
         OR: [
           { nom: { contains: q, mode: 'insensitive' } },
@@ -225,6 +231,7 @@ exports.search = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la recherche de clients:', error);
     res.status(500).json({
       success: false,

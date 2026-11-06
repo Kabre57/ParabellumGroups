@@ -1,3 +1,5 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Lecture de la hierarchie des secteurs.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,7 +8,8 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.getTree = async (req, res) => {
   try {
-    const secteurs = await prisma.secteurActivite.findMany({
+    const scoped = await scopedPrisma(req, prisma);
+    const secteurs = await scoped.secteurActivite.findMany({
       include: {
         parent: {
           select: {
@@ -58,6 +61,7 @@ exports.getTree = async (req, res) => {
       data: tree
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération de l\'arbre des secteurs:', error);
     res.status(500).json({
       success: false,

@@ -1,12 +1,15 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Gestion de gestion des produits associ?s.
 const { prisma, logger } = require('./shared');
 
 exports.addProduct = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const productData = req.body;
 
-    const opportunite = await prisma.opportunite.findUnique({
+    const opportunite = await scoped.opportunite.findUnique({
       where: { id }
     });
 
@@ -17,7 +20,7 @@ exports.addProduct = async (req, res) => {
       });
     }
 
-    const ligneProduit = await prisma.ligneProduit.create({
+    const ligneProduit = await scoped.ligneProduit.create({
       data: {
         opportuniteId: id,
         produitId: productData.produitId,
@@ -32,14 +35,14 @@ exports.addProduct = async (req, res) => {
     });
 
     // Recalculate opportunity amount
-    const totalProduits = await prisma.ligneProduit.aggregate({
+    const totalProduits = await scoped.ligneProduit.aggregate({
       where: { opportuniteId: id },
       _sum: {
         montantTTC: true
       }
     });
 
-    await prisma.opportunite.update({
+    await scoped.opportunite.update({
       where: { id },
       data: {
         montantEstime: totalProduits._sum.montantTTC || 0
@@ -52,6 +55,7 @@ exports.addProduct = async (req, res) => {
       data: ligneProduit
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de l\'ajout du produit:', error);
     res.status(500).json({
       success: false,

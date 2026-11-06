@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 
 const COOKIE_NAME = 'pbl_storage_token';
 const COOKIE_PATH = '/api/storage';
-const STORAGE_ADMIN_PERMISSIONS = new Set(['*', 'enterprises.read_all', 'enterprises.read']);
+const STORAGE_ADMIN_PERMISSIONS = new Set(['enterprises.read_all']);
 
 const cookieOptions = (maxAge) => ({
   httpOnly: true,

@@ -46,7 +46,7 @@ app.use(helmet());
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role', 'X-User-Email']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Enterprise-Id', 'X-User-Id', 'X-User-Role', 'X-User-Email']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));

@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../utils/scopedPrisma');
+const { respondScopeError } = require('../utils/enterpriseScope');
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const winston = require('winston');
@@ -17,6 +19,7 @@ const logger = winston.createLogger({
  */
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { isActive } = req.query;
 
     const where = {};
@@ -24,7 +27,7 @@ exports.getAll = async (req, res) => {
       where.isActive = isActive === 'true';
     }
 
-    const typeClients = await prisma.typeClient.findMany({
+    const typeClients = await scoped.typeClient.findMany({
       where,
       orderBy: [
         { ordre: 'asc' },
@@ -44,6 +47,7 @@ exports.getAll = async (req, res) => {
       data: typeClients
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des types de client:', error);
     res.status(500).json({
       success: false,
@@ -57,6 +61,7 @@ exports.getAll = async (req, res) => {
  */
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -76,7 +81,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     // Check if code already exists
-    const existingType = await prisma.typeClient.findUnique({
+    const existingType = await scoped.typeClient.findUnique({
       where: { code }
     });
 
@@ -87,7 +92,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const typeClient = await prisma.typeClient.create({
+    const typeClient = await scoped.typeClient.create({
       data: {
         code,
         libelle,
@@ -111,6 +116,7 @@ exports.create = async (req, res) => {
       data: typeClient
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création du type de client:', error);
     
     if (error.code === 'P2002') {
@@ -132,9 +138,10 @@ exports.create = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const typeClient = await prisma.typeClient.findUnique({
+    const typeClient = await scoped.typeClient.findUnique({
       where: { id },
       include: {
         clients: {
@@ -167,6 +174,7 @@ exports.getById = async (req, res) => {
       data: typeClient
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération du type de client:', error);
     res.status(500).json({
       success: false,
@@ -180,6 +188,7 @@ exports.getById = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -189,9 +198,9 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('typeClient', req.body);
 
-    const typeClient = await prisma.typeClient.update({
+    const typeClient = await scoped.typeClient.update({
       where: { id },
       data: {
         ...updateData,
@@ -210,6 +219,7 @@ exports.update = async (req, res) => {
       data: typeClient
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du type de client:', error);
     
     if (error.code === 'P2025') {
@@ -237,10 +247,11 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
     // Check if type is used by clients
-    const clientCount = await prisma.client.count({
+    const clientCount = await scoped.client.count({
       where: { typeClientId: id }
     });
 
@@ -252,7 +263,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.typeClient.delete({
+    await scoped.typeClient.delete({
       where: { id }
     });
 
@@ -263,6 +274,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression du type de client:', error);
     
     if (error.code === 'P2025') {
@@ -284,9 +296,10 @@ exports.delete = async (req, res) => {
  */
 exports.toggleActive = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const typeClient = await prisma.typeClient.findUnique({
+    const typeClient = await scoped.typeClient.findUnique({
       where: { id }
     });
 
@@ -297,7 +310,7 @@ exports.toggleActive = async (req, res) => {
       });
     }
 
-    const updatedTypeClient = await prisma.typeClient.update({
+    const updatedTypeClient = await scoped.typeClient.update({
       where: { id },
       data: {
         isActive: !typeClient.isActive,
@@ -311,6 +324,7 @@ exports.toggleActive = async (req, res) => {
       data: updatedTypeClient
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors du changement de statut du type de client:', error);
     res.status(500).json({
       success: false,

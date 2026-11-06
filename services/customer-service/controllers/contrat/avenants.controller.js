@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Creation des avenants associes aux contrats clients.
 const { prisma, logger } = require('./shared');
 
 exports.createAvenant = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const {
       numeroAvenant,
@@ -13,7 +16,7 @@ exports.createAvenant = async (req, res) => {
       montantAdditionnel
     } = req.body;
 
-    const contrat = await prisma.contrat.findUnique({
+    const contrat = await scoped.contrat.findUnique({
       where: { id }
     });
 
@@ -24,7 +27,7 @@ exports.createAvenant = async (req, res) => {
       });
     }
 
-    const avenant = await prisma.$transaction(async (tx) => {
+    const avenant = await scoped.$transaction(async (tx) => {
       // Get last avenant number
       const lastAvenant = await tx.avenantContrat.findFirst({
         where: { contratId: id },
@@ -87,6 +90,7 @@ exports.createAvenant = async (req, res) => {
       data: avenant
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création de l\'avenant:', error);
     res.status(500).json({
       success: false,

@@ -1,3 +1,5 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Consultation, recherche et statistiques des interactions.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const {
       clientId,
       contactId,
@@ -47,7 +50,7 @@ exports.getAll = async (req, res) => {
     }
 
     const [interactions, total] = await Promise.all([
-      prisma.interactionClient.findMany({
+      scoped.interactionClient.findMany({
         where,
         skip,
         take,
@@ -76,7 +79,7 @@ exports.getAll = async (req, res) => {
         },
         orderBy: { dateInteraction: 'desc' }
       }),
-      prisma.interactionClient.count({ where })
+      scoped.interactionClient.count({ where })
     ]);
 
     res.json({
@@ -92,6 +95,7 @@ exports.getAll = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des interactions:', error);
     res.status(500).json({
       success: false,
@@ -105,9 +109,10 @@ exports.getAll = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const interaction = await prisma.interactionClient.findUnique({
+    const interaction = await scoped.interactionClient.findUnique({
       where: { id },
       include: {
         client: {
@@ -153,6 +158,7 @@ exports.getById = async (req, res) => {
       data: interaction
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération de l\'interaction:', error);
     res.status(500).json({
       success: false,
@@ -166,6 +172,7 @@ exports.getById = async (req, res) => {
  */
 exports.getStats = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { clientId, startDate, endDate } = req.query;
 
     const where = {};
@@ -185,27 +192,27 @@ exports.getStats = async (req, res) => {
       averageDuration,
       recentInteractions
     ] = await Promise.all([
-      prisma.interactionClient.count({ where }),
+      scoped.interactionClient.count({ where }),
 
-      prisma.interactionClient.groupBy({
+      scoped.interactionClient.groupBy({
         by: ['type'],
         _count: true,
         where
       }),
 
-      prisma.interactionClient.groupBy({
+      scoped.interactionClient.groupBy({
         by: ['canal'],
         _count: true,
         where
       }),
 
-      prisma.interactionClient.groupBy({
+      scoped.interactionClient.groupBy({
         by: ['resultat'],
         _count: true,
         where
       }),
 
-      prisma.interactionClient.aggregate({
+      scoped.interactionClient.aggregate({
         where: {
           ...where,
           dureeMinutes: { not: null }
@@ -215,7 +222,7 @@ exports.getStats = async (req, res) => {
         }
       }),
 
-      prisma.interactionClient.findMany({
+      scoped.interactionClient.findMany({
         where,
         take: 10,
         orderBy: { dateInteraction: 'desc' },
@@ -259,6 +266,7 @@ exports.getStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des statistiques:', error);
     res.status(500).json({
       success: false,

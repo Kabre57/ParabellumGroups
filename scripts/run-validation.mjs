@@ -45,6 +45,12 @@ const steps = [
   { label: 'Customer service lint', cwd: 'services/customer-service', command: packageManager, args: ['run', 'lint'] },
   { label: 'Customer service tests', cwd: 'services/customer-service', command: packageManager, args: ['test'] },
   {
+    label: 'Project service enterprise isolation tests',
+    cwd: 'services/project-service',
+    command: process.execPath,
+    args: ['../../scripts/run-node-tests.mjs', 'tests'],
+  },
+  {
     label: 'Operational request service tests',
     cwd: 'services/operational-request-service',
     command: process.execPath,

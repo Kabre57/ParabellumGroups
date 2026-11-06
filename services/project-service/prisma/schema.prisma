@@ -41,6 +41,7 @@ model Projet {
   nom           String
   description   String?
   clientId      String
+  enterpriseId  Int?
   dateDebut     DateTime
   dateFin       DateTime?
   budget        Decimal?      @db.Decimal(15, 2)
@@ -54,6 +55,7 @@ model Projet {
   jalons        Jalon[]
   
   @@index([clientId])
+  @@index([enterpriseId])
   @@index([status])
   @@index([numeroProjet])
 }

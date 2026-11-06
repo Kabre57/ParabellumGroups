@@ -137,7 +137,16 @@ Contrôler les mouvements et justificatifs de la période avant validation. Une 
 
 Dans l’onglet **Plan comptable**, la recherche porte sur le code ou le libellé et le filtre peut limiter les comptes à un type. Les indicateurs donnent le nombre de comptes et des totaux par catégories. Ouvrir le détail pour voir code, libellé, type, solde courant, date de dernière transaction et description.
 
-Avec les droits nécessaires, **Nouveau compte** permet de renseigner code, libellé, type, description et solde d’ouverture. Les comptes existants peuvent être modifiés ou supprimés si les actions sont autorisées. Avant suppression, vérifier les écritures et règles liées ; une suppression peut être refusée si le compte est déjà utilisé.
+Avec les droits nécessaires, **Nouveau compte** permet de renseigner le code, le libellé et une description facultative. Le type est déterminé automatiquement à partir du plan comptable ; aucun solde initial n’est saisi dans ce formulaire. Le compte démarre à zéro et ses mouvements sont enregistrés par des écritures comptables. L’édition d’un compte existant et l’import Excel conservent leurs champs de type et de solde d’ouverture. Les comptes existants peuvent être modifiés ou supprimés si les actions sont autorisées. Avant suppression, vérifier les écritures et règles liées ; une suppression peut être refusée si le compte est déjà utilisé.
+
+La détermination du type privilégie le compte actif déjà configuré dont le code
+est le préfixe le plus précis. À précision égale, le compte de l’entreprise active
+est prioritaire sur le catalogue global. En l’absence de compte de référence,
+les règles SYSCOHADA sont utilisées, avec les exceptions débiteurs/créditeurs.
+Les comptes mixtes ou non reconnus et les configurations contradictoires sont
+refusés avec un message explicite ; configurer le compte de référence dans le
+plan ou lors de son import avant de créer un sous-compte. La déduction du type
+ne modifie aucun compte existant et n’active pas de nouvelle formule de solde.
 
 ### Familles des comptes
 

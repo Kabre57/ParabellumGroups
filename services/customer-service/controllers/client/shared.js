@@ -49,22 +49,39 @@ const parseScopedInteger = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const buildClientScopeWhere = (req, explicitEnterpriseId, explicitServiceId) => {
+// Ce filtre est un pré-filtre optionnel (tri/affichage). La vérification
+// autoritaire du périmètre entreprise est assurée par scopedPrisma via
+// resolveEnterpriseScope ; ce bloc ne doit jamais permettre d'élargir le
+// périmètre au-delà de ce que l'utilisateur peut voir.
+const buildClientScopeWhere = (req, explicitEnterpriseId, explicitServiceId, activeEnterpriseId) => {
   const where = {};
   const requestedEnterpriseId = parseScopedInteger(explicitEnterpriseId);
   const requestedServiceId = parseScopedInteger(explicitServiceId);
   const userEnterpriseId = parseScopedInteger(req.user?.enterpriseId);
   const userServiceId = parseScopedInteger(req.user?.serviceId);
 
-  if (requestedEnterpriseId) {
-    where.enterpriseId = requestedEnterpriseId;
+  // The active enterprise has already been authorized by resolveEnterpriseScope.
+  // An assigned parent must not mask the selected subsidiary's clients.
+  if (activeEnterpriseId) {
+    where.enterpriseId = activeEnterpriseId;
+  } else if (requestedEnterpriseId) {
+    // Un non-admin ne peut pas cibler une entreprise autre que la sienne.
+    // Si la valeur demandée diffère, on replie sur l'entreprise assignée :
+    // scopedPrisma rejettera la requête lors de la résolution du périmètre
+    // si l'utilisateur tente réellement d'accéder à une entreprise étrangère.
+    if (isAdminLike(req.user)) {
+      where.enterpriseId = requestedEnterpriseId;
+    } else {
+      where.enterpriseId = userEnterpriseId || requestedEnterpriseId;
+    }
   } else if (!isAdminLike(req.user) && userEnterpriseId) {
     where.enterpriseId = userEnterpriseId;
   }
 
   if (requestedServiceId) {
     where.serviceId = requestedServiceId;
-  } else if (!isAdminLike(req.user) && userServiceId) {
+  } else if (!isAdminLike(req.user) && userServiceId &&
+             (!activeEnterpriseId || activeEnterpriseId === userEnterpriseId)) {
     where.serviceId = userServiceId;
   }
 
@@ -179,4 +196,4 @@ async function generateClientReference() {
  * Get all clients with advanced filtering, pagination and search
  */
 
-module.exports = { winston, validationResult, syncMissionsFromClientAddress, prisma, logger, normalizeOptionalValue, toJsonSafe, isAdminLike, parseScopedInteger, buildClientScopeWhere, normalizeImportKey, normalizeImportValue, buildImportRowMap, pickImportValue, parseImportNumber, parseImportInteger, parseImportEnum, compactImportData, isValidImportEmail };
+module.exports = { winston, validationResult, syncMissionsFromClientAddress, prisma, logger, normalizeOptionalValue, toJsonSafe, isAdminLike, parseScopedInteger, buildClientScopeWhere, normalizeImportKey, normalizeImportValue, buildImportRowMap, pickImportValue, parseImportNumber, parseImportInteger, parseImportEnum, compactImportData, isValidImportEmail, generateClientReference };

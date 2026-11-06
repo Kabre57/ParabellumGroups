@@ -1,3 +1,5 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Association des interactions aux taches de suivi.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,10 +8,11 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.linkToTask = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { tacheId } = req.body;
 
-    const interaction = await prisma.interactionClient.findUnique({
+    const interaction = await scoped.interactionClient.findUnique({
       where: { id }
     });
 
@@ -20,7 +23,7 @@ exports.linkToTask = async (req, res) => {
       });
     }
 
-    const tache = await prisma.tacheClient.findUnique({
+    const tache = await scoped.tacheClient.findUnique({
       where: { id: tacheId }
     });
 
@@ -31,12 +34,10 @@ exports.linkToTask = async (req, res) => {
       });
     }
 
-    const updatedInteraction = await prisma.interactionClient.update({
+    const updatedInteraction = await scoped.interactionClient.update({
       where: { id },
       data: {
-        tacheLiee: {
-          connect: { id: tacheId }
-        }
+        tacheLieeId: tacheId
       }
     });
 
@@ -46,6 +47,7 @@ exports.linkToTask = async (req, res) => {
       data: updatedInteraction
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la liaison à la tâche:', error);
     res.status(500).json({
       success: false,

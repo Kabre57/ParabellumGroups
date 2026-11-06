@@ -13,6 +13,7 @@ type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
 interface CreateAccountingAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: 'create' | 'edit';
   initialValues?: {
     code?: string;
     label?: string;
@@ -25,7 +26,7 @@ interface CreateAccountingAccountDialogProps {
   onSubmit: (payload: {
     code: string;
     label: string;
-    type: AccountType;
+    type?: AccountType;
     description?: string;
     openingBalance?: number;
   }) => Promise<void> | void;
@@ -69,16 +70,18 @@ const getTypeWarning = (code: string, type: AccountType) => {
 export function CreateAccountingAccountDialog({
   open,
   onOpenChange,
+  mode = 'create',
   initialValues,
   title = 'Nouveau compte comptable',
   submitLabel = 'Créer le compte',
   onSubmit,
   isSubmitting = false,
 }: CreateAccountingAccountDialogProps) {
+  const isEditing = mode === 'edit';
   const [form, setForm] = useState(initialState);
   const normalizedCode = form.code.trim();
-  const codeGuide = codeGuides.find((guide) => guide.match(normalizedCode))?.text || null;
-  const typeWarning = getTypeWarning(normalizedCode, form.type);
+  const codeGuide = isEditing ? codeGuides.find((guide) => guide.match(normalizedCode))?.text || null : null;
+  const typeWarning = isEditing ? getTypeWarning(normalizedCode, form.type) : null;
 
   useEffect(() => {
     if (open) {
@@ -100,9 +103,11 @@ export function CreateAccountingAccountDialog({
     await onSubmit({
       code: form.code.trim(),
       label: form.label.trim(),
-      type: form.type,
       description: form.description.trim() || undefined,
-      openingBalance: Number(form.openingBalance || 0),
+      ...(isEditing ? {
+        type: form.type,
+        openingBalance: Number(form.openingBalance || 0),
+      } : {}),
     });
   };
 
@@ -112,12 +117,14 @@ export function CreateAccountingAccountDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Créez un compte du plan comptable pour structurer vos écritures et votre grand livre.
+            {isEditing
+              ? 'Modifiez les informations du compte comptable.'
+              : 'Renseignez le code, le libellé et éventuellement une description.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
+          <div className={isEditing ? 'space-y-2' : 'space-y-2 md:col-span-2'}>
             <Label htmlFor="account-code">Code</Label>
             <Input
               id="account-code"
@@ -129,7 +136,7 @@ export function CreateAccountingAccountDialog({
             {typeWarning && <p className="text-xs text-amber-700">{typeWarning}</p>}
           </div>
 
-          <div className="space-y-2">
+          {isEditing && <div className="space-y-2">
             <Label htmlFor="account-type">Type</Label>
             <Select value={form.type} onValueChange={(value) => setForm((current) => ({ ...current, type: value as AccountType }))}>
               <SelectTrigger id="account-type">
@@ -143,7 +150,7 @@ export function CreateAccountingAccountDialog({
                 <SelectItem value="EXPENSE">Charge</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div>}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="account-label">Libellé</Label>
@@ -155,7 +162,7 @@ export function CreateAccountingAccountDialog({
             />
           </div>
 
-          <div className="space-y-2">
+          {isEditing && <div className="space-y-2">
             <Label htmlFor="account-opening">Solde initial</Label>
             <Input
               id="account-opening"
@@ -164,7 +171,7 @@ export function CreateAccountingAccountDialog({
               onChange={(event) => setForm((current) => ({ ...current, openingBalance: event.target.value }))}
               placeholder="0"
             />
-          </div>
+          </div>}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="account-description">Description</Label>
@@ -179,8 +186,9 @@ export function CreateAccountingAccountDialog({
         </div>
 
         <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          Utilisez de préférence des comptes détaillés plutôt qu un compte générique.
-          Exemples utiles: `48x` fournisseurs, `411` clients, `52x` banque, `57x` caisse, `6xx` charges, `7xx` produits.
+          {isEditing
+            ? 'Les informations historiques d’un compte déjà utilisé dans des écritures sont protégées.'
+            : 'Le type est déterminé automatiquement. Le solde du nouveau compte est alimenté par les écritures comptables.'}
         </div>
 
         <DialogFooter>

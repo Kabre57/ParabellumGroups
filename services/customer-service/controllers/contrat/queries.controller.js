@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Lecture des contrats, filtres, statistiques et echeances.
 const { prisma, logger } = require('./shared');
 
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const {
       clientId,
       status,
@@ -55,7 +58,7 @@ exports.getAll = async (req, res) => {
     const order = sortOrder.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     const [contrats, total] = await Promise.all([
-      prisma.contrat.findMany({
+      scoped.contrat.findMany({
         where,
         skip,
         take,
@@ -91,7 +94,7 @@ exports.getAll = async (req, res) => {
         },
         orderBy: { [sortField]: order }
       }),
-      prisma.contrat.count({ where })
+      scoped.contrat.count({ where })
     ]);
 
     res.json({
@@ -107,6 +110,7 @@ exports.getAll = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des contrats:', error);
     res.status(500).json({
       success: false,
@@ -122,9 +126,10 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const contrat = await prisma.contrat.findUnique({
+    const contrat = await scoped.contrat.findUnique({
       where: { id },
       include: {
         client: {
@@ -156,6 +161,7 @@ exports.getById = async (req, res) => {
       data: contrat
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération du contrat:', error);
     res.status(500).json({
       success: false,
@@ -171,6 +177,7 @@ exports.getById = async (req, res) => {
 
 exports.getStats = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { startDate, endDate, typeContrat } = req.query;
 
     const where = {};
@@ -192,10 +199,10 @@ exports.getStats = async (req, res) => {
       expiringSoon
     ] = await Promise.all([
       // Total contracts
-      prisma.contrat.count({ where }),
+      scoped.contrat.count({ where }),
 
       // Contracts grouped by status
-      prisma.contrat.groupBy({
+      scoped.contrat.groupBy({
         by: ['status'],
         _count: true,
         _sum: {
@@ -205,7 +212,7 @@ exports.getStats = async (req, res) => {
       }),
 
       // Contracts grouped by type
-      prisma.contrat.groupBy({
+      scoped.contrat.groupBy({
         by: ['typeContrat'],
         _count: true,
         _sum: {
@@ -215,7 +222,7 @@ exports.getStats = async (req, res) => {
       }),
 
       // Total contract value
-      prisma.contrat.aggregate({
+      scoped.contrat.aggregate({
         where: { ...where, status: { in: ['ACTIF', 'EN_RENOUVELLEMENT'] } },
         _sum: {
           montantTTC: true
@@ -223,7 +230,7 @@ exports.getStats = async (req, res) => {
       }),
 
       // Upcoming renewals (next 30 days)
-      prisma.contrat.count({
+      scoped.contrat.count({
         where: {
           ...where,
           status: 'ACTIF',
@@ -235,7 +242,7 @@ exports.getStats = async (req, res) => {
       }),
 
       // Contracts expiring soon (next 30 days)
-      prisma.contrat.count({
+      scoped.contrat.count({
         where: {
           ...where,
           status: 'ACTIF',
@@ -277,6 +284,7 @@ exports.getStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des statistiques:', error);
     res.status(500).json({
       success: false,
@@ -292,10 +300,11 @@ exports.getStats = async (req, res) => {
 
 exports.getExpiringSoon = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { days = 30 } = req.query;
     const thresholdDate = new Date(Date.now() + parseInt(days) * 24 * 60 * 60 * 1000);
 
-    const contrats = await prisma.contrat.findMany({
+    const contrats = await scoped.contrat.findMany({
       where: {
         status: 'ACTIF',
         dateFin: {
@@ -327,6 +336,7 @@ exports.getExpiringSoon = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des contrats expirants:', error);
     res.status(500).json({
       success: false,

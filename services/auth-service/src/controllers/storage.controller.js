@@ -21,8 +21,9 @@ const getStorageTarget = (rawPath) => {
 };
 
 const parsePositiveId = (value) => {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^[1-9]\d*$/.test(value))) return null;
   const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 };
 
 const isGlobalAdmin = (user) => {
@@ -41,7 +42,7 @@ const isGlobalAdmin = (user) => {
       : [];
   return permissions.some((p) => {
     const normalized = String(p || '').trim().toLowerCase();
-    return normalized === '*' || normalized === 'enterprises.read_all' || normalized === 'enterprises.read';
+    return normalized === 'enterprises.read_all';
   });
 };
 
@@ -51,16 +52,47 @@ const isEnterpriseInUserScope = async (enterpriseId, userEnterpriseId) => {
   let currentId = enterpriseId;
 
   while (currentId && !visited.has(currentId)) {
-    if (currentId === userEnterpriseId) return true;
     visited.add(currentId);
     const current = await prisma.enterprise.findUnique({
       where: { id: currentId },
-      select: { parentEnterpriseId: true },
+      select: { parentEnterpriseId: true, isActive: true },
     });
-    currentId = current?.parentEnterpriseId || null;
+    if (!current || current.isActive !== true) return false;
+    if (currentId === userEnterpriseId) return true;
+    currentId = parsePositiveId(current.parentEnterpriseId);
   }
 
   return false;
+};
+
+// Only a persisted logo reference can identify an old object without metadata.
+// A query parameter describes the requested context, never the object's owner.
+const matchesStoredLogo = (logoUrl, target) => {
+  if (typeof logoUrl !== 'string') return false;
+  try {
+    const url = new URL(logoUrl, 'http://storage.local');
+    const pathname = decodeURIComponent(url.pathname);
+    return pathname.endsWith(`/${target.bucket}/${target.key}`) || (
+      url.hostname.startsWith(`${target.bucket}.s3`) &&
+      url.hostname.endsWith('.amazonaws.com') &&
+      pathname === `/${target.key}`
+    );
+  } catch {
+    return false;
+  }
+};
+
+const findLegacyLogoOwner = async (target) => {
+  const encodedKey = target.key.split('/').map(encodeURIComponent).join('/');
+  const candidates = await prisma.enterprise.findMany({
+    where: { OR: [
+      { logoUrl: { contains: target.key } },
+      { logoUrl: { contains: encodedKey } },
+    ] },
+    select: { id: true, logoUrl: true },
+  });
+  const matched = candidates.filter((enterprise) => matchesStoredLogo(enterprise.logoUrl, target));
+  return matched.length === 1 ? parsePositiveId(matched[0].id) : null;
 };
 
 const serveStorageObject = async (req, res) => {
@@ -71,6 +103,7 @@ const serveStorageObject = async (req, res) => {
     });
   }
 
+  let object;
   try {
     const objectPath = req.params[0];
     const target = getStorageTarget(objectPath);
@@ -82,7 +115,18 @@ const serveStorageObject = async (req, res) => {
       });
     }
 
-    const object = await getObjectStreamFromS3(target.key, target.bucket);
+    const rawRequestedEnterpriseId = req.query?.enterpriseId;
+    const rawActiveEnterpriseId = req.headers?.['x-enterprise-id'] !== undefined
+      ? req.headers['x-enterprise-id']
+      : req.headers?.['X-Enterprise-Id'];
+    const requestedEnterpriseId = parsePositiveId(rawRequestedEnterpriseId);
+    const activeEnterpriseId = parsePositiveId(rawActiveEnterpriseId);
+    if ((rawRequestedEnterpriseId !== undefined && !requestedEnterpriseId) ||
+        (rawActiveEnterpriseId !== undefined && !activeEnterpriseId)) {
+      return res.status(400).json({ success: false, message: 'Invalid enterprise context' });
+    }
+
+    object = await getObjectStreamFromS3(target.key, target.bucket);
 
     if (!object?.Body) {
       return res.status(404).json({
@@ -92,36 +136,24 @@ const serveStorageObject = async (req, res) => {
     }
 
     const metadataEnterpriseId = parsePositiveId(object.Metadata?.enterpriseid);
-    const requestedEnterpriseId = parsePositiveId(req.query?.enterpriseId);
     const isAdmin = isGlobalAdmin(req.user);
     const isEnterpriseAsset = target.key.startsWith('enterprises/');
-
-    let inferredEnterpriseId = metadataEnterpriseId || requestedEnterpriseId;
-    if (!inferredEnterpriseId && isEnterpriseAsset) {
-      const matchedEnterprise = await prisma.enterprise.findFirst({
-        where: { logoUrl: { contains: target.key } },
-        select: { id: true },
-      });
-      inferredEnterpriseId = parsePositiveId(matchedEnterprise?.id);
-    }
-
-    const ownerEnterpriseId = metadataEnterpriseId || (isAdmin || isEnterpriseAsset ? inferredEnterpriseId : null);
-    const requestedOwnerMatches =
-      !requestedEnterpriseId || !metadataEnterpriseId || requestedEnterpriseId === metadataEnterpriseId;
-    const effectiveEnterpriseId = metadataEnterpriseId || inferredEnterpriseId;
-    const authorized = isAdmin
-      ? requestedOwnerMatches
-      : Boolean(
-        effectiveEnterpriseId &&
-        requestedOwnerMatches &&
-        (isEnterpriseAsset || requestedEnterpriseId === effectiveEnterpriseId) &&
-        (await isEnterpriseInUserScope(effectiveEnterpriseId, parsePositiveId(req.user?.enterpriseId)))
-      );
-
-    if (!authorized || (ownerEnterpriseId && !(await prisma.enterprise.findUnique({
+    const ownerEnterpriseId = metadataEnterpriseId || (
+      object.Metadata?.enterpriseid === undefined && isEnterpriseAsset
+        ? await findLegacyLogoOwner(target)
+        : null
+    );
+    const requestedOwnerMatches = (!requestedEnterpriseId || requestedEnterpriseId === ownerEnterpriseId) &&
+      (!activeEnterpriseId || activeEnterpriseId === ownerEnterpriseId);
+    const owner = ownerEnterpriseId && await prisma.enterprise.findUnique({
       where: { id: ownerEnterpriseId },
-      select: { id: true },
-    })))) {
+      select: { id: true, isActive: true },
+    });
+    const authorized = owner && owner.isActive === true && requestedOwnerMatches && (
+      isAdmin || await isEnterpriseInUserScope(ownerEnterpriseId, parsePositiveId(req.user?.enterpriseId))
+    );
+
+    if (!authorized) {
       object.Body.destroy?.();
       return res.status(404).json({
         success: false,
@@ -158,6 +190,7 @@ const serveStorageObject = async (req, res) => {
 
     object.Body.pipe(res);
   } catch (error) {
+    object?.Body?.destroy?.();
     const statusCode = error?.$metadata?.httpStatusCode;
     const errorName = error?.name || error?.Code;
     const notFound = statusCode === 404 || ['NoSuchKey', 'NoSuchBucket', 'NotFound'].includes(errorName);

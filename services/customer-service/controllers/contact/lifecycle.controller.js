@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Creation, modification et suppression des contacts clients.
 const { prisma, logger, validationResult, normalizeOptionalString, normalizeContactPayload } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult, normalizeOptionalString, normalizeCont
  */
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -35,7 +38,7 @@ exports.create = async (req, res) => {
     } = normalizedPayload;
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: clientId }
     });
 
@@ -48,7 +51,7 @@ exports.create = async (req, res) => {
 
     // If setting as principal, unset other principal contacts
     if (principal) {
-      await prisma.contact.updateMany({
+      await scoped.contact.updateMany({
         where: {
           clientId,
           principal: true
@@ -59,7 +62,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const contact = await prisma.contact.create({
+    const contact = await scoped.contact.create({
       data: {
         clientId,
         civilite,
@@ -91,7 +94,7 @@ exports.create = async (req, res) => {
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId,
         typeChangement: 'CREATION',
@@ -117,6 +120,7 @@ exports.create = async (req, res) => {
       data: contact
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création du contact:', error);
 
     if (error.code === 'P2002') {
@@ -139,6 +143,7 @@ exports.create = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -148,10 +153,10 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = normalizeContactPayload(req.body);
+    const updateData = normalizeContactPayload(scalarData('contact', req.body));
 
     // Get existing contact
-    const existingContact = await prisma.contact.findUnique({
+    const existingContact = await scoped.contact.findUnique({
       where: { id }
     });
 
@@ -162,9 +167,11 @@ exports.update = async (req, res) => {
       });
     }
 
+    assertParentUnchanged(updateData, 'clientId', existingContact);
+
     // If setting as principal, unset other principal contacts
     if (updateData.principal) {
-      await prisma.contact.updateMany({
+      await scoped.contact.updateMany({
         where: {
           clientId: existingContact.clientId,
           principal: true,
@@ -176,7 +183,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const contact = await prisma.$transaction(async (tx) => {
+    const contact = await scoped.$transaction(async (tx) => {
       const oldContact = { ...existingContact };
 
       const updatedContact = await tx.contact.update({
@@ -215,6 +222,7 @@ exports.update = async (req, res) => {
       data: contact
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du contact:', error);
 
     if (error.code === 'P2025') {
@@ -237,9 +245,10 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const contact = await prisma.contact.findUnique({
+    const contact = await scoped.contact.findUnique({
       where: { id },
       select: { clientId: true }
     });
@@ -251,7 +260,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // Create historique entry before deletion
       await tx.historiqueClient.create({
         data: {
@@ -280,6 +289,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression du contact:', error);
 
     if (error.code === 'P2025') {
@@ -302,10 +312,11 @@ exports.delete = async (req, res) => {
  */
 exports.setPrincipal = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { principal } = req.body;
 
-    const contact = await prisma.contact.findUnique({
+    const contact = await scoped.contact.findUnique({
       where: { id }
     });
 
@@ -316,7 +327,7 @@ exports.setPrincipal = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // If setting as principal, unset other principal contacts
       if (principal) {
         await tx.contact.updateMany({
@@ -345,6 +356,7 @@ exports.setPrincipal = async (req, res) => {
         : 'Contact retiré des contacts principaux'
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la modification du contact principal:', error);
     res.status(500).json({
       success: false,

@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Depot, modification et suppression des documents clients.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.upload = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -33,7 +36,7 @@ exports.upload = async (req, res) => {
     } = req.body;
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: clientId }
     });
 
@@ -46,7 +49,7 @@ exports.upload = async (req, res) => {
 
     // Verify contract exists if provided
     if (contratId) {
-      const contrat = await prisma.contrat.findUnique({
+      const contrat = await scoped.contrat.findUnique({
         where: { id: contratId }
       });
 
@@ -58,7 +61,7 @@ exports.upload = async (req, res) => {
       }
     }
 
-    const document = await prisma.documentClient.create({
+    const document = await scoped.documentClient.create({
       data: {
         clientId,
         contratId,
@@ -90,7 +93,7 @@ exports.upload = async (req, res) => {
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId,
         typeChangement: 'CREATION',
@@ -117,6 +120,7 @@ exports.upload = async (req, res) => {
       data: document
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de l\'upload du document:', error);
     res.status(500).json({
       success: false,
@@ -130,6 +134,7 @@ exports.upload = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -139,9 +144,9 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('documentClient', req.body);
 
-    const existingDocument = await prisma.documentClient.findUnique({
+    const existingDocument = await scoped.documentClient.findUnique({
       where: { id }
     });
 
@@ -168,7 +173,7 @@ exports.update = async (req, res) => {
       updateData.taille = parseInt(updateData.taille);
     }
 
-    const document = await prisma.documentClient.update({
+    const document = await scoped.documentClient.update({
       where: { id },
       data: {
         ...updateData,
@@ -177,7 +182,7 @@ exports.update = async (req, res) => {
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: existingDocument.clientId,
         typeChangement: 'MODIFICATION',
@@ -203,6 +208,7 @@ exports.update = async (req, res) => {
       data: document
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du document:', error);
 
     if (error.code === 'P2025') {
@@ -224,9 +230,10 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const document = await prisma.documentClient.findUnique({
+    const document = await scoped.documentClient.findUnique({
       where: { id }
     });
 
@@ -245,7 +252,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // Create historique entry before deletion
       await tx.historiqueClient.create({
         data: {
@@ -274,6 +281,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression du document:', error);
 
     if (error.code === 'P2025') {
@@ -295,10 +303,11 @@ exports.delete = async (req, res) => {
  */
 exports.updateValidity = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { estValide, raison } = req.body;
 
-    const document = await prisma.documentClient.findUnique({
+    const document = await scoped.documentClient.findUnique({
       where: { id }
     });
 
@@ -309,7 +318,7 @@ exports.updateValidity = async (req, res) => {
       });
     }
 
-    const updatedDocument = await prisma.documentClient.update({
+    const updatedDocument = await scoped.documentClient.update({
       where: { id },
       data: {
         estValide: estValide !== false,
@@ -318,7 +327,7 @@ exports.updateValidity = async (req, res) => {
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: document.clientId,
         typeChangement: 'VALIDITE',
@@ -339,6 +348,7 @@ exports.updateValidity = async (req, res) => {
       data: updatedDocument
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de la validité:', error);
     res.status(500).json({
       success: false,

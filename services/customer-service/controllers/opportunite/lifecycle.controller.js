@@ -1,8 +1,11 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Gestion de cr?ation et modification des opportunit?s.
 const { validationResult, prisma, logger } = require('./shared');
 
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -26,7 +29,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: clientId }
     });
 
@@ -37,7 +40,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const opportunite = await prisma.$transaction(async (tx) => {
+    const opportunite = await scoped.$transaction(async (tx) => {
       // Create opportunity
       const newOpportunite = await tx.opportunite.create({
         data: {
@@ -105,6 +108,7 @@ exports.create = async (req, res) => {
       data: opportunite
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création de l\'opportunité:', error);
     res.status(500).json({
       success: false,
@@ -119,6 +123,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -128,9 +133,9 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('opportunite', req.body);
 
-    const existingOpportunite = await prisma.opportunite.findUnique({
+    const existingOpportunite = await scoped.opportunite.findUnique({
       where: { id }
     });
 
@@ -152,13 +157,13 @@ exports.update = async (req, res) => {
       updateData.dateFermetureEstimee = new Date(updateData.dateFermetureEstimee);
     }
 
-    const opportunite = await prisma.opportunite.update({
+    const opportunite = await scoped.opportunite.update({
       where: { id },
       data: updateData
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: existingOpportunite.clientId,
         typeChangement: 'MODIFICATION',
@@ -184,6 +189,7 @@ exports.update = async (req, res) => {
       data: opportunite
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de l\'opportunité:', error);
 
     if (error.code === 'P2025') {

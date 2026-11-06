@@ -1,5 +1,6 @@
 // Crée, modifie ou supprime un compte comptable.
 const { accountTypeFromInput, amount, assertEnterpriseInScope, ensureAccountingAccountsWriteAccess, getDynamicAccountTemplate, prisma, resolveEnterpriseContext, serializeAccountingAccount } = require('./shared');
+const { resolveNewAccountType } = require('../../utils/accountTypeResolver');
 
 exports.createAccount = async (req, res) => {
   try {
@@ -11,13 +12,17 @@ exports.createAccount = async (req, res) => {
     const { code, label, type, description, openingBalance } = req.body;
     const normalizedCode = String(code || '').trim();
     const normalizedLabel = String(label || '').trim();
-    const normalizedType = accountTypeFromInput(type);
+    const hasExplicitType = typeof type !== 'undefined';
+    let normalizedType = hasExplicitType ? accountTypeFromInput(type) : null;
 
-    if (!normalizedCode || !normalizedLabel || !normalizedType) {
+    if (!normalizedCode || !normalizedLabel) {
       return res.status(400).json({
         success: false,
-        message: 'Le code, le libellé et le type du compte sont obligatoires',
+        message: 'Le code et le libellé du compte sont obligatoires',
       });
+    }
+    if (hasExplicitType && !normalizedType) {
+      return res.status(400).json({ success: false, message: 'Type de compte comptable invalide.' });
     }
 
     const { enterpriseId } = await resolveEnterpriseContext(req, req.body?.enterpriseId);
@@ -38,6 +43,16 @@ exports.createAccount = async (req, res) => {
         success: false,
         message: 'Un compte avec ce code existe déjà',
       });
+    }
+
+    if (!hasExplicitType) {
+      normalizedType = await resolveNewAccountType(prisma, normalizedCode, enterpriseId);
+      if (!normalizedType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Impossible de déterminer le type du compte à partir du plan configuré ou du référentiel SYSCOHADA. Configurez un compte parent actif dans le plan comptable de cette entreprise.',
+        });
+      }
     }
 
     const initialBalance = amount(openingBalance);
@@ -67,6 +82,9 @@ exports.createAccount = async (req, res) => {
         : 'Compte comptable créé avec succès',
     });
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ success: false, message: 'Un compte avec ce code existe déjà' });
+    }
     console.error('Erreur création compte comptable:', error.message);
     return res.status(error.statusCode || 500).json({
       success: false,

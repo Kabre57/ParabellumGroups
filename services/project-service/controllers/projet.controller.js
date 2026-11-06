@@ -1,6 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const { generateProjetNumber } = require('../utils/projetNumberGenerator');
+const { resolveEnterpriseId, projectWhere, assertImmutableReference, sendAccessError } = require('../utils/enterpriseScope');
+const { assertCustomerInEnterprise } = require('../utils/enterpriseReferences');
 
 const prisma = new PrismaClient();
 
@@ -21,6 +23,7 @@ const serializeProjet = (projet) => ({
   description: projet.description,
   customerId: projet.clientId,
   clientId: projet.clientId,
+  enterpriseId: projet.enterpriseId,
   status: projectStatusMap[projet.status] || projet.status,
   rawStatus: projet.status,
   startDate: projet.dateDebut,
@@ -52,6 +55,8 @@ const createProjet = async (req, res) => {
     }
 
     const { nom, description, clientId, dateDebut, dateFin, budget, status, priorite } = req.body;
+    const enterpriseId = await resolveEnterpriseId(req);
+    await assertCustomerInEnterprise(req, clientId, enterpriseId);
 
     const numeroProjet = await generateProjetNumber(prisma);
 
@@ -61,6 +66,7 @@ const createProjet = async (req, res) => {
         nom,
         description,
         clientId,
+        enterpriseId,
         dateDebut: new Date(dateDebut),
         dateFin: dateFin ? new Date(dateFin) : null,
         budget: budget ? parseFloat(budget) : null,
@@ -79,6 +85,7 @@ const createProjet = async (req, res) => {
       message: 'Projet créé avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur création projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création du projet' });
   }
@@ -101,7 +108,7 @@ const getAllProjets = async (req, res) => {
       sortOrder = 'desc',
     } = req.query;
 
-    const where = {};
+    const where = await projectWhere(req);
     if (status) {
       const requestedStatus = Object.entries(projectStatusMap).find(([, frontendStatus]) => frontendStatus === status);
       where.status = requestedStatus?.[0] || status;
@@ -160,6 +167,7 @@ const getAllProjets = async (req, res) => {
       }
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération projets:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des projets' });
   }
@@ -172,8 +180,8 @@ const getProjetById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const projet = await prisma.projet.findUnique({
-      where: { id },
+    const projet = await prisma.projet.findFirst({
+      where: await projectWhere(req, id),
       include: {
         taches: {
           include: {
@@ -193,6 +201,7 @@ const getProjetById = async (req, res) => {
       data: serializeProjet(projet),
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération du projet' });
   }
@@ -205,6 +214,10 @@ const updateProjet = async (req, res) => {
   try {
     const { id } = req.params;
     const { nom, description, dateDebut, dateFin, budget, coutReel, status, priorite } = req.body;
+    const where = await projectWhere(req, id);
+    const existing = await prisma.projet.findFirst({ where });
+    if (!existing) return res.status(404).json({ error: 'Projet non trouvé' });
+    assertImmutableReference(req.body, ['clientId', 'customerId'], existing.clientId);
 
     const updateData = {};
     if (nom) updateData.nom = nom;
@@ -217,7 +230,7 @@ const updateProjet = async (req, res) => {
     if (priorite) updateData.priorite = priorite;
 
     const projet = await prisma.projet.update({
-      where: { id },
+      where,
       data: updateData,
       include: {
         taches: true,
@@ -231,6 +244,7 @@ const updateProjet = async (req, res) => {
       message: 'Projet mis à jour avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Projet non trouvé' });
     }
@@ -247,11 +261,12 @@ const deleteProjet = async (req, res) => {
     const { id } = req.params;
 
     await prisma.projet.delete({
-      where: { id }
+      where: await projectWhere(req, id)
     });
 
     res.json({ success: true, message: 'Projet supprimé avec succès' });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Projet non trouvé' });
     }
@@ -263,9 +278,10 @@ const deleteProjet = async (req, res) => {
 /**
  * Obtenir les statistiques globales des projets
  */
-const getGlobalProjetStats = async (_req, res) => {
+const getGlobalProjetStats = async (req, res) => {
   try {
     const projets = await prisma.projet.findMany({
+      where: await projectWhere(req),
       include: {
         taches: true,
       },
@@ -294,6 +310,7 @@ const getGlobalProjetStats = async (_req, res) => {
       },
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération stats globales projets:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des statistiques globales' });
   }
@@ -306,8 +323,8 @@ const getProjetStats = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const projet = await prisma.projet.findUnique({
-      where: { id },
+    const projet = await prisma.projet.findFirst({
+      where: await projectWhere(req, id),
       include: {
         taches: true,
         jalons: true
@@ -363,6 +380,7 @@ const getProjetStats = async (req, res) => {
       data: stats,
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération stats projet:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des statistiques' });
   }

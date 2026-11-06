@@ -139,6 +139,10 @@ jobs:
       matrix:
         service:
           - services/auth-service
+          - services/customer-service
+          - services/project-service
+          - services/billing-service
+          - services/operational-request-service
     defaults:
       run:
         working-directory: ${{ matrix.service }}

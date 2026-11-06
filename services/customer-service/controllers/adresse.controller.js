@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../utils/scopedPrisma');
+const { respondScopeError } = require('../utils/enterpriseScope');
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
 const winston = require('winston');
@@ -18,12 +20,13 @@ const logger = winston.createLogger({
  */
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { clientId, typeAdresse } = req.query;
 
     const where = { clientId };
     if (typeAdresse) where.typeAdresse = typeAdresse;
 
-    const adresses = await prisma.adresseClient.findMany({
+    const adresses = await scoped.adresseClient.findMany({
       where,
       include: {
         client: {
@@ -46,6 +49,7 @@ exports.getAll = async (req, res) => {
       data: adresses
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des adresses:', error);
     res.status(500).json({
       success: false,
@@ -59,6 +63,7 @@ exports.getAll = async (req, res) => {
  */
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       logger.warn('Validation adresse en échec', {
@@ -106,7 +111,7 @@ exports.create = async (req, res) => {
     };
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: cleanData.clientId }
     });
 
@@ -119,7 +124,7 @@ exports.create = async (req, res) => {
 
     // If setting as principal for this type, unset other principal addresses of same type
     if (isPrincipal) {
-      await prisma.adresseClient.updateMany({
+      await scoped.adresseClient.updateMany({
         where: {
           clientId: cleanData.clientId,
           typeAdresse: cleanData.typeAdresse,
@@ -131,18 +136,14 @@ exports.create = async (req, res) => {
       });
     }
 
-    const { clientId: relatedClientId, ...adresseData } = cleanData;
-    const adresse = await prisma.adresseClient.create({
+    const adresse = await scoped.adresseClient.create({
       data: {
-        ...adresseData,
-        client: {
-          connect: { id: relatedClientId }
-        }
+        ...cleanData
       }
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: cleanData.clientId,
         typeChangement: 'CREATION',
@@ -170,6 +171,7 @@ exports.create = async (req, res) => {
       data: adresse
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création de l\'adresse:', {
       message: error?.message,
       stack: error?.stack,
@@ -187,9 +189,10 @@ exports.create = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const adresse = await prisma.adresseClient.findUnique({
+    const adresse = await scoped.adresseClient.findUnique({
       where: { id },
       include: {
         client: {
@@ -216,6 +219,7 @@ exports.getById = async (req, res) => {
       data: adresse
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération de l\'adresse:', error);
     res.status(500).json({
       success: false,
@@ -229,6 +233,7 @@ exports.getById = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       logger.warn('Validation mise à jour adresse en échec', {
@@ -245,13 +250,13 @@ exports.update = async (req, res) => {
 
     const { id } = req.params;
     const updateData = Object.fromEntries(
-      Object.entries(req.body || {}).map(([key, value]) => [
+      Object.entries(scalarData('adresseClient', req.body || {})).map(([key, value]) => [
         key,
         value === '' ? null : value
       ])
     );
 
-    const existingAdresse = await prisma.adresseClient.findUnique({
+    const existingAdresse = await scoped.adresseClient.findUnique({
       where: { id }
     });
 
@@ -263,8 +268,10 @@ exports.update = async (req, res) => {
     }
 
     // If setting as principal, unset other principal addresses of same type
+    assertParentUnchanged(updateData, 'clientId', existingAdresse);
+
     if (updateData.isPrincipal) {
-      await prisma.adresseClient.updateMany({
+      await scoped.adresseClient.updateMany({
         where: {
           clientId: existingAdresse.clientId,
           typeAdresse: existingAdresse.typeAdresse,
@@ -277,13 +284,13 @@ exports.update = async (req, res) => {
       });
     }
 
-    const adresse = await prisma.adresseClient.update({
+    const adresse = await scoped.adresseClient.update({
       where: { id },
       data: updateData
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: existingAdresse.clientId,
         typeChangement: 'MODIFICATION',
@@ -311,6 +318,7 @@ exports.update = async (req, res) => {
       data: adresse
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de l\'adresse:', error);
     
     if (error.code === 'P2025') {
@@ -332,9 +340,10 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const adresse = await prisma.adresseClient.findUnique({
+    const adresse = await scoped.adresseClient.findUnique({
       where: { id }
     });
 
@@ -345,7 +354,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // Create historique entry before deletion
       await tx.historiqueClient.create({
         data: {
@@ -376,6 +385,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression de l\'adresse:', error);
     
     if (error.code === 'P2025') {
@@ -397,9 +407,10 @@ exports.delete = async (req, res) => {
  */
 exports.setPrincipal = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const adresse = await prisma.adresseClient.findUnique({
+    const adresse = await scoped.adresseClient.findUnique({
       where: { id }
     });
 
@@ -410,7 +421,7 @@ exports.setPrincipal = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // Unset other principal addresses of same type
       await tx.adresseClient.updateMany({
         where: {
@@ -438,6 +449,7 @@ exports.setPrincipal = async (req, res) => {
       message: 'Adresse définie comme adresse principale'
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la modification de l\'adresse principale:', error);
     res.status(500).json({
       success: false,

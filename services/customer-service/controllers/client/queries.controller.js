@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError, resolveEnterpriseScope } = require('../../utils/enterpriseScope');
 // Gestion de la lecture des clients.
 const { prisma, logger, buildClientScopeWhere } = require('./shared');
 
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const {
       page = 1,
       limit = 20,
@@ -23,7 +26,8 @@ exports.getAll = async (req, res) => {
     const take = parseInt(limit);
 
     // Build dynamic where clause
-    const where = buildClientScopeWhere(req, enterpriseId, serviceId);
+    const { enterpriseId: activeEnterpriseId } = await resolveEnterpriseScope(req);
+    const where = buildClientScopeWhere(req, enterpriseId, serviceId, activeEnterpriseId);
 
     if (status) where.status = status;
     if (typeClientId) where.typeClientId = typeClientId;
@@ -52,7 +56,7 @@ exports.getAll = async (req, res) => {
     const order = sortOrder.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     const [clients, total] = await Promise.all([
-      prisma.client.findMany({
+      scoped.client.findMany({
         where,
         skip,
         take,
@@ -91,11 +95,11 @@ exports.getAll = async (req, res) => {
         },
         orderBy: { [sortField]: order }
       }),
-      prisma.client.count({ where })
+      scoped.client.count({ where })
     ]);
 
     // Calculate statistics
-    const stats = await prisma.client.groupBy({
+    const stats = await scoped.client.groupBy({
       by: ['status'],
       _count: true,
       where
@@ -133,6 +137,7 @@ exports.getAll = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des clients:', error);
     res.status(500).json({
       success: false,
@@ -148,9 +153,10 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id },
       include: {
         typeClient: true,
@@ -223,7 +229,7 @@ exports.getById = async (req, res) => {
 
     // Log view for analytics (ne pas bloquer la lecture si l'historique échoue)
     try {
-      await prisma.historiqueClient.create({
+      await scoped.historiqueClient.create({
         data: {
           clientId: id,
           typeChangement: 'CONSULTATION',
@@ -248,6 +254,7 @@ exports.getById = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération du client:', error);
     res.status(500).json({
       success: false,

@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
+const { projectWhere, childWhere, assertImmutableReference, sendAccessError } = require('../utils/enterpriseScope');
 
 const prisma = new PrismaClient();
 
@@ -34,10 +35,13 @@ const createJalon = async (req, res) => {
     }
 
     const { projetId, nom, description, dateEcheance, status } = req.body;
+    const parentWhere = await projectWhere(req, projetId);
+    const parent = await prisma.projet.findFirst({ where: parentWhere });
+    if (!parent) return res.status(404).json({ error: 'Projet non trouvé' });
 
     const jalon = await prisma.jalon.create({
       data: {
-        projetId,
+        projet: { connect: parentWhere },
         nom,
         description,
         dateEcheance: new Date(dateEcheance),
@@ -60,6 +64,7 @@ const createJalon = async (req, res) => {
       message: 'Jalon créé avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur création jalon:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création du jalon' });
   }
@@ -72,7 +77,7 @@ const getAllJalons = async (req, res) => {
   try {
     const { projetId, projectId, status, page = 1, limit = 10, sortBy = 'dateEcheance', sortOrder = 'asc' } = req.query;
 
-    const where = {};
+    const where = await childWhere(req);
     if (projetId || projectId) where.projetId = projetId || projectId;
     if (status) where.status = status;
 
@@ -118,6 +123,7 @@ const getAllJalons = async (req, res) => {
       }
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération jalons:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des jalons' });
   }
@@ -130,8 +136,8 @@ const getJalonById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const jalon = await prisma.jalon.findUnique({
-      where: { id },
+    const jalon = await prisma.jalon.findFirst({
+      where: await childWhere(req, id),
       include: {
         projet: true
       }
@@ -146,6 +152,7 @@ const getJalonById = async (req, res) => {
       data: serializeJalon(jalon),
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération jalon:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération du jalon' });
   }
@@ -158,6 +165,10 @@ const updateJalon = async (req, res) => {
   try {
     const { id } = req.params;
     const { nom, description, dateEcheance, status } = req.body;
+    const where = await childWhere(req, id);
+    const existing = await prisma.jalon.findFirst({ where });
+    if (!existing) return res.status(404).json({ error: 'Jalon non trouvé' });
+    assertImmutableReference(req.body, ['projetId', 'projectId'], existing.projetId);
 
     const updateData = {};
     if (nom) updateData.nom = nom;
@@ -166,7 +177,7 @@ const updateJalon = async (req, res) => {
     if (status) updateData.status = status;
 
     const jalon = await prisma.jalon.update({
-      where: { id },
+      where,
       data: updateData,
       include: {
         projet: true
@@ -179,6 +190,7 @@ const updateJalon = async (req, res) => {
       message: 'Jalon mis à jour avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });
     }
@@ -195,11 +207,12 @@ const deleteJalon = async (req, res) => {
     const { id } = req.params;
 
     await prisma.jalon.delete({
-      where: { id }
+      where: await childWhere(req, id)
     });
 
     res.json({ success: true, message: 'Jalon supprimé avec succès' });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });
     }
@@ -221,7 +234,7 @@ const updateJalonStatus = async (req, res) => {
     }
 
     const jalon = await prisma.jalon.update({
-      where: { id },
+      where: await childWhere(req, id),
       data: { status },
       include: {
         projet: true
@@ -234,6 +247,7 @@ const updateJalonStatus = async (req, res) => {
       message: 'Statut du jalon mis à jour avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Jalon non trouvé' });
     }

@@ -227,6 +227,7 @@ export default function ComptesPage() {
       <CreateAccountingAccountDialog
         open={editDialogOpen && canUpdate}
         onOpenChange={setEditDialogOpen}
+        mode="edit"
         title="Modifier le compte comptable"
         submitLabel="Mettre à jour"
         initialValues={{

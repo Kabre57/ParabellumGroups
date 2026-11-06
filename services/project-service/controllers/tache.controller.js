@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { validationResult } = require('express-validator');
+const { projectWhere, childWhere, assertImmutableReference, sendAccessError } = require('../utils/enterpriseScope');
+const { assertAssigneeInEnterprise } = require('../utils/enterpriseReferences');
 
 const prisma = new PrismaClient();
 
@@ -68,9 +70,13 @@ const createTache = async (req, res) => {
       priorite 
     } = req.body;
 
+    const parentWhere = await projectWhere(req, projetId);
+    const parent = await prisma.projet.findFirst({ where: parentWhere });
+    if (!parent) return res.status(404).json({ error: 'Projet non trouvé' });
+
     const tache = await prisma.tache.create({
       data: {
-        projetId,
+        projet: { connect: parentWhere },
         titre,
         description,
         dateDebut: dateDebut ? new Date(dateDebut) : null,
@@ -97,6 +103,7 @@ const createTache = async (req, res) => {
       message: 'Tâche créée avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur création tâche:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la création de la tâche' });
   }
@@ -109,7 +116,7 @@ const getAllTaches = async (req, res) => {
   try {
     const { projetId, projectId, status, priority, priorite, userId, assignedToId, page = 1, limit = 10, sortBy = 'updatedAt', sortOrder = 'desc' } = req.query;
 
-    const where = {};
+    const where = await childWhere(req);
     if (projetId || projectId) where.projetId = projetId || projectId;
     if (status) {
       const requestedStatus = Object.entries(taskStatusMap).find(([, frontendStatus]) => frontendStatus === status);
@@ -172,6 +179,7 @@ const getAllTaches = async (req, res) => {
       }
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération tâches:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des tâches' });
   }
@@ -184,8 +192,8 @@ const getTacheById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const tache = await prisma.tache.findUnique({
-      where: { id },
+    const tache = await prisma.tache.findFirst({
+      where: await childWhere(req, id),
       include: {
         projet: true,
         assignations: true
@@ -201,6 +209,7 @@ const getTacheById = async (req, res) => {
       data: serializeTache(tache),
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur récupération tâche:', error);
     res.status(500).json({ error: 'Erreur serveur lors de la récupération de la tâche' });
   }
@@ -212,6 +221,10 @@ const getTacheById = async (req, res) => {
 const updateTache = async (req, res) => {
   try {
     const { id } = req.params;
+    const where = await childWhere(req, id);
+    const existing = await prisma.tache.findFirst({ where });
+    if (!existing) return res.status(404).json({ error: 'Tâche non trouvée' });
+    assertImmutableReference(req.body, ['projetId', 'projectId'], existing.projetId);
     const { 
       titre, 
       description, 
@@ -234,7 +247,7 @@ const updateTache = async (req, res) => {
     if (priorite) updateData.priorite = priorite;
 
     const tache = await prisma.tache.update({
-      where: { id },
+      where,
       data: updateData,
       include: {
         projet: true,
@@ -248,6 +261,7 @@ const updateTache = async (req, res) => {
       message: 'Tâche mise à jour avec succès',
     });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tâche non trouvée' });
     }
@@ -264,11 +278,12 @@ const deleteTache = async (req, res) => {
     const { id } = req.params;
 
     await prisma.tache.delete({
-      where: { id }
+      where: await childWhere(req, id)
     });
 
     res.json({ success: true, message: 'Tâche supprimée avec succès' });
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tâche non trouvée' });
     }
@@ -289,18 +304,21 @@ const assignTache = async (req, res) => {
       return res.status(400).json({ error: 'userId est requis' });
     }
 
-    const tache = await prisma.tache.findUnique({
-      where: { id }
+    const where = await childWhere(req, id);
+    const tache = await prisma.tache.findFirst({
+      where,
+      include: { projet: true },
     });
 
     if (!tache) {
       return res.status(404).json({ error: 'Tâche non trouvée' });
     }
+    await assertAssigneeInEnterprise(req, userId, where.projet.enterpriseId);
 
     const assignation = await prisma.tacheAssignation.create({
       data: {
-        tacheId: id,
-        userId,
+        tache: { connect: where },
+        userId: String(userId),
         role: role || null
       },
       include: {
@@ -314,6 +332,7 @@ const assignTache = async (req, res) => {
 
     res.status(201).json(assignation);
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Utilisateur déjà assigné à cette tâche' });
     }
@@ -328,16 +347,21 @@ const assignTache = async (req, res) => {
 const unassignTache = async (req, res) => {
   try {
     const { id, userId } = req.params;
+    const where = await childWhere(req, id);
+    const tache = await prisma.tache.findFirst({ where });
+    if (!tache) return res.status(404).json({ error: 'Tâche non trouvée' });
 
     await prisma.tacheAssignation.deleteMany({
       where: {
         tacheId: id,
-        userId
+        userId,
+        tache: { projet: where.projet },
       }
     });
 
     res.status(204).send();
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     console.error('Erreur retrait assignation tâche:', error);
     res.status(500).json({ error: 'Erreur serveur lors du retrait de l\'assignation' });
   }
@@ -360,7 +384,7 @@ const completeTache = async (req, res) => {
     }
 
     const tache = await prisma.tache.update({
-      where: { id },
+      where: await childWhere(req, id),
       data: updateData,
       include: {
         projet: true,
@@ -370,6 +394,7 @@ const completeTache = async (req, res) => {
 
     res.json(tache);
   } catch (error) {
+    if (sendAccessError(error, res)) return;
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tâche non trouvée' });
     }

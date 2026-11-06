@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Creation des contrats et gestion de leurs statuts.
 const { prisma, logger, generateContratNumber, generateContratReference, validationResult } = require('./shared');
 
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -36,7 +39,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: clientId }
     });
 
@@ -53,7 +56,7 @@ exports.create = async (req, res) => {
       generateContratReference()
     ]);
 
-    const contrat = await prisma.$transaction(async (tx) => {
+    const contrat = await scoped.$transaction(async (tx) => {
       const newContrat = await tx.contrat.create({
         data: {
           clientId,
@@ -124,6 +127,7 @@ exports.create = async (req, res) => {
       data: contrat
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création du contrat:', error);
 
     if (error.code === 'P2002') {
@@ -147,6 +151,7 @@ exports.create = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { status, motif } = req.body;
 
@@ -160,7 +165,7 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
-    const contrat = await prisma.$transaction(async (tx) => {
+    const contrat = await scoped.$transaction(async (tx) => {
       const oldContrat = await tx.contrat.findUnique({
         where: { id },
         include: { client: true }
@@ -213,6 +218,7 @@ exports.updateStatus = async (req, res) => {
       data: contrat
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du status:', error);
 
     if (error.message === 'Contrat non trouvé' || error.code === 'P2025') {

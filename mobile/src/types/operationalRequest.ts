@@ -9,6 +9,8 @@ export type OperationalRequestStatus =
   | 'DISBURSED'
   | 'CLOSED';
 
+export type ViewFilter = 'mine' | 'review' | 'finance' | 'all';
+
 export type Attachment = {
   id: string;
   fileName: string;
@@ -29,6 +31,8 @@ export type OperationalRequestLog = {
   comment?: string | null;
   createdAt: string;
 };
+
+export type ApprovalLog = OperationalRequestLog;
 
 export type OperationalRequest = {
   id: string;

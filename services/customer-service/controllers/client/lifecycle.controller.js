@@ -1,8 +1,11 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Gestion de la modification et l’archivage des clients.
 const { prisma, logger, validationResult, syncMissionsFromClientAddress, normalizeOptionalValue, toJsonSafe, parseScopedInteger } = require('./shared');
 
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -12,7 +15,7 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('client', req.body);
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'enterpriseId')) {
       updateData.enterpriseId = parseScopedInteger(updateData.enterpriseId);
@@ -22,7 +25,7 @@ exports.update = async (req, res) => {
     }
 
     // Check if client exists
-    const existingClient = await prisma.client.findUnique({
+    const existingClient = await scoped.client.findUnique({
       where: { id }
     });
 
@@ -45,7 +48,7 @@ exports.update = async (req, res) => {
     }
     dataToUpdate.updatedBy = req.user.id;
 
-    const client = await prisma.$transaction(async (tx) => {
+    const client = await scoped.$transaction(async (tx) => {
       const oldClient = { ...existingClient };
 
       const updatedClient = await tx.client.update({
@@ -99,6 +102,7 @@ exports.update = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du client:', error);
 
     if (error.code === 'P2002') {
@@ -129,6 +133,7 @@ exports.update = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { status, raison } = req.body;
 
@@ -142,7 +147,7 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
-    const client = await prisma.$transaction(async (tx) => {
+    const client = await scoped.$transaction(async (tx) => {
       const oldClient = await tx.client.findUnique({
         where: { id }
       });
@@ -193,6 +198,7 @@ exports.updateStatus = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du status client:', error);
 
     if (error.message === 'Client non trouvé' || error.code === 'P2025') {
@@ -216,6 +222,7 @@ exports.updateStatus = async (req, res) => {
 
 exports.updatePriority = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { priorite, raison } = req.body;
 
@@ -229,7 +236,7 @@ exports.updatePriority = async (req, res) => {
       });
     }
 
-    const client = await prisma.$transaction(async (tx) => {
+    const client = await scoped.$transaction(async (tx) => {
       const oldClient = await tx.client.findUnique({
         where: { id }
       });
@@ -270,6 +277,7 @@ exports.updatePriority = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de la priorité:', error);
 
     if (error.message === 'Client non trouvé') {
@@ -293,10 +301,11 @@ exports.updatePriority = async (req, res) => {
 
 exports.archive = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
     const { raison } = req.body;
 
-    const client = await prisma.$transaction(async (tx) => {
+    const client = await scoped.$transaction(async (tx) => {
       const existingClient = await tx.client.findUnique({
         where: { id }
       });
@@ -344,6 +353,7 @@ exports.archive = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de l\'archivage du client:', error);
 
     if (error.message === 'Client non trouvé') {

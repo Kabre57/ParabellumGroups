@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Creation, modification et suppression des secteurs.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -23,7 +26,7 @@ exports.create = async (req, res) => {
 
     // Check if codeActivite already exists
     if (codeActivite) {
-      const existingSecteur = await prisma.secteurActivite.findUnique({
+      const existingSecteur = await scoped.secteurActivite.findUnique({
         where: { codeActivite }
       });
 
@@ -38,7 +41,7 @@ exports.create = async (req, res) => {
     // Calculate level based on parent
     let niveau = 1;
     if (parentId) {
-      const parent = await prisma.secteurActivite.findUnique({
+      const parent = await scoped.secteurActivite.findUnique({
         where: { id: parentId }
       });
 
@@ -52,7 +55,7 @@ exports.create = async (req, res) => {
       niveau = parent.niveau + 1;
     }
 
-    const secteur = await prisma.secteurActivite.create({
+    const secteur = await scoped.secteurActivite.create({
       data: {
         codeActivite,
         libelle,
@@ -83,6 +86,7 @@ exports.create = async (req, res) => {
       data: secteur
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création du secteur:', error);
 
     if (error.code === 'P2002') {
@@ -105,6 +109,7 @@ exports.create = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -114,9 +119,9 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('secteurActivite', req.body);
 
-    const existingSecteur = await prisma.secteurActivite.findUnique({
+    const existingSecteur = await scoped.secteurActivite.findUnique({
       where: { id }
     });
 
@@ -132,7 +137,7 @@ exports.update = async (req, res) => {
       let nouveauNiveau = 1;
 
       if (updateData.parentId) {
-        const nouveauParent = await prisma.secteurActivite.findUnique({
+        const nouveauParent = await scoped.secteurActivite.findUnique({
           where: { id: updateData.parentId }
         });
 
@@ -169,7 +174,7 @@ exports.update = async (req, res) => {
       await updateChildrenLevels(id, nouveauNiveau + 1);
     }
 
-    const secteur = await prisma.secteurActivite.update({
+    const secteur = await scoped.secteurActivite.update({
       where: { id },
       data: updateData
     });
@@ -185,6 +190,7 @@ exports.update = async (req, res) => {
       data: secteur
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour du secteur:', error);
 
     if (error.code === 'P2025') {
@@ -213,10 +219,11 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
     // Check if sector has clients
-    const clientCount = await prisma.client.count({
+    const clientCount = await scoped.client.count({
       where: { secteurActiviteId: id }
     });
 
@@ -229,7 +236,7 @@ exports.delete = async (req, res) => {
     }
 
     // Check if sector has children
-    const childrenCount = await prisma.secteurActivite.count({
+    const childrenCount = await scoped.secteurActivite.count({
       where: { parentId: id }
     });
 
@@ -241,7 +248,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.secteurActivite.delete({
+    await scoped.secteurActivite.delete({
       where: { id }
     });
 
@@ -252,6 +259,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression du secteur:', error);
 
     if (error.code === 'P2025') {

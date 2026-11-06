@@ -1,3 +1,5 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Consultation et recherche des contacts clients.
 const { prisma, logger, validationResult, normalizeOptionalString, normalizeContactPayload } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult, normalizeOptionalString, normalizeCont
  */
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const {
       clientId,
       type,
@@ -37,7 +40,7 @@ exports.getAll = async (req, res) => {
     }
 
     const [contacts, total] = await Promise.all([
-      prisma.contact.findMany({
+      scoped.contact.findMany({
         where,
         skip,
         take,
@@ -61,7 +64,7 @@ exports.getAll = async (req, res) => {
           { prenom: 'asc' }
         ]
       }),
-      prisma.contact.count({ where })
+      scoped.contact.count({ where })
     ]);
 
     res.json({
@@ -77,6 +80,7 @@ exports.getAll = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des contacts:', error);
     res.status(500).json({
       success: false,
@@ -91,9 +95,10 @@ exports.getAll = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const contact = await prisma.contact.findUnique({
+    const contact = await scoped.contact.findUnique({
       where: { id },
       include: {
         client: {
@@ -130,6 +135,7 @@ exports.getById = async (req, res) => {
       data: contact
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération du contact:', error);
     res.status(500).json({
       success: false,

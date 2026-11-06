@@ -1,3 +1,5 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Consultation, recherche et statistiques des secteurs.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { parentId, niveau, search } = req.query;
 
     const where = {};
@@ -26,7 +29,7 @@ exports.getAll = async (req, res) => {
       ];
     }
 
-    const secteurs = await prisma.secteurActivite.findMany({
+    const secteurs = await scoped.secteurActivite.findMany({
       where,
       include: {
         parent: {
@@ -62,6 +65,7 @@ exports.getAll = async (req, res) => {
       data: secteurs
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des secteurs:', error);
     res.status(500).json({
       success: false,
@@ -76,9 +80,10 @@ exports.getAll = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const secteur = await prisma.secteurActivite.findUnique({
+    const secteur = await scoped.secteurActivite.findUnique({
       where: { id },
       include: {
         parent: {
@@ -130,6 +135,7 @@ exports.getById = async (req, res) => {
       data: secteur
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération du secteur:', error);
     res.status(500).json({
       success: false,
@@ -144,13 +150,14 @@ exports.getById = async (req, res) => {
  */
 exports.getStats = async (req, res) => {
   try {
-    const stats = await prisma.secteurActivite.groupBy({
+    const scoped = await scopedPrisma(req, prisma);
+    const stats = await scoped.secteurActivite.groupBy({
       by: ['niveau'],
       _count: true,
       orderBy: { niveau: 'asc' }
     });
 
-    const clientsBySecteur = await prisma.secteurActivite.findMany({
+    const clientsBySecteur = await scoped.secteurActivite.findMany({
       select: {
         id: true,
         libelle: true,
@@ -171,8 +178,8 @@ exports.getStats = async (req, res) => {
       data: {
         byLevel: stats,
         clientsDistribution: clientsBySecteur.filter(s => s._count.clients > 0),
-        totalSecteurs: await prisma.secteurActivite.count(),
-        totalWithClients: await prisma.secteurActivite.count({
+        totalSecteurs: await scoped.secteurActivite.count(),
+        totalWithClients: await scoped.secteurActivite.count({
           where: {
             clients: {
               some: {}
@@ -182,6 +189,7 @@ exports.getStats = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des statistiques des secteurs:', error);
     res.status(500).json({
       success: false,
@@ -195,6 +203,7 @@ exports.getStats = async (req, res) => {
  */
 exports.search = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { q, limit = 10 } = req.query;
 
     if (!q || q.length < 2) {
@@ -204,7 +213,7 @@ exports.search = async (req, res) => {
       });
     }
 
-    const secteurs = await prisma.secteurActivite.findMany({
+    const secteurs = await scoped.secteurActivite.findMany({
       where: {
         OR: [
           { libelle: { contains: q, mode: 'insensitive' } },
@@ -250,6 +259,7 @@ exports.search = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la recherche des secteurs:', error);
     res.status(500).json({
       success: false,

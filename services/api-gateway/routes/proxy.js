@@ -36,7 +36,7 @@ const buildPathRewrite = (pathRewriteConfig) => {
 /**
  * Cree un middleware proxy avec configuration de base
  */
-const createProxy = (target, pathRewriteConfig = {}) => {
+const createProxy = (target, pathRewriteConfig = {}, { enterpriseFallback = true } = {}) => {
   const proxyConfig = {
     target,
     changeOrigin: true,
@@ -75,9 +75,9 @@ const createProxy = (target, pathRewriteConfig = {}) => {
 
       // Propagate X-Enterprise-Id from incoming request (or fallback to JWT user enterpriseId)
       const enterpriseIdHeader = req.headers['x-enterprise-id'];
-      if (enterpriseIdHeader) {
+      if (enterpriseIdHeader !== undefined) {
         proxyReq.setHeader('X-Enterprise-Id', enterpriseIdHeader.toString());
-      } else if (req.user?.enterpriseId) {
+      } else if (enterpriseFallback && req.user?.enterpriseId) {
         proxyReq.setHeader('X-Enterprise-Id', req.user.enterpriseId.toString());
       }
 
@@ -183,7 +183,12 @@ const registerServiceRoutes = (serviceConfig) => {
     }
 
     const routePathRewrite = route.pathRewrite || pathRewrite;
-    middlewares.push(createProxy(basePath, routePathRewrite));
+    // Browser assets carry their owner in the stored URL and are checked by
+    // auth-service. A JWT fallback would invent a conflicting active company
+    // when an authorized user opens a subsidiary's logo or attachment.
+    middlewares.push(createProxy(basePath, routePathRewrite, {
+      enterpriseFallback: route.authCookie !== 'storage',
+    }));
 
     if (route.method) {
       router[route.method](route.path, ...middlewares);

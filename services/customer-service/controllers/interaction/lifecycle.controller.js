@@ -1,3 +1,5 @@
+const { scopedPrisma, scalarData, assertParentUnchanged } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Creation, modification et suppression des interactions.
 const { prisma, logger, validationResult } = require('./shared');
 
@@ -6,6 +8,7 @@ const { prisma, logger, validationResult } = require('./shared');
  */
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -33,7 +36,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     // Verify client exists
-    const client = await prisma.client.findUnique({
+    const client = await scoped.client.findUnique({
       where: { id: clientId }
     });
 
@@ -46,7 +49,7 @@ exports.create = async (req, res) => {
 
     // Verify contact exists if provided
     if (contactId) {
-      const contact = await prisma.contact.findUnique({
+      const contact = await scoped.contact.findUnique({
         where: { id: contactId }
       });
 
@@ -58,7 +61,7 @@ exports.create = async (req, res) => {
       }
     }
 
-    const interaction = await prisma.interactionClient.create({
+    const interaction = await scoped.interactionClient.create({
       data: {
         clientId,
         contactId,
@@ -96,7 +99,7 @@ exports.create = async (req, res) => {
     });
 
     // Update client's last interaction date
-    await prisma.client.update({
+    await scoped.client.update({
       where: { id: clientId },
       data: {
         dateDerniereInteraction: new Date()
@@ -104,7 +107,7 @@ exports.create = async (req, res) => {
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId,
         typeChangement: 'CREATION',
@@ -131,6 +134,7 @@ exports.create = async (req, res) => {
       data: interaction
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création de l\'interaction:', error);
     res.status(500).json({
       success: false,
@@ -144,6 +148,7 @@ exports.create = async (req, res) => {
  */
 exports.update = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -153,9 +158,9 @@ exports.update = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = scalarData('interactionClient', req.body);
 
-    const existingInteraction = await prisma.interactionClient.findUnique({
+    const existingInteraction = await scoped.interactionClient.findUnique({
       where: { id }
     });
 
@@ -177,13 +182,13 @@ exports.update = async (req, res) => {
       updateData.dureeMinutes = parseInt(updateData.dureeMinutes);
     }
 
-    const interaction = await prisma.interactionClient.update({
+    const interaction = await scoped.interactionClient.update({
       where: { id },
       data: updateData
     });
 
     // Create historique entry
-    await prisma.historiqueClient.create({
+    await scoped.historiqueClient.create({
       data: {
         clientId: existingInteraction.clientId,
         typeChangement: 'MODIFICATION',
@@ -209,6 +214,7 @@ exports.update = async (req, res) => {
       data: interaction
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la mise à jour de l\'interaction:', error);
 
     if (error.code === 'P2025') {
@@ -230,9 +236,10 @@ exports.update = async (req, res) => {
  */
 exports.delete = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const interaction = await prisma.interactionClient.findUnique({
+    const interaction = await scoped.interactionClient.findUnique({
       where: { id }
     });
 
@@ -243,7 +250,7 @@ exports.delete = async (req, res) => {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await scoped.$transaction(async (tx) => {
       // Create historique entry before deletion
       await tx.historiqueClient.create({
         data: {
@@ -272,6 +279,7 @@ exports.delete = async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la suppression de l\'interaction:', error);
 
     if (error.code === 'P2025') {

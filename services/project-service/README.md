@@ -240,6 +240,92 @@ Le service écoute par défaut sur le port **4008**.
 - CORS configuré
 - Validation des entrées avec express-validator
 
+### Périmètre entreprise
+
+Chaque requête métier utilise une seule entreprise. `X-Enterprise-Id`,
+`query.enterpriseId` et `body.enterpriseId`, lorsqu’ils sont fournis, doivent
+être des entiers positifs identiques. Sinon la requête reçoit `400`. En
+l’absence de sélection, l’entreprise du JWT est utilisée. Un compte ordinaire
+doit être rattaché à une entreprise et peut sélectionner cette entreprise ou
+une filiale active accessible. Les rôles administrateurs reconnus et la
+permission explicite `enterprises.read_all` peuvent sélectionner une autre
+entreprise active. `enterprises.read` seul n’ouvre pas d’accès global.
+
+Le service vérifie la hiérarchie auprès de `AUTH_SERVICE_URL` avec le jeton
+Bearer du demandeur et un délai de cinq secondes, sans cache entre
+utilisateurs. L’échec de cette vérification renvoie `503`, sans élargir la
+lecture. Une sélection inaccessible renvoie `403`; une ressource d’une autre
+entreprise renvoie `404`, y compris ses tâches, jalons et assignations.
+Les listes, compteurs et statistiques appliquent la même restriction.
+Les écritures ne déplacent ni l’entreprise ni le parent d’une ressource.
+
+Un nouveau projet exige un client CRM de l’entreprise active. Une assignation
+exige un utilisateur actif rattaché à cette même entreprise. Les références
+sont contrôlées par appel Bearer à `CUSTOMERS_SERVICE_URL` et
+`AUTH_SERVICE_URL`. Configurez ces URL pour les exécutions hors Docker
+(valeurs par défaut: `http://customer-service:4008` et
+`http://auth-service:4001`). Si l’API auth refuse la consultation d’un
+utilisateur de filiale, l’assignation est refusée; aucun contournement n’est
+effectué.
+
+### Migration et données historiques
+
+La migration `20261106120000_scope_projects_to_enterprises` ajoute seulement
+`Projet.enterpriseId` nullable et son index. Elle ne supprime, ne réaffecte et
+ne rattache aucune donnée existante. Les projets dont `enterpriseId` vaut
+`null`, ainsi que leurs enfants, sont masqués de tous les contextes ordinaires,
+y compris des administrateurs. Avant le déploiement, sauvegardez les données
+et préparez leur rattachement vérifié; ne choisissez pas une entreprise par
+défaut.
+
+Le script `scripts/backfill-project-enterprises.js` exige un manifeste relu et
+vérifie chaque projet historique, son client CRM et l’entreprise active avant
+toute écriture. Exemple de fichier JSON :
+
+```json
+[
+  { "projectId": "projet-uuid", "clientId": "client-crm-uuid", "enterpriseId": 7 }
+]
+```
+
+Depuis le dossier du service, après application explicite de la migration et
+génération du client Prisma dans l’environnement choisi :
+
+```sh
+# DATABASE_URL, AUTH_SERVICE_URL, CUSTOMERS_SERVICE_URL et
+# PROJECT_BACKFILL_TOKEN sont configurés dans l’environnement.
+# Le jeton doit appartenir à un compte global actif; ne le commitez pas.
+node scripts/backfill-project-enterprises.js --mapping mapping-verifie.json
+
+# Seulement après revue de la prévisualisation et sauvegarde :
+node scripts/backfill-project-enterprises.js --mapping mapping-verifie.json --apply
+```
+
+Sans `--apply`, le script effectue uniquement des lectures et produit un
+rapport JSON. Avec `--apply`, tout le manifeste est d’abord vérifié, puis les
+changements sont appliqués dans une transaction. Chaque mise à jour exige
+toujours le client attendu et `enterpriseId = null`; un rattachement existant
+ou un changement concurrent fait échouer le lot. Les tâches et jalons
+héritent du périmètre du projet et ne nécessitent aucune attribution séparée.
+Le script vérifie aussi que tous les utilisateurs déjà assignés aux tâches
+sont actifs et appartiennent à l’entreprise du manifeste. Une assignation
+étrangère ou inactive bloque le lot avant toute écriture. Le script ne
+réécrit pas les assignations existantes : elles doivent être revues et
+corrigées séparément avant de relancer la prévisualisation.
+
+### Vérification locale sans base de données
+
+```sh
+pnpm test
+```
+
+Les tests exécutent les contrôleurs avec un double de Prisma et des réponses
+HTTP contrôlées. Ils couvrent deux entreprises, une filiale, les ressources
+historiques non rattachées, les écritures et références étrangères, les
+statistiques, la panne auth et la prévisualisation du rattachement. Ils ne
+remplacent pas une validation PostgreSQL et des parcours HTTP sur une copie
+de l’environnement.
+
 ## Auteurs
 
 Parabellum Team

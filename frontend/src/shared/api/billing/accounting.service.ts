@@ -251,7 +251,7 @@ export const accountingService = {
   async createAccountingAccount(data: {
     code: string;
     label: string;
-    type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+    type?: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
     description?: string;
     openingBalance?: number;
   }): Promise<DetailResponse<AccountingAccount>> {

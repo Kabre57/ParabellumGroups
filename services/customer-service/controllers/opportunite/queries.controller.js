@@ -1,8 +1,11 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError } = require('../../utils/enterpriseScope');
 // Gestion de lecture et statistiques des opportunit?s.
 const { prisma, logger } = require('./shared');
 
 exports.getAll = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const {
       clientId,
       etape,
@@ -52,7 +55,7 @@ exports.getAll = async (req, res) => {
     const order = sortOrder.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     const [opportunites, total] = await Promise.all([
-      prisma.opportunite.findMany({
+      scoped.opportunite.findMany({
         where,
         skip,
         take,
@@ -85,11 +88,11 @@ exports.getAll = async (req, res) => {
         },
         orderBy: { [sortField]: order }
       }),
-      prisma.opportunite.count({ where })
+      scoped.opportunite.count({ where })
     ]);
 
     // Calculate pipeline value
-    const pipelineValue = await prisma.opportunite.aggregate({
+    const pipelineValue = await scoped.opportunite.aggregate({
       where: { ...where, statut: 'OUVERTE' },
       _sum: {
         montantEstime: true
@@ -110,6 +113,7 @@ exports.getAll = async (req, res) => {
       }
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des opportunités:', error);
     res.status(500).json({
       success: false,
@@ -124,9 +128,10 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { id } = req.params;
 
-    const opportunite = await prisma.opportunite.findUnique({
+    const opportunite = await scoped.opportunite.findUnique({
       where: { id },
       include: {
         client: {
@@ -155,6 +160,7 @@ exports.getById = async (req, res) => {
       data: opportunite
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération de l\'opportunité:', error);
     res.status(500).json({
       success: false,
@@ -169,6 +175,7 @@ exports.getById = async (req, res) => {
 
 exports.getPipelineStats = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
     const { commercialId, startDate, endDate } = req.query;
 
     const where = {};
@@ -188,7 +195,7 @@ exports.getPipelineStats = async (req, res) => {
       conversionRate,
       averageDuration
     ] = await Promise.all([
-      prisma.opportunite.groupBy({
+      scoped.opportunite.groupBy({
         by: ['etape'],
         _count: true,
         _sum: {
@@ -197,7 +204,7 @@ exports.getPipelineStats = async (req, res) => {
         where: { ...where, statut: 'OUVERTE' }
       }),
 
-      prisma.opportunite.groupBy({
+      scoped.opportunite.groupBy({
         by: ['statut'],
         _count: true,
         _sum: {
@@ -206,14 +213,14 @@ exports.getPipelineStats = async (req, res) => {
         where
       }),
 
-      prisma.opportunite.aggregate({
+      scoped.opportunite.aggregate({
         where: { ...where, statut: 'OUVERTE' },
         _sum: {
           montantEstime: true
         }
       }),
 
-      prisma.opportunite.aggregate({
+      scoped.opportunite.aggregate({
         where: { ...where, statut: 'GAGNEE' },
         _sum: {
           montantEstime: true
@@ -222,11 +229,11 @@ exports.getPipelineStats = async (req, res) => {
 
       // Calculate conversion rate
       (async () => {
-        const total = await prisma.opportunite.count({
+        const total = await scoped.opportunite.count({
           where: { ...where, statut: { in: ['GAGNEE', 'PERDUE'] } }
         });
 
-        const won = await prisma.opportunite.count({
+        const won = await scoped.opportunite.count({
           where: { ...where, statut: 'GAGNEE' }
         });
 
@@ -234,7 +241,7 @@ exports.getPipelineStats = async (req, res) => {
       })(),
 
       // Calculate average duration (days from creation to closure for won opportunities)
-      prisma.opportunite.aggregate({
+      scoped.opportunite.aggregate({
         where: { ...where, statut: 'GAGNEE', createdAt: { not: null } },
         _avg: {
           // This would need a closedAt field to calculate accurately
@@ -270,6 +277,7 @@ exports.getPipelineStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la récupération des statistiques du pipeline:', error);
     res.status(500).json({
       success: false,

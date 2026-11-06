@@ -1,8 +1,12 @@
+const { scopedPrisma } = require('../../utils/scopedPrisma');
+const { respondScopeError, resolveEnterpriseScope, importEnterpriseId } = require('../../utils/enterpriseScope');
 // Gestion de la création et l’import de clients.
-const { prisma, logger, validationResult, toJsonSafe, parseScopedInteger, normalizeImportKey, buildImportRowMap, pickImportValue, parseImportNumber, parseImportInteger, parseImportEnum, compactImportData, isValidImportEmail } = require('./shared');
+const { prisma, logger, validationResult, toJsonSafe, parseScopedInteger, normalizeImportKey, buildImportRowMap, pickImportValue, parseImportNumber, parseImportInteger, parseImportEnum, compactImportData, isValidImportEmail, generateClientReference } = require('./shared');
 
 exports.create = async (req, res) => {
   try {
+    const scoped = await scopedPrisma(req, prisma);
+    const { enterpriseId: activeEnterpriseId } = await resolveEnterpriseScope(req);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -37,7 +41,7 @@ exports.create = async (req, res) => {
     } = req.body;
 
     // Check if email already exists
-    const existingClient = await prisma.client.findUnique({
+    const existingClient = await scoped.client.findUnique({
       where: { email }
     });
 
@@ -52,7 +56,7 @@ exports.create = async (req, res) => {
     const reference = await generateClientReference();
 
     // Create client with transaction
-    const client = await prisma.$transaction(async (tx) => {
+    const client = await scoped.$transaction(async (tx) => {
       const newClient = await tx.client.create({
         data: {
           reference,
@@ -76,7 +80,7 @@ exports.create = async (req, res) => {
           effectif: effectif ? parseInt(effectif) : null,
           prospectId,
           commercialId,
-          enterpriseId: parseScopedInteger(enterpriseId) ?? parseScopedInteger(req.user?.enterpriseId),
+          enterpriseId: activeEnterpriseId,
           serviceId: parseScopedInteger(serviceId) ?? parseScopedInteger(req.user?.serviceId),
           datePremierContact: new Date(),
           createdBy: req.user.id,
@@ -129,6 +133,7 @@ exports.create = async (req, res) => {
       data: client
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de la création du client:', error);
 
     if (error.code === 'P2002') {
@@ -171,7 +176,9 @@ exports.importClients = async (req, res) => {
   };
 
   try {
-    const typeClients = await prisma.typeClient.findMany({
+    const scoped = await scopedPrisma(req, prisma);
+    const { enterpriseId: activeEnterpriseId } = await resolveEnterpriseScope(req);
+    const typeClients = await scoped.typeClient.findMany({
       where: { isActive: true },
       orderBy: [{ ordre: 'asc' }, { libelle: 'asc' }]
     });
@@ -229,7 +236,7 @@ exports.importClients = async (req, res) => {
           'Source'
         );
 
-        const existingClient = await prisma.client.findUnique({
+        const existingClient = await scoped.client.findUnique({
           where: { email }
         });
 
@@ -246,7 +253,7 @@ exports.importClients = async (req, res) => {
           throw new Error('Aucun type client actif disponible');
         }
 
-        const rowEnterpriseId = parseScopedInteger(pickImportValue(rowMap, ['enterpriseId', 'entreprise id']));
+        const rowEnterpriseId = importEnterpriseId(row, activeEnterpriseId);
         const rowServiceId = parseScopedInteger(pickImportValue(rowMap, ['serviceId', 'service id']));
 
         const data = compactImportData({
@@ -274,12 +281,12 @@ exports.importClients = async (req, res) => {
             'Chiffre d affaire annuel'
           ),
           effectif: parseImportInteger(pickImportValue(rowMap, ['effectif', 'employees']), 'Effectif'),
-          enterpriseId: rowEnterpriseId ?? (existingClient ? undefined : parseScopedInteger(req.user?.enterpriseId)),
+          enterpriseId: rowEnterpriseId,
           serviceId: rowServiceId ?? (existingClient ? undefined : parseScopedInteger(req.user?.serviceId)),
           updatedBy: req.user.id
         });
 
-        await prisma.$transaction(async (tx) => {
+        await scoped.$transaction(async (tx) => {
           const savedClient = existingClient
             ? await tx.client.update({
                 where: { id: existingClient.id },
@@ -330,6 +337,7 @@ exports.importClients = async (req, res) => {
       data: result
     });
   } catch (error) {
+    if (respondScopeError(res, error)) return;
     logger.error('Erreur lors de l import clients:', error);
     res.status(500).json({
       success: false,
