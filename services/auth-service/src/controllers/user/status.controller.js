@@ -2,6 +2,7 @@
 const { validationResult, prisma } = require('./shared');
 const { isServiceManager, ensureManagedTarget } = require('../../utils/serviceManagerScope');
 const { getActiveEnterpriseId, isGlobalAdmin } = require('../../utils/roleScope');
+const { syncServiceMemberStatus } = require('../../utils/serviceRelations');
 
 /**
  * Update user status (activate/deactivate)
@@ -65,16 +66,20 @@ const updateUserStatus = async (req, res) => {
     }
 
     // Update status
-    const updatedUser = await prisma.user.update({
-      where: { id: parseInt(id) },
-      data: { isActive },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        isActive: true,
-      },
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: parseInt(id) },
+        data: { isActive },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+        },
+      });
+      await syncServiceMemberStatus(tx, updated.id, updated.isActive);
+      return updated;
     });
 
     // Log audit

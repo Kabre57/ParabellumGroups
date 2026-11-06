@@ -50,7 +50,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   const isServiceManager = isServiceManagerRole(currentUser);
 
   const { data: servicesData, isLoading: servicesLoading } = useQuery({
-    queryKey: ['admin-services-modal', selectedEnterprise?.id],
+    queryKey: ['admin-services', 'active', 'managed', selectedEnterprise?.id],
     queryFn: () => adminServicesService.getServices(),
     enabled: isOpen && isServiceManager,
   });

@@ -56,11 +56,12 @@ export interface Permission {
 }
 
 export interface Service {
-  id: string;
-  nom: string;
+  id: string | number;
+  name: string;
   description?: string;
-  enterpriseId?: string | number;
-  actif: boolean;
+  parentId?: number | null;
+  managerId?: number | null;
+  isActive: boolean;
 }
 
 export interface Enterprise {
@@ -85,7 +86,7 @@ export interface Enterprise {
   }>;
   createdAt?: string;
   updatedAt?: string;
-  _count?: { users: number; services: number; childEnterprises?: number };
+  _count?: { users: number; childEnterprises?: number };
 }
 
 export interface PaginatedResponse<T> {
@@ -300,11 +301,9 @@ export const permissionApi = {
 
 export const serviceApi = {
   getAll: async (params?: {
-    page?: number;
-    limit?: number;
-    actif?: boolean;
-  }): Promise<PaginatedResponse<Service>> => {
-    const response = await api.get<PaginatedResponse<Service>>('/auth/services', { params });
+    includeInactive?: boolean;
+  }): Promise<{ success: boolean; data: Service[] }> => {
+    const response = await api.get<{ success: boolean; data: Service[] }>('/auth/services', { params });
     return response.data;
   },
 
@@ -314,8 +313,10 @@ export const serviceApi = {
   },
 
   create: async (serviceData: {
-    nom: string;
+    name: string;
     description?: string;
+    parentId?: number;
+    managerId?: number;
   }): Promise<{ success: boolean; data: Service }> => {
     const response = await api.post('/auth/services', serviceData);
     return response.data;
@@ -323,7 +324,7 @@ export const serviceApi = {
 
   update: async (
     id: string,
-    serviceData: Partial<{ nom: string; description: string }>
+    serviceData: Partial<{ name: string; description: string; parentId: number | null; managerId: number | null; isActive: boolean }>
   ): Promise<{ success: boolean; data: Service }> => {
     const response = await api.put(`/auth/services/${id}`, serviceData);
     return response.data;

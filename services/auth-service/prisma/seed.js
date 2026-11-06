@@ -6,6 +6,7 @@ const {
 } = require('../src/permissions');
 
 const prisma = new PrismaClient();
+const { syncServiceHierarchy, syncServiceManager } = require('../src/utils/serviceRelations');
 
 async function ensureRole({ name, code, description, isSystem = true, isActive = true }) {
   const existingRole = await prisma.role.findFirst({
@@ -92,8 +93,10 @@ async function main() {
       isActive: true,
     },
   });
+  await syncServiceHierarchy(prisma, directionGenerale.id, directionGenerale.parentId);
+  await syncServiceManager(prisma, directionGenerale.id, directionGenerale.managerId);
 
-  await prisma.service.upsert({
+  const directionCommerciale = await prisma.service.upsert({
     where: { code: 'COMM' },
     update: {},
     create: {
@@ -104,8 +107,10 @@ async function main() {
       isActive: true,
     },
   });
+  await syncServiceHierarchy(prisma, directionCommerciale.id, directionCommerciale.parentId);
+  await syncServiceManager(prisma, directionCommerciale.id, directionCommerciale.managerId);
 
-  await prisma.service.upsert({
+  const directionTechnique = await prisma.service.upsert({
     where: { code: 'TECH' },
     update: {},
     create: {
@@ -116,8 +121,10 @@ async function main() {
       isActive: true,
     },
   });
+  await syncServiceHierarchy(prisma, directionTechnique.id, directionTechnique.parentId);
+  await syncServiceManager(prisma, directionTechnique.id, directionTechnique.managerId);
 
-  await prisma.service.upsert({
+  const directionComptabilite = await prisma.service.upsert({
     where: { code: 'COMPTA' },
     update: {},
     create: {
@@ -128,6 +135,8 @@ async function main() {
       isActive: true,
     },
   });
+  await syncServiceHierarchy(prisma, directionComptabilite.id, directionComptabilite.parentId);
+  await syncServiceManager(prisma, directionComptabilite.id, directionComptabilite.managerId);
 
   console.log('✅ Created 4 services');
 

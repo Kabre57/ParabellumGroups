@@ -10,7 +10,7 @@ const deleteEnterprise = async (req, res) => {
       where: { id: parseInt(id) },
       include: {
         _count: {
-          select: { users: true, services: true, childEnterprises: true },
+          select: { users: true, childEnterprises: true },
         },
       },
     });
@@ -22,14 +22,13 @@ const deleteEnterprise = async (req, res) => {
       });
     }
 
-    // Check if enterprise has users or services
-    if (enterprise._count.users > 0 || enterprise._count.services > 0 || enterprise._count.childEnterprises > 0) {
+    // Services belong to the global catalog, not to an enterprise.
+    if (enterprise._count.users > 0 || enterprise._count.childEnterprises > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete enterprise with assigned users, services or child enterprises',
+        message: 'Cannot delete enterprise with assigned users or child enterprises',
         errors: {
           userCount: enterprise._count.users,
-          serviceCount: enterprise._count.services,
           childEnterpriseCount: enterprise._count.childEnterprises,
         },
       });

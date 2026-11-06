@@ -44,20 +44,14 @@ export interface Service {
   name: string;
   code: string | null;
   description: string | null;
-  enterpriseId?: number | null;
   parentId: number | null;
   managerId: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  parent?: Service;
-  children?: Service[];
-  manager?: AdminUser;
-  enterprise?: {
-    id: number;
-    name: string;
-    logoUrl?: string | null;
-  } | null;
+  parent?: Pick<Service, 'id' | 'name'> | null;
+  children?: Array<Pick<Service, 'id' | 'name' | 'code'>>;
+  manager?: Pick<AdminUser, 'id' | 'firstName' | 'lastName' | 'email'> | null;
   _count?: { members: number };
 }
 
@@ -197,14 +191,12 @@ export interface CreateServiceRequest {
   description?: string;
   parentId?: number;
   managerId?: number;
-  enterpriseId?: number;
 }
 
 export interface UpdateServiceRequest {
   name?: string;
   code?: string;
   description?: string;
-  enterpriseId?: number | null;
   parentId?: number | null;
   managerId?: number | null;
   isActive?: boolean;
@@ -387,11 +379,9 @@ export const adminRolesService = {
 };
 
 export const adminServicesService = {
-  getServices: async (includeInactive = false, includeAllEnterprises = false, enterpriseId?: number): Promise<ApiListResponse<Service>> => {
+  getServices: async (includeInactive = false): Promise<ApiListResponse<Service>> => {
     const params = new URLSearchParams();
-    if (includeInactive) params.set('isActive', 'false');
-    if (includeAllEnterprises) params.set('scope', 'all');
-    if (enterpriseId) params.set('enterpriseId', String(enterpriseId));
+    if (includeInactive) params.set('includeInactive', 'true');
     const query = params.toString();
     const response = await apiClient.get<ApiListResponse<Service>>(`/auth/services${query ? `?${query}` : ''}`);
     return response.data;

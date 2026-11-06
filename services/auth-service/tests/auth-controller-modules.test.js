@@ -7,9 +7,10 @@ const controllerDirectory = path.join(__dirname, '..', 'src', 'controllers', 'au
 const controllerCases = [
   ['register.controller.js', ['register']],
   ['login.controller.js', ['login']],
+  ['changePassword.controller.js', ['changePassword']],
   ['refreshToken.controller.js', ['refreshToken']],
   ['logout.controller.js', ['logout']],
-  ['forgotPassword.controller.js', ['forgotPassword']],
+  ['forgotPassword.controller.js', ['forgotPassword', 'resetPassword']],
   ['profile.controller.js', ['getCurrentUser', 'updateProfile']],
   ['revokeAllTokens.controller.js', ['revokeAllTokens']],
 ];
@@ -26,12 +27,14 @@ test('la façade auth conserve tous les gestionnaires consommés par les routes'
 
   assert.deepEqual(importedModules.sort(), controllerCases.map(([filename]) => filename).sort());
   assert.deepEqual(exports.sort(), [
+    'changePassword',
     'forgotPassword',
     'getCurrentUser',
     'login',
     'logout',
     'refreshToken',
     'register',
+    'resetPassword',
     'revokeAllTokens',
     'updateProfile',
   ]);

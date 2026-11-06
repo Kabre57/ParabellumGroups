@@ -128,7 +128,7 @@ if (dashboardQuery.isLoading && !snapshot) {
               <option value="all">Tous les services</option>
               {availableServices.map((service) => (
                 <option key={String(service.id)} value={String(service.id)}>
-                  {service.nom}
+                  {service.name}
                 </option>
               ))}
             </select>

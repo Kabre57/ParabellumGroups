@@ -96,7 +96,7 @@ const enterprisesQuery = useQuery({
 
 const servicesQuery = useQuery({
     queryKey: ['dashboard-services'],
-    queryFn: () => serviceApi.getAll({ limit: 200, actif: true }),
+    queryFn: () => serviceApi.getAll(),
     enabled: isAdmin || hasPermission(user, 'services.read'),
     staleTime: 60_000,
   });
@@ -108,15 +108,8 @@ const accessibleEnterprises = useMemo(
 
 const availableServices = useMemo(() => {
     const services = (servicesQuery.data?.data ?? []) as Service[];
-    const normalizedEnterpriseId = selectedEnterpriseId ? String(selectedEnterpriseId) : null;
-
-    return services
-      .filter((service) => {
-        if (!normalizedEnterpriseId) return true;
-        return String(service.enterpriseId ?? '') === normalizedEnterpriseId;
-      })
-      .sort((left, right) => (left.nom || '').localeCompare(right.nom || '', 'fr'));
-  }, [selectedEnterpriseId, servicesQuery.data?.data]);
+    return [...services].sort((left, right) => (left.name || '').localeCompare(right.name || '', 'fr'));
+  }, [servicesQuery.data?.data]);
 
 const selectedEnterprise = useMemo(
     () => accessibleEnterprises.find((enterprise) => String(enterprise.id) === String(enterpriseView)) || null,
@@ -130,9 +123,9 @@ const selectedService = useMemo(
 
 const scopeLabel = useMemo(() => {
     const enterpriseLabel = selectedEnterprise?.name || 'Toutes les entreprises';
-    const serviceLabel = selectedService?.nom || 'Tous les services';
+    const serviceLabel = selectedService?.name || 'Tous les services';
     return `${enterpriseLabel} · ${serviceLabel}`;
-  }, [selectedEnterprise?.name, selectedService?.nom]);
+  }, [selectedEnterprise?.name, selectedService?.name]);
 
 const hiddenModules = useMemo(() => {
     const labels: Record<DashboardModuleKey, string> = {

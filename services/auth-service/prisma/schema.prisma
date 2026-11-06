@@ -68,6 +68,9 @@ model User {
   auditLogs            AuditLog[]
   refreshTokens        RefreshToken[]
   managedServices      Service[]        @relation("ServiceManager")
+  serviceManagerAssignments ServiceManager[] @relation("UserServiceManagementAssignments")
+  serviceMemberships  ServiceMember[]   @relation("UserServiceMembership")
+  serviceHistories    ServiceHistory[]  @relation("ServiceHistoryActor")
   user_permissions     UserPermission[]
   role                 Role?            @relation(fields: [roleId], references: [id])
   service              Service?         @relation(fields: [serviceId], references: [id])
@@ -107,20 +110,91 @@ model Service {
   isActive    Boolean   @default(true) @map("is_active")
   managerId   Int?      @map("manager_id")
   parentId    Int?      @map("parent_id")
-  enterpriseId Int?     @map("enterprise_id")
   code        String?   @unique @map("service_code") @db.VarChar(10)
   manager     User?     @relation("ServiceManager", fields: [managerId], references: [id])
   parent      Service?  @relation("ServiceHierarchy", fields: [parentId], references: [id])
-  enterprise  Enterprise? @relation(fields: [enterpriseId], references: [id])
   children    Service[] @relation("ServiceHierarchy")
   members     User[]
+  hierarchy   ServiceHierarchy?
+  parentOf    ServiceHierarchy[] @relation("ServiceHierarchyParent")
+  managers    ServiceManager[]
+  serviceMembers ServiceMember[]
+  histories   ServiceHistory[]
 
-  @@unique([name, enterpriseId])
   @@index([parentId])
   @@index([managerId])
-  @@index([enterpriseId])
   @@index([isActive])
   @@map("services")
+}
+
+model ServiceHierarchy {
+  id        Int      @id @default(autoincrement())
+  serviceId Int      @unique @map("service_id")
+  parentId  Int?     @map("parent_id")
+  level     Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  parent    Service? @relation("ServiceHierarchyParent", fields: [parentId], references: [id], onDelete: SetNull)
+
+  @@index([parentId])
+  @@index([level])
+  @@map("service_hierarchies")
+}
+
+model ServiceManager {
+  id        Int       @id @default(autoincrement())
+  serviceId Int       @map("service_id")
+  managerId Int       @map("manager_id")
+  role      String?   @db.VarChar(100)
+  isPrimary Boolean   @default(false) @map("is_primary")
+  startDate DateTime  @default(now()) @map("start_date")
+  endDate   DateTime? @map("end_date")
+  createdAt DateTime  @default(now()) @map("created_at")
+  service   Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  manager   User      @relation("UserServiceManagementAssignments", fields: [managerId], references: [id])
+
+  // SQL-only partial unique indexes enforce one open assignment per manager/service
+  // and one open primary manager per service.
+  @@index([managerId])
+  @@index([serviceId, isPrimary, endDate])
+  @@index([serviceId, managerId, endDate])
+  @@map("service_managers")
+}
+
+model ServiceMember {
+  id        Int       @id @default(autoincrement())
+  serviceId Int       @map("service_id")
+  userId    Int       @map("user_id")
+  position  String?   @db.VarChar(100)
+  startDate DateTime  @default(now()) @map("start_date")
+  endDate   DateTime? @map("end_date")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  service   Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user      User      @relation("UserServiceMembership", fields: [userId], references: [id])
+
+  // SQL-only partial unique indexes enforce a single current service assignment per user.
+  @@index([userId])
+  @@index([serviceId, isActive])
+  @@index([serviceId, userId])
+  @@map("service_members")
+}
+
+model ServiceHistory {
+  id          Int      @id @default(autoincrement())
+  serviceId   Int      @map("service_id")
+  userId      Int?     @map("user_id")
+  action      String   @db.VarChar(50)
+  description String?  @db.Text
+  oldData     Json?    @map("old_data")
+  newData     Json?    @map("new_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user        User?    @relation("ServiceHistoryActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([serviceId, createdAt])
+  @@index([userId])
+  @@map("service_histories")
 }
 
 model AuditLog {
@@ -251,7 +325,6 @@ model Enterprise {
   parentEnterprise   Enterprise?  @relation("EnterpriseHierarchy", fields: [parentEnterpriseId], references: [id])
   childEnterprises   Enterprise[] @relation("EnterpriseHierarchy")
   users              User[]
-  services           Service[]
   roles              Role[]
 
   @@index([isActive])

@@ -2,6 +2,11 @@ const { validationResult } = require('express-validator');
 const prisma = require('../config/database');
 const { isServiceManager } = require('../utils/serviceManagerScope');
 const { generateServiceCode } = require('../utils/generatedCodes');
+const {
+  syncServiceHierarchy,
+  syncServiceManager,
+  recordServiceHistory,
+} = require('../utils/serviceRelations');
 
 const parseBool = (value) => value === true || value === 'true';
 const parseNum = (value) =>
@@ -9,17 +14,98 @@ const parseNum = (value) =>
     ? parseInt(value, 10)
     : null;
 
-const attachEnterpriseContext = (service) => ({
-  ...service,
-  enterprise: service.enterprise || null,
+const isGlobalAdmin = (user) => (user?.role?.code || user?.roleCode) === 'ADMIN';
+const canViewGlobalServiceDetails = (user) => isGlobalAdmin(user);
+
+const wouldCreateServiceCycle = async (serviceId, parentId) => {
+  let currentId = parentId;
+  const visited = new Set();
+
+  while (currentId) {
+    if (currentId === serviceId || visited.has(currentId)) return true;
+    visited.add(currentId);
+    const current = await prisma.serviceHierarchy.findUnique({
+      where: { serviceId: currentId },
+      select: { parentId: true },
+    });
+    currentId = current?.parentId || null;
+  }
+
+  return false;
+};
+
+const buildServiceInclude = (memberScope, { includeChildren = false, includeMembers = false } = {}) => ({
+  hierarchy: {
+    include: {
+      parent: { select: { id: true, name: true } },
+    },
+  },
+  ...(includeChildren
+    ? { parentOf: { include: { service: { select: { id: true, name: true, code: true } } } } }
+    : {}),
+  managers: {
+    where: { isPrimary: true, endDate: null },
+    include: {
+      manager: {
+        select: { id: true, firstName: true, lastName: true, email: true, enterpriseId: true },
+      },
+    },
+  },
+  ...(includeMembers
+    ? {
+        serviceMembers: {
+          where: { endDate: null, ...(memberScope ? { user: memberScope } : {}) },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                roleId: true,
+                isActive: true,
+                position: true,
+                role: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        },
+      }
+    : {}),
+  _count: {
+    select: {
+      serviceMembers: { where: { endDate: null, ...(memberScope ? { user: memberScope } : {}) } },
+    },
+  },
 });
 
-const isGlobalAdmin = (user) => (user?.role?.code || user?.roleCode) === 'ADMIN';
-const getActiveEnterpriseId = (req) => {
-  const selectedEnterpriseId = parseNum(req.query?.enterpriseId || req.headers['x-enterprise-id']);
-  return isGlobalAdmin(req.user)
-    ? selectedEnterpriseId || req.user.enterpriseId || null
-    : req.user.enterpriseId || selectedEnterpriseId || null;
+const mapServiceResponse = (service, req, { includeChildren = false, includeMembers = false } = {}) => {
+  const { hierarchy, parentOf, managers, serviceMembers, _count, ...serviceFields } = service;
+  const managerAssignment = managers?.[0] || null;
+  const manager = managerAssignment?.manager || null;
+  const managerIsVisible = canViewGlobalServiceDetails(req.user) || (
+    manager?.enterpriseId != null &&
+    req.user.enterpriseId != null &&
+    Number(manager.enterpriseId) === Number(req.user.enterpriseId)
+  );
+  const visibleManager = manager && managerIsVisible
+    ? (({ enterpriseId, ...details }) => details)(manager)
+    : null;
+
+  return {
+    ...serviceFields,
+    parentId: hierarchy?.parentId ?? null,
+    managerId: managerAssignment?.managerId ?? null,
+    parent: hierarchy?.parent ?? null,
+    ...(includeChildren
+      ? { children: (parentOf || []).map(({ service: child }) => child) }
+      : {}),
+    ...(includeMembers
+      ? { members: (serviceMembers || []).map(({ user }) => user) }
+      : {}),
+    manager: visibleManager,
+    _count: { members: _count?.serviceMembers ?? 0 },
+  };
 };
 
 /**
@@ -28,50 +114,25 @@ const getActiveEnterpriseId = (req) => {
  */
 const getAllServices = async (req, res) => {
   try {
-    const includeAllEnterprises = isGlobalAdmin(req.user) && req.query.scope === 'all';
-    const activeEnterpriseId = includeAllEnterprises ? null : getActiveEnterpriseId(req);
-    const whereClause = activeEnterpriseId
-      ? { enterpriseId: activeEnterpriseId }
-      : {};
+    const canViewGlobalDetails = canViewGlobalServiceDetails(req.user);
+    const memberScope = canViewGlobalDetails ? undefined : { enterpriseId: req.user.enterpriseId ?? -1 };
+    const whereClause = req.query.includeInactive === 'true' ? {} : { isActive: true };
     if (isServiceManager(req.user)) {
-      whereClause.managerId = Number(req.user.id);
+      whereClause.managers = {
+        some: { managerId: Number(req.user.id), isPrimary: true, endDate: null },
+      };
       whereClause.isActive = true;
     }
 
     const services = await prisma.service.findMany({
       where: whereClause,
-      include: {
-        enterprise: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
-          },
-        },
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: { members: true },
-        },
-      },
+      include: buildServiceInclude(memberScope),
       orderBy: { name: 'asc' },
     });
 
     return res.status(200).json({
       success: true,
-      data: services.map(attachEnterpriseContext),
+      data: services.map((service) => mapServiceResponse(service, req)),
     });
   } catch (error) {
     console.error('Get all services error:', error);
@@ -90,66 +151,20 @@ const getAllServices = async (req, res) => {
 const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
+    const canViewGlobalDetails = canViewGlobalServiceDetails(req.user);
+    const memberScope = canViewGlobalDetails ? undefined : { enterpriseId: req.user.enterpriseId ?? -1 };
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
-    if (activeEnterpriseId) {
-      whereClause.enterpriseId = activeEnterpriseId;
-    }
     if (isServiceManager(req.user)) {
-      whereClause.managerId = Number(req.user.id);
+      whereClause.managers = {
+        some: { managerId: Number(req.user.id), isPrimary: true, endDate: null },
+      };
       whereClause.isActive = true;
     }
 
     const service = await prisma.service.findFirst({
       where: whereClause,
-      include: {
-        enterprise: {
-          select: { id: true, name: true, logoUrl: true },
-        },
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        children: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        members: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            roleId: true,
-            isActive: true,
-            position: true,
-            role: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: { members: true },
-        },
-      },
+      include: buildServiceInclude(memberScope, { includeChildren: true, includeMembers: true }),
     });
 
     if (!service) {
@@ -161,13 +176,56 @@ const getServiceById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: attachEnterpriseContext(service),
+      data: mapServiceResponse(service, req, { includeChildren: true, includeMembers: true }),
     });
   } catch (error) {
     console.error('Get service by ID error:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching service',
+      errors: error.message,
+    });
+  }
+};
+
+const getServiceHistory = async (req, res) => {
+  try {
+    const serviceId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(serviceId) || serviceId <= 0) {
+      return res.status(400).json({ success: false, message: 'Identifiant de service invalide.' });
+    }
+
+    if (isServiceManager(req.user)) {
+      const managedAssignment = await prisma.serviceManager.findFirst({
+        where: {
+          serviceId,
+          managerId: Number(req.user.id),
+          isPrimary: true,
+          endDate: null,
+          service: { isActive: true },
+        },
+        select: { id: true },
+      });
+      if (!managedAssignment) {
+        return res.status(404).json({ success: false, message: 'Service introuvable dans votre périmètre.' });
+      }
+    }
+
+    const history = await prisma.serviceHistory.findMany({
+      where: { serviceId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return res.status(200).json({ success: true, data: history });
+  } catch (error) {
+    console.error('Get service history error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Impossible de récupérer l’historique du service.',
       errors: error.message,
     });
   }
@@ -188,17 +246,14 @@ const createService = async (req, res) => {
       });
     }
 
-    const { name, description, parentId, managerId, enterpriseId, isActive } = req.body;
-
-    // New services are created without an enterprise and assigned later.
-    const finalEnterpriseId = null;
+    const { name, description, parentId, managerId, isActive } = req.body;
     if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ success: false, message: 'Seul un administrateur peut créer un service sans entreprise.' });
+      return res.status(403).json({ success: false, message: 'Seul un administrateur peut créer un service global.' });
     }
 
-    // Check if service with same name exists in this enterprise
+    // Service names are unique in the shared system catalog.
     const existingService = await prisma.service.findFirst({
-      where: { name, enterpriseId: finalEnterpriseId },
+      where: { name },
     });
 
     if (existingService) {
@@ -221,43 +276,54 @@ const createService = async (req, res) => {
       }
     }
 
-    const requestedParentId = null;
-    const requestedManagerId = null;
+    const requestedParentId = parseNum(parentId);
+    const requestedManagerId = parseNum(managerId);
+
+    if (requestedParentId) {
+      const parentService = await prisma.service.findUnique({
+        where: { id: requestedParentId },
+        select: { id: true, isActive: true },
+      });
+      if (!parentService || !parentService.isActive) {
+        return res.status(400).json({ success: false, message: 'Choisissez un service parent actif.' });
+      }
+    }
+    if (requestedManagerId) {
+      const manager = await prisma.user.findFirst({
+        where: { id: requestedManagerId, isActive: true },
+        select: { id: true },
+      });
+      if (!manager) {
+        return res.status(400).json({ success: false, message: 'Choisissez un responsable actif.' });
+      }
+    }
 
     // Create service
-    const service = await prisma.service.create({
-      data: {
-        name,
-        description: description || null,
-        code: code || null,
-        parentId: requestedParentId,
-        managerId: requestedManagerId,
-        enterpriseId: finalEnterpriseId,
-        isActive: isActive !== undefined ? parseBool(isActive) : true,
-      },
-      include: {
-        enterprise: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
-          },
+    const service = await prisma.$transaction(async (tx) => {
+      const createdService = await tx.service.create({
+        data: {
+          name,
+          description: description || null,
+          code: code || null,
+          parentId: requestedParentId,
+          managerId: requestedManagerId,
+          isActive: isActive !== undefined ? parseBool(isActive) : true,
         },
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
+        include: {
+          manager: { select: { id: true, firstName: true, lastName: true, email: true } },
+          parent: { select: { id: true, name: true } },
         },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+      });
+      await syncServiceHierarchy(tx, createdService.id, requestedParentId);
+      await syncServiceManager(tx, createdService.id, requestedManagerId);
+      await recordServiceHistory(tx, {
+        serviceId: createdService.id,
+        userId: req.user.id,
+        action: 'CREATED',
+        description: `Service ${createdService.name} créé`,
+        newData: createdService,
+      });
+      return createdService;
     });
 
     // Log audit
@@ -275,11 +341,7 @@ const createService = async (req, res) => {
       },
     });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Service created successfully',
-      data: attachEnterpriseContext(service),
-    });
+    return res.status(201).json({ success: true, message: 'Service created successfully', data: service });
   } catch (error) {
     console.error('Create service error:', error);
     return res.status(500).json({
@@ -306,11 +368,9 @@ const updateService = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, description, code, parentId, enterpriseId, managerId, isActive } = req.body;
+    const { name, description, code, parentId, managerId, isActive } = req.body;
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
-    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if service exists
     const existingService = await prisma.service.findFirst({
@@ -324,48 +384,45 @@ const updateService = async (req, res) => {
       });
     }
 
-    const requestedEnterpriseId = parseNum(enterpriseId);
-    const finalEnterpriseId = isGlobalAdmin(req.user)
-      ? (enterpriseId !== undefined ? requestedEnterpriseId : existingService.enterpriseId)
-      : req.user.enterpriseId || requestedEnterpriseId || existingService.enterpriseId;
-
-    if (finalEnterpriseId) {
-      const enterprise = await prisma.enterprise.findUnique({
-        where: { id: finalEnterpriseId },
-        select: { id: true, isActive: true },
-      });
-      if (!enterprise || !enterprise.isActive) {
-        return res.status(400).json({ success: false, message: 'Choisissez une entreprise active ou laissez le service sans entreprise.' });
-      }
-    }
-
     const nextParentId = parentId !== undefined ? parseNum(parentId) : existingService.parentId;
     if (nextParentId) {
-      const parentService = await prisma.service.findFirst({
-        where: { id: nextParentId, enterpriseId: finalEnterpriseId },
-        select: { id: true },
+      const parentService = await prisma.service.findUnique({
+        where: { id: nextParentId },
+        select: { id: true, isActive: true },
       });
-      if (!parentService) {
-        return res.status(400).json({ success: false, message: 'Le service parent doit appartenir à la même entreprise.' });
+      if (!parentService || (!parentService.isActive && nextParentId !== existingService.parentId)) {
+        return res.status(400).json({ success: false, message: 'Choisissez un service parent actif.' });
+      }
+      if (await wouldCreateServiceCycle(existingService.id, nextParentId)) {
+        return res.status(400).json({ success: false, message: 'Un service ne peut pas avoir un de ses descendants comme parent.' });
       }
     }
 
     const nextManagerId = managerId !== undefined ? parseNum(managerId) : existingService.managerId;
     if (nextManagerId) {
       const manager = await prisma.user.findFirst({
-        where: { id: nextManagerId, enterpriseId: finalEnterpriseId, isActive: true },
-        select: { id: true },
+        where: { id: nextManagerId },
+        select: { id: true, isActive: true, enterpriseId: true },
       });
-      if (!manager) {
-        return res.status(400).json({ success: false, message: 'Le responsable doit appartenir à la même entreprise.' });
+      const managerIsInScope = isGlobalAdmin(req.user) || (
+        manager?.enterpriseId != null &&
+        req.user.enterpriseId != null &&
+        Number(manager.enterpriseId) === Number(req.user.enterpriseId)
+      );
+      if (
+        !manager ||
+        (!manager.isActive && nextManagerId !== existingService.managerId) ||
+        (!managerIsInScope && nextManagerId !== existingService.managerId)
+      ) {
+        return res.status(400).json({ success: false, message: 'Le responsable doit être actif et dans votre périmètre.' });
       }
     }
 
     // If name is being updated, check for duplicates
     const nextName = name || existingService.name;
-    if (nextName !== existingService.name || finalEnterpriseId !== existingService.enterpriseId) {
+    if (nextName !== existingService.name) {
       const nameExists = await prisma.service.findFirst({
-        where: { name: nextName, enterpriseId: finalEnterpriseId, NOT: { id: existingService.id } },
+        where: { name: nextName, NOT: { id: existingService.id } },
       });
 
       if (nameExists) {
@@ -389,40 +446,33 @@ const updateService = async (req, res) => {
     }
 
     // Update service
-    const updatedService = await prisma.service.update({
-      where: { id: parseInt(id) },
-      data: {
-        name: nextName,
-        description: description !== undefined ? description : existingService.description,
-        code: code !== undefined ? code : existingService.code,
-        parentId: nextParentId,
-        managerId: nextManagerId,
-        enterpriseId: finalEnterpriseId,
-        isActive: isActive !== undefined ? parseBool(isActive) : existingService.isActive,
-      },
-      include: {
-        enterprise: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
-          },
+    const updatedService = await prisma.$transaction(async (tx) => {
+      const updated = await tx.service.update({
+        where: { id: parseInt(id) },
+        data: {
+          name: nextName,
+          description: description !== undefined ? description : existingService.description,
+          code: code !== undefined ? code : existingService.code,
+          parentId: nextParentId,
+          managerId: nextManagerId,
+          isActive: isActive !== undefined ? parseBool(isActive) : existingService.isActive,
         },
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
+        include: {
+          manager: { select: { id: true, firstName: true, lastName: true, email: true } },
+          parent: { select: { id: true, name: true } },
         },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+      });
+      await syncServiceHierarchy(tx, updated.id, nextParentId);
+      await syncServiceManager(tx, updated.id, nextManagerId);
+      await recordServiceHistory(tx, {
+        serviceId: updated.id,
+        userId: req.user.id,
+        action: 'UPDATED',
+        description: `Service ${updated.name} modifié`,
+        oldData: existingService,
+        newData: updated,
+      });
+      return updated;
     });
 
     // Log audit
@@ -441,11 +491,7 @@ const updateService = async (req, res) => {
       },
     });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Service updated successfully',
-      data: attachEnterpriseContext(updatedService),
-    });
+    return res.status(200).json({ success: true, message: 'Service updated successfully', data: updatedService });
   } catch (error) {
     console.error('Update service error:', error);
     return res.status(500).json({
@@ -465,15 +511,16 @@ const deleteService = async (req, res) => {
     const { id } = req.params;
 
     const whereClause = { id: parseInt(id) };
-    const activeEnterpriseId = isGlobalAdmin(req.user) ? null : getActiveEnterpriseId(req);
-    if (activeEnterpriseId) whereClause.enterpriseId = activeEnterpriseId;
 
     // Check if service exists
     const service = await prisma.service.findFirst({
       where: whereClause,
       include: {
         _count: {
-          select: { members: true },
+          select: {
+            serviceMembers: { where: { endDate: null } },
+            parentOf: true,
+          },
         },
       },
     });
@@ -486,13 +533,21 @@ const deleteService = async (req, res) => {
     }
 
     // Check if service has users
-    if (service._count.members > 0) {
+    if (service._count.serviceMembers > 0) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete service with assigned users',
         errors: {
-          userCount: service._count.members,
+          userCount: service._count.serviceMembers,
         },
+      });
+    }
+
+    if (service._count.parentOf > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer un service qui possède des services enfants.',
+        errors: { childServiceCount: service._count.parentOf },
       });
     }
 
@@ -532,6 +587,7 @@ const deleteService = async (req, res) => {
 module.exports = {
   getAllServices,
   getServiceById,
+  getServiceHistory,
   createService,
   updateService,
   deleteService,

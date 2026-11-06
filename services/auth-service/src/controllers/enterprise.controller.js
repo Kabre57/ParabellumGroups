@@ -61,7 +61,7 @@ const getAllEnterprises = async (req, res) => {
           orderBy: { name: 'asc' },
         },
         _count: {
-          select: { users: true, services: true, childEnterprises: true },
+          select: { users: true, childEnterprises: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -110,15 +110,8 @@ const getEnterpriseById = async (req, res) => {
           },
           orderBy: { name: 'asc' },
         },
-        services: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
         _count: {
-          select: { users: true, services: true, childEnterprises: true },
+          select: { users: true, childEnterprises: true },
         },
       },
     });

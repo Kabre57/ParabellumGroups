@@ -24,15 +24,19 @@ const isPrivilegedTarget = (user) => PRIVILEGED_TARGET_ROLES.has(getRoleCode(use
 const getManagedServices = async (user, client = prisma) => {
   if (!isServiceManager(user)) return [];
 
-  return client.service.findMany({
+  const assignments = await client.serviceManager.findMany({
     where: {
       managerId: Number(user.id),
-      isActive: true,
-      ...(user.enterpriseId != null ? { enterpriseId: Number(user.enterpriseId) } : {}),
+      isPrimary: true,
+      endDate: null,
+      service: { isActive: true },
     },
-    select: { id: true, name: true, enterpriseId: true },
-    orderBy: { name: 'asc' },
+    select: { service: { select: { id: true, name: true } } },
   });
+
+  return assignments
+    .map(({ service }) => service)
+    .sort((left, right) => left.name.localeCompare(right.name));
 };
 
 const getManagedServiceIds = async (user, client = prisma) =>

@@ -257,7 +257,7 @@ export default function EnterprisesManagementPage() {
                   Structure
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Utilisateurs / Services
+                  Utilisateurs
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Statut
@@ -313,8 +313,6 @@ export default function EnterprisesManagementPage() {
                     </td>
                     <td className="px-6 py-4 align-top text-sm text-gray-600">
                       <span className="font-semibold text-gray-800">{enterprise._count?.users || 0}</span> utilisateurs
-                      <span className="mx-2 text-gray-300">|</span>
-                      <span className="font-semibold text-gray-800">{enterprise._count?.services || 0}</span> services
                     </td>
                     <td className="px-6 py-4 align-top">
                       <span

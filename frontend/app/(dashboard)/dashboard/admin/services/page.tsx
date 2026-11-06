@@ -15,17 +15,105 @@ import { CreateServiceModal } from '@/components/services/CreateServiceModal';
 import { EditServiceModal } from '@/components/services/EditServiceModal';
 import { adminServicesService, type Service } from '@/shared/api/admin';
 
+interface ServicesTableProps {
+  title: string;
+  emptyMessage: string;
+  services: Service[];
+  isLoading: boolean;
+  onEdit: (service: Service) => void;
+  onDelete: (service: Service) => void;
+}
+
+function ServicesTable({ title, emptyMessage, services, isLoading, onEdit, onDelete }: ServicesTableProps) {
+  return (
+    <section className="overflow-hidden rounded-lg bg-white shadow">
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">{services.length}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Service</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Responsable</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Statut</th>
+              <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {isLoading ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500">Chargement...</td>
+              </tr>
+            ) : services.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-10 text-center">
+                  <Building2 className="mx-auto h-10 w-10 text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-500">{emptyMessage}</p>
+                </td>
+              </tr>
+            ) : services.map((service) => (
+              <tr key={service.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <div className="flex items-center">
+                      {service.parent && (
+                        <>
+                          <span className="mr-1 text-xs text-gray-400">{service.parent.name}</span>
+                          <ChevronRight className="mr-1 h-3 w-3 text-gray-400" />
+                        </>
+                      )}
+                      <span className="text-sm font-medium text-gray-900">{service.name}</span>
+                    </div>
+                    {service.description && <span className="mt-1 text-sm text-gray-500">{service.description}</span>}
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                  {service.manager ? (
+                    <div className="flex flex-col">
+                      <span className="font-medium">{service.manager.firstName} {service.manager.lastName}</span>
+                      <span className="text-xs text-gray-500">{service.manager.email}</span>
+                    </div>
+                  ) : <span className="text-gray-400">-</span>}
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    service.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {service.isActive ? 'Actif' : 'Inactif'}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+                  <div className="flex items-center justify-end space-x-2">
+                    <button onClick={() => onEdit(service)} className="text-indigo-600 hover:text-indigo-900" title="Modifier">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => onDelete(service)} className="text-red-600 hover:text-red-900" title="Supprimer">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export default function ServicesManagementPage() {
   const [search, setSearch] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createMode, setCreateMode] = useState<'parent' | 'child' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
 
   const queryClient = useQueryClient();
 
   const { data: servicesData, isLoading, error } = useQuery({
-    queryKey: ['admin-services', 'all-enterprises'],
-    queryFn: () => adminServicesService.getServices(true, true),
+    queryKey: ['admin-services', 'all'],
+    queryFn: () => adminServicesService.getServices(true),
   });
 
   const deleteServiceMutation = useMutation({
@@ -52,7 +140,7 @@ export default function ServicesManagementPage() {
 
   const handleCreateSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-services'] });
-    setShowCreateModal(false);
+    setCreateMode(null);
   };
 
   const handleEditSuccess = () => {
@@ -64,6 +152,8 @@ export default function ServicesManagementPage() {
   const filteredServices = services.filter(s => 
     s.name?.toLowerCase().includes(search.toLowerCase())
   );
+  const parentServices = filteredServices.filter((service) => !service.parentId);
+  const childServices = filteredServices.filter((service) => Boolean(service.parentId));
 
   if (error) {
     return (
@@ -76,21 +166,35 @@ export default function ServicesManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Services</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Créez les services, puis choisissez leur entreprise lors de leur modification.
+            Gérez le catalogue de services commun à toutes les entreprises.
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nouveau Service
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setCreateMode('parent')}
+            className="inline-flex items-center rounded-md border border-blue-600 bg-white px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau service parent
+          </button>
+          <button
+            onClick={() => setCreateMode('child')}
+            disabled={!services.some((service) => service.isActive)}
+            title={!services.some((service) => service.isActive) ? 'Créez d’abord un service parent' : undefined}
+            className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau service
+          </button>
+        </div>
       </div>
+      {!isLoading && !services.some((service) => service.isActive) && (
+        <p className="text-sm text-gray-500">Créez d’abord un service parent pour pouvoir ajouter des services rattachés.</p>
+      )}
 
       <div className="bg-white shadow rounded-lg p-4">
         <div className="relative">
@@ -105,110 +209,28 @@ export default function ServicesManagementPage() {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entreprise</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <p className="mt-2 text-sm text-gray-500">Chargement...</p>
-                </td>
-              </tr>
-            ) : filteredServices.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center">
-                  <Building2 className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun service</h3>
-                  <p className="mt-1 text-sm text-gray-500">Commencez par creer un service</p>
-                </td>
-              </tr>
-            ) : (
-              filteredServices.map((service) => (
-                <tr key={service.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <div className="flex items-center">
-                        {service.parent && (
-                          <>
-                            <span className="text-gray-400 text-xs mr-1">{service.parent.name}</span>
-                            <ChevronRight className="h-3 w-3 text-gray-400 mr-1" />
-                          </>
-                        )}
-                        <span className="text-sm font-medium text-gray-900">
-                          {service.name}
-                        </span>
-                      </div>
-                      {service.description && (
-                        <span className="text-sm text-gray-500 mt-1">
-                          {service.description}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {service.enterprise?.name || <span className="text-amber-700">Sans entreprise</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {service.manager ? (
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {service.manager.firstName} {service.manager.lastName}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {service.manager.email}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      service.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {service.isActive ? 'Actif' : 'Inactif'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleEditService(service)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                        title="Modifier"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteService(service)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ServicesTable
+        title="Services parents"
+        emptyMessage="Aucun service parent. Créez d’abord un service parent."
+        services={parentServices}
+        isLoading={isLoading}
+        onEdit={handleEditService}
+        onDelete={handleDeleteService}
+      />
+
+      <ServicesTable
+        title="Services rattachés"
+        emptyMessage="Aucun service rattaché à un parent."
+        services={childServices}
+        isLoading={isLoading}
+        onEdit={handleEditService}
+        onDelete={handleDeleteService}
+      />
 
       <CreateServiceModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        isOpen={createMode !== null}
+        mode={createMode || 'parent'}
+        onClose={() => setCreateMode(null)}
         onSuccess={handleCreateSuccess}
       />
 

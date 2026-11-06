@@ -6,6 +6,7 @@ const {
   getManagedServices,
   ensureManagedTarget,
 } = require('../../utils/serviceManagerScope');
+const { syncServiceMember, syncServiceMemberStatus } = require('../../utils/serviceRelations');
 const { getActiveEnterpriseId, isGlobalAdmin } = require('../../utils/roleScope');
 
 /**
@@ -48,7 +49,7 @@ const createUser = async (req, res) => {
     }
 
     const finalEnterpriseId = isServiceManager(req.user)
-      ? managedService.enterpriseId
+      ? req.user.enterpriseId
       : isGlobalAdmin(req.user)
         ? Number(enterpriseId)
         : getActiveEnterpriseId(req);
@@ -83,45 +84,43 @@ const createUser = async (req, res) => {
     const passwordHash = await hashPassword(isServiceManager(req.user) ? DEFAULT_INITIAL_PASSWORD : password);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-        roleId: finalRoleId,
-        serviceId: isServiceManager(req.user) ? managedService.id : null,
-        enterpriseId: finalEnterpriseId,
-        isActive: isServiceManager(req.user),
-        phone: phone || null,
-        position: position || null,
-        mustChangePassword: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        roleId: true,
-        serviceId: true,
-        enterpriseId: true,
-        isActive: true,
-        mustChangePassword: true,
-        createdAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName,
+          lastName,
+          roleId: finalRoleId,
+          serviceId: isServiceManager(req.user) ? managedService.id : null,
+          enterpriseId: finalEnterpriseId,
+          isActive: isServiceManager(req.user),
+          phone: phone || null,
+          position: position || null,
+          mustChangePassword: true,
         },
-        service: {
-          select: {
-            id: true,
-            name: true,
-          },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          roleId: true,
+          serviceId: true,
+          enterpriseId: true,
+          isActive: true,
+          mustChangePassword: true,
+          createdAt: true,
+          role: { select: { id: true, name: true, code: true } },
+          service: { select: { id: true, name: true } },
         },
-      },
+      });
+      if (createdUser.serviceId) {
+        await syncServiceMember(tx, createdUser.id, createdUser.serviceId, {
+          isActive: createdUser.isActive,
+          position: position || null,
+        });
+      }
+      return createdUser;
     });
 
     // Log audit
@@ -270,12 +269,12 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Sélectionnez un service pour ce profil avant d’activer le compte.' });
     }
     if (nextServiceId) {
-      const service = await prisma.service.findFirst({
-        where: { id: Number(nextServiceId), enterpriseId: targetEnterpriseId },
-        select: { id: true },
+      const service = await prisma.service.findUnique({
+        where: { id: Number(nextServiceId) },
+        select: { id: true, isActive: true },
       });
-      if (!service) {
-        return res.status(400).json({ success: false, message: 'Le service doit être rattaché à la même entreprise que l’utilisateur.' });
+      if (!service || (!service.isActive && Number(nextServiceId) !== Number(existingUser.serviceId))) {
+        return res.status(400).json({ success: false, message: 'Choisissez un service actif dans le catalogue global.' });
       }
     }
 
@@ -300,38 +299,35 @@ const updateUser = async (req, res) => {
     }
 
     // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        roleId: true,
-        serviceId: true,
-        enterpriseId: true,
-        isActive: true,
-        avatarUrl: true,
-        employeeNumber: true,
-        phone: true,
-        position: true,
-        department: true,
-        updatedAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: parseInt(id) },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          roleId: true,
+          serviceId: true,
+          enterpriseId: true,
+          isActive: true,
+          avatarUrl: true,
+          employeeNumber: true,
+          phone: true,
+          position: true,
+          department: true,
+          updatedAt: true,
+          role: { select: { id: true, name: true, code: true } },
+          service: { select: { id: true, name: true } },
         },
-        service: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+      });
+      await syncServiceMember(tx, updated.id, nextServiceId, {
+        isActive: updated.isActive,
+        position: updated.position,
+      });
+      await syncServiceMemberStatus(tx, updated.id, updated.isActive);
+      return updated;
     });
 
     // Log audit
@@ -398,9 +394,12 @@ const deleteUser = async (req, res) => {
     }
 
     // Soft delete - set isActive to false
-    await prisma.user.update({
-      where: { id: parseInt(id) },
-      data: { isActive: false },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: parseInt(id) },
+        data: { isActive: false },
+      });
+      await syncServiceMemberStatus(tx, id, false);
     });
 
     // Log audit

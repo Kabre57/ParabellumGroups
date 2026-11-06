@@ -1,5 +1,6 @@
 // Inscrit un compte utilisateur et crée sa première session.
 const { validationResult, prisma, hashPassword, generateAccessToken, generateRefreshToken, getRefreshTokenExpiresAt, setStorageAccessCookie, getUserPermissionNames } = require('./shared');
+const { syncServiceMember } = require('../../utils/serviceRelations');
 
 const register = async (req, res) => {
   try {
@@ -39,25 +40,33 @@ const register = async (req, res) => {
     const passwordHash = await hashPassword(password);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-        roleId: finalRoleId,
-        serviceId: serviceId || null,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        roleId: true,
-        serviceId: true,
-        isActive: true,
-        createdAt: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName,
+          lastName,
+          roleId: finalRoleId,
+          serviceId: serviceId || null,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          roleId: true,
+          serviceId: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+      if (createdUser.serviceId) {
+        await syncServiceMember(tx, createdUser.id, createdUser.serviceId, {
+          isActive: createdUser.isActive,
+        });
+      }
+      return createdUser;
     });
 
     // Log audit

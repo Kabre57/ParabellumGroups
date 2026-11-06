@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const {
   getAllServices,
   getServiceById,
+  getServiceHistory,
   createService,
   updateService,
   deleteService,
@@ -21,6 +22,13 @@ router.use(authenticate);
  * @access  Private
  */
 router.get('/', getAllServices);
+
+/**
+ * @route   GET /api/services/:id/history
+ * @desc    Get the latest service changes
+ * @access  Private
+ */
+router.get('/:id/history', getServiceHistory);
 
 /**
  * @route   GET /api/services/:id
@@ -62,10 +70,6 @@ router.post(
       .optional({ values: 'falsy' })
       .isInt({ min: 1 })
       .withMessage('Manager ID must be a positive integer'),
-    body('enterpriseId')
-      .optional({ values: 'falsy' })
-      .isInt({ min: 1 })
-      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')
@@ -108,10 +112,6 @@ router.put(
       .optional({ values: 'falsy' })
       .isInt({ min: 1 })
       .withMessage('Manager ID must be a positive integer'),
-    body('enterpriseId')
-      .optional({ values: 'falsy' })
-      .isInt({ min: 1 })
-      .withMessage('Enterprise ID must be a positive integer'),
     body('isActive')
       .optional()
       .custom((v) => v === undefined || v === null || v === '' || v === true || v === 'true' || v === false || v === 'false')

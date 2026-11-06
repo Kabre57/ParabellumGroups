@@ -185,6 +185,39 @@ const createSqlFallback = () => {
     return rows(`${userSelect} WHERE ${predicate} LIMIT 1`)[0] || null;
   };
 
+  const syncFallbackServiceMembership = (userId) => {
+    const user = rows(`
+      SELECT id, service_id AS "serviceId", is_active AS "isActive", position
+      FROM users
+      WHERE id = ${Number(userId)}
+      LIMIT 1
+    `)[0];
+    if (!user) return;
+
+    const nextServiceId = user.serviceId == null ? null : Number(user.serviceId);
+    execute(`
+      UPDATE service_members
+      SET end_date = NOW(), is_active = FALSE
+      WHERE user_id = ${Number(userId)}
+        AND end_date IS NULL
+        ${nextServiceId == null ? '' : `AND service_id <> ${nextServiceId}`}
+    `);
+
+    if (nextServiceId == null) return;
+
+    execute(`
+      INSERT INTO service_members (service_id, user_id, position, is_active)
+      VALUES (
+        ${nextServiceId},
+        ${Number(userId)},
+        ${sqlLiteral(user.position)},
+        ${sqlLiteral(Boolean(user.isActive))}
+      )
+      ON CONFLICT (service_id, user_id) WHERE end_date IS NULL
+      DO UPDATE SET position = EXCLUDED.position, is_active = EXCLUDED.is_active
+    `);
+  };
+
   const updateUser = ({ where, data }) => {
     const clauses = Object.entries(data || {})
       .filter(([, value]) => value !== undefined)
@@ -199,6 +232,9 @@ const createSqlFallback = () => {
         : `id = ${Number(where.id)}`;
 
     const changed = mutationRows(`UPDATE users SET ${clauses.join(', ')} WHERE ${predicate} RETURNING id`)[0];
+    if (changed && ['serviceId', 'isActive', 'position'].some((field) => hasOwn(data, field))) {
+      syncFallbackServiceMembership(changed.id);
+    }
     return changed ? getUser({ id: changed.id }) : null;
   };
 
@@ -328,6 +364,7 @@ const createSqlFallback = () => {
       )
       RETURNING id
     `)[0];
+    if (data.serviceId != null) syncFallbackServiceMembership(created.id);
     return getUser({ id: created.id });
   };
 
@@ -340,6 +377,7 @@ const createSqlFallback = () => {
     __isSqlFallback: true,
     $connect: async () => undefined,
     $disconnect: async () => undefined,
+    $transaction: async (callback) => callback(fallback),
     user: {
       findUnique: async (params) => getUser(params?.where),
       update: async (params) => updateUser(params),

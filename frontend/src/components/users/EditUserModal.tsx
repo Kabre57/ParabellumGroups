@@ -93,13 +93,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
   });
 
   const { data: servicesData, isLoading: servicesLoading } = useQuery({
-    queryKey: ['admin-services-edit-modal', selectedEnterpriseId],
-    queryFn: () => adminServicesService.getServices(true, false, Number(selectedEnterpriseId)),
-    enabled: isOpen && !isServiceManager && Boolean(selectedEnterpriseId),
+    queryKey: ['admin-services', 'all'],
+    queryFn: () => adminServicesService.getServices(true),
+    enabled: isOpen && !isServiceManager,
   });
 
   const roles = Array.isArray(rolesData?.data) ? rolesData.data : [];
-  const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+  const services = (Array.isArray(servicesData?.data) ? servicesData.data : [])
+    .filter((service) => service.isActive || service.id === user?.serviceId);
   const enterpriseOptions = enterprises.length > 0
     ? enterprises
     : user?.enterprise ? [user.enterprise]
@@ -357,47 +358,25 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                   Profil d’accès de l’entreprise *
                 </label>
                 {rolesLoading ? (
-                  <div className="text-sm text-gray-500">Chargement des roles...</div>
+                  <div className="text-sm text-gray-500">Chargement des rôles…</div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <select
+                    {...register('roleId')}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="">Sélectionner un profil</option>
                     {roles.map((role: any) => (
-                      <label
-                        key={role.id}
-                        className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
-                          watch('roleId') === String(role.id)
-                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
-                        }`}
-                      >
-                        <input
-                          {...register('roleId')}
-                          type="radio"
-                          value={String(role.id)}
-                          className="sr-only"
-                        />
-                        <div className="flex flex-1">
-                          <div className="flex flex-col">
-                            <span className={`block text-sm font-medium ${
-                              watch('roleId') === String(role.id)
-                                ? 'text-blue-900 dark:text-blue-200'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {role.name}
-                            </span>
-                            {role.description && (
-                              <span className={`mt-1 flex items-center text-xs ${
-                                watch('roleId') === String(role.id)
-                                  ? 'text-blue-700 dark:text-blue-300'
-                                  : 'text-gray-500 dark:text-gray-400'
-                              }`}>
-                                {role.description}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </label>
+                      <option key={role.id} value={String(role.id)}>
+                        {role.name}
+                      </option>
                     ))}
-                  </div>
+                  </select>
+                )}
+                {selectedRole?.description && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{selectedRole.description}</p>
+                )}
+                {!rolesLoading && roles.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Aucun profil actif n’est disponible pour cette entreprise.</p>
                 )}
                 {errors.roleId && (
                   <p className="mt-1 text-sm text-red-600">{errors.roleId.message}</p>
@@ -418,21 +397,19 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                       <option value="">Aucun service</option>
                       {services.map((service: any) => (
                         <option key={service.id} value={service.id}>
-                          {service.name}
+                          {service.name}{!service.isActive ? ' — inactif' : ''}
                         </option>
                       ))}
                     </select>
                   </div>
                   {servicesLoading ? (
-                    <p className="mt-1 text-xs text-gray-500">Chargement des services de l’entreprise…</p>
-                  ) : !selectedEnterpriseId ? (
-                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Sélectionnez d’abord une entreprise pour charger ses services.</p>
+                    <p className="mt-1 text-xs text-gray-500">Chargement du catalogue des services…</p>
                   ) : services.length === 0 ? (
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                      Aucun service n’est rattaché à cette entreprise. Ouvrez <a className="font-medium underline" href="/dashboard/admin/services">Administration &gt; Services</a>, modifiez le service du catalogue et choisissez cette entreprise.
+                      Aucun service actif n’est disponible. Ajoutez-en dans <a className="font-medium underline" href="/dashboard/admin/services">Administration &gt; Services</a>.
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">Certains profils exigent un service. Le service doit appartenir à la même entreprise que le compte.</p>
+                    <p className="mt-1 text-xs text-gray-500">Le catalogue de services est partagé par toutes les entreprises.</p>
                   )}
                 </div>
               )}
