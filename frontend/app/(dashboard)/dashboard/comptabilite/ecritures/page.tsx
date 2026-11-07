@@ -44,6 +44,11 @@ export default function EcrituresPage() {
     enabled: canCreate && Boolean(selectedEnterprise),
   });
   const createEntryMutation = useCreateEntry(() => setCreateDialogOpen(false));
+  const journalsQuery = useQuery({
+    queryKey: ['billing-accounting-journals', 'entry-dialog', selectedEnterprise?.id],
+    queryFn: () => billingService.getAccountingJournals(writeScope),
+    enabled: canCreate && Boolean(selectedEnterprise) && createDialogOpen,
+  });
 
   const entries: AccountingEntry[] = data?.data ?? [];
   const accounts = accountsData?.data ?? [];
@@ -120,12 +125,16 @@ export default function EcrituresPage() {
       />
 
       <CreateJournalEntryDialog
+        key={selectedEnterprise?.id ?? 'no-enterprise'}
         open={createDialogOpen && canCreate}
         onOpenChange={setCreateDialogOpen}
         accounts={accounts}
+        journals={journalsQuery.data?.data ?? []}
+        journalsLoading={journalsQuery.isPending}
+        journalsError={journalsQuery.isError}
         familyRules={familyRules}
         onSubmit={async (payload) => {
-          await createEntryMutation.mutateAsync(payload);
+          await createEntryMutation.mutateAsync({ ...payload, enterpriseId: selectedEnterprise?.id });
         }}
         isSubmitting={createEntryMutation.isPending}
       />

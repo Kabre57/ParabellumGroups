@@ -202,6 +202,8 @@ exports.createJournalEntry = async (req, res) => {
     }
 
     const createdEntry = await AccountingPostingService.postEntry({
+      journalId: req.body.journalId,
+      requireExistingJournal: true,
       entryDate,
       journalCode,
       journalLabel,

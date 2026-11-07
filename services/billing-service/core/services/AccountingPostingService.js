@@ -145,7 +145,12 @@ class AccountingPostingService {
     this.validateBalancedLines(lines);
 
     const persistEntry = async (tx) => {
-      const journal = await AccountingJournalService.getOrCreateJournal(tx, {
+      const journal = payload.requireExistingJournal || payload.journalId
+        ? await AccountingJournalService.getExistingJournal(tx, {
+          journalId: payload.journalId,
+          enterpriseId: resolvedEnterpriseId,
+        })
+        : await AccountingJournalService.getOrCreateJournal(tx, {
         journalCode: payload.journalCode,
         journalLabel: payload.journalLabel,
         enterpriseId: resolvedEnterpriseId,

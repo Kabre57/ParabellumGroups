@@ -67,6 +67,31 @@ class AccountingJournalService {
     });
   }
 
+  async getExistingJournal(client = prisma, { journalId, enterpriseId }) {
+    if (!String(journalId || '').trim()) {
+      const error = new Error('Sélectionnez un journal comptable déjà créé.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const journal = await client.accountingJournal.findFirst({
+      where: {
+        id: String(journalId).trim(),
+        OR: [{ enterpriseId: Number(enterpriseId) }, { enterpriseId: null }],
+      },
+    });
+    if (!journal) {
+      const error = new Error('Ce journal est introuvable pour l’entreprise active.');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (!journal.isActive) {
+      const error = new Error('Ce journal est inactif. Sélectionnez un journal actif.');
+      error.statusCode = 400;
+      throw error;
+    }
+    return journal;
+  }
+
   async getOrCreateJournal(client = prisma, { journalCode, journalLabel, enterpriseId = null }) {
     const normalizedCode = String(journalCode || 'OD').trim().toUpperCase();
     const normalizedLabel = String(journalLabel || 'Opérations diverses').trim() || 'Opérations diverses';

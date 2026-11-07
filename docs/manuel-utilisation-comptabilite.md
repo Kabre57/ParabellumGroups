@@ -166,7 +166,7 @@ La page **Écritures** affiche les écritures et leurs lignes, avec leurs journa
 
 Pour créer une écriture, sélectionner **Nouvelle écriture** puis :
 
-1. renseigner la date, le code et le libellé du journal (par défaut `OD` / Opérations diverses), la référence de pièce et le libellé de l’écriture ;
+1. renseigner la date, choisir un journal actif déjà créé dans la configuration comptable, puis saisir la référence de pièce et le libellé de l’écriture ; sans journal actif disponible, créer ou activer un journal avant de saisir l’écriture. Le code et le libellé du journal sélectionné sont repris automatiquement ;
 2. ajouter au moins deux lignes ;
 3. choisir une famille puis un compte réel (ou directement un compte si aucune famille n’est configurée) ;
 4. saisir le libellé de chaque ligne et un montant au débit ou au crédit ; une ligne ne peut pas avoir les deux côtés simultanément ;

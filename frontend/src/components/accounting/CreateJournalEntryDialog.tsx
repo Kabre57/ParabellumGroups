@@ -7,17 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { AccountingAccount, AccountingFamilyRule } from '@/shared/api/billing';
+import type { AccountingAccount, AccountingFamilyRule, AccountingJournal } from '@/shared/api/billing';
 
 interface CreateJournalEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: AccountingAccount[];
+  journals: AccountingJournal[];
+  journalsLoading?: boolean;
+  journalsError?: boolean;
   familyRules?: AccountingFamilyRule[];
   onSubmit: (payload: {
     entryDate?: string;
-    journalCode?: string;
-    journalLabel?: string;
+    journalId: string;
     label: string;
     reference?: string;
     lines: Array<{
@@ -41,8 +43,7 @@ interface EntryLineForm {
 
 const initialState = {
   entryDate: new Date().toISOString().slice(0, 10),
-  journalCode: 'OD',
-  journalLabel: 'Opérations diverses',
+  journalId: '',
   label: '',
   reference: '',
 };
@@ -71,12 +72,16 @@ export function CreateJournalEntryDialog({
   open,
   onOpenChange,
   accounts,
+  journals,
+  journalsLoading = false,
+  journalsError = false,
   familyRules = [],
   onSubmit,
   isSubmitting = false,
 }: CreateJournalEntryDialogProps) {
   const [form, setForm] = useState(initialState);
   const [lines, setLines] = useState<EntryLineForm[]>(initialLines);
+  const activeJournals = journals.filter((journal) => journal.isActive);
 
   useEffect(() => {
     if (open) {
@@ -152,6 +157,8 @@ export function CreateJournalEntryDialog({
     return (debit > 0 || credit > 0) && (!line.accountId || (debit > 0 && credit > 0));
   });
   const canSubmit =
+    !journalsLoading && !journalsError &&
+    activeJournals.some((journal) => journal.id === form.journalId) &&
     form.label.trim() &&
     normalizedLines.length >= 2 &&
     isBalanced &&
@@ -178,10 +185,10 @@ export function CreateJournalEntryDialog({
   };
 
   const handleSubmit = async () => {
+    if (!canSubmit || isSubmitting) return;
     await onSubmit({
       entryDate: form.entryDate || undefined,
-      journalCode: form.journalCode.trim() || undefined,
-      journalLabel: form.journalLabel.trim() || undefined,
+      journalId: form.journalId,
       label: form.label.trim(),
       reference: form.reference.trim() || undefined,
       lines: normalizedLines,
@@ -207,24 +214,29 @@ export function CreateJournalEntryDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="entry-journal-code">Code journal</Label>
-            <Input
-              id="entry-journal-code"
-              value={form.journalCode}
-              onChange={(event) => setForm((current) => ({ ...current, journalCode: event.target.value.toUpperCase() }))}
-              placeholder="OD, CA, BQ..."
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="entry-journal-label">Libellé journal</Label>
-            <Input
-              id="entry-journal-label"
-              value={form.journalLabel}
-              onChange={(event) => setForm((current) => ({ ...current, journalLabel: event.target.value }))}
-              placeholder="Journal de caisse, banque..."
-            />
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="entry-journal">Journal comptable</Label>
+            <Select
+              value={form.journalId}
+              onValueChange={(journalId) => setForm((current) => ({ ...current, journalId }))}
+              disabled={journalsLoading || journalsError || activeJournals.length === 0}
+            >
+              <SelectTrigger id="entry-journal">
+                <SelectValue placeholder={journalsLoading ? 'Chargement des journaux…' : 'Choisir un journal existant'} />
+              </SelectTrigger>
+              <SelectContent>
+                {activeJournals.map((journal) => (
+                  <SelectItem key={journal.id} value={journal.id}>
+                    {journal.code} - {journal.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {journalsError ? (
+              <p role="alert" className="text-sm text-destructive">Impossible de charger les journaux. Réessayez en rouvrant la fenêtre.</p>
+            ) : !journalsLoading && activeJournals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Créez ou activez d’abord un journal dans la configuration comptable de cette entreprise.</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

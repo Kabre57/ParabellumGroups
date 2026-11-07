@@ -191,8 +191,8 @@ export const accountingService = {
     return normalizeDetailResponse<AccountingAccountImportResult>(response.data);
   },
 
-  async getAccountingJournals(): Promise<ListResponse<AccountingJournal>> {
-    const response = await apiClient.get('/billing/accounting/journals');
+  async getAccountingJournals(params?: { enterpriseId?: string | number }): Promise<ListResponse<AccountingJournal>> {
+    const response = await apiClient.get('/billing/accounting/journals', { params });
     return normalizeListResponse<AccountingJournal>(response.data);
   },
 
@@ -325,6 +325,8 @@ export const accountingService = {
   },
 
   async createAccountingEntry(data: {
+    journalId: string;
+    enterpriseId?: string | number;
     entryDate?: string;
     journalCode?: string;
     journalLabel?: string;
